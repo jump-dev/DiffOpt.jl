@@ -24,3 +24,9 @@ docs/site/
 Manifest.toml
 
 examples/.ipynb_checkpoints
+
+.DS_Store
+/Manifest.toml
+/dev/
+/docs/build/
+/docs/site/
