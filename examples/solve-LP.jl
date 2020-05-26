@@ -3,7 +3,8 @@ using GLPK
 using MathOptInterface
 using Dualization
 
-const MOI = MathOptInterface;
+const MOI  = MathOptInterface
+const MOIU = MathOptInterface.Utilities;
 
 D = 10  # variable dimension
 N = 20; # no of inequality constraints
@@ -68,5 +69,23 @@ MOI.optimize!(dual_model);
 
 # check if strong duality holds
 @assert abs(MOI.get(model, MOI.ObjectiveValue()) - MOI.get(dual_model, MOI.ObjectiveValue())) <= 1e-8
+
+is_less_than(set::S) where {S<:MOI.AbstractSet} = false
+is_less_than(set::MOI.LessThan{T}) where T = true
+
+map = primal_dual_map.primal_con_dual_var
+for con_index in keys(map)
+    con_value = MOI.get(model, MOI.ConstraintPrimal(), con_index)
+    set = MOI.get(model, MOI.ConstraintSet(), con_index)
+    μ         = MOI.get(dual_model, MOI.VariablePrimal(), map[con_index][1])
+    
+    if is_less_than(set)
+        # μ[i]*(Ax - b)[i] = 0
+        @assert μ*(con_value - set.upper) < 1e-10
+    else
+        # μ[j]*x[j] = 0
+        @assert μ*(con_value - set.lower) < 1e-10
+    end
+end
 
 

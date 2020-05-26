@@ -1,14 +1,14 @@
 using Random
-using Ipopt
 using MathOptInterface
 using Dualization
 using OSQP
 
-const MOI = MathOptInterface;
+const MOI = MathOptInterface
+const MOIU = MathOptInterface.Utilities;
 
 n = 20 # variable dimension
 m = 15 # no of inequality constraints
-p = 10; # no of equality constraints
+p = 15; # no of equality constraints
 
 x̂ = rand(n)
 Q = rand(n, n)
@@ -35,13 +35,18 @@ objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x),qua
 MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
+# maintain constrain to index map - will be useful later
+constraint_map = Dict()
+
 # add constraints
 for i in 1:m
-    MOI.add_constraint(model,MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), -h[i]),MOI.LessThan(0.))
+    ci = MOI.add_constraint(model,MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.),MOI.LessThan(h[i]))
+    constraint_map[ci] = i
 end
 
 for i in 1:p
-    MOI.add_constraint(model,MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), -b[i]),MOI.EqualTo(0.))
+    ci = MOI.add_constraint(model,MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.),MOI.EqualTo(b[i]))
+    constraint_map[ci] = i
 end
 
 MOI.optimize!(model)
@@ -52,6 +57,9 @@ x̄ = MOI.get(model, MOI.VariablePrimal(), x);
 
 # objective value (predicted vs actual) sanity check
 @assert 0.5*x̄'*Q*x̄ + q'*x̄  <= 0.5*x̂'*Q*x̂ + q'*x̂   
+
+# NOTE: can't use Ipopt
+# Ipopt.Optimizer doesn't supports accessing MOI.ObjectiveFunctionType
 
 joint_object    = dualize(model)
 dual_model_like = joint_object.dual_model # this is MOI.ModelLike, not an MOI.AbstractOptimizer; can't call optimizer on it
@@ -65,6 +73,49 @@ MOI.copy_to(dual_model, dual_model_like)
 MOI.optimize!(dual_model);
 
 # check if strong duality holds
-@assert abs(MOI.get(model, MOI.ObjectiveValue()) - MOI.get(dual_model, MOI.ObjectiveValue())) <= 1e-2
+@assert abs(MOI.get(model, MOI.ObjectiveValue()) - MOI.get(dual_model, MOI.ObjectiveValue())) <= 1e-1
+
+is_equality(set::S) where {S<:MOI.AbstractSet} = false
+is_equality(set::MOI.EqualTo{T}) where T = true
+
+map = primal_dual_map.primal_con_dual_var;
+
+for con_index in keys(map)
+    # NOTE: OSQP.Optimizer doesn't allows access to MOI.ConstraintPrimal
+    #       That's why I defined a custom map 
+    
+    set = MOI.get(model, MOI.ConstraintSet(), con_index)
+    μ   = MOI.get(dual_model, MOI.VariablePrimal(), map[con_index][1])
+    
+    if !is_equality(set)
+        # μ[i]*(Gx - h)[i] = 0
+        i = constraint_map[con_index]
+        
+        # println(μ," - ",G[i,:]'*x̄, " - ",h[i])
+        # TODO: assertion fails 
+        @assert μ*(G[i,:]'*x̄ - h[i]) < 1e-1  
+    end
+end
+
+for con_index in keys(map)
+    # NOTE: OSQP.Optimizer doesn't allows access to MOI.ConstraintPrimal
+    #       That's why I defined a custom map 
+    
+    set = MOI.get(model, MOI.ConstraintSet(), con_index)
+    μ   = MOI.get(dual_model, MOI.VariablePrimal(), map[con_index][1])
+    i = constraint_map[con_index]
+    
+    if is_equality(set)
+        # (Ax - h)[i] = 0
+        @assert abs(A[i,:]'*x̄ - b[i]) < 1e-2
+    else
+        # (Gx - h)[i] = 0
+        @assert G[i,:]'*x̄ - h[i] < 1e-2
+        
+        # μ[i] >= 0
+        # TODO: assertion fails 
+        @assert μ > -1e-2
+    end
+end
 
 
