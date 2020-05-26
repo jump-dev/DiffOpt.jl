@@ -3,6 +3,13 @@ uuid = "930fe3bc-9c6b-11ea-2d94-6184641e85e7"
 authors = ["Akshay Sharma"]
 version = "0.1.0"
 
+[deps]
+Dualization = "191a621a-6537-11e9-281d-650236a99e60"
+GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
+MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+OSQP = "ab2f91bb-94b4-55e3-9ba0-7f65df51de79"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
 [compat]
 julia = "1.5"
 
