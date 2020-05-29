@@ -9,3 +9,5 @@ sudo: false
 branches:
   only:
     - master
+after_success:
+  - julia --project -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
