@@ -1,4 +1,7 @@
 # DiffOpt.jl
+[![Build Status](https://travis-ci.org/AKS1996/DiffOpt.jl.svg?branch=master)](https://travis-ci.org/AKS1996/DiffOpt.jl) 
+
+
 Differentiating convex optimization program (`JuMP` or `MOI` models) w.r.t. program parameters.
 
 
