@@ -1,0 +1,11 @@
+language: julia
+os:
+    - linux
+julia:
+    - 1.0
+notifications:
+    email: false
+sudo: false
+branches:
+  only:
+    - master
