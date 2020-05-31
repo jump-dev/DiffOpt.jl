@@ -2,15 +2,15 @@
 Generates a non-trivial random MOI linear program by adding variables
 and constraints to MOI compatible Optimizer `optimizer`
 
-minimize c'x
-subject to Ax <= b, x >= 0 
-where x in R^{n}, A in R^{m*n}, b in R^{m}, c in R^{n}
+minimize `c' * x`
+subject to `Ax <= b, x >= 0`
+where `x in R^{n}, A in R^{m*n}, b in R^{m}, c in R^{n}`
 
 Note: Mutates the `optimizer` object
 """
 function generate_lp(optimizer,n,m)
     s = rand(m)
-    s = 2*s.-1
+    s = 2*s .- 1
     λ = max.(-s, 0)
     s = max.(s, 0)
     x̂ = rand(n)
