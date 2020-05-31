@@ -15,8 +15,8 @@ function generate_lp(optimizer,n,m)
     s = max.(s, 0)
     x̂ = rand(n)
     A = rand(m, n)
-    b = A*x̂ .+ s
-    c = -A'*λ;
+    b = A * x̂ .+ s
+    c = -A' * λ
 
     x = MOI.add_variables(optimizer, n)
 
@@ -27,7 +27,10 @@ function generate_lp(optimizer,n,m)
 
     # set constraints
     for i in 1:m
-        MOI.add_constraint(optimizer,MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.),MOI.LessThan(b[i]))
+        MOI.add_constraint(
+            optimizer,
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.), MOI.LessThan(b[i]),
+        )
     end
 
     for i in 1:n
