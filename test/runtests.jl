@@ -1,6 +1,10 @@
 using DiffOpt
+using MathOptInterface
 using Test
 
-@testset "DiffOpt.jl" begin
-    # Write your own tests here.
+const MOI = MathOptInterface;
+const MOIU = MathOptInterface.Utilities;
+
+@testset "utils" begin
+    include("utils.jl")
 end
