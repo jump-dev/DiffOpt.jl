@@ -8,16 +8,13 @@ const MOIU = MathOptInterface.Utilities;
 
 n = 20 # variable dimension
 m = 15 # no of inequality constraints
-p = 15; # no of equality constraints
 
 x̂ = rand(n)
 Q = rand(n, n)
-Q = Q'*Q # ensure PSD
+Q = Q' * Q # ensure PSD
 q = rand(n)
 G = rand(m, n)
-h = G*x̂ + rand(m)
-A = rand(p, n)
-b = A*x̂;
+h = G * x̂ + rand(m);
 
 model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
 x = MOI.add_variables(model, n);
@@ -40,12 +37,10 @@ constraint_map = Dict()
 
 # add constraints
 for i in 1:m
-    ci = MOI.add_constraint(model,MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.),MOI.LessThan(h[i]))
-    constraint_map[ci] = i
-end
-
-for i in 1:p
-    ci = MOI.add_constraint(model,MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.),MOI.EqualTo(b[i]))
+    ci = MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.),MOI.LessThan(h[i])
+    )
     constraint_map[ci] = i
 end
 
@@ -75,47 +70,43 @@ MOI.optimize!(dual_model);
 # check if strong duality holds
 @assert abs(MOI.get(model, MOI.ObjectiveValue()) - MOI.get(dual_model, MOI.ObjectiveValue())) <= 1e-1
 
-is_equality(set::S) where {S<:MOI.AbstractSet} = false
-is_equality(set::MOI.EqualTo{T}) where T = true
+
+#
+# Verifying KKT Conditions
+#
 
 map = primal_dual_map.primal_con_dual_var;
 
+
+# complimentary slackness  + dual feasibility
 for con_index in keys(map)
     # NOTE: OSQP.Optimizer doesn't allows access to MOI.ConstraintPrimal
     #       That's why I defined a custom map 
     
-    set = MOI.get(model, MOI.ConstraintSet(), con_index)
-    μ   = MOI.get(dual_model, MOI.VariablePrimal(), map[con_index][1])
+    i   = constraint_map[con_index]
+    μ_i = MOI.get(dual_model, MOI.VariablePrimal(), map[con_index][1])
     
-    if !is_equality(set)
-        # μ[i]*(Gx - h)[i] = 0
+    # μ[i] * (G * x - h)[i] = 0
+    @assert abs(μ_i * (G[i,:]' * x̄ - h[i])) < 1e-2
+
+    # μ[i] <= 0
+    @assert μ_i <= 1e-2
+end
+
+
+# checking stationarity
+for j in 1:n
+    G_mu_sum = 0
+
+    for con_index in keys(map)
+        # NOTE: OSQP.Optimizer doesn't allows access to MOI.ConstraintPrimal
+        #       That's why I defined a custom map 
+        
         i = constraint_map[con_index]
-        
-        # println(μ," - ",G[i,:]'*x̄, " - ",h[i])
-        # TODO: assertion fails 
-        @assert μ*(G[i,:]'*x̄ - h[i]) < 1e-1  
+        μ_i = MOI.get(dual_model, MOI.VariablePrimal(), map[con_index][1])
+
+        G_mu_sum += μ_i * G[i,j]
     end
+
+    @assert abs(G_mu_sum - (Q * x̄ + q)[j]) < 1e-2
 end
-
-for con_index in keys(map)
-    # NOTE: OSQP.Optimizer doesn't allows access to MOI.ConstraintPrimal
-    #       That's why I defined a custom map 
-    
-    set = MOI.get(model, MOI.ConstraintSet(), con_index)
-    μ   = MOI.get(dual_model, MOI.VariablePrimal(), map[con_index][1])
-    i = constraint_map[con_index]
-    
-    if is_equality(set)
-        # (Ax - h)[i] = 0
-        @assert abs(A[i,:]'*x̄ - b[i]) < 1e-2
-    else
-        # (Gx - h)[i] = 0
-        @assert G[i,:]'*x̄ - h[i] < 1e-2
-        
-        # μ[i] >= 0
-        # TODO: assertion fails 
-        @assert μ > -1e-2
-    end
-end
-
-
