@@ -10,4 +10,4 @@ branches:
   only:
     - master
 after_success:
-  - julia --project -e 'import Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
+  - julia --project -e 'import Pkg; Pkg.add("Coverage"); cd(Pkg.dir("DiffOpt")); using Coverage; Coveralls.submit(process_folder())'
