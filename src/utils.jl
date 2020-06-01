@@ -37,3 +37,55 @@ function generate_lp(optimizer,n,m)
         MOI.add_constraint(optimizer,MOI.SingleVariable(x[i]),MOI.GreaterThan(0.))
     end
 end
+
+
+"""
+Generates a non-trivial random MOI convex quadratic program 
+by adding variables and constraints to MOI compatible Optimizer `optimizer`
+
+minimize `0.5 * x' * Q * x  + q' * x`
+subject to `Gx <= h, Ax == b`
+where `x in R^{n}, Q in R^{n*n}, q in R^{n}, G in R^{m,n}, h in R^{m}, A in R^{p*n}, b in R^{p}`
+
+Note: (1) Mutates the `optimizer` object
+      (2) Matrix `Q` is Positive Semidefinite
+"""
+function generate_qp(optimizer,n,m,p)
+    x̂ = rand(n)
+    Q = rand(n, n)
+    Q = Q' * Q # ensure PSD
+    q = rand(n)
+    G = rand(m, n)
+    h = G * x̂ + rand(m)
+    A = rand(p, n)
+    b = A * x̂
+
+    x = MOI.add_variables(optimizer, n)
+
+    # define objective
+    quadratic_terms = MOI.ScalarQuadraticTerm{Float64}[]
+    for i in 1:n
+        for j in i:n # indexes (i,j), (j,i) will be mirrored. specify only one kind
+            push!(quadratic_terms, MOI.ScalarQuadraticTerm(Q[i,j],x[i],x[j]))
+        end
+    end
+
+    objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x), quadratic_terms, 0.0)
+    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    # set constraints
+    for i in 1:m
+        MOI.add_constraint(
+            optimizer,
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.),MOI.LessThan(h[i])
+        )
+    end
+
+    for i in 1:p
+        MOI.add_constraint(
+            optimizer,
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.),MOI.EqualTo(b[i])
+        )
+    end
+end
