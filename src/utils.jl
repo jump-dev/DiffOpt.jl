@@ -1,91 +1,38 @@
+# TODO: create test functions for the methods
+
 """
-Generates a non-trivial random MOI linear program by adding variables
-and constraints to MOI compatible Optimizer `optimizer`
-
-minimize `c' * x`
-subject to `Ax <= b, x >= 0`
-where `x in R^{n}, A in R^{m*n}, b in R^{m}, c in R^{n}`
-
-Note: Mutates the `optimizer` object
+    Left hand side of eqn(6) in https://arxiv.org/pdf/1703.00443.pdf
 """
-function generate_lp(optimizer,n,m)
-    s = rand(m)
-    s = 2*s .- 1
-    λ = max.(-s, 0)
-    s = max.(s, 0)
-    x̂ = rand(n)
-    A = rand(m, n)
-    b = A * x̂ .+ s
-    c = -A' * λ
-
-    x = MOI.add_variables(optimizer, n)
-
-    # define objective
-    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(c, x), 0.0)
-    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
-    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-
-    # set constraints
-    for i in 1:m
-        MOI.add_constraint(
-            optimizer,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.), MOI.LessThan(b[i]),
-        )
-    end
-
-    for i in 1:n
-        MOI.add_constraint(optimizer,MOI.SingleVariable(x[i]),MOI.GreaterThan(0.))
+function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
+    if A == nothing || size(A)[1] == 0
+        return [Q                G';
+                Diagonal(λ) * G    Diagonal(G * z - h)]
+    else
+        @assert size(A)[2] == size(G)[2]
+        p, n = size(A)
+        m    = size(G)[1]
+        return [Q                  G'                    A';  
+                Diagonal(λ) * G    Diagonal(G * z - h)   zeros(m, p);
+                A                  zeros(p, m)           zeros(p, p)]
     end
 end
 
 
 """
-Generates a non-trivial random MOI convex quadratic program 
-by adding variables and constraints to MOI compatible Optimizer `optimizer`
-
-minimize `0.5 * x' * Q * x  + q' * x`
-subject to `Gx <= h, Ax == b`
-where `x in R^{n}, Q in R^{n*n}, q in R^{n}, G in R^{m,n}, h in R^{m}, A in R^{p*n}, b in R^{p}`
-
-Note: (1) Mutates the `optimizer` object
-      (2) Matrix `Q` is Positive Semidefinite
+    Right hand side of eqn(6) in https://arxiv.org/pdf/1703.00443.pdf
 """
-function generate_qp(optimizer,n,m,p)
-    x̂ = rand(n)
-    Q = rand(n, n)
-    Q = Q' * Q # ensure PSD
-    q = rand(n)
-    G = rand(m, n)
-    h = G * x̂ + rand(m)
-    A = rand(p, n)
-    b = A * x̂
-
-    x = MOI.add_variables(optimizer, n)
-
-    # define objective
-    quadratic_terms = MOI.ScalarQuadraticTerm{Float64}[]
-    for i in 1:n
-        for j in i:n # indexes (i,j), (j,i) will be mirrored. specify only one kind
-            push!(quadratic_terms, MOI.ScalarQuadraticTerm(Q[i,j],x[i],x[j]))
-        end
-    end
-
-    objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x), quadratic_terms, 0.0)
-    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
-    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-
-    # set constraints
-    for i in 1:m
-        MOI.add_constraint(
-            optimizer,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.),MOI.LessThan(h[i])
-        )
-    end
-
-    for i in 1:p
-        MOI.add_constraint(
-            optimizer,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.),MOI.EqualTo(b[i])
-        )
+function create_RHS_matrix(z, dQ, dq, λ, dG, dh, ν=nothing, dA=nothing, db=nothing)
+    if dA == nothing || size(dA)[1] == 0
+        return -[dQ * z + dq + dG' * λ      ;
+                 Diagonal(λ) * (dG * z - dh)]
+    else
+        return -[dQ * z + dq + dG' * λ + dA' * ν;
+                 Diagonal(λ) * (dG * z - dh)    ;
+                 dA * z - db                    ]
     end
 end
+
+
+
+is_equality(set::MOI.AbstractSet) = false
+is_equality(set::MOI.EqualTo) = true

@@ -1,21 +1,14 @@
-using OSQP
-using GLPK
-
-@testset "Creating an LP" begin
+@testset "Test equality method" begin
     model = GLPK.Optimizer()
-    x̂ = generate_lp(model,10,5)
-    
-    MOI.optimize!(model)
+    x = MOI.add_variables(model, 2)
 
-    @test MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
-end
+    con = MOI.add_constraint(
+            model, 
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0; 1.0], x), 0.0),
+            MOI.LessThan(1.0)
+          )
 
+    con_set = MOI.get(model, MOI.ConstraintSet(), con)
 
-@testset "Creating a convex QP" begin
-    model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
-    x̂ = generate_qp(model,10,5,5)
-    
-    MOI.optimize!(model)
-
-    @test MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
+    @test is_equality(con_set) == false
 end
