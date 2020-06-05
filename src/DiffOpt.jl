@@ -41,7 +41,6 @@ function DiffModel(_model::MOI.AbstractOptimizer, con_idx)
     # TODO: fix this method
     # Q,p,G,h,A,b = generate_matrices(model, ineq_con_idx, eq_con_idx, var_idx)
     
-    
     z::Array{Float64} = zeros(0) # solution
     λ::Array{Float64} = zeros(0) # lagrangian variables
     ν::Array{Float64} = zeros(0)

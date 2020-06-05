@@ -3,9 +3,9 @@ using OSQP
 
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
-    Q = [4. 1.;1. 2.]
-    q = [1.; 1.]
-    G = [1. 1.; 1. 0.; 0. 1.; -1. -1.; -1. 0.; 0. -1.]
+    Q = [4.0 1.0;1.0 2.0]
+    q = [1.0; 1.0]
+    G = [1.0 1.0; 1.0 0.0; 0.0 1.0; -1.0 -1.0; -1.0 0.0; 0.0 -1.0]
     h = [1.; 0.7; 0.7; -1.; 0.;0.];
 
     model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
@@ -25,7 +25,7 @@ using OSQP
     objective_function = MOI.ScalarQuadraticFunction(
                             MOI.ScalarAffineTerm.(q, x),
                             quad_terms,
-                            0.
+                            0.0
                         )
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
