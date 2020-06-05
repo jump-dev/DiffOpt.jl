@@ -3,10 +3,10 @@ using OSQP
 
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
-    Q = [4.0 1.0;1.0 2.0]
+    Q = [4.0 1.0; 1.0 2.0]
     q = [1.0; 1.0]
     G = [1.0 1.0; 1.0 0.0; 0.0 1.0; -1.0 -1.0; -1.0 0.0; 0.0 -1.0]
-    h = [1.; 0.7; 0.7; -1.; 0.;0.];
+    h = [1.0; 0.7; 0.7; -1.0; 0.0; 0.0];
 
     model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
     x = MOI.add_variables(model, 2)
@@ -30,22 +30,18 @@ using OSQP
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    con_idx = []
-
     # add constraints
     for i in 1:6
-        push!(con_idx, 
-            MOI.add_constraint(
-                model,
-                MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.),
-                MOI.LessThan(h[i])
-            )
+        MOI.add_constraint(
+            model,
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.0),
+            MOI.LessThan(h[i])
         )
     end
 
-    diff = DiffModel(model, con_idx)
+    diff = diff_model(model)
 
     ẑ = diff.forward()
     
-    @test maximum(abs.(ẑ - [.3; 0.7])) <= 1e-4
+    @test maximum(abs.(ẑ - [0.3; 0.7])) <= 1e-4
 end

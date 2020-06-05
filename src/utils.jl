@@ -34,5 +34,5 @@ end
 
 
 
-is_equality(set::S) where {S<:MOI.AbstractSet} = false
-is_equality(set::MOI.EqualTo{T}) where T       = true
+is_equality(set::MOI.AbstractSet) = false
+is_equality(set::MOI.EqualTo) = true
