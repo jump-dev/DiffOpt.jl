@@ -9,25 +9,15 @@ function diff_model(_model::MOI.AbstractOptimizer)
     
     model = deepcopy(_model)
 
-    # variable indices
-    var_idx = MOI.get(model, MOI.ListOfVariableIndices())
-    nz      = size(var_idx)[1]
-    
-    eq_con_idx = MOI.get(model, MOI.ListOfConstraintIndices{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}())
-    ineq_con_idx = MOI.get(model, MOI.ListOfConstraintIndices{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}())
-
-    neq = size(eq_con_idx)[1]
-    nineq = size(ineq_con_idx)[1]
-    
-    
-    # TODO: fix this method
-    # Q,p,G,h,A,b = generate_matrices(model, ineq_con_idx, eq_con_idx, var_idx)
+    Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx = get_problem_data(model)
     
     z = zeros(0) # solution
     λ = zeros(0) # lagrangian variables
     ν = zeros(0)
 
-    
+    """
+        Solving the convex optimization problem in forward pass
+    """
     function forward()
         # solve the model
         MOI.optimize!(model)
@@ -48,11 +38,30 @@ function diff_model(_model::MOI.AbstractOptimizer)
         return z
     end
     
-    function backward(params::Array{String}, values::Array{Array{Float64}})
-        @assert size(params)[1] == size(values)[1]
-        @assert size(params)[1] > 0
-        
-        # TODO: fix this method
+    """
+        Method to differentiate and obtain gradients/jacobians
+        of z, λ, ν  with respect to the parameters specified in
+        in argument
+    """
+    function backward(params)
+        grads = []
+        LHS = create_LHS_matrix(z, λ, Q, G, h, A)
+        for param in params
+            if param == "h"
+                RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1), 
+                                        λ, zeros(nineq, nz), ones(nineq,1),
+                                        ν, zeros(neq, nz), zeros(neq, 1))
+                push!(grads, LHS \ RHS)
+            elseif param == "Q"
+                RHS = create_RHS_matrix(z, ones(nz, nz), zeros(nz, 1),
+                                        λ, zeros(nineq, nz), zeros(nineq,1),
+                                        ν, zeros(neq, nz), zeros(neq, 1))
+                push!(grads, LHS \ RHS)
+            else
+                push!(grads, [])
+            end
+        end
+        return grads
     end
     
     () -> (forward, backward)
