@@ -63,7 +63,7 @@ end
         for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
             push!(
                 quad_terms, 
-                MOI.ScalarQuadraticTerm(Q[i,j],x[i],x[j])
+                MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j])
             )
         end
     end
@@ -79,7 +79,7 @@ end
     # add constraint
     MOI.add_constraint(
         model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1,:], x), 0.),
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
         MOI.LessThan(h[1])
     )
 
