@@ -134,6 +134,7 @@ end
 
 
 @testset "Differentiating a QP with inequality and equality constraints" begin
+    # refered from: https://www.mathworks.com/help/optim/ug/quadprog.html#d120e113424
     Q = [1.0 -1.0 1.0; 
         -1.0  2.0 -2.0;
         1.0 -2.0 4.0]
