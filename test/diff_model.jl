@@ -107,7 +107,7 @@ end
         for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
             push!(
                 quad_terms, 
-                MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j])
+                MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j]),
             )
         end
     end
@@ -115,7 +115,7 @@ end
     objective_function = MOI.ScalarQuadraticFunction(
                             MOI.ScalarAffineTerm.(q, x),
                             quad_terms,
-                            0.0
+                            0.0,
                         )
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
@@ -124,7 +124,7 @@ end
     MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
-        MOI.LessThan(h[1])
+        MOI.LessThan(h[1]),
     )
 
     diff = diff_model(model)
