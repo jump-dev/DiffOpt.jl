@@ -46,6 +46,13 @@ function diff_model(_model::MOI.AbstractOptimizer)
     function backward(params)
         grads = []
         LHS = create_LHS_matrix(z, λ, Q, G, h, A)
+
+        # compute the jacobian of (z, λ, ν) with respect to each 
+        # of the parameters recieved in the method argument
+        # for instance, to get the jacobians w.r.t vector `b`
+        # substitute db = I and set all other differential terms
+        # in the right hand side to zero. For more info refer 
+        # equation (6) of https://arxiv.org/pdf/1703.00443.pdf
         for param in params
             if param == "Q"
                 RHS = create_RHS_matrix(z, ones(nz, nz), zeros(nz, 1),
