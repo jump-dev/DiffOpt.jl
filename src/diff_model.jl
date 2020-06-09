@@ -46,16 +46,43 @@ function diff_model(_model::MOI.AbstractOptimizer)
     function backward(params)
         grads = []
         LHS = create_LHS_matrix(z, λ, Q, G, h, A)
+
+        # compute the jacobian of (z, λ, ν) with respect to each 
+        # of the parameters recieved in the method argument
+        # for instance, to get the jacobians w.r.t vector `b`
+        # substitute db = I and set all other differential terms
+        # in the right hand side to zero. For more info refer 
+        # equation (6) of https://arxiv.org/pdf/1703.00443.pdf
         for param in params
-            if param == "h"
+            if param == "Q"
+                RHS = create_RHS_matrix(z, ones(nz, nz), zeros(nz, 1),
+                                        λ, zeros(nineq, nz), zeros(nineq,1),
+                                        ν, zeros(neq, nz), zeros(neq, 1))
+                push!(grads, LHS \ RHS)
+            elseif param == "q"
+                RHS = create_RHS_matrix(z, zeros(nz, nz), ones(nz, 1),
+                                        λ, zeros(nineq, nz), zeros(nineq,1),
+                                        ν, zeros(neq, nz), zeros(neq, 1))
+                push!(grads, LHS \ RHS)
+            elseif param == "G"
+                RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
+                                        λ, ones(nineq, nz), zeros(nineq,1),
+                                        ν, zeros(neq, nz), zeros(neq, 1))
+                push!(grads, LHS \ RHS)
+            elseif param == "h"
                 RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1), 
                                         λ, zeros(nineq, nz), ones(nineq,1),
                                         ν, zeros(neq, nz), zeros(neq, 1))
                 push!(grads, LHS \ RHS)
-            elseif param == "Q"
-                RHS = create_RHS_matrix(z, ones(nz, nz), zeros(nz, 1),
+            elseif param == "A"
+                RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1), 
                                         λ, zeros(nineq, nz), zeros(nineq,1),
-                                        ν, zeros(neq, nz), zeros(neq, 1))
+                                        ν, ones(neq, nz), zeros(neq, 1))
+                push!(grads, LHS \ RHS)
+            elseif param == "b"
+                RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1), 
+                                        λ, zeros(nineq, nz), zeros(nineq,1),
+                                        ν, zeros(neq, nz), ones(neq, 1))
                 push!(grads, LHS \ RHS)
             else
                 push!(grads, [])

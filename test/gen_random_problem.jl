@@ -1,6 +1,3 @@
-using OSQP
-using GLPK
-
 @testset "Creating an LP" begin
     model = GLPK.Optimizer()
     x̂ = generate_lp(model,10,5)
