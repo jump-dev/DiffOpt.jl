@@ -99,7 +99,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     if typeof(objective_function) == MathOptInterface.ScalarAffineFunction{Float64}
         q = coefficient.(objective_function.terms)
     elseif typeof(objective_function) == MathOptInterface.ScalarQuadraticFunction{Float64}
-        @assert size(objective_function.quadratic_terms)[1] == (nz * (nz + 1)) / 2    
+        # @assert size(objective_function.quadratic_terms)[1] == (nz * (nz + 1)) / 2    
         
         var_to_id = Dict(var_idx .=> 1:nz)
         
