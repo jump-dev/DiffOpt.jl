@@ -1,19 +1,37 @@
 # TODO: create test functions for the methods
 
+# """
+#     Left hand side of eqn(6) in https://arxiv.org/pdf/1703.00443.pdf
+# """
+# function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
+#     if A == nothing || size(A)[1] == 0
+#         return [Q                G';
+#                 Diagonal(λ) * G    Diagonal(G * z - h)]
+#     else
+#         @assert size(A)[2] == size(G)[2]
+#         p, n = size(A)
+#         m    = size(G)[1]
+#         return [Q                  G'                    A';  
+#                 Diagonal(λ) * G    Diagonal(G * z - h)   zeros(m, p);
+#                 A                  zeros(p, m)           zeros(p, p)]
+#     end
+# end
+
+
 """
-    Left hand side of eqn(6) in https://arxiv.org/pdf/1703.00443.pdf
+    Inverse matrix specified on RHS of eqn(7) in https://arxiv.org/pdf/1703.00443.pdf
 """
 function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
     if A == nothing || size(A)[1] == 0
-        return [Q                G';
-                Diagonal(λ) * G    Diagonal(G * z - h)]
+        return [Q         G' * Diagonal(λ);
+                G         Diagonal(G * z - h)]
     else
         @assert size(A)[2] == size(G)[2]
         p, n = size(A)
         m    = size(G)[1]
-        return [Q                  G'                    A';  
-                Diagonal(λ) * G    Diagonal(G * z - h)   zeros(m, p);
-                A                  zeros(p, m)           zeros(p, p)]
+        return [Q         G' * Diagonal(λ)       A';  
+                G         Diagonal(G * z - h)    zeros(m, p);
+                A         zeros(p, m)            zeros(p, p)]
     end
 end
 
