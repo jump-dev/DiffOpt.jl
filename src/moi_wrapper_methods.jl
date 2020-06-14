@@ -39,6 +39,7 @@ function MOI.get(
     return model.linear_le_constraints[c.value].func
 end
 
+
 function MOI.get(
     model::Ipopt.Optimizer,
     ::MOI.ConstraintSet,
@@ -46,6 +47,25 @@ function MOI.get(
 ) 
     return model.linear_le_constraints[c.value].set
 end
+
+
+function MOI.get(
+    model::Ipopt.Optimizer,
+    ::MOI.ConstraintFunction,
+    c::MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}
+) 
+    return model.linear_eq_constraints[c.value].func
+end
+
+
+function MOI.get(
+    model::Ipopt.Optimizer,
+    ::MOI.ConstraintSet,
+    c::MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}
+) 
+    return model.linear_eq_constraints[c.value].set
+end
+
 
 function MOI.get(
     model::Ipopt.Optimizer,
