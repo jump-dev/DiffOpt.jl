@@ -201,6 +201,8 @@ end
 
 
 # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
+# Find equivalent CVXPYLayers and QPTH code here:
+#               https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_1_py.ipynb
 @testset "Differentiating MOI examples 1" begin
     # homogeneous quadratic objective
     # Min x^2 + xy + y^2 + yz + z^2
@@ -270,6 +272,8 @@ end
 
 
 # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
+# Find equivalent CVXPYLayers and QPTH code here:
+#               https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_2_py.ipynb
 @testset "Differentiating MOI examples 2 - non trivial backward pass vector" begin
     # non-homogeneous quadratic objective
     #    minimize 2 x^2 + y^2 + xy + x + y
