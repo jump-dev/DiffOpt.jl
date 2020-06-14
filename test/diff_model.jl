@@ -5,7 +5,7 @@
     G = [1.0 1.0; 1.0 0.0; 0.0 1.0; -1.0 -1.0; -1.0 0.0; 0.0 -1.0]
     h = [1.0; 0.7; 0.7; -1.0; 0.0; 0.0];
 
-    model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
+    model = MOI.instantiate(Ipopt.Optimizer, with_bridge_type=Float64)
     x = MOI.add_variables(model, 2)
 
     # define objective
@@ -38,9 +38,9 @@
 
     diff = diff_model(model)
 
-    ẑ = diff.forward()
+    z, λ, ν = diff.forward()
     
-    @test maximum(abs.(ẑ - [0.3; 0.7])) <= 1e-4
+    @test maximum(abs.(z - [0.3; 0.7])) <= 1e-4
 end
 
 
@@ -82,9 +82,9 @@ end
 
     diff = diff_model(model)
 
-    ẑ = diff.forward()
+    z, λ, ν = diff.forward()
     
-    @test maximum(abs.(ẑ - [-0.25; -0.75])) <= 1e-4
+    @test maximum(abs.(z - [-0.25; -0.75])) <= 1e-4
 
     grad_wrt_h = diff.backward(["h"])[1]
 
@@ -190,9 +190,9 @@ end
 
     diff = diff_model(model)
 
-    ẑ = diff.forward()
+    z, λ, ν  = diff.forward()
     
-    @test maximum(abs.(ẑ - [0.0; 0.5; 0.0])) <= 1e-4
+    @test maximum(abs.(z - [0.0; 0.5; 0.0])) <= 1e-4
 
     grads = diff.backward(["Q","q","G","h","A","b"])
 end

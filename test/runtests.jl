@@ -2,6 +2,7 @@ using DiffOpt
 using MathOptInterface
 using Test
 using OSQP
+using Ipopt
 using GLPK
 
 const MOI = MathOptInterface;
