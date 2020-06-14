@@ -35,7 +35,7 @@ function diff_model(_model::MOI.AbstractOptimizer)
             ν = MOI.get(model, MOI.ConstraintDual(), eq_con_idx)
         end
     
-        return z
+        return z, λ, ν    
     end
     
     """
