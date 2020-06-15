@@ -3,6 +3,8 @@ using MathOptInterface
 using Test
 using OSQP
 using Ipopt
+using Clp
+using SCS
 using DelimitedFiles
 using GLPK
 
