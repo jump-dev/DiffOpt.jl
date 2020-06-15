@@ -8,6 +8,9 @@ using GLPK
 const MOI = MathOptInterface;
 const MOIU = MathOptInterface.Utilities;
 
+const ATOL = 1e-4
+const RTOL = 1e-4
+
 @testset "Generate random problems" begin
     include("gen_random_problem.jl")
 end
