@@ -3,6 +3,7 @@ using MathOptInterface
 using Test
 using OSQP
 using Ipopt
+using DelimitedFiles
 using GLPK
 
 const MOI = MathOptInterface;

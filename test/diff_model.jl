@@ -345,3 +345,78 @@ end
 
     @test dl_db ≈ [0.7] atol=ATOL rtol=RTOL
 end
+
+
+@testset "Differentiating non trivial convex QP MOI" begin
+    nz = 10
+    nineq = 25
+    neq = 10
+
+    # read matrices from files
+    names = ["Q", "q", "G", "h", "A", "b"]
+    matrices = []
+
+    for name in names
+        push!(matrices, readdlm("testcases/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+    end
+        
+    Q, q, G, h, A, b = matrices
+    q = vec(q)
+    h = vec(h)
+    b = vec(b)
+
+    optimizer = MOI.instantiate(Ipopt.Optimizer, with_bridge_type=Float64)
+
+    x = MOI.add_variables(optimizer, nz)
+
+    # define objective
+    quadratic_terms = MOI.ScalarQuadraticTerm{Float64}[]
+    for i in 1:nz
+        for j in i:nz # indexes (i,j), (j,i) will be mirrored. specify only one kind
+            push!(quadratic_terms, MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j]))
+        end
+    end
+
+    objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x), quadratic_terms, 0.0)
+    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    # set constraints
+    for i in 1:nineq
+        MOI.add_constraint(
+            optimizer,
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.0),MOI.LessThan(h[i])
+        )
+    end
+
+    for i in 1:neq
+        MOI.add_constraint(
+            optimizer,
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0),MOI.EqualTo(b[i])
+        )
+    end
+
+    dm = diff_model(optimizer)
+
+    z, λ, ν = dm.forward()
+
+    # obtain gradients
+    grads = dm.backward(names, ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
+
+    # read gradients from files
+    names = ["dQ", "dq", "dG", "dh", "dA", "db"]
+    grads_actual = []
+
+    for name in names
+        push!(grads_actual, readdlm("testcases/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+    end
+
+    grads_actual[2] = vec(grads_actual[2])
+    grads_actual[4] = vec(grads_actual[4])
+    grads_actual[6] = vec(grads_actual[6])
+
+    # testing differences
+    for i in 1:size(grads)[1]
+        @test grads[i] ≈  grads_actual[i] atol=1e-2 rtol=1e-2
+    end
+end
