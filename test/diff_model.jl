@@ -357,7 +357,7 @@ end
     matrices = []
 
     for name in names
-        push!(matrices, readdlm("testcases/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+        push!(matrices, readdlm("../data/qp_4/" * name * ".txt", ' ', Float64, '\n'))
     end
         
     Q, q, G, h, A, b = matrices
@@ -408,7 +408,7 @@ end
     grads_actual = []
 
     for name in names
-        push!(grads_actual, readdlm("testcases/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+        push!(grads_actual, readdlm("../data/qp_4/" * name * ".txt", ' ', Float64, '\n'))
     end
 
     grads_actual[2] = vec(grads_actual[2])

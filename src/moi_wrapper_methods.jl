@@ -1,7 +1,7 @@
-#
 # Methods in this file should move to their corresponding solver repositories
 # Methods created only to make DiffOpt run with different solvers
-#
+
+# TODO: Remove these after https://github.com/jump-dev/Ipopt.jl/pull/204 is merged
 
 using Ipopt
 
