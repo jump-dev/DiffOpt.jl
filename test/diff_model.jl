@@ -345,3 +345,178 @@ end
 
     @test dl_db ≈ [0.7] atol=ATOL rtol=RTOL
 end
+
+
+@testset "Differentiating non trivial convex QP MOI" begin
+    nz = 10
+    nineq = 25
+    neq = 10
+
+    # read matrices from files
+    names = ["Q", "q", "G", "h", "A", "b"]
+    matrices = []
+
+    for name in names
+        push!(matrices, readdlm("../data/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+    end
+        
+    Q, q, G, h, A, b = matrices
+    q = vec(q)
+    h = vec(h)
+    b = vec(b)
+
+    optimizer = MOI.instantiate(Ipopt.Optimizer, with_bridge_type=Float64)
+
+    x = MOI.add_variables(optimizer, nz)
+
+    # define objective
+    quadratic_terms = MOI.ScalarQuadraticTerm{Float64}[]
+    for i in 1:nz
+        for j in i:nz # indexes (i,j), (j,i) will be mirrored. specify only one kind
+            push!(quadratic_terms, MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j]))
+        end
+    end
+
+    objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x), quadratic_terms, 0.0)
+    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    # set constraints
+    for i in 1:nineq
+        MOI.add_constraint(
+            optimizer,
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.0),MOI.LessThan(h[i])
+        )
+    end
+
+    for i in 1:neq
+        MOI.add_constraint(
+            optimizer,
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0),MOI.EqualTo(b[i])
+        )
+    end
+
+    dm = diff_model(optimizer)
+
+    z, λ, ν = dm.forward()
+
+    # obtain gradients
+    grads = dm.backward(names, ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
+
+    # read gradients from files
+    names = ["dQ", "dq", "dG", "dh", "dA", "db"]
+    grads_actual = []
+
+    for name in names
+        push!(grads_actual, readdlm("../data/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+    end
+
+    grads_actual[2] = vec(grads_actual[2])
+    grads_actual[4] = vec(grads_actual[4])
+    grads_actual[6] = vec(grads_actual[6])
+
+    # testing differences
+    for i in 1:size(grads)[1]
+        @test grads[i] ≈  grads_actual[i] atol=1e-2 rtol=1e-2
+    end
+end
+
+
+@testset "Differentiating LP; checking gradients for non-active contraints" begin
+    # Issue #40 from Gurobi.jl
+    # min  x
+    # s.t. x >= 0
+    #      x >= 3
+
+    optimizer = MOI.instantiate(Clp.Optimizer, with_bridge_type=Float64)
+
+    x = MOI.add_variables(optimizer,1)
+
+    # define objective
+    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.0)
+    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    # set constraints
+    MOI.add_constraint(
+        optimizer,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.), 
+        MOI.LessThan(0.0)
+    )
+    MOI.add_constraint(
+        optimizer,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.), 
+        MOI.LessThan(-3.0)
+    )
+
+    dm = diff_model(optimizer)
+
+    z, λ, ν = dm.forward()
+
+    # obtain gradients
+    grads = dm.backward(["G", "h"], ones(1,1))  # using dl_dz=[1,1,1,1,1,....]
+
+    @test grads[1] ≈ [0.0; 3.0] atol=ATOL rtol=RTOL
+    @test grads[2] ≈ [0.0; -1.0] atol=ATOL rtol=RTOL
+end
+
+
+@testset "Differentiating LP; checking gradients for non-active contraints" begin
+    # refered from - https://en.wikipedia.org/wiki/Simplex_algorithm#Example
+
+    # max 2x + 3y + 4z
+    # s.t. 3x+2y+z <= 10
+    #      2x+5y+3z <= 15
+    #      x,y,z >= 0
+
+    optimizer = MOI.instantiate(SCS.Optimizer, with_bridge_type=Float64)
+    v = MOI.add_variables(optimizer, 3)
+
+    # define objective
+    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-2.0, -3.0, -4.0], v), 0.0)
+    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    # set constraints
+    MOI.add_constraint(
+        optimizer,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([3.0, 2.0, 1.0], v), 0.), 
+        MOI.LessThan(10.0)
+    )
+    MOI.add_constraint(
+        optimizer,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([2.0, 5.0, 3.0], v), 0.), 
+        MOI.LessThan(15.0)
+    )
+    MOI.add_constraint(
+        optimizer,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0, 0.0, 0.0], v), 0.), 
+        MOI.LessThan(0.0)
+    )
+    MOI.add_constraint(
+        optimizer,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.), 
+        MOI.LessThan(0.0)
+    )
+    MOI.add_constraint(
+        optimizer,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, -1.0], v), 0.), 
+        MOI.LessThan(0.0)
+    )
+
+    dm = diff_model(optimizer)
+
+    z, λ, ν = dm.forward()
+
+    # obtain gradients
+    grads = dm.backward(["Q", "q", "G", "h"], ones(1,3))  # using dl_dz=[1,1,1,1,1,....]
+
+    @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
+    @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
+    @test grads[3] ≈ [0.0 0.0 0.0;
+                    0.0 0.0 -5/3;
+                    0.0 0.0 5/3;
+                    0.0 0.0 -10/3;
+                    0.0 0.0 0.0]   atol=ATOL rtol=RTOL
+    @test grads[4] ≈ [0.0; 1/3; -1/3; 2/3; 0.0]   atol=ATOL rtol=RTOL
+end
