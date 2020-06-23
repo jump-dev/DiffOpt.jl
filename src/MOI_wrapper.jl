@@ -10,16 +10,21 @@ const VI = MOI.VariableIndex
 const CI = MOI.ConstraintIndex
 
 
-mutable struct Optimizer{OT<:MOI.ModelLike}
+function diff_optimizer(optimizer_constructor)::Optimizer 
+    return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
+end
+
+
+mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
     primal_optimal::Array{Float64}  # solution
     dual_optimal::Array{Float64}  
     var_idx::Vector{VI}
     con_idx::Vector{CI}
 
-    function Optimizer(optimizer_constructor)
-        new(
-            MOI.instantiate(optimizer_constructor, with_bridge_type=Float64),
+    function Optimizer(optimizer_constructor::OT) where {OT <: MOI.ModelLike}
+        new{OT}(
+            optimizer_constructor,
             zeros(0),
             zeros(0),
             Vector{VI}(),

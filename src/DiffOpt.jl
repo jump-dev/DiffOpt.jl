@@ -13,7 +13,7 @@ include("./moi_wrapper_methods.jl")
 include("./MOI_wrapper.jl")
 
 
-export Optimizer, backward!
+export diff_optimizer, Optimizer, backward!
 export is_equality  # just for reference sake
 export generate_lp, generate_qp
 

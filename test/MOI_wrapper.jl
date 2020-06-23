@@ -5,7 +5,7 @@
     G = [1.0 1.0; 1.0 0.0; 0.0 1.0; -1.0 -1.0; -1.0 0.0; 0.0 -1.0]
     h = [1.0; 0.7; 0.7; -1.0; 0.0; 0.0];
 
-    model = DiffOpt.Optimizer(Ipopt.Optimizer)
+    model = diff_optimizer(Ipopt.Optimizer)
     x = MOI.add_variables(model, 2)
 
     # define objective
@@ -49,7 +49,7 @@ end
     G = [1.0 1.0;]
     h = [-1.0;]
 
-    model = DiffOpt.Optimizer(OSQP.Optimizer)
+    model = diff_optimizer(OSQP.Optimizer)
     x = MOI.add_variables(model, 2)
 
     # define objective
@@ -94,7 +94,7 @@ end
     G = [1.0 1.0;]
     h = [-1.0;]
 
-    model = DiffOpt.Optimizer(OSQP.Optimizer)
+    model = diff_optimizer(OSQP.Optimizer)
     x = MOI.add_variables(model, 2)
 
     # define objective
@@ -144,7 +144,7 @@ end
     A = [1.0 1.0 1.0;]
     b = [0.5;]
 
-    model = DiffOpt.Optimizer(Ipopt.Optimizer)
+    model = diff_optimizer(Ipopt.Optimizer)
     x = MOI.add_variables(model, 3)
 
     # define objective
@@ -204,7 +204,7 @@ end
     #     x +  y      >= 1 (c2)
     #     x, y, z \in R
 
-    model = DiffOpt.Optimizer(OSQP.Optimizer)
+    model = diff_optimizer(OSQP.Optimizer)
     v = MOI.add_variables(model, 3)
     @test MOI.get(model, MOI.NumberOfVariables()) == 3
 
@@ -274,7 +274,7 @@ end
     #       s.t.  x, y >= 0
     #             x + y = 1
 
-    model = DiffOpt.Optimizer(Ipopt.Optimizer)
+    model = diff_optimizer(Ipopt.Optimizer)
     x = MOI.add_variable(model)
     y = MOI.add_variable(model)
 
@@ -362,7 +362,7 @@ end
     h = vec(h)
     b = vec(b)
 
-    optimizer = DiffOpt.Optimizer(Ipopt.Optimizer)
+    optimizer = diff_optimizer(Ipopt.Optimizer)
 
     x = MOI.add_variables(optimizer, nz)
 
@@ -423,7 +423,7 @@ end
     # s.t. x >= 0
     #      x >= 3
 
-    optimizer = DiffOpt.Optimizer(Clp.Optimizer)
+    optimizer = diff_optimizer(Clp.Optimizer)
 
     x = MOI.add_variables(optimizer,1)
 
@@ -462,7 +462,8 @@ end
     #      2x+5y+3z <= 15
     #      x,y,z >= 0
 
-    optimizer = DiffOpt.Optimizer(SCS.Optimizer)
+    
+    optimizer = diff_optimizer(SCS.Optimizer)
     v = MOI.add_variables(optimizer, 3)
 
     # define objective
