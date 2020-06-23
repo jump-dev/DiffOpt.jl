@@ -10,14 +10,14 @@ const VI = MOI.VariableIndex
 const CI = MOI.ConstraintIndex
 
 
-mutable struct Optimizer <: MOI.AbstractOptimizer
-    optimizer::MOI.Bridges.LazyBridgeOptimizer
+mutable struct Optimizer{OT<:MOI.ModelLike}
+    optimizer::OT
     primal_optimal::Array{Float64}  # solution
     dual_optimal::Array{Float64}  
     var_idx::Vector{VI}
     con_idx::Vector{CI}
 
-    function Optimizer(optimizer_constructor::Type)
+    function Optimizer(optimizer_constructor)
         new(
             MOI.instantiate(optimizer_constructor, with_bridge_type=Float64),
             zeros(0),
@@ -41,7 +41,7 @@ function MOI.add_variables(model::Optimizer, N::Int)
 end
 
 
-function MOI.add_constraint(model::Optimizer, f::F, s::S) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+function MOI.add_constraint(model::Optimizer, f::MOI.AbstractFunction, s::MOI.AbstractSet)
     ci = MOI.add_constraint(model.optimizer, f, s)
     push!(model.con_idx, ci)
     return ci
@@ -68,22 +68,12 @@ function MOI.set(model::Optimizer, attr::MOI.ObjectiveSense, sense::MOI.Optimiza
 end
 
 
-function MOI.get(model::Optimizer, attr::MOI.ObjectiveSense)
-    return MOI.get(model.optimizer, attr)
-end
-
-
-function MOI.get(model::Optimizer, attr::MOI.ListOfVariableIndices)
+function MOI.get(model::Optimizer, attr::MOI.AbstractModelAttribute)
     return MOI.get(model.optimizer, attr)
 end
 
 
 function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
-    return MOI.get(model.optimizer, attr)
-end
-
-
-function MOI.get(model::Optimizer, attr::MOI.NumberOfVariables)
     return MOI.get(model.optimizer, attr)
 end
 
@@ -95,11 +85,6 @@ end
 
 function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::MOI.ConstraintIndex{F, S}) where {F, S}
     return MOI.get(model.optimizer, attr, ci)
-end
-
-
-function MOI.get(model::Optimizer, attr::MOI.TerminationStatus)
-    return MOI.get(model.optimizer, attr)
 end
 
 
