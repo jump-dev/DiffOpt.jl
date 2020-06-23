@@ -5,7 +5,7 @@
     G = [1.0 1.0; 1.0 0.0; 0.0 1.0; -1.0 -1.0; -1.0 0.0; 0.0 -1.0]
     h = [1.0; 0.7; 0.7; -1.0; 0.0; 0.0];
 
-    model = MOI.instantiate(Ipopt.Optimizer, with_bridge_type=Float64)
+    model = diff_optimizer(Ipopt.Optimizer)
     x = MOI.add_variables(model, 2)
 
     # define objective
@@ -36,11 +36,9 @@
         )
     end
 
-    diff = diff_model(model)
-
-    z, λ, ν = diff.forward()
+    MOI.optimize!(model)
     
-    @test z ≈ [0.3; 0.7] atol=ATOL rtol=RTOL
+    @test model.primal_optimal ≈ [0.3; 0.7] atol=ATOL rtol=RTOL
 end
 
 
@@ -51,7 +49,7 @@ end
     G = [1.0 1.0;]
     h = [-1.0;]
 
-    model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
+    model = diff_optimizer(OSQP.Optimizer)
     x = MOI.add_variables(model, 2)
 
     # define objective
@@ -80,13 +78,11 @@ end
         MOI.LessThan(h[1])
     )
 
-    diff = diff_model(model)
-
-    z, λ, ν = diff.forward()
+    MOI.optimize!(model)
     
-    @test z ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
+    @test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
 
-    grad_wrt_h = diff.backward(["h"], [1.0 1.0])[1]
+    grad_wrt_h = backward!(model, ["h"], [1.0 1.0])[1]
 
     @test grad_wrt_h ≈ [1.0] atol=ATOL rtol=RTOL
 end
@@ -98,7 +94,7 @@ end
     G = [1.0 1.0;]
     h = [-1.0;]
 
-    model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
+    model = diff_optimizer(OSQP.Optimizer)
     x = MOI.add_variables(model, 2)
 
     # define objective
@@ -127,9 +123,7 @@ end
         MOI.LessThan(h[1]),
     )
 
-    diff = diff_model(model)
-
-    @test_throws ErrorException diff.forward() # should break
+    @test_throws ErrorException MOI.optimize!(model) # should break
 end
 
 
@@ -150,7 +144,7 @@ end
     A = [1.0 1.0 1.0;]
     b = [0.5;]
 
-    model = MOI.instantiate(Ipopt.Optimizer, with_bridge_type=Float64)
+    model = diff_optimizer(Ipopt.Optimizer)
     x = MOI.add_variables(model, 3)
 
     # define objective
@@ -189,13 +183,13 @@ end
         )
     end
 
-    diff = diff_model(model)
+    MOI.optimize!(model)
 
-    z, λ, ν  = diff.forward()
+    z = model.primal_optimal
     
     @test z ≈ [0.0; 0.5; 0.0] atol=ATOL rtol=RTOL
 
-    grads = diff.backward(["Q","q","G","h","A","b"], [1.0 1.0 1.0])
+    grads = backward!(model, ["Q","q","G","h","A","b"], [1.0 1.0 1.0])
 end
 
 
@@ -210,7 +204,7 @@ end
     #     x +  y      >= 1 (c2)
     #     x, y, z \in R
 
-    model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
+    model = diff_optimizer(OSQP.Optimizer)
     v = MOI.add_variables(model, 3)
     @test MOI.get(model, MOI.NumberOfVariables()) == 3
 
@@ -243,14 +237,14 @@ end
     )
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj)
 
-    diff = diff_model(model)
+    MOI.optimize!(model)
 
-    z, λ, ν = diff.forward()
+    z = model.primal_optimal
 
     @test z ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
 
     # obtain gradients
-    grads = diff.backward(["Q","q","G","h"], [1.0 1.0 1.0])
+    grads = backward!(model, ["Q","q","G","h"], [1.0 1.0 1.0])
 
     dl_dQ = grads[1]
     dl_dq = grads[2]
@@ -280,7 +274,7 @@ end
     #       s.t.  x, y >= 0
     #             x + y = 1
 
-    model = MOI.instantiate(Ipopt.Optimizer, with_bridge_type=Float64)
+    model = diff_optimizer(Ipopt.Optimizer)
     x = MOI.add_variable(model)
     y = MOI.add_variable(model)
 
@@ -313,17 +307,20 @@ end
     )
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj)
 
-    diff = diff_model(model)
+    MOI.optimize!(model)
 
-    z, λ, ν = diff.forward()
+    z = model.primal_optimal
+    ν = model.dual_optimal[1]   # can be accessed in the order constraints were added
+    λ = model.dual_optimal[2:3]
+    
 
     @test z ≈ [0.25, 0.75] atol=ATOL rtol=RTOL
     @test λ ≈ [0.0, 0.0]   atol=ATOL rtol=RTOL
-    @test ν ≈ [11/4]       atol=ATOL rtol=RTOL
+    @test ν ≈ 11/4       atol=ATOL rtol=RTOL
 
     # obtain gradients
     dl_dz = [1.3 0.5]   # choosing a non trivial backward pass vector
-    grads = diff.backward(["Q", "q", "G", "h", "A", "b"], dl_dz)
+    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], dl_dz)
 
     dl_dQ = grads[1]
     dl_dq = grads[2]
@@ -365,7 +362,7 @@ end
     h = vec(h)
     b = vec(b)
 
-    optimizer = MOI.instantiate(Ipopt.Optimizer, with_bridge_type=Float64)
+    optimizer = diff_optimizer(Ipopt.Optimizer)
 
     x = MOI.add_variables(optimizer, nz)
 
@@ -396,12 +393,10 @@ end
         )
     end
 
-    dm = diff_model(optimizer)
-
-    z, λ, ν = dm.forward()
+    MOI.optimize!(optimizer)
 
     # obtain gradients
-    grads = dm.backward(names, ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(optimizer, names, ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
 
     # read gradients from files
     names = ["dQ", "dq", "dG", "dh", "dA", "db"]
@@ -428,7 +423,7 @@ end
     # s.t. x >= 0
     #      x >= 3
 
-    optimizer = MOI.instantiate(Clp.Optimizer, with_bridge_type=Float64)
+    optimizer = diff_optimizer(Clp.Optimizer)
 
     x = MOI.add_variables(optimizer,1)
 
@@ -449,12 +444,10 @@ end
         MOI.LessThan(-3.0)
     )
 
-    dm = diff_model(optimizer)
-
-    z, λ, ν = dm.forward()
+    MOI.optimize!(optimizer)
 
     # obtain gradients
-    grads = dm.backward(["G", "h"], ones(1,1))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(optimizer, ["G", "h"], ones(1,1))  # using dl_dz=[1,1,1,1,1,....]
 
     @test grads[1] ≈ [0.0; 3.0] atol=ATOL rtol=RTOL
     @test grads[2] ≈ [0.0; -1.0] atol=ATOL rtol=RTOL
@@ -469,7 +462,8 @@ end
     #      2x+5y+3z <= 15
     #      x,y,z >= 0
 
-    optimizer = MOI.instantiate(SCS.Optimizer, with_bridge_type=Float64)
+    
+    optimizer = diff_optimizer(SCS.Optimizer)
     v = MOI.add_variables(optimizer, 3)
 
     # define objective
@@ -504,12 +498,10 @@ end
         MOI.LessThan(0.0)
     )
 
-    dm = diff_model(optimizer)
-
-    z, λ, ν = dm.forward()
+    MOI.optimize!(optimizer)
 
     # obtain gradients
-    grads = dm.backward(["Q", "q", "G", "h"], ones(1,3))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(optimizer, ["Q", "q", "G", "h"], ones(1,3))  # using dl_dz=[1,1,1,1,1,....]
 
     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL

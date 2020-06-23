@@ -18,8 +18,8 @@ const RTOL = 1e-4
     include("gen_random_problem.jl")
 end
 
-@testset "diff_model" begin
-    include("diff_model.jl")
+@testset "MOI_wrapper" begin
+    include("MOI_wrapper.jl")
 end
 
 @testset "Utility Methods" begin
