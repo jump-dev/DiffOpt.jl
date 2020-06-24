@@ -217,3 +217,88 @@ function backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64
     end
     return grads
 end
+
+# MOI supports
+
+function MOI.supports(::Optimizer,
+    ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}})
+    return true
+end
+
+function MOI.supports(::Optimizer,
+    ::MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}})
+    return true
+end
+
+function MOI.supports(::Optimizer, ::MOI.AbstractModelAttribute)
+    return true
+end
+
+MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{MOI.LessThan{Float64}}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{MOI.GreaterThan{Float64}}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{MOI.EqualTo{Float64}}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarQuadraticFunction{Float64}}, ::Type{MOI.LessThan{Float64}}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarQuadraticFunction{Float64}}, ::Type{MOI.GreaterThan{Float64}}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarQuadraticFunction{Float64}}, ::Type{MOI.EqualTo{Float64}}) = true
+
+
+MOI.get(model::Optimizer, ::MOI.SolveTime) = model.optimizer.solve_time
+
+function MOI.empty!(model::Optimizer)
+    MOI.empty!(model.optimizer)
+    model.primal_optimal = zeros(0)
+    model.dual_optimal = zeros(0)
+    model.var_idx = Vector{VI}()
+    model.con_idx = Vector{CI}()
+end
+
+function MOI.is_empty(model::Optimizer)
+    return MOI.is_empty(model.optimizer) &&
+           isempty(model.primal_optimal) &&
+           isempty(model.dual_optimal) &&
+           isempty(model.var_idx) &&
+           isempty(model.con_idx)
+end
+
+MOIU.supports_default_copy_to(model::Optimizer, copy_names::Bool) = !copy_names
+
+function MOI.copy_to(model::Optimizer, src::MOI.ModelLike; copy_names = false)
+    return MOIU.default_copy_to(model.optimizer, src, copy_names)
+end
+
+function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
+    return MOI.get(model.optimizer, MOI.TerminationStatus())
+end
+
+function MOI.set(model::Optimizer, ::MOI.VariablePrimalStart,
+                 vi::MOI.VariableIndex, value::Union{Real, Nothing})
+    MOI.set(model.optimizer, MOI.VariablePrimalStart(), vi, value)
+end
+
+function MOI.supports(model::Optimizer, ::MOI.VariablePrimalStart,
+                      ::Type{MOI.VariableIndex})
+    return MOI.supports(model.optimizer, MOI.VariablePrimalStart(), MOI.VariableIndex)
+end
+
+function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::MOI.VariableIndex)
+    MOI.check_result_index_bounds(model.optimizer, attr)
+    return MOI.get(model.optimizer, attr, vi)
+end
+
+function MOI.get(model::Optimizer, attr::MOI.ConstraintPrimal,
+                 ::MOI.ConstraintIndex{MOI.Sca,
+                                         MOI.AbstractSet{Float64}})
+    MOI.check_result_index_bounds(model.optimizer, attr)
+    return model.inner.x[vi.value]
+end
+
+
+function MOI.add_constraint(model::Optimizer, f::MOI.SingleVariable, s::MOI.AbstractSet)
+    ci = MOI.add_constraint(model.optimizer, f, s)
+    push!(model.con_idx, ci)
+    return ci
+end
+
+MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.GreaterThan{Float64}}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.LessThan{Float64}}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.EqualTo{Float64}}) = true

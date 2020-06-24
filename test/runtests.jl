@@ -25,3 +25,7 @@ end
 @testset "Utility Methods" begin
     include("utils.jl")
 end
+
+@testset "Solver Interface" begin
+    include("solver_interface.jl")
+end
