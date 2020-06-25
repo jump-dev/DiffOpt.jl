@@ -96,12 +96,14 @@ end
 function MOI.optimize!(model::Optimizer)
     MOI.optimize!(model.optimizer)
 
-    # check status
-    @assert MOI.get(model.optimizer, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
-        
-    # save the solution
-    model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
-    model.dual_optimal = MOI.get(model.optimizer, MOI.ConstraintDual(), model.con_idx)
+    # do not fail. interferes with MOI.Tests.linear12test
+    if MOI.get(model.optimizer, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
+        # save the solution
+        model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
+        model.dual_optimal = MOI.get(model.optimizer, MOI.ConstraintDual(), model.con_idx)
+    else
+        @warn "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
+    end
 end
 
     
@@ -234,6 +236,9 @@ function MOI.supports(::Optimizer, ::MOI.AbstractModelAttribute)
     return true
 end
 
+MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.GreaterThan{Float64}}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.LessThan{Float64}}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.EqualTo{Float64}}) = true
 MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{MOI.LessThan{Float64}}) = true
 MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{MOI.GreaterThan{Float64}}) = true
 MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{MOI.EqualTo{Float64}}) = true
@@ -246,10 +251,10 @@ MOI.get(model::Optimizer, ::MOI.SolveTime) = model.optimizer.solve_time
 
 function MOI.empty!(model::Optimizer)
     MOI.empty!(model.optimizer)
-    model.primal_optimal = zeros(0)
-    model.dual_optimal = zeros(0)
-    model.var_idx = Vector{VI}()
-    model.con_idx = Vector{CI}()
+    empty!(model.primal_optimal)
+    empty!(model.dual_optimal)
+    empty!(model.var_idx)
+    empty!(model.con_idx)
 end
 
 function MOI.is_empty(model::Optimizer)
@@ -271,7 +276,7 @@ function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
 end
 
 function MOI.set(model::Optimizer, ::MOI.VariablePrimalStart,
-                 vi::MOI.VariableIndex, value::Union{Real, Nothing})
+                 vi::MOI.VariableIndex, value::Float64)
     MOI.set(model.optimizer, MOI.VariablePrimalStart(), vi, value)
 end
 
@@ -285,20 +290,20 @@ function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::MOI.VariableInd
     return MOI.get(model.optimizer, attr, vi)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.ConstraintPrimal,
-                 ::MOI.ConstraintIndex{MOI.Sca,
-                                         MOI.AbstractSet{Float64}})
-    MOI.check_result_index_bounds(model.optimizer, attr)
-    return model.inner.x[vi.value]
-end
-
-
 function MOI.add_constraint(model::Optimizer, f::MOI.SingleVariable, s::MOI.AbstractSet)
     ci = MOI.add_constraint(model.optimizer, f, s)
     push!(model.con_idx, ci)
     return ci
 end
 
-MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.GreaterThan{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.LessThan{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.EqualTo{Float64}}) = true
+function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: MOI.AbstractScalarFunction, S <: MOI.AbstractScalarSet}
+    filter!(e -> e≠ci, model.con_idx)
+    MOI.delete(model.optimizer, ci) 
+end
+
+# TODO removing VariableIndex will be tough, coz many CI might depend on it
+
+function MOI.get(model::Optimizer, ::MOI.ConstraintPrimal,
+    ci::CI{F,S}) where {F <: MOI.AbstractScalarFunction, S <: MOI.AbstractScalarSet}
+    return MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci)
+end
