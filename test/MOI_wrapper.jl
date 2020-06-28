@@ -309,14 +309,14 @@ end
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0,0.0], [x,y]), 0.0), 
         MOI.LessThan(0.0)
     )
-    @test vc1.value == x.value
+    @test vc1.value ≈ x.value atol=ATOL rtol=RTOL
 
     vc2 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0,-1.0], [x,y]), 0.0), 
         MOI.LessThan(0.0)
     )
-    @test vc2.value == y.value
+    @test vc2.value ≈ y.value atol=ATOL rtol=RTOL
 
 
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)

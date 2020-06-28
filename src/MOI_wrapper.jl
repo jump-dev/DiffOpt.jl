@@ -9,6 +9,25 @@ Currently supports differentiating linear and quadratic programs only.
 const VI = MOI.VariableIndex
 const CI = MOI.ConstraintIndex
 
+# use `<:SUPPORTED_OBJECTIVES` if you need to specify `Type` - specified by F/S
+# use `::SUPPORTED_OBJECTIVES` if you need to specify a variable/object of that `Type` - specified by f/s
+
+const SUPPORTED_OBJECTIVES = Union{
+    MOI.SingleVariable,
+    MOI.ScalarAffineFunction{Float64},
+    MOI.ScalarQuadraticFunction{Float64}
+}
+
+const SUPPORTED_SCALAR_SETS = Union{
+    MOI.GreaterThan{Float64},
+    MOI.LessThan{Float64}, 
+    MOI.EqualTo{Float64}
+}
+
+const SUPPORTED_SCALAR_FUNCTIONS = Union{
+    MOI.SingleVariable,
+    MOI.ScalarAffineFunction{Float64}
+}
 
 function diff_optimizer(optimizer_constructor)::Optimizer 
     return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
@@ -45,26 +64,26 @@ function MOI.add_variables(model::Optimizer, N::Int)
     return VI[MOI.add_variable(model) for i in 1:N]
 end
 
-
-function MOI.add_constraint(model::Optimizer, f::MOI.AbstractFunction, s::MOI.AbstractSet)
+function MOI.add_constraint(model::Optimizer, f::SUPPORTED_SCALAR_FUNCTIONS, s::SUPPORTED_SCALAR_SETS)
     ci = MOI.add_constraint(model.optimizer, f, s)
     push!(model.con_idx, ci)
     return ci
 end
 
+# TODO: support more sets here
+function MOI.add_constraint(model::Optimizer, vf::MOI.VectorAffineFunction{Float64}, s::MOI.Zeros)
+    ci = MOI.add_constraint(model.optimizer, vf, s)
+    push!(model.con_idx, ci)   # adding it as a whole here; need to define a method to extract matrices
+    return ci
+end
 
-function MOI.add_constraints(model::Optimizer, f::Vector{F}, s::Vector{S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+function MOI.add_constraints(model::Optimizer, f::Vector{F}, s::Vector{S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
     return CI[MOI.add_constraint(model, f[i], s[i]) for i in 1:size(f)[1]]
 end
 
 
-function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{F}, f::F) where {F <: Union{
-        MOI.SingleVariable,
-        MOI.ScalarAffineFunction{T},
-        MOI.ScalarQuadraticFunction{T}
-    }} where T
+function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES}, f::SUPPORTED_OBJECTIVES)
     MOI.set(model.optimizer, attr, f)
-    return
 end
 
 
@@ -78,18 +97,24 @@ function MOI.get(model::Optimizer, attr::MOI.AbstractModelAttribute)
 end
 
 
-function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     return MOI.get(model.optimizer, attr)
 end
 
-
-function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::MOI.ConstraintIndex{F, S}) where {F, S}
+function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::MOI.ConstraintIndex{F, S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     return MOI.get(model.optimizer, attr, ci)
 end
 
+function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::MOI.ConstraintIndex{F, S}, s::S) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+    return MOI.set(model.optimizer,attr,ci,s)
+end
 
-function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::MOI.ConstraintIndex{F, S}) where {F, S}
+function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::MOI.ConstraintIndex{F, S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     return MOI.get(model.optimizer, attr, ci)
+end
+
+function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::MOI.ConstraintIndex{F, S}, f::F) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+    return MOI.set(model.optimizer,attr,ci,f)
 end
 
 
@@ -220,7 +245,7 @@ function backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64
     return grads
 end
 
-# MOI supports
+# `MOI.supports` methods
 
 function MOI.supports(::Optimizer,
     ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}})
@@ -236,15 +261,17 @@ function MOI.supports(::Optimizer, ::MOI.AbstractModelAttribute)
     return true
 end
 
-MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.GreaterThan{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.LessThan{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{MOI.EqualTo{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{MOI.LessThan{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{MOI.GreaterThan{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{MOI.EqualTo{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarQuadraticFunction{Float64}}, ::Type{MOI.LessThan{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarQuadraticFunction{Float64}}, ::Type{MOI.GreaterThan{Float64}}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarQuadraticFunction{Float64}}, ::Type{MOI.EqualTo{Float64}}) = true
+function MOI.supports(::Optimizer, ::MOI.ObjectiveFunction)
+    return false
+end
+
+function MOI.supports(::Optimizer, ::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES})
+    return true
+end
+
+MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{<: SUPPORTED_SCALAR_SETS}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{<: SUPPORTED_SCALAR_SETS}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.VectorAffineFunction{Float64}}, ::Type{MOI.Zeros}) = true
 
 
 MOI.get(model::Optimizer, ::MOI.SolveTime) = model.optimizer.solve_time
@@ -265,6 +292,7 @@ function MOI.is_empty(model::Optimizer)
            isempty(model.con_idx)
 end
 
+# TODO: this'll be needed if we specify params using Variable attributes
 MOIU.supports_default_copy_to(model::Optimizer, copy_names::Bool) = !copy_names
 
 function MOI.copy_to(model::Optimizer, src::MOI.ModelLike; copy_names = false)
@@ -290,20 +318,54 @@ function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::MOI.VariableInd
     return MOI.get(model.optimizer, attr, vi)
 end
 
-function MOI.add_constraint(model::Optimizer, f::MOI.SingleVariable, s::MOI.AbstractSet)
+function MOI.add_constraint(model::Optimizer, f::MOI.SingleVariable, s::SUPPORTED_SCALAR_SETS)
     ci = MOI.add_constraint(model.optimizer, f, s)
     push!(model.con_idx, ci)
     return ci
 end
 
-function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: MOI.AbstractScalarFunction, S <: MOI.AbstractScalarSet}
+function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: MOI.AbstractScalarFunction, S <: SUPPORTED_SCALAR_SETS}
     filter!(e -> e≠ci, model.con_idx)
     MOI.delete(model.optimizer, ci) 
 end
 
-# TODO removing VariableIndex will be tough, coz many CI might depend on it
-
 function MOI.get(model::Optimizer, ::MOI.ConstraintPrimal,
-    ci::CI{F,S}) where {F <: MOI.AbstractScalarFunction, S <: MOI.AbstractScalarSet}
+    ci::CI{F,S}) where {F <: MOI.AbstractScalarFunction, S <: SUPPORTED_SCALAR_SETS}
     return MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci)
+end
+
+function MOI.is_valid(model::Optimizer, v::VI)
+    return v in model.var_idx
+end
+
+function MOI.is_valid(model::Optimizer, con::CI)
+    return con in model.con_idx
+end
+
+function MOI.get(model::Optimizer, ::MOI.ConstraintDual, ci::CI{F,S}) where {F <: MOI.AbstractScalarFunction, S <: SUPPORTED_SCALAR_SETS}
+    return MOI.get(model.optimizer, MOI.ConstraintDual(), ci)
+end
+
+# helper method to check if a constraint contains a Variable
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{F,S}) where {F <: MOI.AbstractScalarFunction, S <: SUPPORTED_SCALAR_SETS}
+    func = MOI.get(model, MOI.ConstraintFunction(), ci)
+    if typeof(func) == MOI.SingleVariable
+        return v == func.variable
+    elseif typeof(func) == MOI.ScalarAffineFunction{Float64}
+        for term in func.terms
+            if term.variable_index == v
+                return true
+            end
+        end
+        return false
+    end
+    return false   # default
+end
+
+function MOI.delete(model::Optimizer, v::VI)
+    # remove those constraints that depend on this Variable
+    filter!(ci -> !_constraint_contains(model, v, ci), model.con_idx)
+
+    # delete in inner solver 
+    MOI.delete(model.optimizer, v) 
 end
