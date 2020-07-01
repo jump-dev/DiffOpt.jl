@@ -14,10 +14,25 @@
         MOIT.TestConfig(basis = true, optimal_status=MOI.LOCALLY_SOLVED, atol=ATOL, rtol=RTOL)
     )
 
-    MOIT.linear1test(diff_optimizer(GLPK.Optimizer), MOIT.TestConfig(basis = true, modify_lhs=false))
+    MOIT.linear1test(
+        diff_optimizer(GLPK.Optimizer), 
+        MOIT.TestConfig(basis = true, modify_lhs=false)
+    )
 
     # This requires an infeasiblity certificate for a variable bound.
-    MOIT.linear12test(diff_optimizer(GLPK.Optimizer), MOIT.TestConfig(infeas_certificates=false))
+    MOIT.linear12test(
+        diff_optimizer(GLPK.Optimizer),
+        MOIT.TestConfig(infeas_certificates=false)
+    )
+end
+
+@testset "Convex Quadratic tests" begin
+    MOIT.qp1test(diff_optimizer(OSQP.Optimizer), MOIT.TestConfig())
+    MOIT.qp2test(diff_optimizer(OSQP.Optimizer), MOIT.TestConfig())
+    MOIT.qp3test(
+        diff_optimizer(Ipopt.Optimizer), 
+        MOIT.TestConfig(optimal_status=MOI.LOCALLY_SOLVED, atol=1e-3)
+    )
 end
 
 
