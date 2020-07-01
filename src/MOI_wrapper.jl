@@ -390,8 +390,9 @@ function MOI.modify(
 )
     MOI.modify(
         model.optimizer, 
-            MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
-            chg)
+        MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+        chg
+    )
 end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
