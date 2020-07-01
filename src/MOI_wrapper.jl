@@ -388,7 +388,8 @@ function MOI.modify(
     ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}},
     chg::MOI.AbstractFunctionModification
 )
-    MOI.modify(model.optimizer, 
+    MOI.modify(
+        model.optimizer, 
             MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
             chg)
 end
