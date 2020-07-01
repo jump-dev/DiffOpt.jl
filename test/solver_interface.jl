@@ -1,12 +1,23 @@
 @testset "Linear tests" begin
     MOIT.contlineartest(diff_optimizer(GLPK.Optimizer), MOIT.TestConfig(basis = true), [
-        # This requires an infeasiblity certificate for a variable bound.
-        "linear12",
-        "linear15",  # refer https://github.com/AKS1996/DiffOpt.jl/issues/21
-        "linear5",   # refer https://github.com/AKS1996/DiffOpt.jl/issues/20
-        "linear10"  # refer https://github.com/AKS1996/DiffOpt.jl/issues/22
+        "partial_start",  # see below
+        "linear1",        # see below
+        "linear12",       # see below
+        "linear15",       # refer https://github.com/AKS1996/DiffOpt.jl/issues/21
+        "linear5",        # refer https://github.com/AKS1996/DiffOpt.jl/issues/20
+        "linear7",        # vector issues
+        "linear10"        # refer https://github.com/AKS1996/DiffOpt.jl/issues/22
     ])
-    MOIT.linear12test(diff_optimizer(Ipopt.Optimizer), MOIT.TestConfig(infeas_certificates=false))
+
+    MOIT.partial_start_test(
+        diff_optimizer(Ipopt.Optimizer),
+        MOIT.TestConfig(basis = true, optimal_status=MOI.LOCALLY_SOLVED, atol=ATOL, rtol=RTOL)
+    )
+
+    MOIT.linear1test(diff_optimizer(GLPK.Optimizer), MOIT.TestConfig(basis = true, modify_lhs=false))
+
+    # This requires an infeasiblity certificate for a variable bound.
+    MOIT.linear12test(diff_optimizer(GLPK.Optimizer), MOIT.TestConfig(infeas_certificates=false))
 end
 
 
