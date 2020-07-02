@@ -127,9 +127,10 @@ end
 end
 
 
-# TODO: differentiate this and compare with qpth
 @testset "Differentiating QP with inequality and equality constraints" begin
     # refered from: https://www.mathworks.com/help/optim/ug/quadprog.html#d120e113424
+    # Find equivalent qpth program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_4_py.ipynb
+
     Q = [1.0 -1.0 1.0; 
         -1.0  2.0 -2.0;
         1.0 -2.0 4.0]
@@ -190,6 +191,25 @@ end
     @test z ≈ [0.0; 0.5; 0.0] atol=ATOL rtol=RTOL
 
     grads = backward!(model, ["Q","q","G","h","A","b"], [1.0 1.0 1.0])
+
+    dl_dQ = grads[1]
+    dl_dq = grads[2]
+    dl_dG = grads[3]
+    dl_dh = grads[4]
+    dl_dA = grads[5]
+    dl_db = grads[6]
+
+    @test dl_dQ ≈ zeros(3,3)  atol=ATOL rtol=RTOL
+
+    @test dl_dq ≈ zeros(3,1) atol=ATOL rtol=RTOL
+
+    @test dl_dG ≈ zeros(6,3) atol=ATOL rtol=RTOL
+
+    @test dl_dh ≈ zeros(6,1) atol=ATOL rtol=RTOL
+
+    @test dl_dA ≈ [0.0 -0.5 0.0] atol=ATOL rtol=RTOL
+
+    @test dl_db ≈ [1.0] atol=ATOL rtol=RTOL
 end
 
 
@@ -289,14 +309,14 @@ end
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0,0.0], [x,y]), 0.0), 
         MOI.LessThan(0.0)
     )
-    @test vc1.value == x.value
+    @test vc1.value ≈ x.value atol=ATOL rtol=RTOL
 
     vc2 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0,-1.0], [x,y]), 0.0), 
         MOI.LessThan(0.0)
     )
-    @test vc2.value == y.value
+    @test vc2.value ≈ y.value atol=ATOL rtol=RTOL
 
 
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)

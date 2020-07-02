@@ -4,12 +4,14 @@ using Test
 using OSQP
 using Ipopt
 using Clp
+using Random
 using SCS
 using DelimitedFiles
 using GLPK
 
 const MOI = MathOptInterface;
 const MOIU = MathOptInterface.Utilities;
+const MOIT = MathOptInterface.Test
 
 const ATOL = 1e-4
 const RTOL = 1e-4
@@ -24,4 +26,8 @@ end
 
 @testset "Utility Methods" begin
     include("utils.jl")
+end
+
+@testset "Solver Interface" begin
+    include("solver_interface.jl")
 end
