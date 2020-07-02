@@ -30,6 +30,17 @@ const SUPPORTED_SCALAR_FUNCTIONS = Union{
     MOI.ScalarAffineFunction{Float64}
 }
 
+const SUPPORTED_VECTOR_FUNCTIONS = Union{
+    MOI.VectorAffineFunction{Float64}
+}
+
+const SUPPORTED_VECTOR_SETS = Union{
+    MOI.Zeros, 
+    MOI.Nonpositives,
+    MOI.Nonnegatives
+}
+
+
 function diff_optimizer(optimizer_constructor)::Optimizer 
     return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
 end
@@ -38,7 +49,7 @@ end
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
     primal_optimal::Array{Float64}  # solution
-    dual_optimal::Array{Float64}  
+    dual_optimal::Array{Union{Array{Float64}, Float64}}  # refer - https://github.com/AKS1996/DiffOpt.jl/issues/21#issuecomment-651130485
     var_idx::Vector{VI}
     con_idx::Vector{CI}
 
@@ -72,7 +83,7 @@ function MOI.add_constraint(model::Optimizer, f::SUPPORTED_SCALAR_FUNCTIONS, s::
 end
 
 # TODO: support more sets here
-function MOI.add_constraint(model::Optimizer, vf::MOI.VectorAffineFunction{Float64}, s::MOI.Zeros)
+function MOI.add_constraint(model::Optimizer, vf::MOI.VectorAffineFunction{Float64}, s::VS) where {VS <: SUPPORTED_VECTOR_SETS}
     ci = MOI.add_constraint(model.optimizer, vf, s)
     push!(model.con_idx, ci)   # adding it as a whole here; need to define a method to extract matrices
     return ci
@@ -272,7 +283,7 @@ end
 
 MOI.supports_constraint(::Optimizer, ::Type{MOI.SingleVariable}, ::Type{<: SUPPORTED_SCALAR_SETS}) = true
 MOI.supports_constraint(::Optimizer, ::Type{MOI.ScalarAffineFunction{Float64}}, ::Type{<: SUPPORTED_SCALAR_SETS}) = true
-MOI.supports_constraint(::Optimizer, ::Type{MOI.VectorAffineFunction{Float64}}, ::Type{MOI.Zeros}) = true
+MOI.supports_constraint(::Optimizer, ::Type{MOI.VectorAffineFunction{Float64}}, ::Type{<: SUPPORTED_VECTOR_SETS}) = true
 
 MOI.get(model::Optimizer, attr::MOI.SolveTime) = MOI.get(model.optimizer, attr)
 
@@ -325,6 +336,11 @@ function MOI.add_constraint(model::Optimizer, f::MOI.SingleVariable, s::SUPPORTE
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+    filter!(e -> e≠ci, model.con_idx)
+    MOI.delete(model.optimizer, ci) 
+end
+
+function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: MOI.VectorAffineFunction{Float64}, S <: SUPPORTED_VECTOR_SETS}
     filter!(e -> e≠ci, model.con_idx)
     MOI.delete(model.optimizer, ci) 
 end
@@ -396,5 +412,9 @@ function MOI.modify(
 end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+    MOI.modify(model.optimizer, ci, chg)
+end
+
+function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:MOI.VectorAffineFunction{Float64}, S <: SUPPORTED_VECTOR_SETS}
     MOI.modify(model.optimizer, ci, chg)
 end
