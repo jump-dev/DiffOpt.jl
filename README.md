@@ -12,23 +12,26 @@ DiffOpt can be installed through the Julia package manager:
 ```
 
 ## Usage
-Create a differentiable model from an existing `MathOptInterface.jl` model
+Create a differentiable model from [existing optimizers](https://www.juliaopt.org/JuMP.jl/stable/installation/)
 ```julia
     using DiffOpt
+    using GLPK
     
-    ...
+    diff = diff_optimizer(GLPK.Optimizer)
+```
+Update and solve the model 
+```julia
+    x = MOI.add_variables(diff, 2)
+    c = MOI.add_constraint(diff, ...)
     
-    diff = diff_model(model)
+    MOI.optimize!(diff)
 ```
-Solve the model with any of the [existing optimizers](https://www.juliaopt.org/JuMP.jl/stable/installation/)
+Finally differentiate the model (primal and dual variables specifically) to obtain product of jacobians with respect to problem parameters and a backward pass vector
 ```julia
-    ẑ = diff.forward()
-```
-Finally differentiate the model (primal and dual variables specifically) to obtain their jacobians with respect to problem data
-```julia
-    grads = diff.backward(["Q", "q", "h"])
+    grads = backward!(diff, ["Q", "q", "h"], [1.0 1.0])
 ```
 
 ## Note
 - Package developed using [PkgTemplates](https://github.com/invenia/PkgTemplates.jl)
 - This is a [NumFOCUS Google Summer of Code (2020) project](https://summerofcode.withgoogle.com/organizations/4727917315096576/?sp-page=2#5232064888045568)
+- Benchmarking with CVXPY or QPTH: Refer relevant examples as in [test/MOI_wrapper.jl](https://github.com/AKS1996/DiffOpt.jl/blob/master/test/MOI_wrapper.jl#L130)
