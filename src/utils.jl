@@ -133,3 +133,69 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     
     return Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx
 end
+
+
+"""
+    projection of vector `z` on MOI set `cone`
+"""
+function π(cone::MOI.AbstractVectorSet, z::Array{Float64})
+    if cone isa MOI.Zeros
+        return zeros(Float64, size(z))
+    elseif cone isa MOI.Nonnegatives
+        return max.(z,0.0)
+    elseif cone isa MOI.SecondOrderCone
+        t = z[1]
+        x = z[2:length(z)]
+        norm_x = norm(x)
+        if norm_x <= t
+            return copy(z)
+        elseif norm_x <= -t
+            return zeros(Float64, size(z))
+        else
+            result = zeros(Float64, size(z))
+            result[1] = 1.0
+            result[2:length(z)] = x / norm_x
+            result *= (norm_x + t) / 2.0
+            return result
+        end
+    end
+end
+
+"""
+    derivative of the projection of vector `z` on MOI set `cone`
+"""
+function Dπ(cone::MOI.AbstractVectorSet, z::Array{Float64})
+    if cone isa MOI.Zeros
+        return ones(Float64, size(z))
+    elseif cone isa MOI.Nonnegatives
+        return (sign.(z) .+ 1.0)/2
+    elseif cone isa MOI.SecondOrderCone
+        n = length(z)
+        t = z[1]
+        x = z[2:n]
+        norm_x = norm(x)
+        if norm_x <= t
+            return Matrix{Float64}(I,n,n)
+        elseif norm_x <= -t
+            return zeros(n,n)
+        else
+            result = [
+                norm_x     x';
+                x          (norm_x + t)*Matrix{Float64}(I,n-1,n-1) - (t/(norm_x^2))*(x*x')
+            ]
+            result /= (2.0 * norm_x)
+            return result
+        end
+    end
+end
+
+function Dπ(cones::Array{<:MOI.AbstractVectorSet}, z)
+    @assert length(cones) == length(z)
+    Ds = [Dπ(cones[i], z[i]) for i in 1:length(cones)]
+    for i in 1:length(Ds)
+        if length(size(Ds[i])) == 1 # only for arrays
+            Ds[i] = reshape(Ds[i], length(Ds[i]), 1)
+        end
+    end
+    return BlockDiagonal([ds for ds in Ds])
+end

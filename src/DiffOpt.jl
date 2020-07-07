@@ -3,6 +3,7 @@ module DiffOpt
 using Random
 using LinearAlgebra
 using MathOptInterface
+using BlockDiagonals
 
 const MOI = MathOptInterface;
 const MOIU = MathOptInterface.Utilities;
@@ -13,7 +14,7 @@ include("./moi_wrapper_methods.jl")
 include("./MOI_wrapper.jl")
 
 
-export diff_optimizer, Optimizer, backward!
+export diff_optimizer, Optimizer, backward!, backward_conic!
 export is_equality  # just for reference sake
 export generate_lp, generate_qp
 

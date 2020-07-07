@@ -532,3 +532,30 @@ end
                     0.0 0.0 0.0]   atol=ATOL rtol=RTOL
     @test grads[4] ≈ [0.0; 1/3; -1/3; 2/3; 0.0]   atol=ATOL rtol=RTOL
 end
+
+
+@testset "Differentiating simple SOCP" begin
+    # referred from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L789
+    # find equivalent diffcp python program here: https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_socp_1_py.ipynb
+
+    model = diff_optimizer(SCS.Optimizer)
+
+    x,y,t = MOI.add_variables(model, 3)
+
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0))
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    cnon = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(1.0, y))], [-1/√2]), MOI.Nonnegatives(1))
+    ceq  = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(-1.0, t))], [1.0]), MOI.Zeros(1))
+    csoc = MOI.add_constraint(model, MOI.VectorAffineFunction(MOI.VectorAffineTerm.([1,2,3], MOI.ScalarAffineTerm.(1.0, [t,x,y])), zeros(3)), MOI.SecondOrderCone(3))
+
+    MOI.optimize!(model)
+
+    grad_projection = backward_conic!(model)
+
+    @test grad_projection ≈ [1.          0.          0.          0.          0.        ;
+                   0.          1.          0.          0.          0.        ;
+                   0.          0.          0.5         0.35355328 -0.3535535 ;
+                   0.          0.          0.35355328  0.54289328  0.04289326;
+                   0.          0.         -0.3535535   0.04289326  0.54289323] atol=ATOL rtol=RTOL
+end
