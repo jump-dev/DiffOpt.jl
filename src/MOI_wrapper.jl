@@ -147,7 +147,7 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) w
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    return MOI.set(model.optimizer,attr,ci,f)
+    return MOI.set(model.optimizer, attr, ci, f)
 end
 
 
