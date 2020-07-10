@@ -449,7 +449,7 @@ end
 """
 function backward_conic!(model::Optimizer)
     if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
-        @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
+        # @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
         # MOIU.load_variables(model.optimizer.model.optimizer, nz)
         
         # for con in model.con_idx
@@ -496,9 +496,15 @@ function backward_conic!(model::Optimizer)
             -c'          -b'          zeros(1,1)
         ]
 
-        D_proj_dual_cone = Dπ(cones, v)
+        Dπv = Dπ(cones, v)
 
-        return D_proj_dual_cone
+        M = ((Q - Matrix{Float64}(I, size(Q))) * BlockDiagonal([Matrix{Float64}(I, length(u), length(u)), Dπv, Matrix{Float64}(I,1,1)])) + Matrix{Float64}(I, size(Q))
+
+        πz = vcat([u, π(cones, v), max.(w,0.0)]...)
+
+        # TODO: add derivative code
+
+        return Dπv
     else
         @error "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
     end    

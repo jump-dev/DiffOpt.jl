@@ -135,67 +135,99 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 end
 
 
+# find expression of projections on cones and their derivatives here:
+#   https://stanford.edu/~boyd/papers/pdf/cone_prog_refine.pdf
+
+
 """
-    projection of vector `z` on MOI set `cone`
+    projection of vector `z` on zero cone i.e. K = {0}
 """
-function π(cone::MOI.AbstractVectorSet, z::Array{Float64})
-    if cone isa MOI.Zeros
+function π(::MOI.Zeros, z::Array{Float64})
+    return zeros(Float64, size(z))
+end
+
+"""
+    projection of vector `z` on Nonnegative cone i.e. K = R+
+"""
+function π(::MOI.Nonnegatives, z::Array{Float64})
+    return max.(z,0.0)
+end
+
+"""
+    projection of vector `z` on second order cone i.e. K = {(t, x) ∈ R+ × Rn |  ||x|| ≤ t }
+"""
+function π(::MOI.SecondOrderCone, z::Array{Float64})
+    t = z[1]
+    x = z[2:length(z)]
+    norm_x = norm(x)
+    if norm_x <= t
+        return copy(z)
+    elseif norm_x <= -t
         return zeros(Float64, size(z))
-    elseif cone isa MOI.Nonnegatives
-        return max.(z,0.0)
-    elseif cone isa MOI.SecondOrderCone
-        t = z[1]
-        x = z[2:length(z)]
-        norm_x = norm(x)
-        if norm_x <= t
-            return copy(z)
-        elseif norm_x <= -t
-            return zeros(Float64, size(z))
-        else
-            result = zeros(Float64, size(z))
-            result[1] = 1.0
-            result[2:length(z)] = x / norm_x
-            result *= (norm_x + t) / 2.0
-            return result
-        end
+    else
+        result = zeros(Float64, size(z))
+        result[1] = 1.0
+        result[2:length(z)] = x / norm_x
+        result *= (norm_x + t) / 2.0
+        return result
     end
 end
 
 """
-    derivative of the projection of vector `z` on MOI set `cone`
+    Projection onto R^n x K^* x R_+
+    `cones` represents a convex cone K, and K^* is its dual cone
 """
-function Dπ(cone::MOI.AbstractVectorSet, z::Array{Float64})
-    if cone isa MOI.Zeros
-        return ones(Float64, size(z))
-    elseif cone isa MOI.Nonnegatives
-        return (sign.(z) .+ 1.0)/2
-    elseif cone isa MOI.SecondOrderCone
-        n = length(z)
-        t = z[1]
-        x = z[2:n]
-        norm_x = norm(x)
-        if norm_x <= t
-            return Matrix{Float64}(I,n,n)
-        elseif norm_x <= -t
-            return zeros(n,n)
-        else
-            result = [
-                norm_x     x';
-                x          (norm_x + t)*Matrix{Float64}(I,n-1,n-1) - (t/(norm_x^2))*(x*x')
-            ]
-            result /= (2.0 * norm_x)
-            return result
-        end
+function π(cones::Array{<:MOI.AbstractVectorSet}, z)
+    @assert length(cones) == length(z)
+    return vcat([π(cones[i], z[i]) for i in 1:length(cones)]...)
+end
+
+
+#  Derivative of the projection of vector `z` on MOI set `cone`
+#  Dπ[i,j] = ∂π[i] / ∂z[j]   where `π` denotes projection of `z` on `cone`
+
+"""
+    derivative of projection of vector `z` on zero cone i.e. K = {0}
+"""
+function Dπ(::MOI.Zeros, z::Array{Float64})
+    y = ones(Float64, size(z))
+    return reshape(y, length(y), 1)
+end
+
+"""
+    derivative of projection of vector `z` on Nonnegative cone i.e. K = R+
+"""
+function Dπ(::MOI.Nonnegatives, z::Array{Float64})
+    y = (sign.(z) .+ 1.0)/2
+    return reshape(y, length(y), 1)
+end
+
+"""
+    derivative of projection of vector `z` on second order cone i.e. K = {(t, x) ∈ R+ × Rn |  ||x|| ≤ t }
+"""
+function Dπ(::MOI.SecondOrderCone, z::Array{Float64})
+    n = length(z)
+    t = z[1]
+    x = z[2:n]
+    norm_x = norm(x)
+    if norm_x <= t
+        return Matrix{Float64}(I,n,n)
+    elseif norm_x <= -t
+        return zeros(n,n)
+    else
+        result = [
+            norm_x     x';
+            x          (norm_x + t)*Matrix{Float64}(I,n-1,n-1) - (t/(norm_x^2))*(x*x')
+        ]
+        result /= (2.0 * norm_x)
+        return result
     end
 end
 
+"""
+    derivative of projection of vector `z` on a product of cones
+"""
 function Dπ(cones::Array{<:MOI.AbstractVectorSet}, z)
     @assert length(cones) == length(z)
-    Ds = [Dπ(cones[i], z[i]) for i in 1:length(cones)]
-    for i in 1:length(Ds)
-        if length(size(Ds[i])) == 1 # only for arrays
-            Ds[i] = reshape(Ds[i], length(Ds[i]), 1)
-        end
-    end
-    return BlockDiagonal([ds for ds in Ds])
+    return BlockDiagonal([Dπ(cones[i], z[i]) for i in 1:length(cones)])
 end
