@@ -4,6 +4,7 @@ using Random
 using LinearAlgebra
 using MathOptInterface
 using BlockDiagonals
+using IterativeSolvers
 
 const MOI = MathOptInterface;
 const MOIU = MathOptInterface.Utilities;

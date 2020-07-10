@@ -447,7 +447,7 @@ end
 """
     Method to differentiate optimal solution `x`, `y`, `s`
 """
-function backward_conic!(model::Optimizer)
+function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
     if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
         # @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
         # MOIU.load_variables(model.optimizer.model.optimizer, nz)
@@ -502,9 +502,24 @@ function backward_conic!(model::Optimizer)
 
         πz = vcat([u, π(cones, v), max.(w,0.0)]...)
 
-        # TODO: add derivative code
+        dQ = [
+            zeros(n,n)    dA'          dc;
+            -dA           zeros(m,m)   db;
+            -dc'         -db'          zeros(1,1)
+        ]
 
-        return Dπv
+        RHS = dQ * πz
+        if norm(RHS) <= 1e-4
+            dz = zeros(Float64, size(RHS))
+        else
+            dz = lsqr(M, RHS)
+        end
+
+        du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
+        dx = du - x * dw
+        dy = Dπv * dv - vcat(y...) * dw
+        ds = Dπv * dv - dv - vcat(s...) * dw
+        return -dx, -dy, -ds
     else
         @error "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
     end    

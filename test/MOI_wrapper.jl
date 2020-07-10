@@ -545,17 +545,27 @@ end
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0))
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    cnon = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(1.0, y))], [-1/√2]), MOI.Nonnegatives(1))
     ceq  = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(-1.0, t))], [1.0]), MOI.Zeros(1))
+    cnon = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(1.0, y))], [-1/√2]), MOI.Nonnegatives(1))
     csoc = MOI.add_constraint(model, MOI.VectorAffineFunction(MOI.VectorAffineTerm.([1,2,3], MOI.ScalarAffineTerm.(1.0, [t,x,y])), zeros(3)), MOI.SecondOrderCone(3))
 
     MOI.optimize!(model)
 
-    grad_projection = backward_conic!(model)
+    x = model.primal_optimal
+    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
+    y = model.dual_optimal
 
-    @test grad_projection ≈ [1.          0.          0.          0.          0.        ;
-                   0.          1.          0.          0.          0.        ;
-                   0.          0.          0.5         0.35355328 -0.3535535 ;
-                   0.          0.          0.35355328  0.54289328  0.04289326;
-                   0.          0.         -0.3535535   0.04289326  0.54289323] atol=ATOL rtol=RTOL
+    @test x ≈ [-0.707107; 0.707107; 1.0] atol=ATOL rtol=RTOL
+    @test s ≈ [[3.58469e-18], [2.62755e-17], [1.0, -0.707107, 0.707107]] atol=ATOL rtol=RTOL
+    @test y ≈ [[1.41421], [1.0], [1.41421, 1.0, -1.0]] atol=ATOL rtol=RTOL
+
+    dA = Matrix{Float64}(I, 5, 3)
+    db = zeros(5)
+    dc = zeros(3)
+    
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
+
+    @test dx ≈ [1.12132144; 0.707107; 0.70710656] atol=ATOL rtol=RTOL
+    @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
+    @test dy ≈ [2.4142175;   5.00000557;  3.8284315;   1.414214;   -4.00000495] atol=ATOL rtol=RTOL
 end

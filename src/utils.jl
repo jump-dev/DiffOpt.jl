@@ -140,10 +140,10 @@ end
 
 
 """
-    projection of vector `z` on zero cone i.e. K = {0}
+    projection of vector `z` on zero cone i.e. K = {0} or its dual
 """
-function π(::MOI.Zeros, z::Array{Float64})
-    return zeros(Float64, size(z))
+function π(::MOI.Zeros, z::Array{Float64}, dual=true)
+    return dual ? z : zeros(Float64, size(z))
 end
 
 """
