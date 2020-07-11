@@ -336,7 +336,7 @@ function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
 end
 
 function MOI.set(model::Optimizer, ::MOI.VariablePrimalStart,
-                 vi::MOI.VariableIndex, value::Float64)
+                 vi::VI, value::Float64)
     MOI.set(model.optimizer, MOI.VariablePrimalStart(), vi, value)
 end
 
@@ -345,7 +345,7 @@ function MOI.supports(model::Optimizer, ::MOI.VariablePrimalStart,
     return MOI.supports(model.optimizer, MOI.VariablePrimalStart(), MOI.VariableIndex)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::MOI.VariableIndex)
+function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::VI)
     MOI.check_result_index_bounds(model.optimizer, attr)
     return MOI.get(model.optimizer, attr, vi)
 end
@@ -370,7 +370,7 @@ function MOI.get(model::Optimizer, ::MOI.ConstraintPrimal, ci::CI{F,S}) where {F
     return MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci)
 end
 
-function MOI.get(model::DiffOpt.Optimizer, ::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
+function MOI.get(model::Optimizer, ::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
     return MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci)
 end
 
@@ -523,4 +523,34 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
     else
         @error "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
     end    
+end
+
+MOI.supports(::Optimizer, ::MOI.VariableName, ::Type{MOI.VariableIndex}) = true
+
+function MOI.get(model::Optimizer, ::MOI.VariableName, v::VI)
+    return MOI.get(model.optimizer, MOI.VariableName(), v)
+end
+
+function MOI.set(model::Optimizer, ::MOI.VariableName, v::VI, name::String)
+    MOI.set(model.optimizer, MOI.VariableName(), v, name)
+end
+
+function MOI.get(model::Optimizer, ::Type{MOI.VariableIndex}, name::String)
+    return MOI.get(model.optimizer, MOI.VariableIndex, name)
+end
+
+function MOI.set(model::Optimizer, ::MOI.ConstraintName, con::CI, name::String)
+    MOI.set(model.optimizer, MOI.ConstraintName(), con, name)
+end
+
+function MOI.get(model::Optimizer, ::Type{MOI.ConstraintIndex}, name::String)
+    return MOI.get(model.optimizer, MOI.ConstraintIndex, name)
+end
+
+function MOI.get(model::Optimizer, ::MOI.ConstraintName, con::CI)
+    return MOI.get(model.optimizer, MOI.ConstraintName(), con)
+end
+
+function MOI.set(model::Optimizer, ::MOI.Name, name::String)
+    MOI.set(model.optimizer, MOI.Name(), name)
 end

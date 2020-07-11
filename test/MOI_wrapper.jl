@@ -571,3 +571,36 @@ end
     @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
     @test dy ≈ [2.4142175;   5.00000557;  3.8284315;   1.414214;   -4.00000495] atol=ATOL rtol=RTOL
 end
+
+
+@testset "ModelLike" begin
+    for opt in [GLPK.Optimizer]
+        MODEL = diff_optimizer(opt)
+        @testset "default_objective_test" begin
+            MOIT.default_objective_test(MODEL)
+        end
+        @testset "default_status_test" begin
+            MOIT.default_status_test(MODEL)
+        end
+#         @testset "nametest" begin
+#             MOIT.nametest(MODEL)
+#         end
+        @testset "validtest" begin
+            MOIT.validtest(MODEL)
+        end
+        @testset "emptytest" begin
+            # Requires VectorOfVariables
+            # MOIT.emptytest(MODEL)
+        end
+        @testset "orderedindicestest" begin
+            MOIT.orderedindicestest(MODEL)
+        end
+        @testset "copytest" begin
+            # Requires VectorOfVariables
+#             MOIT.copytest(MODEL, MOIU.CachingOptimizer(
+#                 diff_optimizer(GLPK.Optimizer),
+#                 GLPK.Optimizer()
+#             ))
+        end
+    end
+end
