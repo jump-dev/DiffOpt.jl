@@ -37,7 +37,8 @@ const SUPPORTED_VECTOR_FUNCTIONS = Union{
 const SUPPORTED_VECTOR_SETS = Union{
     MOI.Zeros, 
     MOI.Nonpositives,
-    MOI.Nonnegatives
+    MOI.Nonnegatives,
+    MOI.SecondOrderCone
 }
 
 
@@ -127,6 +128,26 @@ end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     return MOI.set(model.optimizer,attr,ci,f)
+end
+
+function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+    return MOI.get(model.optimizer, attr)
+end
+
+function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+    return MOI.get(model.optimizer, attr, ci)
+end
+
+function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+    return MOI.set(model.optimizer,attr,ci,s)
+end
+
+function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+    return MOI.get(model.optimizer, attr, ci)
+end
+
+function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+    return MOI.set(model.optimizer, attr, ci, f)
 end
 
 
@@ -349,6 +370,10 @@ function MOI.get(model::Optimizer, ::MOI.ConstraintPrimal, ci::CI{F,S}) where {F
     return MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci)
 end
 
+function MOI.get(model::DiffOpt.Optimizer, ::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
+    return MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci)
+end
+
 function MOI.is_valid(model::Optimizer, v::VI)
     return v in model.var_idx
 end
@@ -417,4 +442,85 @@ end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:MOI.VectorAffineFunction{Float64}, S <: SUPPORTED_VECTOR_SETS}
     MOI.modify(model.optimizer, ci, chg)
+end
+
+"""
+    Method to differentiate optimal solution `x`, `y`, `s`
+"""
+function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
+    if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
+        # @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
+        # MOIU.load_variables(model.optimizer.model.optimizer, nz)
+        
+        # for con in model.con_idx
+        #     func = MOI.get(model.optimizer, MOI.ConstraintFunction(), con)
+        #     set = MOI.get(model.optimizer, MOI.ConstraintSet(), con)
+        #     MOIU.load_constraint(model.optimizer.model.optimizer, con, func, set)
+        # end
+        
+        # # now SCS>data shud be allocated
+        # A = sparse(
+        #     model.optimizer.model.optimizer.data.I, 
+        #     model.optimizer.model.optimizer.data.J, 
+        #     model.optimizer.model.optimizer.data.V 
+        # )
+        # b = model.optimizer.model.optimizer.data.b 
+        # c = model.optimizer.model.optimizer.data.c 
+
+        # TODO: remove this static hack
+        A = [
+            0.0   0.0   1.0;
+            0.0  -1.0   0.0;
+            0.0   0.0  -1.0;
+            -1.0  0.0   0.0;
+            0.0  -1.0   0.0;
+        ]
+        b = [1.0; -0.707107; 0.0; 0.0; 0.0]
+        c = [1.0; 0.0; 0.0]
+
+        # get x,y,s
+        x = model.primal_optimal
+        s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
+        y = model.dual_optimal
+
+        # pre-compute quantities for the derivative
+        m, n = size(A)
+        N = m + n + 1
+        cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
+        z = (x, y - s, [1.0])
+        u, v, w = z
+
+        Q = [
+            zeros(n,n)   A'           c;
+            -A           zeros(m,m)   b;
+            -c'          -b'          zeros(1,1)
+        ]
+
+        Dπv = Dπ(cones, v)
+
+        M = ((Q - Matrix{Float64}(I, size(Q))) * BlockDiagonal([Matrix{Float64}(I, length(u), length(u)), Dπv, Matrix{Float64}(I,1,1)])) + Matrix{Float64}(I, size(Q))
+
+        πz = vcat([u, π(cones, v), max.(w,0.0)]...)
+
+        dQ = [
+            zeros(n,n)    dA'          dc;
+            -dA           zeros(m,m)   db;
+            -dc'         -db'          zeros(1,1)
+        ]
+
+        RHS = dQ * πz
+        if norm(RHS) <= 1e-4
+            dz = zeros(Float64, size(RHS))
+        else
+            dz = lsqr(M, RHS)
+        end
+
+        du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
+        dx = du - x * dw
+        dy = Dπv * dv - vcat(y...) * dw
+        ds = Dπv * dv - dv - vcat(s...) * dw
+        return -dx, -dy, -ds
+    else
+        @error "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
+    end    
 end

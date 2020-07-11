@@ -6,6 +6,7 @@ using Ipopt
 using Clp
 using Random
 using SCS
+using LinearAlgebra
 using DelimitedFiles
 using GLPK
 
