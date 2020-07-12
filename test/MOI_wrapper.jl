@@ -582,25 +582,24 @@ end
         @testset "default_status_test" begin
             MOIT.default_status_test(MODEL)
         end
-#         @testset "nametest" begin
-#             MOIT.nametest(MODEL)
-#         end
+        @testset "nametest" begin
+            MOIT.nametest(MODEL)
+        end
         @testset "validtest" begin
             MOIT.validtest(MODEL)
         end
         @testset "emptytest" begin
-            # Requires VectorOfVariables
-            # MOIT.emptytest(MODEL)
+            MOIT.emptytest(MODEL)
         end
         @testset "orderedindicestest" begin
             MOIT.orderedindicestest(MODEL)
         end
         @testset "copytest" begin
             # Requires VectorOfVariables
-#             MOIT.copytest(MODEL, MOIU.CachingOptimizer(
-#                 diff_optimizer(GLPK.Optimizer),
-#                 GLPK.Optimizer()
-#             ))
+            # MOIT.copytest(MODEL, MOIU.CachingOptimizer(
+            #     diff_optimizer(GLPK.Optimizer),
+            #     GLPK.Optimizer()
+            # ))
         end
     end
 end
