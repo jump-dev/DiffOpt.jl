@@ -356,17 +356,17 @@ function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_
     MOI.delete(model.optimizer, ci) 
 end
 
-function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: MOI.VectorAffineFunction{Float64}, S <: SUPPORTED_VECTOR_SETS}
+function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
     filter!(e -> e≠ci, model.con_idx)
     MOI.delete(model.optimizer, ci) 
 end
 
-function MOI.get(model::Optimizer, ::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    return MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci)
+function MOI.get(model::Optimizer, attr::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+    return MOI.get(model.optimizer, attr, ci)
 end
 
-function MOI.get(model::Optimizer, ::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
-    return MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci)
+function MOI.get(model::Optimizer, attr::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
+    return MOI.get(model.optimizer, attr, ci)
 end
 
 function MOI.is_valid(model::Optimizer, v::VI)
@@ -377,8 +377,12 @@ function MOI.is_valid(model::Optimizer, con::CI)
     return con in model.con_idx
 end
 
-function MOI.get(model::Optimizer, ::MOI.ConstraintDual, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    return MOI.get(model.optimizer, MOI.ConstraintDual(), ci)
+function MOI.get(model::Optimizer, attr::MOI.ConstraintDual, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+    return MOI.get(model.optimizer, attr, ci)
+end
+
+function MOI.get(model::Optimizer, attr::MOI.ConstraintDual, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
+    return MOI.get(model.optimizer, attr, ci)
 end
 
 function MOI.get(model::Optimizer, ::MOI.ConstraintBasisStatus, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
@@ -391,8 +395,7 @@ function _constraint_contains(model::Optimizer, v::VI, ci::CI{F,S}) where {F <: 
     if func isa MOI.SingleVariable
         return v == func.variable
     elseif func isa MOI.ScalarAffineFunction{Float64}
-        indices = [term.variable_index for term in func.terms]
-        return v in indices
+        return any(term -> v == term.variable_index, func.terms)
     end
     return false   # default
 end
@@ -402,8 +405,7 @@ function _constraint_contains(model::Optimizer, v::VI, ci::CI{F,S}) where {F <: 
     if func isa MOI.VectorOfVariables
         return v in func.variables
     elseif func isa MOI.VectorAffineFunction{Float64}
-        indices = [x.scalar_term.variable_index for x in func.terms]
-        return v in indices
+        return any(term -> v == term.scalar_term.variable_index, func.terms)
     end
     return false   # default
 end
@@ -571,4 +573,26 @@ end
 
 function MOI.get(model::Optimizer, ::Type{CI{VF, VS}}, name::String) where {VF<:SUPPORTED_VECTOR_FUNCTIONS, VS<:SUPPORTED_VECTOR_SETS}
     return MOI.get(model.optimizer, CI{VF,VS}, name)
+end
+
+MOI.supports(::Optimizer, ::MOI.TimeLimitSec) = true
+function MOI.set(model::Optimizer, ::MOI.TimeLimitSec, value::Union{Real, Nothing})
+    MOI.set(model.optimizer, MOI.TimeLimitSec(), value)
+end
+function MOI.get(model::Optimizer, ::MOI.TimeLimitSec)
+    return MOI.get(model.optimizer, MOI.TimeLimitSec())
+end
+
+MOI.supports(model::Optimizer, ::MOI.Silent) = MOI.supports(model.optimizer, MOI.Silent())
+
+function MOI.set(model::Optimizer, ::MOI.Silent, value)
+    MOI.set(model.optimizer, MOI.Silent(), value)
+end
+
+function MOI.get(model::Optimizer, ::MOI.Silent)
+    return MOI.get(model.optimizer, MOI.Silent())
+end
+
+function MOI.get(model::Optimizer, ::MOI.SolverName)
+    return MOI.get(model.optimizer, MOI.SolverName())
 end

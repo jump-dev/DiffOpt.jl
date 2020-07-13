@@ -603,3 +603,27 @@ end
         end
     end
 end
+
+
+@testset "Unit" begin
+    MOIT.unittest(diff_optimizer(GLPK.Optimizer), MOIT.TestConfig(), [
+        "number_threads", # might not work on all solvers
+            
+        # not testing integer constraints
+        "solve_zero_one_with_bounds_1",  
+        "solve_zero_one_with_bounds_2",
+        "solve_zero_one_with_bounds_3",  
+        "solve_integer_edge_cases",  
+            
+        "delete_soc_variables", 
+        "solve_qcp_edge_cases",  # currently only affine or conic constraints
+        "solve_objbound_edge_cases",
+        "solve_qp_edge_cases",  # No quadratics
+        "update_dimension_nonnegative_variables", # TODO: fix this
+
+        # see below
+        "solve_duplicate_terms_vector_affine"
+    ])
+
+    MOIT.solve_duplicate_terms_obj(diff_optimizer(SCS.Optimizer), MOIT.TestConfig())
+end
