@@ -389,26 +389,27 @@ function MOI.get(model::Optimizer, ::MOI.ConstraintBasisStatus, ci::CI{F,S}) whe
     return MOI.get(model.optimizer, MOI.ConstraintBasisStatus(), ci)
 end
 
-# helper method to check if a constraint contains a Variable
-function _constraint_contains(model::Optimizer, v::VI, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+# helper methods to check if a constraint contains a Variable
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.SingleVariable, S}) where {S <: SUPPORTED_SCALAR_SETS}
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
-    if func isa MOI.SingleVariable
-        return v == func.variable
-    elseif func isa MOI.ScalarAffineFunction{Float64}
-        return any(term -> v == term.variable_index, func.terms)
-    end
-    return false   # default
+    return v == func.variable
 end
 
-function _constraint_contains(model::Optimizer, v::VI, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.ScalarAffineFunction{Float64}, S}) where {S <: SUPPORTED_SCALAR_SETS}
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
-    if func isa MOI.VectorOfVariables
-        return v in func.variables
-    elseif func isa MOI.VectorAffineFunction{Float64}
-        return any(term -> v == term.scalar_term.variable_index, func.terms)
-    end
-    return false   # default
+    return any(term -> v == term.variable_index, func.terms)
 end
+
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VectorOfVariables, S}) where {S <: SUPPORTED_VECTOR_SETS}
+    func = MOI.get(model, MOI.ConstraintFunction(), ci)
+    return v in func.variables
+end
+
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VectorAffineFunction{Float64}, S}) where {S <: SUPPORTED_VECTOR_SETS}
+    func = MOI.get(model, MOI.ConstraintFunction(), ci)
+    return any(term -> v == term.scalar_term.variable_index, func.terms)
+end
+
 
 function MOI.delete(model::Optimizer, v::VI)
     # remove those constraints that depend on this Variable
