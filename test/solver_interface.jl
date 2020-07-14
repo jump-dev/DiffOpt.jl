@@ -58,3 +58,78 @@ end
     func = MOI.get(model, MOI.ConstraintFunction(), model.con_idx[1])
     @test func.variable == y
 end
+
+@testset "ModelLike" begin
+    for opt in [GLPK.Optimizer]
+        MODEL = diff_optimizer(opt)
+        @testset "default_objective_test" begin
+            MOIT.default_objective_test(MODEL)
+        end
+        @testset "default_status_test" begin
+            MOIT.default_status_test(MODEL)
+        end
+        @testset "nametest" begin
+            MOIT.nametest(MODEL)
+        end
+        @testset "validtest" begin
+            MOIT.validtest(MODEL)
+        end
+        @testset "emptytest" begin
+            MOIT.emptytest(MODEL)
+        end
+        @testset "orderedindicestest" begin
+            MOIT.orderedindicestest(MODEL)
+        end
+        @testset "copytest" begin
+            # Requires VectorOfVariables
+            # MOIT.copytest(MODEL, MOIU.CachingOptimizer(
+            #     diff_optimizer(GLPK.Optimizer),
+            #     GLPK.Optimizer()
+            # ))
+        end
+    end
+end
+
+
+@testset "Unit" begin
+    MOIT.unittest(diff_optimizer(GLPK.Optimizer), MOIT.TestConfig(), [
+        "number_threads", # might not work on all solvers
+            
+        # not testing integer constraints
+        "solve_zero_one_with_bounds_1",  
+        "solve_zero_one_with_bounds_2",
+        "solve_zero_one_with_bounds_3",  
+        "solve_integer_edge_cases",  
+            
+        "delete_soc_variables", 
+        "solve_qcp_edge_cases",  # currently only affine or conic constraints
+        "solve_objbound_edge_cases",
+        "solve_qp_edge_cases",  # No quadratics
+        "update_dimension_nonnegative_variables", # TODO: fix this
+
+        # see below
+        "solve_duplicate_terms_vector_affine"
+    ])
+
+    MOIT.solve_duplicate_terms_obj(diff_optimizer(SCS.Optimizer), MOIT.TestConfig())
+end
+
+@testset "basic_constraint_tests" begin
+    # it contains SOCP constraints
+    MOIT.basic_constraint_tests(diff_optimizer(SCS.Optimizer), MOIT.TestConfig())
+end
+
+@testset "contconic.jl tests" begin
+    MODEL = diff_optimizer(SCS.Optimizer)
+
+    # linear tests
+    for (name, test) in MOI.Test.lintests
+        test(MODEL, MOIT.TestConfig())
+    end
+
+    CONFIG_LOW_TOL = MOIT.TestConfig(atol = 1e-3, rtol = 1e-2, duals = false, infeas_certificates = false)
+    # SOCP tests
+    for (name, test) in MOI.Test.soctests
+        test(MODEL, CONFIG_LOW_TOL)
+    end
+end
