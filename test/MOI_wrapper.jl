@@ -370,7 +370,7 @@ end
     neq = 10
 
     # read matrices from files
-    names = ["Q", "q", "G", "h", "A", "b"]
+    names = ["P", "q", "G", "h", "A", "b"]
     matrices = []
 
     for name in names
@@ -419,7 +419,7 @@ end
     grads = backward!(optimizer, names, ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
 
     # read gradients from files
-    names = ["dQ", "dq", "dG", "dh", "dA", "db"]
+    names = ["dP", "dq", "dG", "dh", "dA", "db"]
     grads_actual = []
 
     for name in names
