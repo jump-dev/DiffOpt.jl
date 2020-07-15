@@ -32,7 +32,7 @@ const SUPPORTED_SCALAR_FUNCTIONS = Union{
 
 const SUPPORTED_VECTOR_FUNCTIONS = Union{
     MOI.VectorOfVariables,
-    MOI.VectorAffineFunction{Float64}
+    MOI.VectorAffineFunction{Float64},
 }
 
 const SUPPORTED_VECTOR_SETS = Union{
