@@ -17,18 +17,18 @@ const MOIT = MathOptInterface.Test
 const ATOL = 1e-4
 const RTOL = 1e-4
 
-# @testset "Generate random problems" begin
-#     include("gen_random_problem.jl")
-# end
+@testset "Generate random problems" begin
+    include("gen_random_problem.jl")
+end
 
 @testset "MOI_wrapper" begin
     include("MOI_wrapper.jl")
 end
 
-# @testset "Utility Methods" begin
-#     include("utils.jl")
-# end
+@testset "Utility Methods" begin
+    include("utils.jl")
+end
 
-# @testset "Solver Interface" begin
-#     include("solver_interface.jl")
-# end
+@testset "Solver Interface" begin
+    include("solver_interface.jl")
+end
