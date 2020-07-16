@@ -352,12 +352,12 @@ function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::VI)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    filter!(e -> e≠ci, model.con_idx)
+    filter!((≠ci), model.con_idx)
     MOI.delete(model.optimizer, ci) 
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
-    filter!(e -> e≠ci, model.con_idx)
+    filter!((≠ci), model.con_idx)
     MOI.delete(model.optimizer, ci) 
 end
 
