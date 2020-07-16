@@ -88,43 +88,43 @@ end
 end
 
 
-@testset "Differentiating a non-convex QP" begin
-    Q = [0.0 0.0; 1.0 2.0]
-    q = [1.0; 1.0]
-    G = [1.0 1.0;]
-    h = [-1.0;]
+# @testset "Differentiating a non-convex QP" begin
+#     Q = [0.0 0.0; 1.0 2.0]
+#     q = [1.0; 1.0]
+#     G = [1.0 1.0;]
+#     h = [-1.0;]
 
-    model = diff_optimizer(OSQP.Optimizer)
-    x = MOI.add_variables(model, 2)
+#     model = diff_optimizer(OSQP.Optimizer)
+#     x = MOI.add_variables(model, 2)
 
-    # define objective
-    quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
-    for i in 1:2
-        for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
-            push!(
-                quad_terms, 
-                MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j]),
-            )
-        end
-    end
+#     # define objective
+#     quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
+#     for i in 1:2
+#         for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
+#             push!(
+#                 quad_terms, 
+#                 MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j]),
+#             )
+#         end
+#     end
 
-    objective_function = MOI.ScalarQuadraticFunction(
-                            MOI.ScalarAffineTerm.(q, x),
-                            quad_terms,
-                            0.0,
-                        )
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+#     objective_function = MOI.ScalarQuadraticFunction(
+#                             MOI.ScalarAffineTerm.(q, x),
+#                             quad_terms,
+#                             0.0,
+#                         )
+#     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+#     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    # add constraint
-    MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
-        MOI.LessThan(h[1]),
-    )
+#     # add constraint
+#     MOI.add_constraint(
+#         model,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
+#         MOI.LessThan(h[1]),
+#     )
 
-    @test_throws ErrorException MOI.optimize!(model) # should break
-end
+#     @test_throws ErrorException MOI.optimize!(model) # should break
+# end
 
 
 @testset "Differentiating QP with inequality and equality constraints" begin
@@ -370,11 +370,11 @@ end
     neq = 10
 
     # read matrices from files
-    names = ["Q", "q", "G", "h", "A", "b"]
+    names = ["P", "q", "G", "h", "A", "b"]
     matrices = []
 
     for name in names
-        push!(matrices, readdlm("../data/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+        push!(matrices, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("data",name*".txt")), ' ', Float64, '\n'))
     end
         
     Q, q, G, h, A, b = matrices
@@ -416,14 +416,14 @@ end
     MOI.optimize!(optimizer)
 
     # obtain gradients
-    grads = backward!(optimizer, names, ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(optimizer, ["Q", "q", "G", "h", "A", "b"], ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
 
     # read gradients from files
-    names = ["dQ", "dq", "dG", "dh", "dA", "db"]
+    names = ["dP", "dq", "dG", "dh", "dA", "db"]
     grads_actual = []
 
     for name in names
-        push!(grads_actual, readdlm("../data/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+        push!(grads_actual, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("data",name*".txt")), ' ', Float64, '\n'))
     end
 
     grads_actual[2] = vec(grads_actual[2])
