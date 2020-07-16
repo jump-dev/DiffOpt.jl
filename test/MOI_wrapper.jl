@@ -1,95 +1,50 @@
-@testset "Testing forward on trivial QP" begin
-    # using example on https://osqp.org/docs/examples/setup-and-solve.html
-    Q = [4.0 1.0; 1.0 2.0]
-    q = [1.0; 1.0]
-    G = [1.0 1.0; 1.0 0.0; 0.0 1.0; -1.0 -1.0; -1.0 0.0; 0.0 -1.0]
-    h = [1.0; 0.7; 0.7; -1.0; 0.0; 0.0];
+# @testset "Testing forward on trivial QP" begin
+#     # using example on https://osqp.org/docs/examples/setup-and-solve.html
+#     Q = [4.0 1.0; 1.0 2.0]
+#     q = [1.0; 1.0]
+#     G = [1.0 1.0; 1.0 0.0; 0.0 1.0; -1.0 -1.0; -1.0 0.0; 0.0 -1.0]
+#     h = [1.0; 0.7; 0.7; -1.0; 0.0; 0.0];
 
-    model = diff_optimizer(Ipopt.Optimizer)
-    x = MOI.add_variables(model, 2)
+#     model = diff_optimizer(Ipopt.Optimizer)
+#     x = MOI.add_variables(model, 2)
 
-    # define objective
-    quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
-    for i in 1:2
-        for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
-            push!(
-                quad_terms, 
-                MOI.ScalarQuadraticTerm(Q[i,j],x[i],x[j])
-            )
-        end
-    end
+#     # define objective
+#     quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
+#     for i in 1:2
+#         for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
+#             push!(
+#                 quad_terms, 
+#                 MOI.ScalarQuadraticTerm(Q[i,j],x[i],x[j])
+#             )
+#         end
+#     end
 
-    objective_function = MOI.ScalarQuadraticFunction(
-                            MOI.ScalarAffineTerm.(q, x),
-                            quad_terms,
-                            0.0
-                        )
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+#     objective_function = MOI.ScalarQuadraticFunction(
+#                             MOI.ScalarAffineTerm.(q, x),
+#                             quad_terms,
+#                             0.0
+#                         )
+#     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+#     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    # add constraints
-    for i in 1:6
-        MOI.add_constraint(
-            model,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.0),
-            MOI.LessThan(h[i])
-        )
-    end
+#     # add constraints
+#     for i in 1:6
+#         MOI.add_constraint(
+#             model,
+#             MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.0),
+#             MOI.LessThan(h[i])
+#         )
+#     end
 
-    MOI.optimize!(model)
+#     MOI.optimize!(model)
     
-    @test model.primal_optimal ≈ [0.3; 0.7] atol=ATOL rtol=RTOL
-end
+#     @test model.primal_optimal ≈ [0.3; 0.7] atol=ATOL rtol=RTOL
+# end
 
 
 
-@testset "Differentiating trivial QP 1" begin
-    Q = [4.0 1.0; 1.0 2.0]
-    q = [1.0; 1.0]
-    G = [1.0 1.0;]
-    h = [-1.0;]
-
-    model = diff_optimizer(OSQP.Optimizer)
-    x = MOI.add_variables(model, 2)
-
-    # define objective
-    quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
-    for i in 1:2
-        for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
-            push!(
-                quad_terms, 
-                MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j])
-            )
-        end
-    end
-
-    objective_function = MOI.ScalarQuadraticFunction(
-                            MOI.ScalarAffineTerm.(q, x),
-                            quad_terms,
-                            0.0
-                        )
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-
-    # add constraint
-    MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
-        MOI.LessThan(h[1])
-    )
-
-    MOI.optimize!(model)
-    
-    @test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
-
-    grad_wrt_h = backward!(model, ["h"], [1.0 1.0])[1]
-
-    @test grad_wrt_h ≈ [1.0] atol=ATOL rtol=RTOL
-end
-
-
-# @testset "Differentiating a non-convex QP" begin
-#     Q = [0.0 0.0; 1.0 2.0]
+# @testset "Differentiating trivial QP 1" begin
+#     Q = [4.0 1.0; 1.0 2.0]
 #     q = [1.0; 1.0]
 #     G = [1.0 1.0;]
 #     h = [-1.0;]
@@ -103,7 +58,7 @@ end
 #         for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
 #             push!(
 #                 quad_terms, 
-#                 MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j]),
+#                 MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j])
 #             )
 #         end
 #     end
@@ -111,7 +66,7 @@ end
 #     objective_function = MOI.ScalarQuadraticFunction(
 #                             MOI.ScalarAffineTerm.(q, x),
 #                             quad_terms,
-#                             0.0,
+#                             0.0
 #                         )
 #     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
 #     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
@@ -120,248 +75,293 @@ end
 #     MOI.add_constraint(
 #         model,
 #         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
-#         MOI.LessThan(h[1]),
+#         MOI.LessThan(h[1])
 #     )
 
-#     @test_throws ErrorException MOI.optimize!(model) # should break
+#     MOI.optimize!(model)
+    
+#     @test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
+
+#     grad_wrt_h = backward!(model, ["h"], [1.0 1.0])[1]
+
+#     @test grad_wrt_h ≈ [1.0] atol=ATOL rtol=RTOL
 # end
 
 
-@testset "Differentiating QP with inequality and equality constraints" begin
-    # refered from: https://www.mathworks.com/help/optim/ug/quadprog.html#d120e113424
-    # Find equivalent qpth program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_4_py.ipynb
+# # @testset "Differentiating a non-convex QP" begin
+# #     Q = [0.0 0.0; 1.0 2.0]
+# #     q = [1.0; 1.0]
+# #     G = [1.0 1.0;]
+# #     h = [-1.0;]
 
-    Q = [1.0 -1.0 1.0; 
-        -1.0  2.0 -2.0;
-        1.0 -2.0 4.0]
-    q = [2.0; -3.0; 1.0]
-    G = [0.0 0.0 1.0;
-         0.0 1.0 0.0;
-         1.0 0.0 0.0;
-         0.0 0.0 -1.0;
-         0.0 -1.0 0.0;
-         -1.0 0.0 0.0;]
-    h = [1.0; 1.0; 1.0; 0.0; 0.0; 0.0;]
-    A = [1.0 1.0 1.0;]
-    b = [0.5;]
+# #     model = diff_optimizer(OSQP.Optimizer)
+# #     x = MOI.add_variables(model, 2)
 
-    model = diff_optimizer(Ipopt.Optimizer)
-    x = MOI.add_variables(model, 3)
+# #     # define objective
+# #     quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
+# #     for i in 1:2
+# #         for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
+# #             push!(
+# #                 quad_terms, 
+# #                 MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j]),
+# #             )
+# #         end
+# #     end
 
-    # define objective
-    quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
-    for i in 1:3
-        for j in i:3 # indexes (i,j), (j,i) will be mirrored. specify only one kind
-            push!(
-                quad_terms, 
-                MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j])
-            )
-        end
-    end
+# #     objective_function = MOI.ScalarQuadraticFunction(
+# #                             MOI.ScalarAffineTerm.(q, x),
+# #                             quad_terms,
+# #                             0.0,
+# #                         )
+# #     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+# #     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    objective_function = MOI.ScalarQuadraticFunction(
-                            MOI.ScalarAffineTerm.(q, x),
-                            quad_terms,
-                            0.0
-                        )
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+# #     # add constraint
+# #     MOI.add_constraint(
+# #         model,
+# #         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
+# #         MOI.LessThan(h[1]),
+# #     )
 
-    # add constraint
-    for i in 1:6
-        MOI.add_constraint(
-            model,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i, :], x), 0.0),
-            MOI.LessThan(h[i])
-        )
-    end
+# #     @test_throws ErrorException MOI.optimize!(model) # should break
+# # end
 
-    for i in 1:1
-        MOI.add_constraint(
-            model,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0),
-            MOI.EqualTo(b[i])
-        )
-    end
 
-    MOI.optimize!(model)
+# @testset "Differentiating QP with inequality and equality constraints" begin
+#     # refered from: https://www.mathworks.com/help/optim/ug/quadprog.html#d120e113424
+#     # Find equivalent qpth program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_4_py.ipynb
 
-    z = model.primal_optimal
+#     Q = [1.0 -1.0 1.0; 
+#         -1.0  2.0 -2.0;
+#         1.0 -2.0 4.0]
+#     q = [2.0; -3.0; 1.0]
+#     G = [0.0 0.0 1.0;
+#          0.0 1.0 0.0;
+#          1.0 0.0 0.0;
+#          0.0 0.0 -1.0;
+#          0.0 -1.0 0.0;
+#          -1.0 0.0 0.0;]
+#     h = [1.0; 1.0; 1.0; 0.0; 0.0; 0.0;]
+#     A = [1.0 1.0 1.0;]
+#     b = [0.5;]
+
+#     model = diff_optimizer(Ipopt.Optimizer)
+#     x = MOI.add_variables(model, 3)
+
+#     # define objective
+#     quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
+#     for i in 1:3
+#         for j in i:3 # indexes (i,j), (j,i) will be mirrored. specify only one kind
+#             push!(
+#                 quad_terms, 
+#                 MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j])
+#             )
+#         end
+#     end
+
+#     objective_function = MOI.ScalarQuadraticFunction(
+#                             MOI.ScalarAffineTerm.(q, x),
+#                             quad_terms,
+#                             0.0
+#                         )
+#     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+#     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+#     # add constraint
+#     for i in 1:6
+#         MOI.add_constraint(
+#             model,
+#             MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i, :], x), 0.0),
+#             MOI.LessThan(h[i])
+#         )
+#     end
+
+#     for i in 1:1
+#         MOI.add_constraint(
+#             model,
+#             MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0),
+#             MOI.EqualTo(b[i])
+#         )
+#     end
+
+#     MOI.optimize!(model)
+
+#     z = model.primal_optimal
     
-    @test z ≈ [0.0; 0.5; 0.0] atol=ATOL rtol=RTOL
+#     @test z ≈ [0.0; 0.5; 0.0] atol=ATOL rtol=RTOL
 
-    grads = backward!(model, ["Q","q","G","h","A","b"], [1.0 1.0 1.0])
+#     grads = backward!(model, ["Q","q","G","h","A","b"], [1.0 1.0 1.0])
 
-    dl_dQ = grads[1]
-    dl_dq = grads[2]
-    dl_dG = grads[3]
-    dl_dh = grads[4]
-    dl_dA = grads[5]
-    dl_db = grads[6]
+#     dl_dQ = grads[1]
+#     dl_dq = grads[2]
+#     dl_dG = grads[3]
+#     dl_dh = grads[4]
+#     dl_dA = grads[5]
+#     dl_db = grads[6]
 
-    @test dl_dQ ≈ zeros(3,3)  atol=ATOL rtol=RTOL
+#     @test dl_dQ ≈ zeros(3,3)  atol=ATOL rtol=RTOL
 
-    @test dl_dq ≈ zeros(3,1) atol=ATOL rtol=RTOL
+#     @test dl_dq ≈ zeros(3,1) atol=ATOL rtol=RTOL
 
-    @test dl_dG ≈ zeros(6,3) atol=ATOL rtol=RTOL
+#     @test dl_dG ≈ zeros(6,3) atol=ATOL rtol=RTOL
 
-    @test dl_dh ≈ zeros(6,1) atol=ATOL rtol=RTOL
+#     @test dl_dh ≈ zeros(6,1) atol=ATOL rtol=RTOL
 
-    @test dl_dA ≈ [0.0 -0.5 0.0] atol=ATOL rtol=RTOL
+#     @test dl_dA ≈ [0.0 -0.5 0.0] atol=ATOL rtol=RTOL
 
-    @test dl_db ≈ [1.0] atol=ATOL rtol=RTOL
-end
-
-
-
-# refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
-# Find equivalent CVXPYLayers and QPTH code here:
-#               https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_1_py.ipynb
-@testset "Differentiating MOI examples 1" begin
-    # homogeneous quadratic objective
-    # Min x^2 + xy + y^2 + yz + z^2
-    # st  x + 2y + 3z >= 4 (c1)
-    #     x +  y      >= 1 (c2)
-    #     x, y, z \in R
-
-    model = diff_optimizer(OSQP.Optimizer)
-    v = MOI.add_variables(model, 3)
-    @test MOI.get(model, MOI.NumberOfVariables()) == 3
-
-    c1 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(
-            MOI.ScalarAffineTerm.([-1.0, -2.0, -3.0], v),
-            0.0),
-        MOI.LessThan(-4.0)
-    )
-    c2 = MOI.add_constraint(
-        model, 
-        MOI.ScalarAffineFunction(
-            MOI.ScalarAffineTerm.([-1.0, -1.0, 0.0], v),
-            0.0),
-        MOI.LessThan(-1.0)
-    )
-
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-    @test MOI.get(model, MOI.ObjectiveSense()) == MOI.MIN_SENSE
-
-    obj = MOI.ScalarQuadraticFunction(
-        MOI.ScalarAffineTerm{Float64}[], 
-        MOI.ScalarQuadraticTerm.(
-            [2.0, 1.0, 2.0, 1.0, 2.0],
-            v[[1, 1, 2, 2, 3]],
-            v[[1, 2, 2, 3, 3]]
-        ),
-        0.0
-    )
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj)
-
-    MOI.optimize!(model)
-
-    z = model.primal_optimal
-
-    @test z ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
-
-    # obtain gradients
-    grads = backward!(model, ["Q","q","G","h"], [1.0 1.0 1.0])
-
-    dl_dQ = grads[1]
-    dl_dq = grads[2]
-    dl_dG = grads[3]
-    dl_dh = grads[4]
-
-    @test dl_dQ ≈ [-0.12244895  0.01530609 -0.11224488;
-                    0.01530609  0.09183674  0.07653058;
-                   -0.11224488  0.07653058 -0.06122449]  atol=ATOL rtol=RTOL
-
-    @test dl_dq ≈ [-0.2142857;  0.21428567; -0.07142857] atol=ATOL rtol=RTOL
-
-    @test dl_dG ≈ [0.05102035   0.30612245  0.255102;
-                   0.06122443   0.36734694  0.3061224] atol=ATOL rtol=RTOL
-
-    @test dl_dh ≈ [-0.35714284; -0.4285714] atol=ATOL rtol=RTOL
-end
+#     @test dl_db ≈ [1.0] atol=ATOL rtol=RTOL
+# end
 
 
 
-# refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
-# Find equivalent CVXPYLayers and QPTH code here:
-#               https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_2_py.ipynb
-@testset "Differentiating MOI examples 2 - non trivial backward pass vector" begin
-    # non-homogeneous quadratic objective
-    #    minimize 2 x^2 + y^2 + xy + x + y
-    #       s.t.  x, y >= 0
-    #             x + y = 1
+# # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
+# # Find equivalent CVXPYLayers and QPTH code here:
+# #               https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_1_py.ipynb
+# @testset "Differentiating MOI examples 1" begin
+#     # homogeneous quadratic objective
+#     # Min x^2 + xy + y^2 + yz + z^2
+#     # st  x + 2y + 3z >= 4 (c1)
+#     #     x +  y      >= 1 (c2)
+#     #     x, y, z \in R
 
-    model = diff_optimizer(Ipopt.Optimizer)
-    x = MOI.add_variable(model)
-    y = MOI.add_variable(model)
+#     model = diff_optimizer(OSQP.Optimizer)
+#     v = MOI.add_variables(model, 3)
+#     @test MOI.get(model, MOI.NumberOfVariables()) == 3
 
-    c1 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0,1.0], [x,y]), 0.0),
-        MOI.EqualTo(1.0)
-    )
+#     c1 = MOI.add_constraint(
+#         model,
+#         MOI.ScalarAffineFunction(
+#             MOI.ScalarAffineTerm.([-1.0, -2.0, -3.0], v),
+#             0.0),
+#         MOI.LessThan(-4.0)
+#     )
+#     c2 = MOI.add_constraint(
+#         model, 
+#         MOI.ScalarAffineFunction(
+#             MOI.ScalarAffineTerm.([-1.0, -1.0, 0.0], v),
+#             0.0),
+#         MOI.LessThan(-1.0)
+#     )
 
-    vc1 = MOI.add_constraint(
-        model, 
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0,0.0], [x,y]), 0.0), 
-        MOI.LessThan(0.0)
-    )
-    @test vc1.value ≈ x.value atol=ATOL rtol=RTOL
+#     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+#     @test MOI.get(model, MOI.ObjectiveSense()) == MOI.MIN_SENSE
 
-    vc2 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0,-1.0], [x,y]), 0.0), 
-        MOI.LessThan(0.0)
-    )
-    @test vc2.value ≈ y.value atol=ATOL rtol=RTOL
+#     obj = MOI.ScalarQuadraticFunction(
+#         MOI.ScalarAffineTerm{Float64}[], 
+#         MOI.ScalarQuadraticTerm.(
+#             [2.0, 1.0, 2.0, 1.0, 2.0],
+#             v[[1, 1, 2, 2, 3]],
+#             v[[1, 2, 2, 3, 3]]
+#         ),
+#         0.0
+#     )
+#     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj)
+
+#     MOI.optimize!(model)
+
+#     z = model.primal_optimal
+
+#     @test z ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
+
+#     # obtain gradients
+#     grads = backward!(model, ["Q","q","G","h"], [1.0 1.0 1.0])
+
+#     dl_dQ = grads[1]
+#     dl_dq = grads[2]
+#     dl_dG = grads[3]
+#     dl_dh = grads[4]
+
+#     @test dl_dQ ≈ [-0.12244895  0.01530609 -0.11224488;
+#                     0.01530609  0.09183674  0.07653058;
+#                    -0.11224488  0.07653058 -0.06122449]  atol=ATOL rtol=RTOL
+
+#     @test dl_dq ≈ [-0.2142857;  0.21428567; -0.07142857] atol=ATOL rtol=RTOL
+
+#     @test dl_dG ≈ [0.05102035   0.30612245  0.255102;
+#                    0.06122443   0.36734694  0.3061224] atol=ATOL rtol=RTOL
+
+#     @test dl_dh ≈ [-0.35714284; -0.4285714] atol=ATOL rtol=RTOL
+# end
 
 
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-    obj = MOI.ScalarQuadraticFunction(
-        MOI.ScalarAffineTerm.([1.0, 1.0], [x, y]),
-        MOI.ScalarQuadraticTerm.([4.0, 2.0, 1.0], [x, y, x], [x, y, y]),
-        0.0
-    )
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj)
 
-    MOI.optimize!(model)
+# # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
+# # Find equivalent CVXPYLayers and QPTH code here:
+# #               https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_2_py.ipynb
+# @testset "Differentiating MOI examples 2 - non trivial backward pass vector" begin
+#     # non-homogeneous quadratic objective
+#     #    minimize 2 x^2 + y^2 + xy + x + y
+#     #       s.t.  x, y >= 0
+#     #             x + y = 1
 
-    z = model.primal_optimal
-    ν = model.dual_optimal[1]   # can be accessed in the order constraints were added
-    λ = model.dual_optimal[2:3]
+#     model = diff_optimizer(Ipopt.Optimizer)
+#     x = MOI.add_variable(model)
+#     y = MOI.add_variable(model)
+
+#     c1 = MOI.add_constraint(
+#         model,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0,1.0], [x,y]), 0.0),
+#         MOI.EqualTo(1.0)
+#     )
+
+#     vc1 = MOI.add_constraint(
+#         model, 
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0,0.0], [x,y]), 0.0), 
+#         MOI.LessThan(0.0)
+#     )
+#     @test vc1.value ≈ x.value atol=ATOL rtol=RTOL
+
+#     vc2 = MOI.add_constraint(
+#         model,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0,-1.0], [x,y]), 0.0), 
+#         MOI.LessThan(0.0)
+#     )
+#     @test vc2.value ≈ y.value atol=ATOL rtol=RTOL
+
+
+#     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+#     obj = MOI.ScalarQuadraticFunction(
+#         MOI.ScalarAffineTerm.([1.0, 1.0], [x, y]),
+#         MOI.ScalarQuadraticTerm.([4.0, 2.0, 1.0], [x, y, x], [x, y, y]),
+#         0.0
+#     )
+#     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj)
+
+#     MOI.optimize!(model)
+
+#     z = model.primal_optimal
+#     ν = model.dual_optimal[1]   # can be accessed in the order constraints were added
+#     λ = model.dual_optimal[2:3]
     
 
-    @test z ≈ [0.25, 0.75] atol=ATOL rtol=RTOL
-    @test λ ≈ [0.0, 0.0]   atol=ATOL rtol=RTOL
-    @test ν ≈ 11/4       atol=ATOL rtol=RTOL
+#     @test z ≈ [0.25, 0.75] atol=ATOL rtol=RTOL
+#     @test λ ≈ [0.0, 0.0]   atol=ATOL rtol=RTOL
+#     @test ν ≈ 11/4       atol=ATOL rtol=RTOL
 
-    # obtain gradients
-    dl_dz = [1.3 0.5]   # choosing a non trivial backward pass vector
-    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], dl_dz)
+#     # obtain gradients
+#     dl_dz = [1.3 0.5]   # choosing a non trivial backward pass vector
+#     grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], dl_dz)
 
-    dl_dQ = grads[1]
-    dl_dq = grads[2]
-    dl_dG = grads[3]
-    dl_dh = grads[4]
-    dl_dA = grads[5]
-    dl_db = grads[6]
+#     dl_dQ = grads[1]
+#     dl_dq = grads[2]
+#     dl_dG = grads[3]
+#     dl_dh = grads[4]
+#     dl_dA = grads[5]
+#     dl_db = grads[6]
 
-    @test dl_dQ ≈ [-0.05   -0.05;
-                   -0.05    0.15]  atol=ATOL rtol=RTOL
+#     @test dl_dQ ≈ [-0.05   -0.05;
+#                    -0.05    0.15]  atol=ATOL rtol=RTOL
 
-    @test dl_dq ≈ [-0.2; 0.2] atol=ATOL rtol=RTOL
+#     @test dl_dq ≈ [-0.2; 0.2] atol=ATOL rtol=RTOL
 
-    @test dl_dG ≈ [1e-8  1e-8; 1e-8 1e-8] atol=ATOL rtol=RTOL
+#     @test dl_dG ≈ [1e-8  1e-8; 1e-8 1e-8] atol=ATOL rtol=RTOL
 
-    @test dl_dh ≈ [1e-8; 1e-8] atol=ATOL rtol=RTOL
+#     @test dl_dh ≈ [1e-8; 1e-8] atol=ATOL rtol=RTOL
 
-    @test dl_dA ≈ [0.375 -1.075] atol=ATOL rtol=RTOL
+#     @test dl_dA ≈ [0.375 -1.075] atol=ATOL rtol=RTOL
 
-    @test dl_db ≈ [0.7] atol=ATOL rtol=RTOL
-end
+#     @test dl_db ≈ [0.7] atol=ATOL rtol=RTOL
+# end
 
 
 @testset "Differentiating non trivial convex QP MOI" begin
@@ -374,7 +374,7 @@ end
     matrices = []
 
     for name in names
-        push!(matrices, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("..","data","qp_4",name*".txt")), ' ', Float64, '\n'))
+        push!(matrices, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("data",name*".txt")), ' ', Float64, '\n'))
     end
         
     Q, q, G, h, A, b = matrices
@@ -423,7 +423,7 @@ end
     grads_actual = []
 
     for name in names
-        push!(grads_actual, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("..","data","qp_4",name*".txt")), ' ', Float64, '\n'))
+        push!(grads_actual, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("data",name*".txt")), ' ', Float64, '\n'))
     end
 
     grads_actual[2] = vec(grads_actual[2])
@@ -437,137 +437,137 @@ end
 end
 
 
-@testset "Differentiating LP; checking gradients for non-active contraints" begin
-    # Issue #40 from Gurobi.jl
-    # min  x
-    # s.t. x >= 0
-    #      x >= 3
+# @testset "Differentiating LP; checking gradients for non-active contraints" begin
+#     # Issue #40 from Gurobi.jl
+#     # min  x
+#     # s.t. x >= 0
+#     #      x >= 3
 
-    optimizer = diff_optimizer(Clp.Optimizer)
+#     optimizer = diff_optimizer(Clp.Optimizer)
 
-    x = MOI.add_variables(optimizer,1)
+#     x = MOI.add_variables(optimizer,1)
 
-    # define objective
-    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.0)
-    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
-    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+#     # define objective
+#     objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.0)
+#     MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+#     MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    # set constraints
-    MOI.add_constraint(
-        optimizer,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.), 
-        MOI.LessThan(0.0)
-    )
-    MOI.add_constraint(
-        optimizer,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.), 
-        MOI.LessThan(-3.0)
-    )
+#     # set constraints
+#     MOI.add_constraint(
+#         optimizer,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.), 
+#         MOI.LessThan(0.0)
+#     )
+#     MOI.add_constraint(
+#         optimizer,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.), 
+#         MOI.LessThan(-3.0)
+#     )
 
-    MOI.optimize!(optimizer)
+#     MOI.optimize!(optimizer)
 
-    # obtain gradients
-    grads = backward!(optimizer, ["G", "h"], ones(1,1))  # using dl_dz=[1,1,1,1,1,....]
+#     # obtain gradients
+#     grads = backward!(optimizer, ["G", "h"], ones(1,1))  # using dl_dz=[1,1,1,1,1,....]
 
-    @test grads[1] ≈ [0.0; 3.0] atol=ATOL rtol=RTOL
-    @test grads[2] ≈ [0.0; -1.0] atol=ATOL rtol=RTOL
-end
+#     @test grads[1] ≈ [0.0; 3.0] atol=ATOL rtol=RTOL
+#     @test grads[2] ≈ [0.0; -1.0] atol=ATOL rtol=RTOL
+# end
 
 
-@testset "Differentiating LP; checking gradients for non-active contraints" begin
-    # refered from - https://en.wikipedia.org/wiki/Simplex_algorithm#Example
+# @testset "Differentiating LP; checking gradients for non-active contraints" begin
+#     # refered from - https://en.wikipedia.org/wiki/Simplex_algorithm#Example
 
-    # max 2x + 3y + 4z
-    # s.t. 3x+2y+z <= 10
-    #      2x+5y+3z <= 15
-    #      x,y,z >= 0
+#     # max 2x + 3y + 4z
+#     # s.t. 3x+2y+z <= 10
+#     #      2x+5y+3z <= 15
+#     #      x,y,z >= 0
 
     
-    optimizer = diff_optimizer(SCS.Optimizer)
-    v = MOI.add_variables(optimizer, 3)
+#     optimizer = diff_optimizer(SCS.Optimizer)
+#     v = MOI.add_variables(optimizer, 3)
 
-    # define objective
-    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-2.0, -3.0, -4.0], v), 0.0)
-    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
-    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+#     # define objective
+#     objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-2.0, -3.0, -4.0], v), 0.0)
+#     MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+#     MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    # set constraints
-    MOI.add_constraint(
-        optimizer,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([3.0, 2.0, 1.0], v), 0.), 
-        MOI.LessThan(10.0)
-    )
-    MOI.add_constraint(
-        optimizer,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([2.0, 5.0, 3.0], v), 0.), 
-        MOI.LessThan(15.0)
-    )
-    MOI.add_constraint(
-        optimizer,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0, 0.0, 0.0], v), 0.), 
-        MOI.LessThan(0.0)
-    )
-    MOI.add_constraint(
-        optimizer,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.), 
-        MOI.LessThan(0.0)
-    )
-    MOI.add_constraint(
-        optimizer,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, -1.0], v), 0.), 
-        MOI.LessThan(0.0)
-    )
+#     # set constraints
+#     MOI.add_constraint(
+#         optimizer,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([3.0, 2.0, 1.0], v), 0.), 
+#         MOI.LessThan(10.0)
+#     )
+#     MOI.add_constraint(
+#         optimizer,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([2.0, 5.0, 3.0], v), 0.), 
+#         MOI.LessThan(15.0)
+#     )
+#     MOI.add_constraint(
+#         optimizer,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0, 0.0, 0.0], v), 0.), 
+#         MOI.LessThan(0.0)
+#     )
+#     MOI.add_constraint(
+#         optimizer,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.), 
+#         MOI.LessThan(0.0)
+#     )
+#     MOI.add_constraint(
+#         optimizer,
+#         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, -1.0], v), 0.), 
+#         MOI.LessThan(0.0)
+#     )
 
-    MOI.optimize!(optimizer)
+#     MOI.optimize!(optimizer)
 
-    # obtain gradients
-    grads = backward!(optimizer, ["Q", "q", "G", "h"], ones(1,3))  # using dl_dz=[1,1,1,1,1,....]
+#     # obtain gradients
+#     grads = backward!(optimizer, ["Q", "q", "G", "h"], ones(1,3))  # using dl_dz=[1,1,1,1,1,....]
 
-    @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
-    @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
-    @test grads[3] ≈ [0.0 0.0 0.0;
-                    0.0 0.0 -5/3;
-                    0.0 0.0 5/3;
-                    0.0 0.0 -10/3;
-                    0.0 0.0 0.0]   atol=ATOL rtol=RTOL
-    @test grads[4] ≈ [0.0; 1/3; -1/3; 2/3; 0.0]   atol=ATOL rtol=RTOL
-end
+#     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
+#     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
+#     @test grads[3] ≈ [0.0 0.0 0.0;
+#                     0.0 0.0 -5/3;
+#                     0.0 0.0 5/3;
+#                     0.0 0.0 -10/3;
+#                     0.0 0.0 0.0]   atol=ATOL rtol=RTOL
+#     @test grads[4] ≈ [0.0; 1/3; -1/3; 2/3; 0.0]   atol=ATOL rtol=RTOL
+# end
 
 
-@testset "Differentiating simple SOCP" begin
-    # referred from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L789
-    # find equivalent diffcp python program here: https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_socp_1_py.ipynb
+# @testset "Differentiating simple SOCP" begin
+#     # referred from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L789
+#     # find equivalent diffcp python program here: https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_socp_1_py.ipynb
 
-    model = diff_optimizer(SCS.Optimizer)
+#     model = diff_optimizer(SCS.Optimizer)
 
-    x,y,t = MOI.add_variables(model, 3)
+#     x,y,t = MOI.add_variables(model, 3)
 
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0))
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+#     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0))
+#     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    ceq  = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(-1.0, t))], [1.0]), MOI.Zeros(1))
-    cnon = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(1.0, y))], [-1/√2]), MOI.Nonnegatives(1))
-    csoc = MOI.add_constraint(model, MOI.VectorAffineFunction(MOI.VectorAffineTerm.([1,2,3], MOI.ScalarAffineTerm.(1.0, [t,x,y])), zeros(3)), MOI.SecondOrderCone(3))
+#     ceq  = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(-1.0, t))], [1.0]), MOI.Zeros(1))
+#     cnon = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(1.0, y))], [-1/√2]), MOI.Nonnegatives(1))
+#     csoc = MOI.add_constraint(model, MOI.VectorAffineFunction(MOI.VectorAffineTerm.([1,2,3], MOI.ScalarAffineTerm.(1.0, [t,x,y])), zeros(3)), MOI.SecondOrderCone(3))
 
-    MOI.optimize!(model)
+#     MOI.optimize!(model)
 
-    x = model.primal_optimal
-    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
-    y = model.dual_optimal
+#     x = model.primal_optimal
+#     s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
+#     y = model.dual_optimal
     
-    # these matrices are benchmarked with the output generated by diffcp
-    # refer the python file mentioned above to get equivalent python source code
-    @test x ≈ [-0.707107; 0.707107; 1.0] atol=ATOL rtol=RTOL
-    @test s ≈ [[3.58469e-18], [2.62755e-17], [1.0, -0.707107, 0.707107]] atol=ATOL rtol=RTOL
-    @test y ≈ [[1.41421], [1.0], [1.41421, 1.0, -1.0]] atol=ATOL rtol=RTOL
+#     # these matrices are benchmarked with the output generated by diffcp
+#     # refer the python file mentioned above to get equivalent python source code
+#     @test x ≈ [-0.707107; 0.707107; 1.0] atol=ATOL rtol=RTOL
+#     @test s ≈ [[3.58469e-18], [2.62755e-17], [1.0, -0.707107, 0.707107]] atol=ATOL rtol=RTOL
+#     @test y ≈ [[1.41421], [1.0], [1.41421, 1.0, -1.0]] atol=ATOL rtol=RTOL
 
-    dA = Matrix{Float64}(I, 5, 3)
-    db = zeros(5)
-    dc = zeros(3)
+#     dA = Matrix{Float64}(I, 5, 3)
+#     db = zeros(5)
+#     dc = zeros(3)
     
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+#     dx, dy, ds = backward_conic!(model, dA, db, dc)
 
-    @test dx ≈ [1.12132144; 0.707107; 0.70710656] atol=ATOL rtol=RTOL
-    @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
-    @test dy ≈ [2.4142175;   5.00000557;  3.8284315;   1.414214;   -4.00000495] atol=ATOL rtol=RTOL
-end
+#     @test dx ≈ [1.12132144; 0.707107; 0.70710656] atol=ATOL rtol=RTOL
+#     @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
+#     @test dy ≈ [2.4142175;   5.00000557;  3.8284315;   1.414214;   -4.00000495] atol=ATOL rtol=RTOL
+# end
