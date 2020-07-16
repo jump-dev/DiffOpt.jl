@@ -416,7 +416,7 @@ end
     MOI.optimize!(optimizer)
 
     # obtain gradients
-    grads = backward!(optimizer, names, ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(optimizer, ["Q", "q", "G", "h", "A", "b"], ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
 
     # read gradients from files
     names = ["dP", "dq", "dG", "dh", "dA", "db"]
