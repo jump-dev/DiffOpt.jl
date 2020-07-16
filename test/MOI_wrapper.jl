@@ -374,7 +374,7 @@ end
     matrices = []
 
     for name in names
-        push!(matrices, readdlm(Base.Filesystem.joinpath("..","data","qp_4",name*".txt"), ' ', Float64, '\n'))
+        push!(matrices, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("..","data","qp_4",name*".txt")), ' ', Float64, '\n'))
     end
         
     Q, q, G, h, A, b = matrices
@@ -423,7 +423,7 @@ end
     grads_actual = []
 
     for name in names
-        push!(grads_actual, readdlm(Base.Filesystem.joinpath("..","data","qp_4",name*".txt"), ' ', Float64, '\n'))
+        push!(grads_actual, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("..","data","qp_4",name*".txt")), ' ', Float64, '\n'))
     end
 
     grads_actual[2] = vec(grads_actual[2])
