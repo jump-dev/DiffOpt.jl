@@ -419,7 +419,7 @@ function MOI.delete(model::Optimizer, v::VI)
     MOI.delete(model.optimizer, v) 
 
     # delete from var_idx
-    filter!(e -> e ≠ v, model.var_idx)
+    filter!(≠(v), model.var_idx)
 end
 
 # for array deletion
