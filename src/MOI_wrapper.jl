@@ -357,7 +357,7 @@ function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
-    filter!(≠(ci), model.con_idx)
+    filter!(e -> e≠ci, model.con_idx)
     MOI.delete(model.optimizer, ci) 
 end
 
