@@ -1,6 +1,7 @@
 # DiffOpt.jl
 [![Build Status](https://travis-ci.org/AKS1996/DiffOpt.jl.svg?branch=master)](https://travis-ci.org/AKS1996/DiffOpt.jl) 
 [![Coverage Status](https://coveralls.io/repos/github/AKS1996/DiffOpt.jl/badge.svg?branch=master)](https://coveralls.io/github/AKS1996/DiffOpt.jl?branch=master)
+[![AppVeyor Status](https://ci.appveyor.com/api/projects/status/github/AKS1996/DiffOpt.jl?branch=master&svg=true)](https://ci.appveyor.com/project/AKS1996/diffopt-jl)
 
 
 Differentiating convex optimization program (`JuMP.jl` or `MathOptInterface.jl` models) with respect to program parameters. Currently supports LPs, QPs.
