@@ -17,8 +17,8 @@
 end
 
 @testset "Convex Quadratic tests" begin
-    MOIT.qp1test(diff_optimizer(OSQP.Optimizer), MOIT.TestConfig())
-    MOIT.qp2test(diff_optimizer(OSQP.Optimizer), MOIT.TestConfig())
+    MOIT.qp1test(diff_optimizer(OSQP.Optimizer), MOIT.TestConfig(atol=1e-2, rtol=1e-2))
+    MOIT.qp2test(diff_optimizer(OSQP.Optimizer), MOIT.TestConfig(atol=1e-2, rtol=1e-2))
     MOIT.qp3test(
         diff_optimizer(Ipopt.Optimizer), 
         MOIT.TestConfig(optimal_status=MOI.LOCALLY_SOLVED, atol=1e-3)
