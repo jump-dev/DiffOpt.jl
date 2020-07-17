@@ -370,11 +370,11 @@ end
     neq = 10
 
     # read matrices from files
-    names = ["Q", "q", "G", "h", "A", "b"]
+    names = ["P", "q", "G", "h", "A", "b"]
     matrices = []
 
     for name in names
-        push!(matrices, readdlm("../data/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+        push!(matrices, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("data",name*".txt")), ' ', Float64, '\n'))
     end
         
     Q, q, G, h, A, b = matrices
@@ -416,14 +416,14 @@ end
     MOI.optimize!(optimizer)
 
     # obtain gradients
-    grads = backward!(optimizer, names, ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(optimizer, ["Q", "q", "G", "h", "A", "b"], ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
 
     # read gradients from files
-    names = ["dQ", "dq", "dG", "dh", "dA", "db"]
+    names = ["dP", "dq", "dG", "dh", "dA", "db"]
     grads_actual = []
 
     for name in names
-        push!(grads_actual, readdlm("../data/qp_4/" * name * ".txt", ' ', Float64, '\n'))
+        push!(grads_actual, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("data",name*".txt")), ' ', Float64, '\n'))
     end
 
     grads_actual[2] = vec(grads_actual[2])
