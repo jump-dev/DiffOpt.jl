@@ -12,7 +12,7 @@ MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
-julia = "1.4"
+julia = "1"
 
 [extras]
 Clp = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
