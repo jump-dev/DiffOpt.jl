@@ -2,6 +2,7 @@ language: julia
 os:
     - linux
 julia:
+    - 1.0  # JuMP currently supports Julia 1.0 LTS
     - 1.4
 notifications:
     email: false
