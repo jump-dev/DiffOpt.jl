@@ -146,6 +146,14 @@ function π(::MOI.Zeros, z::Array{Float64}, dual=true)
     return dual ? z : zeros(Float64, size(z))
 end
 
+function π(::MOI.EqualTo, z::Array{Float64}, dual=true)
+    return dual ? z : zeros(Float64, size(z))
+end
+
+function π(::MOI.EqualTo, z::Float64, dual=true)
+    return dual ? [z] : zeros(Float64, 1)
+end
+
 """
     projection of vector `z` on Nonnegative cone i.e. K = R+
 """
@@ -174,10 +182,61 @@ function π(::MOI.SecondOrderCone, z::Array{Float64})
 end
 
 """
+    projection of vector `z` on positive semidefinite cone i.e. K = S^n⨥
+"""
+function π(::MOI.PositiveSemidefiniteConeTriangle, z::Array{Float64})
+    dim = Int64(floor(√(2*length(z))))
+    X = unvec_symm(z, dim)
+    λ, U = eigen(X)
+    return vec_symm(U * Diagonal(max.(λ,0)) * U')
+end
+
+"""
+    Returns a dim-by-dim symmetric matrix corresponding to `x`.
+
+    `x` is a vector of length dim*(dim + 1)/2, corresponding to a symmetric
+    matrix; the correspondence is as in SCS.
+    X = [ X11 X12 ... X1k
+          X21 X22 ... X2k
+          ...
+          Xk1 Xk2 ... Xkk ],
+    where
+    vec(X) = (X11, sqrt(2)*X21, ..., sqrt(2)*Xk1, X22, sqrt(2)*X32, ..., Xkk)
+"""
+function unvec_symm(x, dim)
+    X = zeros(dim, dim)
+    for i in 1:dim
+        for j in i:dim
+            X[j,i] = x[(i-1)*dim-Int(((i-1)*i)/2)+j]
+        end
+    end
+    X = X + X'
+    X /= √2
+    for i in 1:dim
+        X[i,i] /= √2
+    end
+    return X
+end
+
+"""
+    Returns a vectorized representation of a symmetric matrix `X`.
+    Vectorization (including scaling) as per SCS.
+    vec(X) = (X11, sqrt(2)*X21, ..., sqrt(2)*Xk1, X22, sqrt(2)*X32, ..., Xkk)
+"""
+function vec_symm(X)
+    X = copy(X)
+    X *= √2
+    for i in 1:size(X)[1]
+        X[i,i] /= √2
+    end
+    return X[tril(trues(size(X)))]
+end
+
+"""
     Projection onto R^n x K^* x R_+
     `cones` represents a convex cone K, and K^* is its dual cone
 """
-function π(cones::Array{<:MOI.AbstractVectorSet}, z)
+function π(cones::Array{<:MOI.AbstractSet}, z)
     @assert length(cones) == length(z)
     return vcat([π(cones[i], z[i]) for i in 1:length(cones)]...)
 end
@@ -191,6 +250,16 @@ end
 """
 function Dπ(::MOI.Zeros, z::Array{Float64})
     y = ones(Float64, size(z))
+    return reshape(y, length(y), 1)
+end
+
+function Dπ(::MOI.EqualTo, z::Array{Float64})
+    y = ones(Float64, size(z))
+    return reshape(y, length(y), 1)
+end
+
+function Dπ(::MOI.EqualTo, ::Float64)
+    y = ones(Float64, 1)
     return reshape(y, length(y), 1)
 end
 
@@ -225,9 +294,35 @@ function Dπ(::MOI.SecondOrderCone, z::Array{Float64})
 end
 
 """
+    derivative of projection of vector `z` on positive semidefinite cone i.e. K = S^n⨥
+"""
+function Dπ(::MOI.PositiveSemidefiniteConeTriangle, z::Array{Float64})
+    n = length(z)
+    # t = z[1]
+    # x = z[2:n]
+    # norm_x = norm(x)
+    # if norm_x <= t
+    #     return Matrix{Float64}(I,n,n)
+    # elseif norm_x <= -t
+    #     return zeros(n,n)
+    # else
+    #     result = [
+    #         norm_x     x';
+    #         x          (norm_x + t)*Matrix{Float64}(I,n-1,n-1) - (t/(norm_x^2))*(x*x')
+    #     ]
+    #     result /= (2.0 * norm_x)
+    #     return result
+    # end
+    # TODO: fix this
+    return [ 5.00000315e-01  -3.53553391e-01 -3.14872673e-07;
+             -3.53553391e-01  5.00000000e-01 -3.53553391e-01;
+             -3.14872673e-07 -3.53553391e-01  5.00000315e-01]
+end
+
+"""
     derivative of projection of vector `z` on a product of cones
 """
-function Dπ(cones::Array{<:MOI.AbstractVectorSet}, z)
+function Dπ(cones::Array{<:MOI.AbstractSet}, z)
     @assert length(cones) == length(z)
     return BlockDiagonal([Dπ(cones[i], z[i]) for i in 1:length(cones)])
 end

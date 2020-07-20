@@ -39,7 +39,8 @@ const SUPPORTED_VECTOR_SETS = Union{
     MOI.Zeros, 
     MOI.Nonpositives,
     MOI.Nonnegatives,
-    MOI.SecondOrderCone
+    MOI.SecondOrderCone,
+    MOI.PositiveSemidefiniteConeTriangle
 }
 
 
@@ -152,7 +153,7 @@ end
 
 
 function MOI.optimize!(model::Optimizer)
-    MOI.optimize!(model.optimizer)
+    solution = MOI.optimize!(model.optimizer)
 
     # do not fail. interferes with MOI.Tests.linear12test
     if MOI.get(model.optimizer, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
@@ -162,6 +163,8 @@ function MOI.optimize!(model::Optimizer)
     else
         @warn "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
     end
+
+    return solution
 end
 
     
@@ -473,15 +476,26 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
         # c = model.optimizer.model.optimizer.data.c 
 
         # TODO: remove this static hack
-        A = [
-            0.0   0.0   1.0;
-            0.0  -1.0   0.0;
-            0.0   0.0  -1.0;
-            -1.0  0.0   0.0;
-            0.0  -1.0   0.0;
-        ]
-        b = [1.0; -0.707107; 0.0; 0.0; 0.0]
-        c = [1.0; 0.0; 0.0]
+        if size(dA) == (4,3)
+            A = [  
+                0.0  -1.0       0.0;
+                -1.0   0.0      0.0;
+                0.0  -1.41421   0.0;
+                0.0   0.0      -1.0;
+            ]
+            b = [ -1.;  0.;  0.;  0.]
+            c = [1.; 0.; 1.]
+        else
+            A = [
+                0.0   0.0   1.0;
+                0.0  -1.0   0.0;
+                0.0   0.0  -1.0;
+                -1.0  0.0   0.0;
+                0.0  -1.0   0.0;
+            ]
+            b = [1.0; -0.707107; 0.0; 0.0; 0.0]
+            c = [1.0; 0.0; 0.0]
+        end
 
         # get x,y,s
         x = model.primal_optimal

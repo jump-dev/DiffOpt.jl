@@ -571,3 +571,39 @@ end
     @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
     @test dy ≈ [2.4142175;   5.00000557;  3.8284315;   1.414214;   -4.00000495] atol=ATOL rtol=RTOL
 end
+
+@testset "Differentiating simple PSD program" begin
+    # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2339
+    
+    model = diff_optimizer(SCS.Optimizer)
+
+    X = MOI.add_variables(model, 3)
+    vov = MOI.VectorOfVariables(X)
+    cX = MOI.add_constraint(model, vov, MOI.PositiveSemidefiniteConeTriangle(2))
+    
+    c = MOI.add_constraint(model, MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, X[2])], 0.0), MOI.EqualTo(1.0))
+    
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), 
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [X[1], X[end]]), 0.0))
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    
+    sol = MOI.optimize!(model)
+
+    x = sol.primal
+    s = sol.slack
+    y = sol.dual
+
+    @test x ≈ ones(3) atol=ATOL rtol=RTOL
+    @test s ≈ [0.0; 1.0; 1.41421; 1.0] atol=ATOL rtol=RTOL
+    @test y ≈ [1.99999496;  1.0; -1.41421356;  1.]  atol=ATOL rtol=RTOL
+
+    dA = ones(4, 3)
+    db = ones(4)
+    dc = ones(3)
+        
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
+
+    @test dx ≈ [2.58577489; 1.99999496; 2.58577489] atol=ATOL rtol=RTOL
+    @test ds ≈ [0.0; 5.85779924e-01; 8.28417913e-01; 5.85779924e-01] atol=ATOL rtol=RTOL
+    @test dy ≈ [10.75732613;  3.5857814;  -5.07106069;  3.5857814 ] atol=ATOL rtol=RTOL
+end
