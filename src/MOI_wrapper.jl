@@ -40,7 +40,7 @@ const SUPPORTED_VECTOR_SETS = Union{
     MOI.Nonpositives,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
-    MOI.PositiveSemidefiniteConeTriangle
+    MOI.PositiveSemidefiniteConeTriangle,
 }
 
 
@@ -457,45 +457,27 @@ end
 """
 function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
     if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
-        # @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
-        # MOIU.load_variables(model.optimizer.model.optimizer, nz)
+        @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
+        MOIU.load_variables(model.optimizer.model.optimizer, MOI.get(model, MOI.NumberOfVariables()))
         
-        # for con in model.con_idx
-        #     func = MOI.get(model.optimizer, MOI.ConstraintFunction(), con)
-        #     set = MOI.get(model.optimizer, MOI.ConstraintSet(), con)
-        #     MOIU.load_constraint(model.optimizer.model.optimizer, con, func, set)
-        # end
-        
-        # # now SCS>data shud be allocated
-        # A = sparse(
-        #     model.optimizer.model.optimizer.data.I, 
-        #     model.optimizer.model.optimizer.data.J, 
-        #     model.optimizer.model.optimizer.data.V 
-        # )
-        # b = model.optimizer.model.optimizer.data.b 
-        # c = model.optimizer.model.optimizer.data.c 
-
-        # TODO: remove this static hack
-        if size(dA) == (4,3)
-            A = [  
-                0.0  -1.0       0.0;
-                -1.0   0.0      0.0;
-                0.0  -1.41421   0.0;
-                0.0   0.0      -1.0;
-            ]
-            b = [ -1.;  0.;  0.;  0.]
-            c = [1.; 0.; 1.]
-        else
-            A = [
-                0.0   0.0   1.0;
-                0.0  -1.0   0.0;
-                0.0   0.0  -1.0;
-                -1.0  0.0   0.0;
-                0.0  -1.0   0.0;
-            ]
-            b = [1.0; -0.707107; 0.0; 0.0; 0.0]
-            c = [1.0; 0.0; 0.0]
+        for con in model.con_idx
+            func = MOI.get(model.optimizer, MOI.ConstraintFunction(), con)
+            set = MOI.get(model.optimizer, MOI.ConstraintSet(), con)
+            MOIU.load_constraint(model.optimizer.model.optimizer, CI{typeof(func), typeof(set)}(0), func, set)
         end
+        
+        # now SCS data shud be allocated
+        A = sparse(
+            model.optimizer.model.optimizer.data.I, 
+            model.optimizer.model.optimizer.data.J, 
+            model.optimizer.model.optimizer.data.V 
+        )
+        b = model.optimizer.model.optimizer.data.b 
+
+        # extract `c`
+        obj = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
+        MOIU.load(model.optimizer.model.optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), obj)
+        c = model.optimizer.model.optimizer.data.c
 
         # get x,y,s
         x = model.primal_optimal
