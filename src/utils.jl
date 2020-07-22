@@ -296,27 +296,55 @@ end
 """
     derivative of projection of vector `z` on positive semidefinite cone i.e. K = S^n⨥
 """
-function Dπ(::MOI.PositiveSemidefiniteConeTriangle, z::Array{Float64})
+function Dπ(cone::MOI.PositiveSemidefiniteConeTriangle, z::Array{Float64})
     n = length(z)
-    # t = z[1]
-    # x = z[2:n]
-    # norm_x = norm(x)
-    # if norm_x <= t
-    #     return Matrix{Float64}(I,n,n)
-    # elseif norm_x <= -t
-    #     return zeros(n,n)
-    # else
-    #     result = [
-    #         norm_x     x';
-    #         x          (norm_x + t)*Matrix{Float64}(I,n-1,n-1) - (t/(norm_x^2))*(x*x')
-    #     ]
-    #     result /= (2.0 * norm_x)
-    #     return result
-    # end
-    # TODO: fix this
-    return [ 5.00000315e-01  -3.53553391e-01 -3.14872673e-07;
-             -3.53553391e-01  5.00000000e-01 -3.53553391e-01;
-             -3.14872673e-07 -3.53553391e-01  5.00000315e-01]
+    y = zeros(n)
+    D = zeros(n,n)
+
+    for i in 1:n
+        y[i] = 1.0
+        D[i, 1:n] = Dπ(cone, z, y)
+        y[i] = 0.0
+    end
+
+    return D
+end
+
+function Dπ(::MOI.PositiveSemidefiniteConeTriangle, z::Array{Float64}, y::Array{Float64})
+    n = length(z)
+    dim = Int64(floor(√(2*n)))
+    X = unvec_symm(z, dim)
+    λ, U = eigen(X)
+
+    # if all the eigenvalues are >= 0
+    if max.(λ, 0) == λ
+        return Matrix{Float64}(I, n, n)
+    end
+
+    # k is the number of negative eigenvalues in X minus ONE
+    k = count(λ .< 1e-4)
+
+    # defining matrix B
+    X̃ = unvec_symm(y, dim)
+    B = U' * X̃ * U
+    
+    for i in 1:size(B)[1] # do the hadamard product
+        for j in 1:size(B)[2]
+            if (i <= k && j <= k)
+                B[i, j] = 0
+            elseif (i > k && j <= k)
+                λpi = max(λ[i], 0.0)
+                λmj = -min(λ[j], 0.0)
+                B[i, j] *= λpi / (λmj + λpi)
+            elseif (i <= k && j > k) 
+                λmi = -min(λ[i], 0.0)
+                λpj = max(λ[j], 0.0)
+                B[i, j] *= λpj / (λmi + λpj)
+            end
+        end
+    end
+
+    return vec_symm(U * B * U')
 end
 
 """

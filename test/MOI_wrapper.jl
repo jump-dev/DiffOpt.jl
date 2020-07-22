@@ -574,14 +574,26 @@ end
 
 @testset "Differentiating simple PSD program" begin
     # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2339
+    # find equivalent diffcp program here: https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_1_py.ipynb
     
     model = diff_optimizer(SCS.Optimizer)
 
     X = MOI.add_variables(model, 3)
     vov = MOI.VectorOfVariables(X)
-    cX = MOI.add_constraint(model, vov, MOI.PositiveSemidefiniteConeTriangle(2))
-    
-    c = MOI.add_constraint(model, MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, X[2])], 0.0), MOI.EqualTo(1.0))
+    cX = MOI.add_constraint(
+        model, 
+        MOI.VectorAffineFunction{Float64}(vov), 
+        MOI.PositiveSemidefiniteConeTriangle(2)
+    )
+
+    c  = MOI.add_constraint(
+        model, 
+        MOI.VectorAffineFunction(
+            [MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(1.0, X[2]))],
+            [-1.0]
+        ), 
+        MOI.Zeros(1)
+    )
     
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), 
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [X[1], X[end]]), 0.0))
@@ -606,4 +618,79 @@ end
     @test dx ≈ [2.58577489; 1.99999496; 2.58577489] atol=ATOL rtol=RTOL
     @test ds ≈ [0.0; 5.85779924e-01; 8.28417913e-01; 5.85779924e-01] atol=ATOL rtol=RTOL
     @test dy ≈ [10.75732613;  3.5857814;  -5.07106069;  3.5857814 ] atol=ATOL rtol=RTOL
+end
+
+
+@testset "Differentiating conic with PSD and SOC constraints" begin
+    # refer https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2417
+
+    model = diff_optimizer(SCS.Optimizer)
+
+    δ = √(1 + (3*√2+2)*√(-116*√2+166) / 14) / 2
+    ε = √((1 - 2*(√2-1)*δ^2) / (2-√2))
+    y2 = 1 - ε*δ
+    y1 = 1 - √2*y2
+    obj = y1 + y2/2
+    k = -2*δ/ε
+    x2 = ((3-2obj)*(2+k^2)-4) / (4*(2+k^2)-4*√2)
+    α = √(3-2obj-4x2)/2
+    β = k*α
+
+    X = MOI.add_variables(model, 6)
+    x = MOI.add_variables(model, 3)
+
+    vov = MOI.VectorOfVariables(X)
+    cX = MOI.add_constraint(model, MOI.VectorAffineFunction{Float64}(vov), MOI.PositiveSemidefiniteConeTriangle(3))
+    cx = MOI.add_constraint(model, MOI.VectorAffineFunction{Float64}(MOI.VectorOfVariables(x)), MOI.SecondOrderCone(3))
+
+    c1 = MOI.add_constraint(
+        model, 
+        MOI.VectorAffineFunction(
+            MOI.VectorAffineTerm.(1:1, MOI.ScalarAffineTerm.([1., 1., 1., 1.], [X[1], X[3], X[end], x[1]])), 
+            [-1.0]
+        ), 
+        MOI.Zeros(1)
+    )
+    c2 = MOI.add_constraint(
+        model, 
+        MOI.VectorAffineFunction(
+            MOI.VectorAffineTerm.(1:1, MOI.ScalarAffineTerm.([1., 2, 1, 2, 2, 1, 1, 1], [X; x[2]; x[3]])), 
+            [-0.5]
+        ), 
+        MOI.Zeros(1)
+    )
+
+    objXidx = [1:3; 5:6]
+    objXcoefs = 2*ones(5)
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+    MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([objXcoefs; 1.0], [X[objXidx]; x[1]]), 0.0))
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    sol = MOI.optimize!(model)
+
+    x = sol.primal
+    s = sol.slack
+    y = sol.dual
+
+    @test x ≈ [ 0.21725121; -0.25996907;  0.31108582;  0.21725009; -0.25996907;  0.21725121;
+                0.2544097;   0.17989425;  0.17989425] atol=ATOL rtol=RTOL
+    @test s ≈ [ 3.62815765e-18;  9.13225075e-18;  2.54409397e-01;  1.79894610e-01;
+                1.79894610e-01;  2.17250333e-01; -3.67650666e-01;  3.07238368e-01;
+                3.11085856e-01; -3.67650666e-01;  2.17250333e-01] atol=ATOL rtol=RTOL
+    @test y ≈ [ 0.54475556;  0.32190866;  0.45524724; -0.32190841; -0.32190841;  1.13333458;
+                0.95896711; -0.45524826;  1.13333631;  0.95896711;  1.13333458]  atol=ATOL rtol=RTOL
+
+    dA = ones(11, 9)
+    db = ones(11)
+    dc = ones(9)
+        
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
+
+    @test dx ≈ [ 1.61704223; -0.5569146;  -0.7471691;   1.60033013; -0.5569146;
+             1.61704223; -2.42981306; -1.7014106;  -1.7014106 ]  atol=ATOL rtol=RTOL
+    @test ds ≈ [0.0; 0.0; -2.48690962e+00; -1.75851065e+00;  -1.75851065e+00;
+                1.55994869e+00; -8.44690838e-01;  2.20610060e+00; -8.04264939e-01;
+                -8.44690838e-01;  1.55994869e+00]  atol=ATOL rtol=RTOL
+    @test dy ≈ [ 2.05946425;  9.70955435;  4.48131535; -3.16876847; -3.16876847;
+                -5.22822899; -9.10636942; -9.10637304; -5.22823314; -9.10636942; -5.22822899]  atol=ATOL rtol=RTOL
 end

@@ -452,6 +452,34 @@ function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionMod
     MOI.modify(model.optimizer, ci, chg)
 end
 
+# The ordering of CONES matches SCS
+const CONES = Dict(
+    MOI.Zeros => 1,
+    MOI.Nonnegatives => 2,
+    MOI.SecondOrderCone => 3,
+    MOI.PositiveSemidefiniteConeTriangle => 4,
+    MOI.ExponentialCone => 5, 
+    MOI.DualExponentialCone => 6
+)
+
+cons_offset(cone::MOI.Zeros) = cone.dimension
+cons_offset(cone::MOI.Nonnegatives) = cone.dimension
+cons_offset(cone::MOI.SecondOrderCone) = cone.dimension
+cons_offset(cone::MOI.PositiveSemidefiniteConeTriangle) = Int64((cone.side_dimension*(cone.side_dimension+1))/2)
+
+function restructure_arrays(_s::Array{Float64}, _y::Array{Float64}, cones::Array{<: MOI.AbstractVectorSet})
+    i=0
+    s = Array{Float64}[]
+    y = Array{Float64}[]
+    for cone in cones
+        offset = cons_offset(cone)
+        push!(s, _s[i.+(1:offset)])
+        push!(y, _y[i.+(1:offset)])
+        i += offset
+    end
+    return s, y
+end
+
 """
     Method to differentiate optimal solution `x`, `y`, `s`
 """
@@ -481,13 +509,21 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
 
         # get x,y,s
         x = model.primal_optimal
-        s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
-        y = model.dual_optimal
+        s = model.optimizer.model.optimizer.sol.slack
+        y = model.optimizer.model.optimizer.sol.dual
+
+        # reorder constraints
+        cis = sort(
+            model.con_idx, 
+            by = x->CONES[typeof(MOI.get(model, MOI.ConstraintSet(), x))]
+        )
+        # restructure slack variables `s` and dual variables `y` according to constraint sizes
+        s, y = restructure_arrays(s, y, MOI.get(model, MOI.ConstraintSet(), cis))
 
         # pre-compute quantities for the derivative
         m, n = size(A)
         N = m + n + 1
-        cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
+        cones = MOI.get(model, MOI.ConstraintSet(), cis)
         z = (x, y - s, [1.0])
         u, v, w = z
 
