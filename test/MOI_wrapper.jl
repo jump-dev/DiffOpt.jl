@@ -623,6 +623,7 @@ end
 
 @testset "Differentiating conic with PSD and SOC constraints" begin
     # refer https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2417
+    # find equivalent diffcp example here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_2_py.ipynb
 
     model = diff_optimizer(SCS.Optimizer)
 
@@ -693,4 +694,66 @@ end
                 -8.44690838e-01;  1.55994869e+00]  atol=ATOL rtol=RTOL
     @test dy ≈ [ 2.05946425;  9.70955435;  4.48131535; -3.16876847; -3.16876847;
                 -5.22822899; -9.10636942; -9.10637304; -5.22823314; -9.10636942; -5.22822899]  atol=ATOL rtol=RTOL
+end
+
+@testset "Differentiating conic with PSD and POS constraints" begin
+    # refer https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2575
+    # find equivalent diffcp program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
+
+    model = diff_optimizer(SCS.Optimizer)
+
+    x = MOI.add_variables(model, 7)
+    @test MOI.get(model, MOI.NumberOfVariables()) == 7
+
+    η = 10.0
+
+    c1  = MOI.add_constraint(
+        model, 
+        MOI.VectorAffineFunction(
+            MOI.VectorAffineTerm.(1, MOI.ScalarAffineTerm.(-1.0, x[1:6])),
+            [η]
+        ), 
+        MOI.Nonnegatives(1)
+    )
+    c2 = MOI.add_constraint(model, MOI.VectorAffineFunction(MOI.VectorAffineTerm.(1:6, MOI.ScalarAffineTerm.(1.0, x[1:6])), zeros(6)), MOI.Nonnegatives(6))
+    α = 0.8
+    δ = 0.9
+    c3 = MOI.add_constraint(model, MOI.VectorAffineFunction(MOI.VectorAffineTerm.([fill(1, 7); fill(2, 5);     fill(3, 6)],
+                                                            MOI.ScalarAffineTerm.(
+                                                            [ δ/2,       α,   δ, δ/4, δ/8,      0.0, -1.0,
+                                                                -δ/(2*√2), -δ/4, 0,     -δ/(8*√2), 0.0,
+                                                                δ/2,     δ-α,   0,      δ/8,      δ/4, -1.0],
+                                                            [x[1:7];     x[1:3]; x[5:6]; x[1:3]; x[5:7]])),
+                                                            zeros(3)), MOI.PositiveSemidefiniteConeTriangle(2))
+    c4 = MOI.add_constraint(
+        model, 
+        MOI.VectorAffineFunction(
+            MOI.VectorAffineTerm.(1, MOI.ScalarAffineTerm.(0.0, [x[1:3]; x[5:6]])),
+            [0.0]
+        ), 
+        MOI.Zeros(1)
+    )
+
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x[7])], 0.0))
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
+
+    sol = MOI.optimize!(model)
+
+    x = sol.primal
+    s = sol.slack
+    y = sol.dual
+
+    @test x' ≈ [6.66666667e+00 -3.88359992e-11  3.33333333e+00 -6.85488543e-12  6.02940183e-11 -6.21696364e-11  1.90192379e+00] atol=ATOL rtol=RTOL
+    @test s' ≈ [0.00000000e+00  4.29630707e-17  6.66666667e+00  0.0   3.33333333e+00  6.63144880e-17  3.31758339e-17  0.0  4.09807621e+00 -3.00000000e+00  1.09807621e+00] atol=ATOL rtol=RTOL
+    @test y' ≈ [0. 0.19019238 0. 0.12597667 0. 0.14264428 0.14264428 0.01274047 0.21132487 0.57735027 0.78867513]  atol=ATOL rtol=RTOL
+
+    dA = ones(11, 7)
+    db = ones(11)
+    dc = ones(7)
+
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
+
+    @test dx' ≈ [-42.240497    10.90192379 -12.26912194  10.90192379  10.90192379  10.90192379 -23.89209324] atol=ATOL rtol=RTOL
+    @test ds' ≈ [-0.00000000e+00 0.0 -5.31424208e+01 0.0 -2.31710457e+01 0.0 0.0 0.0 -4.65932563e+00  3.41086309e+00 -1.24846254e+00] atol=ATOL rtol=RTOL
+    @test dy' ≈ [-0. -3.79855654 -0.         -0.40206065 -0.         -0.45525613 -0.45525613 -0.04066184 -0.67445353 -1.84264131 -2.51709484] atol=ATOL rtol=RTOL
 end

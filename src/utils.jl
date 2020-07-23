@@ -268,7 +268,10 @@ end
 """
 function Dπ(::MOI.Nonnegatives, z::Array{Float64})
     y = (sign.(z) .+ 1.0)/2
-    return reshape(y, length(y), 1)
+    n = length(y)
+    result = zeros(n, n)
+    result[diagind(result)] .= y
+    return result
 end
 
 """
