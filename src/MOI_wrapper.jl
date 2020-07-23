@@ -488,10 +488,22 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
         @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
         MOIU.load_variables(model.optimizer.model.optimizer, MOI.get(model, MOI.NumberOfVariables()))
         
+        CONES_OFFSET = Dict(
+            MOI.Zeros => 0,
+            MOI.Nonnegatives => 0,
+            MOI.SecondOrderCone => 0,
+            MOI.PositiveSemidefiniteConeTriangle => 0,
+            MOI.ExponentialCone => 0, 
+            MOI.DualExponentialCone => 0
+        )
+
         for con in model.con_idx
             func = MOI.get(model.optimizer, MOI.ConstraintFunction(), con)
             set = MOI.get(model.optimizer, MOI.ConstraintSet(), con)
-            MOIU.load_constraint(model.optimizer.model.optimizer, CI{typeof(func), typeof(set)}(0), func, set)
+            F = typeof(func)
+            S = typeof(set)
+            MOIU.load_constraint(model.optimizer.model.optimizer, CI{F, S}(CONES_OFFSET[S]), func, set)
+            CONES_OFFSET[S] += cons_offset(set)
         end
         
         # now SCS data shud be allocated
