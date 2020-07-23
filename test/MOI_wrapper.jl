@@ -759,7 +759,7 @@ end
 end
 
 
-@testet "Differentiating a simple PSD" begin
+@testset "Differentiating a simple PSD" begin
     # refer https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2643
     # find equivalent diffcp program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_0_py.ipynb
 
