@@ -757,3 +757,41 @@ end
     @test ds' ≈ [-0.00000000e+00 0.0 -5.31424208e+01 0.0 -2.31710457e+01 0.0 0.0 0.0 -4.65932563e+00  3.41086309e+00 -1.24846254e+00] atol=ATOL rtol=RTOL
     @test dy' ≈ [-0. -3.79855654 -0.         -0.40206065 -0.         -0.45525613 -0.45525613 -0.04066184 -0.67445353 -1.84264131 -2.51709484] atol=ATOL rtol=RTOL
 end
+
+
+@testet "Differentiating a simple PSD" begin
+    # refer https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2643
+    # find equivalent diffcp program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_0_py.ipynb
+
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
+
+    x = MOI.add_variable(model)
+    fx = MOI.SingleVariable(x)
+
+    func = MOIU.operate(vcat, Float64, fx, one(Float64), fx, one(Float64), one(Float64), fx)
+
+    c = MOI.add_constraint(model, func, MOI.PositiveSemidefiniteConeTriangle(3))
+
+    MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), MOI.SingleVariable(x))
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    sol = MOI.optimize!(model)
+
+    x = sol.primal
+    s = sol.slack
+    y = sol.dual
+
+    @test x' ≈ [1.0] atol=ATOL rtol=RTOL
+    @test s' ≈ [1.         1.41421356 1.41421356 1.         1.41421356 1.        ] atol=ATOL rtol=RTOL
+    @test y' ≈ [ 0.33333333 -0.23570226 -0.23570226  0.33333333 -0.23570226  0.33333333]  atol=ATOL rtol=RTOL
+
+    dA = ones(6, 1)
+    db = ones(6)
+    dc = ones(1)
+
+    dx, dy, ds = DiffOpt.backward_conic!(model, dA, db, dc)
+
+    @test dx' ≈ zeros(1) atol=ATOL rtol=RTOL
+    @test ds  ≈ zeros(6) atol=ATOL rtol=RTOL
+    @test dy' ≈ [ 0.43096441 -0.30473785 -0.30473785  0.43096441 -0.30473785  0.43096441] atol=ATOL rtol=RTOL
+end
