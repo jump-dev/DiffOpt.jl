@@ -461,6 +461,9 @@ function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionMod
     MOI.modify(model.optimizer, ci, chg)
 end
 
+ π(cones, v) = MOSD.projection_on_set(MOSD.DefaultDistance(), cones, v, true)
+Dπ(cones, v) = MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), cones, v, true)
+
 """
     Method to differentiate optimal solution `x`, `y`, `s`
 """
