@@ -2,7 +2,7 @@
 [![Build Status](https://travis-ci.org/AKS1996/DiffOpt.jl.svg?branch=master)](https://travis-ci.org/AKS1996/DiffOpt.jl) 
 [![Coverage Status](https://coveralls.io/repos/github/AKS1996/DiffOpt.jl/badge.svg?branch=master)](https://coveralls.io/github/AKS1996/DiffOpt.jl?branch=master)
 [![AppVeyor Status](https://ci.appveyor.com/api/projects/status/github/AKS1996/DiffOpt.jl?branch=master&svg=true)](https://ci.appveyor.com/project/AKS1996/diffopt-jl)
-[![][docs-stable-img]][docs-stable-url]
+[![][docs-dev-img]][docs-dev-url]
 
 
 Differentiating convex optimization program (`JuMP.jl` or `MathOptInterface.jl` models) with respect to program parameters. Currently supports LPs, QPs.
@@ -39,5 +39,5 @@ Finally differentiate the model (primal and dual variables specifically) to obta
 - Benchmarking with CVXPY or QPTH: Refer relevant examples as in [test/MOI_wrapper.jl](https://github.com/AKS1996/DiffOpt.jl/blob/master/test/MOI_wrapper.jl#L130)
 
 
-[docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
-[docs-stable-url]: https://aks1996.github.io/DiffOpt.jl/
+[docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
+[docs-dev-url]: https://aks1996.github.io/DiffOpt.jl/dev/
