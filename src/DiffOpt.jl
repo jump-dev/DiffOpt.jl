@@ -4,6 +4,7 @@ using Random
 using LinearAlgebra
 using MathOptInterface
 using BlockDiagonals
+using SparseArrays
 using IterativeSolvers
 
 const MOI = MathOptInterface;
