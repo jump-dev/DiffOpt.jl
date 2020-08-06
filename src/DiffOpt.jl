@@ -5,6 +5,7 @@ using LinearAlgebra
 using MathOptInterface
 using MathOptSetDistances
 using BlockDiagonals
+using SparseArrays
 using IterativeSolvers
 
 const MOI = MathOptInterface;
