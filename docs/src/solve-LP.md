@@ -1,4 +1,4 @@
-# solving LP primal
+# Solving LP primal
 
 
 ```julia

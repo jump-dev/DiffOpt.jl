@@ -1,4 +1,4 @@
-## solving QP primal
+# Solving QP primal
 
 
 ```julia
