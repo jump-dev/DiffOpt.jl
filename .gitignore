@@ -23,7 +23,7 @@ docs/site/
 # environment.
 
 # refer: https://github.com/jupyterhub/repo2docker/pull/619#issuecomment-472273132
-# Manifest.toml
+Manifest.toml
 
 examples/.ipynb_checkpoints
 
