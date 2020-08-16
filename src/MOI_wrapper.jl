@@ -493,10 +493,10 @@ function restructure_arrays(_s::Array{Float64}, _y::Array{Float64}, cones::Array
 end
 
 #  find projections
-π(cones, v) = MOSD.projection_on_set(MOSD.DefaultDistance(), cones, v)
+π(cones, v) = MOSD.projection_on_set(MOSD.DefaultDistance(), v, cones)
 
 # find gradient of projections
-Dπ(cones, v) = MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), cones, v)
+Dπ(cones, v) = MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), v, cones)
 
 """
     Method to differentiate optimal solution `x`, `y`, `s`
