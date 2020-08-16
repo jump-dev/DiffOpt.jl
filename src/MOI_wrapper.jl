@@ -492,6 +492,12 @@ function restructure_arrays(_s::Array{Float64}, _y::Array{Float64}, cones::Array
     return s, y
 end
 
+#  find projections
+π(cones, v) = MOSD.projection_on_set(MOSD.DefaultDistance(), v, cones)
+
+# find gradient of projections
+Dπ(cones, v) = MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), v, cones)
+
 """
     Method to differentiate optimal solution `x`, `y`, `s`
 """
@@ -557,11 +563,13 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
             -c'          -b'          zeros(1,1)
         ]
 
-        Dπv = Dπ(cones, v)
+        # find gradient of projections on dual of the cones
+        Dπv = Dπ([MOI.dual_set(cone) for cone in cones], v)
 
         M = ((Q - Matrix{Float64}(I, size(Q))) * BlockDiagonal([Matrix{Float64}(I, length(u), length(u)), Dπv, Matrix{Float64}(I,1,1)])) + Matrix{Float64}(I, size(Q))
 
-        πz = vcat([u, π(cones, v), max.(w,0.0)]...)
+        # find projections on dual of the cones
+        πz = vcat([u, π([MOI.dual_set(cone) for cone in cones], v), max.(w,0.0)]...)
 
         dQ = [
             zeros(n,n)    dA'          dc;
