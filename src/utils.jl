@@ -36,19 +36,19 @@ function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
 end
 
 
-"""
-    Right hand side of eqn(6) in https://arxiv.org/pdf/1703.00443.pdf
-"""
-function create_RHS_matrix(z, dQ, dq, λ, dG, dh, ν=nothing, dA=nothing, db=nothing)
-    if dA == nothing || size(dA)[1] == 0
-        return -[dQ * z + dq + dG' * λ      ;
-                 Diagonal(λ) * (dG * z - dh)]
-    else
-        return -[dQ * z + dq + dG' * λ + dA' * ν;
-                 Diagonal(λ) * (dG * z - dh)    ;
-                 dA * z - db                    ]
-    end
-end
+# """
+#     Right hand side of eqn(6) in https://arxiv.org/pdf/1703.00443.pdf
+# """
+# function create_RHS_matrix(z, dQ, dq, λ, dG, dh, ν=nothing, dA=nothing, db=nothing)
+#     if dA == nothing || size(dA)[1] == 0
+#         return -[dQ * z + dq + dG' * λ      ;
+#                  Diagonal(λ) * (dG * z - dh)]
+#     else
+#         return -[dQ * z + dq + dG' * λ + dA' * ν;
+#                  Diagonal(λ) * (dG * z - dh)    ;
+#                  dA * z - db                    ]
+#     end
+# end
 
 
 is_equality(set::MOI.AbstractSet) = false
