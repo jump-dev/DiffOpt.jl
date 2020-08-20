@@ -133,3 +133,16 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     
     return Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx
 end
+
+# might slow down computation
+# need to find a faster way
+function CSRToCSC(B::MatOI.SparseMatrixCSRtoCSC{Int64})
+    A = sparse(zeros(B.m, B.n))
+    last = 0
+    for i in 1:B.n
+        rnge = (last+1):B.colptr[i]
+        A[(1 .+ B.rowval[rnge]), i] = B.nzval[rnge]
+        last = B.colptr[i]
+    end
+    return A
+end

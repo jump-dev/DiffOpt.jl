@@ -3,6 +3,7 @@ module DiffOpt
 using Random
 using LinearAlgebra
 using MathOptInterface
+using MatrixOptInterface
 using MathOptSetDistances
 using BlockDiagonals
 using SparseArrays
@@ -10,6 +11,7 @@ using IterativeSolvers
 
 const MOI = MathOptInterface;
 const MOIU = MathOptInterface.Utilities;
+const MatOI = MatrixOptInterface;
 const MOSD = MathOptSetDistances;
 
 include("./gen_random_problem.jl")

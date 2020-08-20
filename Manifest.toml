@@ -152,6 +152,14 @@ git-tree-sha1 = "9abbe463a1e9fc507f12a69e7f29346c2cdc472c"
 uuid = "fdba3010-5040-5b88-9595-932c9decdf73"
 version = "0.7.8"
 
+[[MatrixOptInterface]]
+deps = ["LinearAlgebra", "MathOptInterface", "SparseArrays", "Test"]
+git-tree-sha1 = "8c9ba6232f1359f43f5b056a7e7f40a4cc6ff816"
+repo-rev = "master"
+repo-url = "https://github.com/jump-dev/MatrixOptInterface.jl"
+uuid = "2f4eb8e6-3e35-4ae4-8c7a-f3d7d9bf20ed"
+version = "0.1.0"
+
 [[MbedTLS]]
 deps = ["BinaryProvider", "Dates", "Distributed", "Libdl", "Random", "Sockets", "Test"]
 git-tree-sha1 = "2d94286a9c2f52c63a16146bb86fd6cdfbf677c6"
@@ -204,6 +212,12 @@ uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 git-tree-sha1 = "58de8f7e33b7fda6ee39eff65169cd1e19d0c107"
 uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 version = "1.0.2"
+
+[[SCS]]
+deps = ["BinaryProvider", "Libdl", "LinearAlgebra", "MathOptInterface", "MathProgBase", "SparseArrays"]
+git-tree-sha1 = "936d43feaceae3290472ddf800b496be094d727b"
+uuid = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
+version = "0.6.6"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
