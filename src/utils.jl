@@ -19,7 +19,11 @@
 
 
 """
-    Inverse matrix specified on RHS of eqn(7) in https://arxiv.org/pdf/1703.00443.pdf
+    create_LHS_matrix(z, λ, Q, G, h, A=nothing)
+
+Inverse matrix specified on RHS of eqn(7) in https://arxiv.org/pdf/1703.00443.pdf
+
+Helper method while calling [`backward!`](@ref)
 """
 function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
     if A == nothing || size(A)[1] == 0
@@ -58,7 +62,9 @@ coefficient(t::MOI.ScalarAffineTerm) = t.coefficient
 
 
 """
-    Return problem parameters as matrices along with other problem info
+    get_problem_data(model::MOI.AbstractOptimizer)
+
+Return problem parameters as matrices along with other program info such as number of constraints, variables, etc
 """
 function get_problem_data(model::MOI.AbstractOptimizer)
     var_idx = MOI.get(model, MOI.ListOfVariableIndices())
