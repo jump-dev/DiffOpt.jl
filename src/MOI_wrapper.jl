@@ -43,7 +43,27 @@ const SUPPORTED_VECTOR_SETS = Union{
     MOI.PositiveSemidefiniteConeTriangle,
 }
 
+"""
+    diff_optimizer(optimizer_constructor)::Optimizer 
+    
+Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer and other utility methods.
+Results (primal, dual and slack values) are obtained by querying the internal optimizer instantiated using the 
+`optimizer_constructor`. These values are required for find jacobians with respect to problem data.
 
+One define a differentiable model by using any solver of choice. Example:
+
+```julia
+julia> using DiffOpt, GLPK
+
+julia> model = diff_optimizer(GLPK.Optimizer)
+julia> model.add_variable(x)
+julia> model.add_constraint(...)
+
+julia> backward!(model)  # for convex quadratic models
+
+julia> backward!(model)  # for convex conic models
+```
+"""
 function diff_optimizer(optimizer_constructor)::Optimizer 
     return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
 end
