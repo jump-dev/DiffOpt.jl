@@ -43,6 +43,8 @@ const SUPPORTED_VECTOR_SETS = Union{
     MOI.PositiveSemidefiniteConeTriangle,
 }
 
+const SUPPORTED_TERMINATION_STATUS = [MOI.LOCALLY_SOLVED, MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+
 """
     diff_optimizer(optimizer_constructor)::Optimizer 
     
@@ -176,7 +178,7 @@ function MOI.optimize!(model::Optimizer)
     solution = MOI.optimize!(model.optimizer)
 
     # do not fail. interferes with MOI.Tests.linear12test
-    if MOI.get(model.optimizer, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
+    if MOI.get(model.optimizer, MOI.TerminationStatus()) in SUPPORTED_TERMINATION_STATUS
         # save the solution
         model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
         model.dual_optimal = MOI.get(model.optimizer, MOI.ConstraintDual(), model.con_idx)
@@ -520,7 +522,7 @@ end
 Find projection of vectors in `v` on product of `cones`.
 For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
 """
-π(cones, v) = MOSD.projection_on_set(MOSD.DefaultDistance(), v, cones)
+π(cones, v) = sparse(MOSD.projection_on_set(MOSD.DefaultDistance(), v, cones))
 
 
 """
@@ -529,7 +531,7 @@ For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
 Find gradient of projection of vectors in `v` on product of `cones`.
 For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
 """
-Dπ(cones, v) = MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), v, cones)
+Dπ(cones, v) = sparse(MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), v, cones))
 
 """
     backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
@@ -541,7 +543,7 @@ but it this *does returns* the actual jacobians.
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
 function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
-    if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
+    if MOI.get(model, MOI.TerminationStatus()) in SUPPORTED_TERMINATION_STATUS
         @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
         MOIU.load_variables(model.optimizer.model.optimizer, MOI.get(model, MOI.NumberOfVariables()))
         
@@ -596,31 +598,35 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
         z = (x, y - s, [1.0])
         u, v, w = z
 
-        Q = [
+        # reshaping vectors to matrix
+        b = b[:, :]
+        c = c[:, :]
+
+        Q = sparse([
             zeros(n,n)   A'           c;
             -A           zeros(m,m)   b;
             -c'          -b'          zeros(1,1)
-        ]
+        ])
 
         # find gradient of projections on dual of the cones
         Dπv = Dπ([MOI.dual_set(cone) for cone in cones], v)
 
-        M = ((Q - Matrix{Float64}(I, size(Q))) * BlockDiagonal([Matrix{Float64}(I, length(u), length(u)), Dπv, Matrix{Float64}(I,1,1)])) + Matrix{Float64}(I, size(Q))
+        M = ((Q - sparse(1.0I, size(Q))) * blockdiag(sparse(1.0I, length(u), length(u)), Dπv, sparse(1.0I, 1, 1))) + sparse(1.0I, size(Q))
 
         # find projections on dual of the cones
-        πz = vcat([u, π([MOI.dual_set(cone) for cone in cones], v), max.(w,0.0)]...)
+        πz = sparse(vcat([u, π([MOI.dual_set(cone) for cone in cones], v), max.(w,0.0)]...))
 
-        dQ = [
+        dQ = sparse([
             zeros(n,n)    dA'          dc;
             -dA           zeros(m,m)   db;
             -dc'         -db'          zeros(1,1)
-        ]
+        ])
 
         RHS = dQ * πz
         if norm(RHS) <= 1e-4
-            dz = zeros(Float64, size(RHS))
+            dz = sparse(0.0I, size(RHS[:, :]))
         else
-            dz = lsqr(M, RHS)
+            dz = lsqr(M, RHS)  # supports sparse already
         end
 
         du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
