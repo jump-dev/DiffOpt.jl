@@ -27,15 +27,19 @@ Helper method while calling [`backward!`](@ref)
 """
 function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
     if A == nothing || size(A)[1] == 0
-        return [Q         G' * Diagonal(λ);
-                G         Diagonal(G * z - h)]
+        return sparse([
+            Q         G' * Diagonal(λ);
+            G         Diagonal(G * z - h)
+        ])
     else
         @assert size(A)[2] == size(G)[2]
         p, n = size(A)
         m    = size(G)[1]
-        return [Q         G' * Diagonal(λ)       A';  
-                G         Diagonal(G * z - h)    zeros(m, p);
-                A         zeros(p, m)            zeros(p, p)]
+        return sparse([
+            Q         G' * Diagonal(λ)       A';  
+            G         Diagonal(G * z - h)    zeros(m, p);
+            A         zeros(p, m)            zeros(p, p)
+        ])
     end
 end
 

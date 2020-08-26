@@ -63,7 +63,7 @@ julia> model.add_constraint(...)
 
 julia> backward!(model)  # for convex quadratic models
 
-julia> backward!(model)  # for convex conic models
+julia> backward_conic!(model)  # for convex conic models
 ```
 """
 function diff_optimizer(optimizer_constructor)::Optimizer 
@@ -273,7 +273,7 @@ function backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64
 
     grads = []
     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
-    RHS = [dl_dz'; zeros(neq+nineq,1)]
+    RHS = sparse([dl_dz'; zeros(neq+nineq,1)])
 
     partial_grads = -(LHS \ RHS)
 
