@@ -43,6 +43,8 @@ const SUPPORTED_VECTOR_SETS = Union{
     MOI.PositiveSemidefiniteConeTriangle,
 }
 
+const SUPPORTED_TERMINATION_STATUS = [MOI.LOCALLY_SOLVED, MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+
 """
     diff_optimizer(optimizer_constructor)::Optimizer 
     
@@ -176,7 +178,7 @@ function MOI.optimize!(model::Optimizer)
     solution = MOI.optimize!(model.optimizer)
 
     # do not fail. interferes with MOI.Tests.linear12test
-    if MOI.get(model.optimizer, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
+    if MOI.get(model.optimizer, MOI.TerminationStatus()) in SUPPORTED_TERMINATION_STATUS
         # save the solution
         model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
         model.dual_optimal = MOI.get(model.optimizer, MOI.ConstraintDual(), model.con_idx)
@@ -541,7 +543,7 @@ but it this *does returns* the actual jacobians.
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
 function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
-    if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
+    if MOI.get(model, MOI.TerminationStatus()) in SUPPORTED_TERMINATION_STATUS
         @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
         MOIU.load_variables(model.optimizer.model.optimizer, MOI.get(model, MOI.NumberOfVariables()))
         
