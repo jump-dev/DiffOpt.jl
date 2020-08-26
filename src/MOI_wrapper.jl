@@ -275,7 +275,7 @@ function backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64
     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
     RHS = sparse([dl_dz'; zeros(neq+nineq,1)])
 
-    partial_grads = -(LHS \ RHS)
+    partial_grads = -lsqr(LHS, RHS)   # error rate for lsqr should be small comparison to (LHS \ RHS)
 
     dz = partial_grads[1:nz]
     if nineq > 0
