@@ -43,7 +43,7 @@ const SUPPORTED_VECTOR_SETS = Union{
     MOI.PositiveSemidefiniteConeTriangle,
 }
 
-const SUPPORTED_TERMINATION_STATUS = [MOI.LOCALLY_SOLVED, MOI.OPTIMAL, MOI.ALMOST_OPTIMAL]
+const SUPPORTED_TERMINATION_STATUS = [MOI.LOCALLY_SOLVED, MOI.OPTIMAL, MOI.ALMOST_OPTIMAL, MOI.ALMOST_LOCALLY_SOLVED]
 
 """
     diff_optimizer(optimizer_constructor)::Optimizer 
@@ -273,9 +273,9 @@ function backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64
 
     grads = []
     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
-    RHS = sparse([dl_dz'; zeros(neq+nineq,1)])
+    RHS = [dl_dz'; zeros(neq+nineq)]
 
-    partial_grads = -lsqr(LHS, RHS)   # error rate for lsqr should be small comparison to (LHS \ RHS)
+    partial_grads = -LHS \ RHS
 
     dz = partial_grads[1:nz]
     if nineq > 0
@@ -522,7 +522,7 @@ end
 Find projection of vectors in `v` on product of `cones`.
 For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
 """
-π(cones, v) = sparse(MOSD.projection_on_set(MOSD.DefaultDistance(), v, cones))
+π(cones, v) = MOSD.projection_on_set(MOSD.DefaultDistance(), v, cones)
 
 
 """
@@ -531,7 +531,7 @@ For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
 Find gradient of projection of vectors in `v` on product of `cones`.
 For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
 """
-Dπ(cones, v) = sparse(MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), v, cones))
+Dπ(cones, v) = MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), v, cones)
 
 """
     backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
@@ -603,28 +603,28 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
         c = c[:, :]
 
         Q = sparse([
-            zeros(n,n)   A'           c;
-            -A           zeros(m,m)   b;
-            -c'          -b'          zeros(1,1)
+            spzeros(n,n)   A'           c;
+            -A           spzeros(m,m)   b;
+            -c'          -b'          spzeros(1,1)
         ])
 
         # find gradient of projections on dual of the cones
         Dπv = Dπ([MOI.dual_set(cone) for cone in cones], v)
 
-        M = ((Q - sparse(1.0I, size(Q))) * blockdiag(sparse(1.0I, length(u), length(u)), Dπv, sparse(1.0I, 1, 1))) + sparse(1.0I, size(Q))
+        M = ((Q - sparse(1.0I, size(Q))) * blockdiag(sparse(1.0I, length(u), length(u)), sparse(Dπv), sparse(1.0I, 1, 1))) + sparse(1.0I, size(Q))
 
         # find projections on dual of the cones
         πz = sparse(vcat([u, π([MOI.dual_set(cone) for cone in cones], v), max.(w,0.0)]...))
 
         dQ = sparse([
-            zeros(n,n)    dA'          dc;
-            -dA           zeros(m,m)   db;
-            -dc'         -db'          zeros(1,1)
+            spzeros(n,n)    dA'          dc;
+            -dA           spzeros(m,m)   db;
+            -dc'         -db'          spzeros(1,1)
         ])
 
         RHS = dQ * πz
         if norm(RHS) <= 1e-4
-            dz = sparse(0.0I, size(RHS[:, :]))
+            dz = spzeros(length(RHS), 1)
         else
             dz = lsqr(M, RHS)  # supports sparse already
         end

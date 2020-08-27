@@ -37,8 +37,8 @@ function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
         m    = size(G)[1]
         return sparse([
             Q         G' * Diagonal(λ)       A';  
-            G         Diagonal(G * z - h)    zeros(m, p);
-            A         zeros(p, m)            zeros(p, p)
+            G         Diagonal(G * z - h)    spzeros(m, p);
+            A         spzeros(p, m)            spzeros(p, p)
         ])
     end
 end
