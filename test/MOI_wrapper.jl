@@ -84,7 +84,7 @@ end
 
     grad_wrt_h = backward!(model, ["h"], [1.0 1.0])[1]
 
-    @test grad_wrt_h ≈ [1.0] atol=ATOL rtol=RTOL
+    @test grad_wrt_h ≈ [1.0] atol=1e-2 rtol=1e-2
 end
 
 
@@ -199,17 +199,17 @@ end
     dl_dA = grads[5]
     dl_db = grads[6]
 
-    @test dl_dQ ≈ zeros(3,3)  atol=ATOL rtol=RTOL
+    @test dl_dQ ≈ zeros(3,3)  atol=1e-2 rtol=1e-2
 
-    @test dl_dq ≈ zeros(3,1) atol=ATOL rtol=RTOL
+    @test dl_dq ≈ zeros(3,1) atol=1e-2 rtol=1e-2
 
-    @test dl_dG ≈ zeros(6,3) atol=ATOL rtol=RTOL
+    @test dl_dG ≈ zeros(6,3) atol=1e-2 rtol=1e-2
 
-    @test dl_dh ≈ zeros(6,1) atol=ATOL rtol=RTOL
+    @test dl_dh ≈ zeros(6,1) atol=1e-2 rtol=1e-2
 
-    @test dl_dA ≈ [0.0 -0.5 0.0] atol=ATOL rtol=RTOL
+    @test dl_dA ≈ [0.0 -0.5 0.0] atol=1e-2 rtol=1e-2
 
-    @test dl_db ≈ [1.0] atol=ATOL rtol=RTOL
+    @test dl_db ≈ [1.0] atol=1e-2 rtol=1e-2
 end
 
 
