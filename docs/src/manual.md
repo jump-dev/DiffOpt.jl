@@ -101,3 +101,9 @@ In the light of above, DiffOpt differentiates program variables ``x``, ``s``, ``
 
 - [_Differentiating Through a Cone Program_](https://arxiv.org/abs/1904.09043) - Akshay Agrawal, Shane Barratt, Stephen Boyd, Enzo Busseti, Walaa M. Moursi, 2019
 - A fast and differentiable QP solver for PyTorch. Crafted by Brandon Amos and J. Zico Kolter.
+- OptNet: Differentiable Optimization as a Layer in Neural Networks
+
+### Backward Pass vector
+One possible point of confusion in finding jacobians is the role of the backward pass vector - above eqn (7), *OptNet: Differentiable Optimization as a Layer in Neural Networks*. While differentiating convex programs, it is often the case that we dont't want to find the acutal derivatives, rather we might be interested in  computing the product of jacobians with a *backward pass vector*, often used in backprop in machine learing/automatic differentiation. This is what happens in scheme 1 of `DiffOpt` backend.
+
+But, for the conic system (scheme 2), we provide perturbations in conic data (`dA`, `db`, `dc`) to compute pertubations (`dx`, `dy`, `dz`) in input variables. Unlike the quadratic case, these perturbations are actual derivatives, not the product with a backward pass vector. This is an important distinction between the two schemes of differential optimization.
