@@ -16,7 +16,8 @@ makedocs(;
         "Examples" => [
             "Solving an LP" => "solve-LP.md",
             "Solving a QP" => "solve-QP.md",
-            "Solving conic with PSD and SOC constraints" => "solve-conic-1.md"
+            "Solving conic with PSD and SOC constraints" => "solve-conic-1.md",
+            "Differentiating a simple QP by hand" => "matrix-inversion-manual.md"
         ]
     ],
     strict = true,  # See https://github.com/JuliaOpt/JuMP.jl/issues/1576
