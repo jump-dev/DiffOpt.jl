@@ -22,7 +22,7 @@ makedocs(;
         ]
     ],
     strict = true,  # See https://github.com/JuliaOpt/JuMP.jl/issues/1576
-    repo="https://github.com/AKS1996/DiffOpt.jl/blob/{commit}{path}#L{line}",
+    repo="https://github.com/jump-dev/DiffOpt.jl/blob/{commit}{path}#L{line}",
     sitename="DiffOpt.jl",
     authors="JuMP Community"
 )

@@ -72,7 +72,7 @@ end
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
     primal_optimal::Vector{Float64}  # solution
-    dual_optimal::Vector{Union{Vector{Float64}, Float64}}  # refer - https://github.com/AKS1996/DiffOpt.jl/issues/21#issuecomment-651130485
+    dual_optimal::Vector{Union{Vector{Float64}, Float64}}  # refer - https://github.com/jump-dev/DiffOpt.jl/issues/21#issuecomment-651130485
     var_idx::Vector{VI}
     con_idx::Vector{CI}
 

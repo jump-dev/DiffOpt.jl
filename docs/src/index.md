@@ -13,7 +13,7 @@
 ## Installation
 DiffOpt can be installed through the Julia package manager:
 ```
-(v1.3) pkg> add https://github.com/AKS1996/DiffOpt.jl
+(v1.3) pkg> add https://github.com/jump-dev/DiffOpt.jl
 ```
 
 ## Why are Differentiable optimization problems important?
@@ -21,6 +21,6 @@ Differentiable optimization is a promising field of convex optimization and has 
 
 
 ## Contributing
-Contributions to this package are more than welcome, if you find a bug or have any suggestions for the documentation please post it on the [github issue tracker](https://github.com/AKS1996/DiffOpt.jl/issues).
+Contributions to this package are more than welcome, if you find a bug or have any suggestions for the documentation please post it on the [github issue tracker](https://github.com/jump-dev/DiffOpt.jl/issues).
 
 When contributing please note that the package follows the [JuMP style guide](https://jump.dev/JuMP.jl/stable/style/)
