@@ -155,7 +155,7 @@ end
 
 
 function MOI.optimize!(model::Optimizer)
-    solution = MOI.optimize!(model.optimizer)
+    MOI.optimize!(model.optimizer)
 
     # do not fail. interferes with MOI.Tests.linear12test
     if MOI.get(model.optimizer, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
@@ -166,8 +166,6 @@ function MOI.optimize!(model::Optimizer)
     else
         @warn "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
     end
-
-    return solution
 end
 
     

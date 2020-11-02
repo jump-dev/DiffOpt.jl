@@ -213,12 +213,6 @@ git-tree-sha1 = "58de8f7e33b7fda6ee39eff65169cd1e19d0c107"
 uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 version = "1.0.2"
 
-[[SCS]]
-deps = ["BinaryProvider", "Libdl", "LinearAlgebra", "MathOptInterface", "MathProgBase", "SparseArrays"]
-git-tree-sha1 = "936d43feaceae3290472ddf800b496be094d727b"
-uuid = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
-version = "0.6.6"
-
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
