@@ -4,28 +4,16 @@
 [![AppVeyor Status](https://ci.appveyor.com/api/projects/status/github/AKS1996/DiffOpt.jl?branch=master&svg=true)](https://ci.appveyor.com/project/AKS1996/diffopt-jl)
 [![Docs status](https://img.shields.io/badge/docs-dev-blue.svg)](https://aks1996.github.io/DiffOpt.jl/dev/)
 
-[DiffOpt](https://github.com/AKS1996/JuMP.jl) is a package for differentiating convex optimization program ([JuMP.jl](https://github.com/jump-dev/JuMP.jl) or [MathOptInterface.jl](https://github.com/jump-dev/MathOptInterface.jl) models) with respect to program parameters.
+[DiffOpt](https://github.com/AKS1996/JuMP.jl) is a package for differentiating convex optimization program ([JuMP.jl](https://github.com/jump-dev/JuMP.jl) or [MathOptInterface.jl](https://github.com/jump-dev/MathOptInterface.jl) models) with respect to program parameters. Note that this package does not contains any solver. This package has two major backends, available via `backward!` and `backward_conic!` methods, to differentiate models with optimal solutions.
 
 !!! note
     Currently supports *linear programs*, *convex quadratic programs* and *convex conic programs* (SDP, SOCP constraints only). 
 
-Contents
---------
-
-```@contents
-Pages = [
-    "reference.md",
-    "usage.md",
-    "solve-QP.md",
-    "solve-LP.md"
-]
-Depth = 2
-```
 
 ## Installation
 DiffOpt can be installed through the Julia package manager:
 ```
-(v1.3) pkg> add https://github.com/AKS1996/DiffOpt.jl
+(v1.3) pkg> add https://github.com/jump-dev/DiffOpt.jl
 ```
 
 ## Why are Differentiable optimization problems important?
@@ -33,6 +21,6 @@ Differentiable optimization is a promising field of convex optimization and has 
 
 
 ## Contributing
-Contributions to this package are more than welcome, if you find a bug or have any suggestions for the documentation please post it on the [github issue tracker](https://github.com/AKS1996/DiffOpt.jl/issues).
+Contributions to this package are more than welcome, if you find a bug or have any suggestions for the documentation please post it on the [github issue tracker](https://github.com/jump-dev/DiffOpt.jl/issues).
 
 When contributing please note that the package follows the [JuMP style guide](https://jump.dev/JuMP.jl/stable/style/)

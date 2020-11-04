@@ -43,7 +43,27 @@ const SUPPORTED_VECTOR_SETS = Union{
     MOI.PositiveSemidefiniteConeTriangle,
 }
 
+"""
+    diff_optimizer(optimizer_constructor)::Optimizer 
+    
+Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer and other utility methods.
+Results (primal, dual and slack values) are obtained by querying the internal optimizer instantiated using the 
+`optimizer_constructor`. These values are required for find jacobians with respect to problem data.
 
+One define a differentiable model by using any solver of choice. Example:
+
+```julia
+julia> using DiffOpt, GLPK
+
+julia> model = diff_optimizer(GLPK.Optimizer)
+julia> model.add_variable(x)
+julia> model.add_constraint(...)
+
+julia> backward!(model)  # for convex quadratic models
+
+julia> backward!(model)  # for convex conic models
+```
+"""
 function diff_optimizer(optimizer_constructor)::Optimizer 
     return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
 end
@@ -52,7 +72,7 @@ end
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
     primal_optimal::Vector{Float64}  # solution
-    dual_optimal::Vector{Union{Vector{Float64}, Float64}}  # refer - https://github.com/AKS1996/DiffOpt.jl/issues/21#issuecomment-651130485
+    dual_optimal::Vector{Union{Vector{Float64}, Float64}}  # refer - https://github.com/jump-dev/DiffOpt.jl/issues/21#issuecomment-651130485
     var_idx::Vector{VI}
     con_idx::Vector{CI}
 
@@ -220,18 +240,20 @@ end
 # end
 
 """
-    Method to differentiate optimal solution `z` and return
-    product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with 
-    the backward pass vector `dl / dz`
+    backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64})
+    
+Method to differentiate optimal solution `z` and return
+product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with 
+the backward pass vector `dl / dz`
 
-    The method computes the product of 
-    1. jacobian of problem solution `z*` with respect to 
-        problem parameters `params` recieved as method arguments
-    2. a backward pass vector `dl / dz`, where `l` can be a loss function
+The method computes the product of 
+1. jacobian of problem solution `z*` with respect to 
+    problem parameters `params` recieved as method arguments
+2. a backward pass vector `dl / dz`, where `l` can be a loss function
 
-    Note that does not returns the actual jacobians
+Note that this method *does not returns* the actual jacobians.
 
-    For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
+For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
 function backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64})
     Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx = get_problem_data(model.optimizer)
@@ -463,13 +485,31 @@ function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionMod
 end
 
 #  find projections
+"""
+    π(cones::Array{<: MOI.AbstractVectorSet}, v::Vector{Vector{Float64}})
+
+Find projection of vectors in `v` on product of `cones`.
+For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
+"""
 π(cones, v) = MOSD.projection_on_set(MOSD.DefaultDistance(), v, cones)
 
-# find gradient of projections
+
+"""
+    Dπ(cones::Array{<: MOI.AbstractVectorSet}, v::Vector{Vector{Float64}})
+
+Find gradient of projection of vectors in `v` on product of `cones`.
+For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
+"""
 Dπ(cones, v) = MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), v, cones)
 
 """
-    Method to differentiate optimal solution `x`, `y`, `s`
+    backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
+
+Method to differentiate optimal solution `x`, `y`, `s` given perturbations related to 
+conic program parameters `A`, `b`, `c`. This is similar to [`backward!`](@ref) method
+but it this *does returns* the actual jacobians.
+
+For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
 function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
     if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]

@@ -10,7 +10,7 @@ Differentiating convex optimization program (`JuMP.jl` or `MathOptInterface.jl` 
 ## Installation
 DiffOpt can be installed through the Julia package manager:
 ```
-(v1.3) pkg> add https://github.com/AKS1996/DiffOpt.jl
+(v1.3) pkg> add https://github.com/jump-dev/DiffOpt.jl
 ```
 
 ## Usage
@@ -36,7 +36,7 @@ Finally differentiate the model (primal and dual variables specifically) to obta
 ## Note
 - Package developed using [PkgTemplates](https://github.com/invenia/PkgTemplates.jl)
 - This is a [NumFOCUS Google Summer of Code (2020) project](https://summerofcode.withgoogle.com/organizations/4727917315096576/?sp-page=2#5232064888045568)
-- Benchmarking with CVXPY or QPTH: Refer relevant examples as in [test/MOI_wrapper.jl](https://github.com/AKS1996/DiffOpt.jl/blob/master/test/MOI_wrapper.jl#L130)
+- Benchmarking with CVXPY or QPTH: Refer relevant examples as in [test/MOI_wrapper.jl](https://github.com/jump-dev/DiffOpt.jl/blob/master/test/MOI_wrapper.jl#L130)
 
 
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
