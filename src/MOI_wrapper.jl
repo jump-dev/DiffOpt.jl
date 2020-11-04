@@ -53,7 +53,6 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
     primal_optimal::Vector{Float64}  # solution
     dual_optimal::Vector{Union{Vector{Float64}, Float64}}  # refer - https://github.com/AKS1996/DiffOpt.jl/issues/21#issuecomment-651130485
-    # slack::Vector{Union{Vector{Float64}, Float64}}  # primal solution of the dual
     var_idx::Vector{VI}
     con_idx::Vector{CI}
 
@@ -62,7 +61,6 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
             optimizer_constructor,
             zeros(0),
             zeros(0),
-            # zeros(0),
             Vector{VI}(),
             Vector{CI}()
         )
@@ -162,7 +160,6 @@ function MOI.optimize!(model::Optimizer)
         # save the solution
         model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
         model.dual_optimal = MOI.get(model.optimizer, MOI.ConstraintDual(), model.con_idx)
-        # model.slack = MOI.get(model.optimizer, MOI.ConstraintPrimal(), model.con_idx)
     else
         @warn "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
     end
@@ -465,34 +462,6 @@ function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionMod
     MOI.modify(model.optimizer, ci, chg)
 end
 
-# The ordering of CONES matches SCS
-const CONES = Dict(
-    MOI.Zeros => 1,
-    MOI.Nonnegatives => 2,
-    MOI.SecondOrderCone => 3,
-    MOI.PositiveSemidefiniteConeTriangle => 4,
-    MOI.ExponentialCone => 5, 
-    MOI.DualExponentialCone => 6
-)
-
-cons_offset(cone::MOI.Zeros) = cone.dimension
-cons_offset(cone::MOI.Nonnegatives) = cone.dimension
-cons_offset(cone::MOI.SecondOrderCone) = cone.dimension
-cons_offset(cone::MOI.PositiveSemidefiniteConeTriangle) = Int64((cone.side_dimension*(cone.side_dimension+1))/2)
-
-function restructure_arrays(_s::Array{Float64}, _y::Array{Float64}, cones::Array{<: MOI.AbstractVectorSet})
-    i=0
-    s = Array{Float64}[]
-    y = Array{Float64}[]
-    for cone in cones
-        offset = cons_offset(cone)
-        push!(s, _s[i.+(1:offset)])
-        push!(y, _y[i.+(1:offset)])
-        i += offset
-    end
-    return s, y
-end
-
 #  find projections
 π(cones, v) = MOSD.projection_on_set(MOSD.DefaultDistance(), v, cones)
 
@@ -512,45 +481,20 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
         b = conic_form.b
         c = conic_form.c
 
-        # missing some preprocessing step for `PositiveSemidefiniteConeTriangle` constraint
-        # the arrays saved in `MOI.optimize!` are not same as returned by SCS
-        # makes differentiation `SCS.jl` dependent for now
-        # refer 
-
-        # # reorder `cones`, `s` and `y`
-        # tuples = [(model.con_idx[i], s[i], y[i]) for i in 1:length(model.con_idx)]
-        # sorted_tuples = sort(
-        #     tuples, 
-        #     by = x -> CONES[typeof(MOI.get(model, MOI.ConstraintSet(), x[1]))]
-        # )
-
-        # # reassign
-        # cis = [x[1] for x in sorted_tuples]
-        # s = [x[2] for x in sorted_tuples]
-        # y = [x[3] for x in sorted_tuples]
-
+        # programs in tests were cross-checked against `diffcp`, which follows SCS format
+        # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
+        # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
+        
         # get x,y,s
         x = model.primal_optimal
-        s = model.optimizer.model.optimizer.sol.slack
-        y = model.optimizer.model.optimizer.sol.dual
-
-        # reorder constraints
-        cis = sort(
-            model.con_idx, 
-            by = x->CONES[typeof(MOI.get(model, MOI.ConstraintSet(), x))]
-        )
-        # restructure slack variables `s` and dual variables `y` according to constraint sizes
-        s, y = restructure_arrays(s, y, MOI.get(model, MOI.ConstraintSet(), cis))
-
-        # # override slack and dual values
-        # model.slack = s
-        # model.dual_optimal = y
+        s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
+        y = model.dual_optimal
 
         # pre-compute quantities for the derivative
         m = A.m
         n = A.n
         N = m + n + 1
-        cones = MOI.get(model, MOI.ConstraintSet(), cis)
+        cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
         z = (x, y - s, [1.0])
         u, v, w = z
 
