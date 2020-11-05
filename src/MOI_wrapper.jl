@@ -605,7 +605,7 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
         Q = sparse([
             spzeros(n,n)   A'           c;
             -A           spzeros(m,m)   b;
-            -c'          -b'          spzeros(1,1)
+            -c'          -b'          0.0
         ])
 
         # find gradient of projections on dual of the cones
@@ -619,7 +619,7 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
         dQ = sparse([
             spzeros(n,n)    dA'          dc;
             -dA           spzeros(m,m)   db;
-            -dc'         -db'          spzeros(1,1)
+            -dc'         -db'          0.0
         ])
 
         RHS = dQ * πz
