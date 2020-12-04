@@ -599,15 +599,15 @@ end
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [X[1], X[end]]), 0.0))
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    sol = MOI.optimize!(model)
+    MOI.optimize!(model)
 
-    x = sol.primal
-    s = sol.slack
-    y = sol.dual
+    x = model.primal_optimal
+    s = model.optimizer.model.optimizer.data.slack
+    y = model.dual_optimal
 
     @test x ≈ ones(3) atol=ATOL rtol=RTOL
-    @test s ≈ [0.0; 1.0; 1.41421; 1.0] atol=ATOL rtol=RTOL
-    @test y ≈ [1.99999496;  1.0; -1.41421356;  1.]  atol=ATOL rtol=RTOL
+    @test s ≈ [0.0, 1.0, 1.41421, 1.0] atol=ATOL rtol=RTOL
+    @test y ≈ [1.99999496, 1.0, -1.41421356,  1.0]  atol=ATOL rtol=RTOL
 
     dA = ones(4, 3)
     db = ones(4)
@@ -669,9 +669,9 @@ end
 
     sol = MOI.optimize!(model)
 
-    x = sol.primal
-    s = sol.slack
-    y = sol.dual
+    x = model.primal_optimal
+    y = model.dual_optimal
+    s = model.optimizer.model.optimizer.data.slack
 
     @test x ≈ [ 0.21725121; -0.25996907;  0.31108582;  0.21725009; -0.25996907;  0.21725121;
                 0.2544097;   0.17989425;  0.17989425] atol=ATOL rtol=RTOL
@@ -737,15 +737,15 @@ end
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x[7])], 0.0))
     MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
 
-    sol = MOI.optimize!(model)
+    MOI.optimize!(model)
 
-    x = sol.primal
-    s = sol.slack
-    y = sol.dual
+    x = model.primal_optimal
+    s = model.optimizer.model.optimizer.data.slack
+    y = model.dual_optimal
 
-    @test x' ≈ [6.66666667e+00 -3.88359992e-11  3.33333333e+00 -6.85488543e-12  6.02940183e-11 -6.21696364e-11  1.90192379e+00] atol=ATOL rtol=RTOL
+    @test x ≈ [6.66666667e+00, -3.88359992e-11,  3.33333333e+00, -6.85488543e-12,  6.02940183e-11, -6.21696364e-11,  1.90192379e+00] atol=ATOL rtol=RTOL
     @test s' ≈ [0.00000000e+00  4.29630707e-17  6.66666667e+00  0.0   3.33333333e+00  6.63144880e-17  3.31758339e-17  0.0  4.09807621e+00 -3.00000000e+00  1.09807621e+00] atol=ATOL rtol=RTOL
-    @test y' ≈ [0. 0.19019238 0. 0.12597667 0. 0.14264428 0.14264428 0.01274047 0.21132487 0.57735027 0.78867513]  atol=ATOL rtol=RTOL
+    @test y ≈ [0.0, 0.19019238, 0.0, 0.12597667, 0.0, 0.14264428, 0.14264428, 0.01274047, 0.21132487, 0.57735027, 0.78867513]  atol=ATOL rtol=RTOL
 
     dA = ones(11, 7)
     db = ones(11)
@@ -775,11 +775,11 @@ end
     MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), MOI.SingleVariable(x))
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    sol = MOI.optimize!(model)
+    MOI.optimize!(model)
 
-    x = sol.primal
-    s = sol.slack
-    y = sol.dual
+    x = model.primal_optimal
+    s = model.optimizer.model.optimizer.data.slack
+    y = model.dual_optimal
 
     @test x' ≈ [1.0] atol=ATOL rtol=RTOL
     @test s' ≈ [1.         1.41421356 1.41421356 1.         1.41421356 1.        ] atol=ATOL rtol=RTOL

@@ -544,7 +544,7 @@ For theoretical background, refer Section 3 of Differentiating Through a Cone Pr
 function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
     if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
         @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
-        MOIU.load_variables(model.optimizer.model.optimizer, MOI.get(model, MOI.NumberOfVariables()))
+        # MOIU.load_variables(model.optimizer.model.optimizer, MOI.get(model, MOI.NumberOfVariables()))
 
         CONES_OFFSET = Dict(
             MOI.Zeros => 0,
@@ -564,7 +564,7 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
             CONES_OFFSET[S] += cons_offset(set)
         end
 
-        # now SCS data shud be allocated
+        # now SCS data should be allocated
         A = sparse(
             model.optimizer.model.optimizer.data.I,
             model.optimizer.model.optimizer.data.J,
