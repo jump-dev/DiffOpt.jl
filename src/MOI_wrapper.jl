@@ -180,7 +180,7 @@ function MOI.optimize!(model::Optimizer)
     if MOI.get(model.optimizer, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
         # save the solution
         model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
-        model.dual_optimal = MOI.get(model.optimizer, MOI.ConstraintDual(), model.con_idx)
+        model.dual_optimal = MOI.get.(model.optimizer, MOI.ConstraintDual(), model.con_idx)
     else
         @warn "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
     end
@@ -580,7 +580,7 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
         # get x,y,s
         x = model.primal_optimal
         s = model.optimizer.model.optimizer.sol.slack
-        y = model.optimizer.model.optimizer.sol.dual
+        y = model.dual_solution
 
         # reorder constraints
         cis = sort(

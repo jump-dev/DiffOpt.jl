@@ -6,6 +6,7 @@
     h = [1.0; 0.7; 0.7; -1.0; 0.0; 0.0];
 
     model = diff_optimizer(Ipopt.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 2)
 
     # define objective
@@ -50,6 +51,7 @@ end
     h = [-1.0;]
 
     model = diff_optimizer(OSQP.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 2)
 
     # define objective
@@ -146,6 +148,7 @@ end
     b = [0.5;]
 
     model = diff_optimizer(Ipopt.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 3)
 
     # define objective
@@ -225,6 +228,7 @@ end
     #     x, y, z \in R
 
     model = diff_optimizer(OSQP.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
     v = MOI.add_variables(model, 3)
     @test MOI.get(model, MOI.NumberOfVariables()) == 3
 
@@ -772,7 +776,7 @@ end
 
     c = MOI.add_constraint(model, func, MOI.PositiveSemidefiniteConeTriangle(3))
 
-    MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), MOI.SingleVariable(x))
+    MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), fx)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     MOI.optimize!(model)
@@ -781,9 +785,9 @@ end
     s = model.optimizer.model.optimizer.data.slack
     y = model.dual_optimal
 
-    @test x' ≈ [1.0] atol=ATOL rtol=RTOL
-    @test s' ≈ [1.         1.41421356 1.41421356 1.         1.41421356 1.        ] atol=ATOL rtol=RTOL
-    @test y' ≈ [ 0.33333333 -0.23570226 -0.23570226  0.33333333 -0.23570226  0.33333333]  atol=ATOL rtol=RTOL
+    @test x ≈ [1.0] atol=ATOL rtol=RTOL
+    @test s ≈ [1.0, 1.41421356, 1.41421356, 1.0, 1.41421356, 1.0] atol=ATOL rtol=RTOL
+    @test y ≈ [0.33333333, -0.23570226, -0.23570226, 0.33333333, -0.23570226, 0.33333333]  atol=ATOL rtol=RTOL
 
     dA = ones(6, 1)
     db = ones(6)
