@@ -299,6 +299,8 @@ end
     #             x + y = 1
 
     model = diff_optimizer(Ipopt.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
+
     x = MOI.add_variable(model)
     y = MOI.add_variable(model)
 
@@ -387,6 +389,7 @@ end
     b = vec(b)
 
     optimizer = diff_optimizer(Ipopt.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
 
     x = MOI.add_variables(optimizer, nz)
 
@@ -448,6 +451,7 @@ end
     #      x >= 3
 
     optimizer = diff_optimizer(Clp.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
 
     x = MOI.add_variables(optimizer,1)
 
@@ -488,6 +492,7 @@ end
 
 
     optimizer = diff_optimizer(SCS.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
     v = MOI.add_variables(optimizer, 3)
 
     # define objective
@@ -543,7 +548,7 @@ end
     # find equivalent diffcp python program here: https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_socp_1_py.ipynb
 
     model = diff_optimizer(SCS.Optimizer)
-
+    MOI.set(model, MOI.Silent(), true)
     x,y,t = MOI.add_variables(model, 3)
 
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0))
