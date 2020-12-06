@@ -68,7 +68,7 @@ end
     objective_function = MOI.ScalarQuadraticFunction(
                             MOI.ScalarAffineTerm.(q, x),
                             quad_terms,
-                            0.0
+                            0.0,
                         )
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
@@ -86,7 +86,7 @@ end
 
     grad_wrt_h = backward!(model, ["h"], [1.0 1.0])[1]
 
-    @test grad_wrt_h ≈ [1.0] atol=ATOL rtol=RTOL
+    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
 end
 
 
