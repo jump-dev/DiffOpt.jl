@@ -58,8 +58,6 @@ end
 is_equality(set::MOI.AbstractSet) = false
 is_equality(set::MOI.EqualTo) = true
 
-coefficient(t::MOI.ScalarAffineTerm) = t.coefficient
-
 
 """
     get_problem_data(model::MOI.AbstractOptimizer)
@@ -116,7 +114,9 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)
 
-        A[i, :] = coefficient.(func.terms)'
+        for x in func.terms
+            A[i, x.variable_index.value] = x.coefficient
+        end
         b[i] = set.value - func.constant
     end
 
@@ -125,9 +125,12 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     # works both for affine and quadratic objective functions
     objective_function = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
     Q = zeros(nz, nz)
+    q = zeros(nz)
 
     if typeof(objective_function) == MathOptInterface.ScalarAffineFunction{Float64}
-        q = coefficient.(objective_function.terms)
+        for x in objective_function.terms
+            q[x.variable_index.value] = x.coefficient
+        end
     elseif typeof(objective_function) == MathOptInterface.ScalarQuadraticFunction{Float64}
         # @assert size(objective_function.quadratic_terms)[1] == (nz * (nz + 1)) / 2
 
@@ -140,8 +143,21 @@ function get_problem_data(model::MOI.AbstractOptimizer)
             Q[j,i] = quad.coefficient
         end
 
-        q = coefficient.(objective_function.affine_terms)
+        q = MOI.coefficient.(objective_function.affine_terms)
     end
 
     return Q, q, G, h, A, b, nz, var_list, nineq, ineq_con_idx, neq, eq_con_idx
+end
+
+# might slow down computation
+# need to find a faster way
+function CSRToCSC(B::MatOI.SparseMatrixCSRtoCSC{Int64})
+    A = sparse(zeros(B.m, B.n))
+    last = 0
+    for i in 1:B.n
+        rnge = (last+1):B.colptr[i]
+        A[(1 .+ B.rowval[rnge]), i] = B.nzval[rnge]
+        last = B.colptr[i]
+    end
+    return A
 end

@@ -610,27 +610,39 @@ end
     MOI.optimize!(model)
 
     x = model.primal_optimal
-    s = model.optimizer.model.optimizer.data.slack
+    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
     y = model.dual_optimal
 
     @test x ≈ ones(3) atol=ATOL rtol=RTOL
-    @test s ≈ [0.0, 1.0, 1.41421, 1.0] atol=ATOL rtol=RTOL
-    @test_broken y ≈ [1.99999496, 1.0, -1.41421356,  1.0]  atol=ATOL rtol=RTOL
+    @test s ≈ [ones(3), [0.0]] atol=ATOL rtol=RTOL
+    @test y ≈ [[1.0, -1.0, 1.0], [2.0]]  atol=ATOL rtol=RTOL
 
-    dA = ones(4, 3)
-    db = ones(4)
-    dc = ones(3)
+    # test1: changing the constant in `c`, i.e. changing value of X[2]
+    dA = zeros(4, 3)
+    db = zeros(4)
+    db[4] = 1.0
+    dc = zeros(3)
 
     dx, dy, ds = backward_conic!(model, dA, db, dc)
 
-    @test dx ≈ [2.58577489; 1.99999496; 2.58577489] atol=ATOL rtol=RTOL
-    @test ds ≈ [0.0; 5.85779924e-01; 8.28417913e-01; 5.85779924e-01] atol=ATOL rtol=RTOL
-    @test dy ≈ [10.75732613;  3.5857814;  -5.07106069;  3.5857814 ] atol=ATOL rtol=RTOL
+    @test dx ≈ -ones(3) atol=ATOL rtol=RTOL  # will change the value of other 2 variables
+    @test ds[1:3] ≈ -ones(3)  atol=ATOL rtol=RTOL  # will affect PSD constraint too
+
+    # test2: changing X[1], X[3] but keeping the objective (their sum) same
+    dA = zeros(4, 3)
+    db = zeros(4)
+    dc = zeros(3)
+    dc[1] = -1.0
+    dc[3] = 1.0
+
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
+
+    @test dx ≈ [1.0, 0.0, -1.0] atol=ATOL rtol=RTOL  # note: no effect on X[2]
 end
 
 
 @testset "Differentiating conic with PSD and SOC constraints" begin
-    # refer https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2417
+    # similar to https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2417
     # find equivalent diffcp example here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_2_py.ipynb
 
     model = diff_optimizer(SCS.Optimizer)
@@ -667,7 +679,18 @@ end
             MOI.VectorAffineTerm.(1:1, MOI.ScalarAffineTerm.([1., 2, 1, 2, 2, 1, 1, 1], [X; x[2]; x[3]])),
             [-0.5]
         ),
-        MOI.Zeros(1)
+        MOI.Zeros(1),
+    )
+
+    # this is a useless constraint - refer the tests below
+    # even if we comment this, it won't affect the optimal values
+    c_extra = MOI.add_constraint(
+        model,
+        MOI.VectorAffineFunction(
+            MOI.VectorAffineTerm.(1:1, MOI.ScalarAffineTerm.(ones(3), x)),
+            [100.0]
+        ),
+        MOI.Nonnegatives(1)
     )
 
     objXidx = [1:3; 5:6]
@@ -676,33 +699,32 @@ end
     MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([objXcoefs; 1.0], [X[objXidx]; x[1]]), 0.0))
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    sol = MOI.optimize!(model)
+    MOI.optimize!(model)
 
     x = model.primal_optimal
+    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
     y = model.dual_optimal
-    s = model.optimizer.model.optimizer.data.slack
 
     @test x ≈ [ 0.21725121; -0.25996907;  0.31108582;  0.21725009; -0.25996907;  0.21725121;
                 0.2544097;   0.17989425;  0.17989425] atol=ATOL rtol=RTOL
-    @test s ≈ [ 3.62815765e-18;  9.13225075e-18;  2.54409397e-01;  1.79894610e-01;
-                1.79894610e-01;  2.17250333e-01; -3.67650666e-01;  3.07238368e-01;
-                3.11085856e-01; -3.67650666e-01;  2.17250333e-01] atol=ATOL rtol=RTOL
-    @test_broken y ≈ [ 0.54475556;  0.32190866;  0.45524724; -0.32190841; -0.32190841;  1.13333458;
-                0.95896711; -0.45524826;  1.13333631;  0.95896711;  1.13333458]  atol=ATOL rtol=RTOL
+    @test s ≈ [[0.217251, -0.25997, 0.31109, 0.217251, -0.25997, 0.217251],
+                [0.254408, 0.179894, 0.179894], [0.0], [0.0], [100.614]] atol=ATOL rtol=RTOL   # TODO: it should be 100, not 100.614, its surely a residual error
+    @test y ≈ [[1.13334, 0.678095, 1.13334, -0.321905, 0.678095, 1.13334],
+                [0.455242, -0.321905, -0.321905], [0.544758], [0.321905], [0.0]]  atol=ATOL rtol=RTOL
 
-    dA = ones(11, 9)
-    db = ones(11)
-    dc = ones(9)
+    # test c_extra
+    dA = zeros(12, 9)
+    db = zeros(12)
+    db[12] = 1.0
+    dc = zeros(9)
 
     dx, dy, ds = backward_conic!(model, dA, db, dc)
 
-    @test dx ≈ [ 1.61704223; -0.5569146;  -0.7471691;   1.60033013; -0.5569146;
-             1.61704223; -2.42981306; -1.7014106;  -1.7014106 ]  atol=ATOL rtol=RTOL
-    @test ds ≈ [0.0; 0.0; -2.48690962e+00; -1.75851065e+00;  -1.75851065e+00;
-                1.55994869e+00; -8.44690838e-01;  2.20610060e+00; -8.04264939e-01;
-                -8.44690838e-01;  1.55994869e+00]  atol=ATOL rtol=RTOL
-    @test dy ≈ [ 2.05946425;  9.70955435;  4.48131535; -3.16876847; -3.16876847;
-                -5.22822899; -9.10636942; -9.10637304; -5.22823314; -9.10636942; -5.22822899]  atol=ATOL rtol=RTOL
+    # a small change in the constant in c_extra should not affect any other variable or constraint other than c_extra itself
+    @test dx ≈ zeros(9) atol=1e-2
+    @test dy ≈ zeros(12) atol=1e-2
+    @test ds[1:end-1] ≈ zeros(11) atol=1e-2
+    @test ds[end] ≈ 1.0 atol=1e-2   # except c_extra itself
 end
 
 @testset "Differentiating conic with PSD and POS constraints" begin
@@ -750,12 +772,12 @@ end
     MOI.optimize!(model)
 
     x = model.primal_optimal
-    s = model.optimizer.model.optimizer.data.slack
+    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
     y = model.dual_optimal
 
-    @test x ≈ [6.66666667e+00, -3.88359992e-11,  3.33333333e+00, -6.85488543e-12,  6.02940183e-11, -6.21696364e-11,  1.90192379e+00] atol=ATOL rtol=RTOL
-    @test s' ≈ [0.00000000e+00  4.29630707e-17  6.66666667e+00  0.0   3.33333333e+00  6.63144880e-17  3.31758339e-17  0.0  4.09807621e+00 -3.00000000e+00  1.09807621e+00] atol=ATOL rtol=RTOL
-    @test_broken y ≈ [0.0, 0.19019238, 0.0, 0.12597667, 0.0, 0.14264428, 0.14264428, 0.01274047, 0.21132487, 0.57735027, 0.78867513]  atol=ATOL rtol=RTOL
+    @test x' ≈ [20/3. 0.0 10/3. 0.0 0.0 0.0 1.90192379] atol=ATOL rtol=RTOL
+    @test s ≈ [[0.0],  [20/3.0,  0.0,  10/3.0,  0.0,  0.0,  0.0],[4.09807621, -2.12132,  1.09807621], [0.0]] atol=ATOL rtol=RTOL
+    @test y ≈ [[0.19019238], [0., 0.12597667, 0., 0.14264428, 0.14264428, 0.01274047],[0.21132487, 0.408248, 0.78867513] ,[0.0]] atol=ATOL rtol=RTOL
 
     dA = ones(11, 7)
     db = ones(11)
@@ -763,9 +785,23 @@ end
 
     dx, dy, ds = backward_conic!(model, dA, db, dc)
 
-    @test dx' ≈ [-42.240497    10.90192379 -12.26912194  10.90192379  10.90192379  10.90192379 -23.89209324] atol=ATOL rtol=RTOL
-    @test ds' ≈ [-0.00000000e+00 0.0 -5.31424208e+01 0.0 -2.31710457e+01 0.0 0.0 0.0 -4.65932563e+00  3.41086309e+00 -1.24846254e+00] atol=ATOL rtol=RTOL
-    @test dy' ≈ [-0. -3.79855654 -0.         -0.40206065 -0.         -0.45525613 -0.45525613 -0.04066184 -0.67445353 -1.84264131 -2.51709484] atol=ATOL rtol=RTOL
+    # compare these with https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
+    # results are not exactly as: 1. there is some residual error   2. diffcp results are SCS specific, hence scaled
+    @test dx ≈ [-39.6066, 10.8953, -14.9189, 10.9054, 10.883, 10.9118, -21.7508] atol=ATOL rtol=RTOL
+    @test dy ≈ [-3.56905, 0.0, -0.380035, 0.0, -0.41398, -0.385321, -0.00743119, -0.644986, -0.550542, -2.36765, 0.0] atol=ATOL rtol=RTOL
+    @test ds ≈ [0.0, -50.4973, 0.0, -25.8066, 0.0, 0.0, 0.0, -7.96528, -1.62968, -2.18925, 0.0] atol=ATOL rtol=RTOL
+
+    # TODO: future example, how to differentiate wrt a specific constraint/variable, refer QPLib article for more
+    dA = zeros(11, 7)
+    dA[2:7, 1:6] = Matrix{Float64}(LinearAlgebra.I, 6, 6)  # differentiating only wrt POS constraint c2
+    db = zeros(11)
+    dc = zeros(7)
+
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
+
+    # note that there's no change in the PSD slack values or dual optimas
+    @test dy ≈ [0.0, 0.0, 0.125978, 0.0, 0.142644, 0.142641, 0.0127401, 0.0, 0.0, 0.0, 0.0] atol=ATOL rtol=RTOL
+    @test ds ≈ [0.0, -6.66672, 0.0, -3.33336, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] atol=ATOL rtol=RTOL
 end
 
 
@@ -783,26 +819,46 @@ end
 
     c = MOI.add_constraint(model, func, MOI.PositiveSemidefiniteConeTriangle(3))
 
-    MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), fx)
+    # MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), MOI.SingleVariable(x))
+    MOI.set(
+        model,
+        MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [x]), 0.0)
+    )
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     MOI.optimize!(model)
 
     x = model.primal_optimal
-    s = model.optimizer.model.optimizer.data.slack
+    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
     y = model.dual_optimal
 
     @test x ≈ [1.0] atol=ATOL rtol=RTOL
-    @test s ≈ [1.0, 1.41421356, 1.41421356, 1.0, 1.41421356, 1.0] atol=ATOL rtol=RTOL
-    @test_broken y ≈ [0.33333333, -0.23570226, -0.23570226, 0.33333333, -0.23570226, 0.33333333]  atol=ATOL rtol=RTOL
+    @test s ≈ [ones(6)] atol=ATOL rtol=RTOL
+    @test y ≈ [[1/3.,  -1/6.,  1/3.,  -1/6.,  -1/6.,  1/3.]]  atol=ATOL rtol=RTOL
 
-    dA = ones(6, 1)
+    # SCS/Mosek specific
+    # @test s' ≈ [1.         1.41421356 1.41421356 1.         1.41421356 1.        ] atol=ATOL rtol=RTOL
+    # @test y' ≈ [ 0.33333333 -0.23570226 -0.23570226  0.33333333 -0.23570226  0.33333333]  atol=ATOL rtol=RTOL
+
+    dA = zeros(6, 1)
     db = ones(6)
+    dc = zeros(1)
+
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
+
+    @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
+    @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
+    @test ds ≈ [0.5, 1.0, 0.5, 1.0, 1.0, 0.5] atol=ATOL rtol=RTOL
+
+    # test 2
+    dA = zeros(6, 1)
+    db = zeros(6)
     dc = ones(1)
 
-    dx, dy, ds = DiffOpt.backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
 
-    @test dx' ≈ zeros(1) atol=ATOL rtol=RTOL
-    @test ds  ≈ zeros(6) atol=ATOL rtol=RTOL
-    @test dy' ≈ [ 0.43096441 -0.30473785 -0.30473785  0.43096441 -0.30473785  0.43096441] atol=ATOL rtol=RTOL
+    @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
+    @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
+    @test ds ≈ zeros(6) atol=ATOL rtol=RTOL
 end
