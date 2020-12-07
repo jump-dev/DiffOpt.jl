@@ -388,10 +388,10 @@ end
     h = vec(h)
     b = vec(b)
 
-    optimizer = diff_optimizer(Ipopt.Optimizer)
+    model = diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
 
-    x = MOI.add_variables(optimizer, nz)
+    x = MOI.add_variables(model, nz)
 
     # define objective
     quadratic_terms = MOI.ScalarQuadraticTerm{Float64}[]
@@ -402,28 +402,28 @@ end
     end
 
     objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x), quadratic_terms, 0.0)
-    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
-    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
     for i in 1:nineq
         MOI.add_constraint(
-            optimizer,
+            model,
             MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.0),MOI.LessThan(h[i])
         )
     end
 
     for i in 1:neq
         MOI.add_constraint(
-            optimizer,
+            model,
             MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0),MOI.EqualTo(b[i])
         )
     end
 
-    MOI.optimize!(optimizer)
+    MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(optimizer, ["Q", "q", "G", "h", "A", "b"], ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
 
     # read gradients from files
     names = ["dP", "dq", "dG", "dh", "dA", "db"]
@@ -451,7 +451,7 @@ end
     #      x >= 3
 
     optimizer = diff_optimizer(Clp.Optimizer)
-    MOI.set(model, MOI.Silent(), true)
+    MOI.set(optimizer, MOI.Silent(), true)
 
     x = MOI.add_variables(optimizer,1)
 
@@ -490,9 +490,8 @@ end
     #      2x+5y+3z <= 15
     #      x,y,z >= 0
 
-
     optimizer = diff_optimizer(SCS.Optimizer)
-    MOI.set(model, MOI.Silent(), true)
+    MOI.set(optimizer, MOI.Silent(), true)
     v = MOI.add_variables(optimizer, 3)
 
     # define objective
