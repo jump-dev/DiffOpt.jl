@@ -450,32 +450,32 @@ end
     # s.t. x >= 0
     #      x >= 3
 
-    optimizer = diff_optimizer(Clp.Optimizer)
-    MOI.set(optimizer, MOI.Silent(), true)
+    model = diff_optimizer(Clp.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
 
     x = MOI.add_variables(optimizer,1)
 
     # define objective
     objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.0)
-    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
-    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
     MOI.add_constraint(
-        optimizer,
+        model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.),
         MOI.LessThan(0.0)
     )
     MOI.add_constraint(
-        optimizer,
+        model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.),
         MOI.LessThan(-3.0)
     )
 
-    MOI.optimize!(optimizer)
+    MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(optimizer, ["G", "h"], ones(1,1))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(model, ["G", "h"], ones(1,1))  # using dl_dz=[1,1,1,1,1,....]
 
     @test grads[1] ≈ [0.0; 3.0] atol=ATOL rtol=RTOL
     @test grads[2] ≈ [0.0; -1.0] atol=ATOL rtol=RTOL
@@ -490,46 +490,46 @@ end
     #      2x+5y+3z <= 15
     #      x,y,z >= 0
 
-    optimizer = diff_optimizer(SCS.Optimizer)
-    MOI.set(optimizer, MOI.Silent(), true)
-    v = MOI.add_variables(optimizer, 3)
+    model = diff_optimizer(SCS.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
+    v = MOI.add_variables(model, 3)
 
     # define objective
     objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-2.0, -3.0, -4.0], v), 0.0)
-    MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
-    MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
     MOI.add_constraint(
-        optimizer,
+        model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([3.0, 2.0, 1.0], v), 0.),
         MOI.LessThan(10.0)
     )
     MOI.add_constraint(
-        optimizer,
+        model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([2.0, 5.0, 3.0], v), 0.),
         MOI.LessThan(15.0)
     )
     MOI.add_constraint(
-        optimizer,
+        model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0, 0.0, 0.0], v), 0.),
         MOI.LessThan(0.0)
     )
     MOI.add_constraint(
-        optimizer,
+        model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.),
         MOI.LessThan(0.0)
     )
     MOI.add_constraint(
-        optimizer,
+        model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, -1.0], v), 0.),
         MOI.LessThan(0.0)
     )
 
-    MOI.optimize!(optimizer)
+    MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(optimizer, ["Q", "q", "G", "h"], ones(1,3))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(model, ["Q", "q", "G", "h"], ones(1,3))  # using dl_dz=[1,1,1,1,1,....]
 
     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
