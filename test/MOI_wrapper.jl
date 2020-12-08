@@ -785,7 +785,7 @@ end
 
     dx, dy, ds = backward_conic!(model, dA, db, dc)
 
-    atol = 0.02
+    atol = 0.3
 
     # compare these with https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
     # results are not exactly as: 1. there is some residual error   2. diffcp results are SCS specific, hence scaled
