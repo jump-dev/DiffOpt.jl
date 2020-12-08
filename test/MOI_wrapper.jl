@@ -786,12 +786,13 @@ end
     dx, dy, ds = backward_conic!(model, dA, db, dc)
 
     atol = 0.3
-
+    rtol = 0.01
+    
     # compare these with https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
     # results are not exactly as: 1. there is some residual error   2. diffcp results are SCS specific, hence scaled
-    @test dx ≈ [-39.6066, 10.8953, -14.9189, 10.9054, 10.883, 10.9118, -21.7508] atol=atol rtol=RTOL
-    @test dy ≈ [-3.56905, 0.0, -0.380035, 0.0, -0.41398, -0.385321, -0.00743119, -0.644986, -0.550542, -2.36765, 0.0] atol=atol rtol=RTOL
-    @test ds ≈ [0.0, -50.4973, 0.0, -25.8066, 0.0, 0.0, 0.0, -7.96528, -1.62968, -2.18925, 0.0] atol=atol rtol=RTOL
+    @test dx ≈ [-39.6066, 10.8953, -14.9189, 10.9054, 10.883, 10.9118, -21.7508] atol=atol rtol=rtol
+    @test dy ≈ [-3.56905, 0.0, -0.380035, 0.0, -0.41398, -0.385321, -0.00743119, -0.644986, -0.550542, -2.36765, 0.0] atol=atol rtol=rtol
+    @test ds ≈ [0.0, -50.4973, 0.0, -25.8066, 0.0, 0.0, 0.0, -7.96528, -1.62968, -2.18925, 0.0] atol=atol rtol=rtol
 
     # TODO: future example, how to differentiate wrt a specific constraint/variable, refer QPLib article for more
     dA = zeros(11, 7)
