@@ -41,7 +41,7 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
-      - run: julia --color=yes --project -e 'using Pkg; Pkg.develop(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\")); Pkg.instantiate()'
+      - run: julia --color=yes --project -e "using Pkg; Pkg.develop(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\")); Pkg.instantiate()"
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
@@ -57,11 +57,11 @@ jobs:
         with:
           version: '1'
       - run: |
-          julia --project=docs -e '
+          julia --project=docs -e "
             using Pkg
-            Pkg.develop(Pkg.PackageSpec(url="https://github.com/jump-dev/MatrixOptInterface.jl"))
+            Pkg.develop(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\"))
             Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.instantiate()'
+            Pkg.instantiate()"
       - run: |
           julia --project=docs -e '
             using Documenter: doctest
