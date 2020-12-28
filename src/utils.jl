@@ -11,7 +11,7 @@
 #         @assert size(A)[2] == size(G)[2]
 #         p, n = size(A)
 #         m    = size(G)[1]
-#         return [Q                  G'                    A';  
+#         return [Q                  G'                    A';
 #                 Diagonal(λ) * G    Diagonal(G * z - h)   zeros(m, p);
 #                 A                  zeros(p, m)           zeros(p, p)]
 #     end
@@ -33,7 +33,7 @@ function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
         @assert size(A)[2] == size(G)[2]
         p, n = size(A)
         m    = size(G)[1]
-        return [Q         G' * Diagonal(λ)       A';  
+        return [Q         G' * Diagonal(λ)       A';
                 G         Diagonal(G * z - h)    zeros(m, p);
                 A         zeros(p, m)            zeros(p, p)]
     end
@@ -58,8 +58,6 @@ end
 is_equality(set::MOI.AbstractSet) = false
 is_equality(set::MOI.EqualTo) = true
 
-coefficient(t::MOI.ScalarAffineTerm) = t.coefficient
-
 
 """
     get_problem_data(model::MOI.AbstractOptimizer)
@@ -67,14 +65,14 @@ coefficient(t::MOI.ScalarAffineTerm) = t.coefficient
 Return problem parameters as matrices along with other program info such as number of constraints, variables, etc
 """
 function get_problem_data(model::MOI.AbstractOptimizer)
-    var_idx = MOI.get(model, MOI.ListOfVariableIndices())
-    nz = size(var_idx)[1]
+    var_list = MOI.get(model, MOI.ListOfVariableIndices())
+    nz = size(var_list)[1]
 
     # handle inequality constraints
     ineq_con_idx = MOI.get(
-                        model, 
+                        model,
                         MOI.ListOfConstraintIndices{
-                            MOI.ScalarAffineFunction{Float64}, 
+                            MOI.ScalarAffineFunction{Float64},
                             MOI.LessThan{Float64}
                         }())
     nineq = size(ineq_con_idx)[1]
@@ -88,54 +86,78 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)
 
-        G[i, :] = coefficient.(func.terms)'
+        for (j, var_idx) in enumerate(var_list)
+            for term in func.terms
+                if term.variable_index == var_idx
+                    G[i,j] = MOI.coefficient(term)
+                end
+            end
+        end
         h[i] = set.upper - func.constant
     end
-    
+
     # handle equality constraints
     eq_con_idx   = MOI.get(
-                        model, 
+                        model,
                         MOI.ListOfConstraintIndices{
-                            MOI.ScalarAffineFunction{Float64}, 
+                            MOI.ScalarAffineFunction{Float64},
                             MOI.EqualTo{Float64}
                         }())
     neq   = size(eq_con_idx)[1]
-    
+
     A = zeros(neq, nz)
     b = zeros(neq)
-    
+
     for i in 1:neq
         con = eq_con_idx[i]
 
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)
 
-        A[i, :] = coefficient.(func.terms)'
+        for x in func.terms
+            A[i, x.variable_index.value] = x.coefficient
+        end
         b[i] = set.value - func.constant
     end
 
-    
+
     # handle objective
     # works both for affine and quadratic objective functions
     objective_function = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
     Q = zeros(nz, nz)
-    
+    q = zeros(nz)
+
     if typeof(objective_function) == MathOptInterface.ScalarAffineFunction{Float64}
-        q = coefficient.(objective_function.terms)
+        for x in objective_function.terms
+            q[x.variable_index.value] = x.coefficient
+        end
     elseif typeof(objective_function) == MathOptInterface.ScalarQuadraticFunction{Float64}
-        # @assert size(objective_function.quadratic_terms)[1] == (nz * (nz + 1)) / 2    
-        
-        var_to_id = Dict(var_idx .=> 1:nz)
-        
+        # @assert size(objective_function.quadratic_terms)[1] == (nz * (nz + 1)) / 2
+
+        var_to_id = Dict(var_list .=> 1:nz)
+
         for quad in objective_function.quadratic_terms
             i = var_to_id[quad.variable_index_1]
             j = var_to_id[quad.variable_index_2]
             Q[i,j] = quad.coefficient
             Q[j,i] = quad.coefficient
         end
-        
-        q = coefficient.(objective_function.affine_terms)
+
+        q = MOI.coefficient.(objective_function.affine_terms)
     end
-    
-    return Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx
+
+    return Q, q, G, h, A, b, nz, var_list, nineq, ineq_con_idx, neq, eq_con_idx
+end
+
+# might slow down computation
+# need to find a faster way
+function CSRToCSC(B::MatOI.SparseMatrixCSRtoCSC{Int64})
+    A = sparse(zeros(B.m, B.n))
+    last = 0
+    for i in 1:B.n
+        rnge = (last+1):B.colptr[i]
+        A[(1 .+ B.rowval[rnge]), i] = B.nzval[rnge]
+        last = B.colptr[i]
+    end
+    return A
 end

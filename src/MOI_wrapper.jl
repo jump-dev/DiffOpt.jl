@@ -2,7 +2,7 @@
 Constructs a Differentiable Optimizer model from a MOI Optimizer.
 Supports `forward` and `backward` methods for solving and differentiating the model respectectively.
 
-## Note 
+## Note
 Currently supports differentiating linear and quadratic programs only.
 """
 
@@ -20,7 +20,7 @@ const SUPPORTED_OBJECTIVES = Union{
 
 const SUPPORTED_SCALAR_SETS = Union{
     MOI.GreaterThan{Float64},
-    MOI.LessThan{Float64}, 
+    MOI.LessThan{Float64},
     MOI.EqualTo{Float64},
     MOI.Interval{Float64}
 }
@@ -36,7 +36,7 @@ const SUPPORTED_VECTOR_FUNCTIONS = Union{
 }
 
 const SUPPORTED_VECTOR_SETS = Union{
-    MOI.Zeros, 
+    MOI.Zeros,
     MOI.Nonpositives,
     MOI.Nonnegatives,
     MOI.SecondOrderCone,
@@ -44,10 +44,11 @@ const SUPPORTED_VECTOR_SETS = Union{
 }
 
 """
-    diff_optimizer(optimizer_constructor)::Optimizer 
-    
-Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer and other utility methods.
-Results (primal, dual and slack values) are obtained by querying the internal optimizer instantiated using the 
+    diff_optimizer(optimizer_constructor)::Optimizer
+
+Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer
+and other utility methods. Results (primal, dual and slack values) are obtained
+by querying the internal optimizer instantiated using the
 `optimizer_constructor`. These values are required for find jacobians with respect to problem data.
 
 One define a differentiable model by using any solver of choice. Example:
@@ -64,7 +65,7 @@ julia> backward!(model)  # for convex quadratic models
 julia> backward!(model)  # for convex conic models
 ```
 """
-function diff_optimizer(optimizer_constructor)::Optimizer 
+function diff_optimizer(optimizer_constructor)::Optimizer
     return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
 end
 
@@ -173,21 +174,19 @@ end
 
 
 function MOI.optimize!(model::Optimizer)
-    solution = MOI.optimize!(model.optimizer)
+    MOI.optimize!(model.optimizer)
 
     # do not fail. interferes with MOI.Tests.linear12test
     if MOI.get(model.optimizer, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
         # save the solution
         model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
-        model.dual_optimal = MOI.get(model.optimizer, MOI.ConstraintDual(), model.con_idx)
+        model.dual_optimal = MOI.get.(model.optimizer, MOI.ConstraintDual(), model.con_idx)
     else
         @warn "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
     end
-
-    return solution
 end
 
-    
+
 # """
 #     Method to differentiate and obtain gradients/jacobians
 #     of z, λ, ν  with respect to the parameters specified in
@@ -197,11 +196,11 @@ end
 #     grads = []
 #     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
 
-#     # compute the jacobian of (z, λ, ν) with respect to each 
+#     # compute the jacobian of (z, λ, ν) with respect to each
 #     # of the parameters recieved in the method argument
 #     # for instance, to get the jacobians w.r.t vector `b`
 #     # substitute db = I and set all other differential terms
-#     # in the right hand side to zero. For more info refer 
+#     # in the right hand side to zero. For more info refer
 #     # equation (6) of https://arxiv.org/pdf/1703.00443.pdf
 #     for param in params
 #         if param == "Q"
@@ -220,17 +219,17 @@ end
 #                                     ν, zeros(neq, nz), zeros(neq, 1))
 #             push!(grads, LHS \ RHS)
 #         elseif param == "h"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1), 
+#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
 #                                     λ, zeros(nineq, nz), ones(nineq,1),
 #                                     ν, zeros(neq, nz), zeros(neq, 1))
 #             push!(grads, LHS \ RHS)
 #         elseif param == "A"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1), 
+#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
 #                                     λ, zeros(nineq, nz), zeros(nineq,1),
 #                                     ν, ones(neq, nz), zeros(neq, 1))
 #             push!(grads, LHS \ RHS)
 #         elseif param == "b"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1), 
+#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
 #                                     λ, zeros(nineq, nz), zeros(nineq,1),
 #                                     ν, zeros(neq, nz), ones(neq, 1))
 #             push!(grads, LHS \ RHS)
@@ -243,13 +242,13 @@ end
 
 """
     backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64})
-    
+
 Method to differentiate optimal solution `z` and return
-product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with 
+product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
 the backward pass vector `dl / dz`
 
-The method computes the product of 
-1. jacobian of problem solution `z*` with respect to 
+The method computes the product of
+1. jacobian of problem solution `z*` with respect to
     problem parameters `params` recieved as method arguments
 2. a backward pass vector `dl / dz`, where `l` can be a loss function
 
@@ -282,7 +281,7 @@ function backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64
     if neq > 0
         dν = partial_grads[nz+nineq+1:nz+nineq+neq]
     end
-    
+
     for param in params
         if param == "Q"
             push!(grads, 0.5 * (dz * z' + z * dz'))
@@ -382,7 +381,7 @@ function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_
     else
         filter!(x -> x≠ci, model.con_idx)
     end
-    MOI.delete(model.optimizer, ci) 
+    MOI.delete(model.optimizer, ci)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
@@ -391,7 +390,7 @@ function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_
     else
         filter!(x -> x≠ci, model.con_idx)
     end
-    MOI.delete(model.optimizer, ci) 
+    MOI.delete(model.optimizer, ci)
 end
 
 function MOI.get(model::Optimizer, attr::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
@@ -448,8 +447,8 @@ function MOI.delete(model::Optimizer, v::VI)
     # remove those constraints that depend on this Variable
     filter!(ci -> !_constraint_contains(model, v, ci), model.con_idx)
 
-    # delete in inner solver 
-    MOI.delete(model.optimizer, v) 
+    # delete in inner solver
+    MOI.delete(model.optimizer, v)
 
     # delete from var_idx
     @static if VERSION >= v"1.2"
@@ -472,7 +471,7 @@ function MOI.modify(
     chg::MOI.AbstractFunctionModification
 )
     MOI.modify(
-        model.optimizer, 
+        model.optimizer,
         MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
         chg
     )
@@ -484,34 +483,6 @@ end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:MOI.VectorAffineFunction{Float64}, S <: SUPPORTED_VECTOR_SETS}
     MOI.modify(model.optimizer, ci, chg)
-end
-
-# The ordering of CONES matches SCS
-const CONES = Dict(
-    MOI.Zeros => 1,
-    MOI.Nonnegatives => 2,
-    MOI.SecondOrderCone => 3,
-    MOI.PositiveSemidefiniteConeTriangle => 4,
-    MOI.ExponentialCone => 5, 
-    MOI.DualExponentialCone => 6
-)
-
-cons_offset(cone::MOI.Zeros) = cone.dimension
-cons_offset(cone::MOI.Nonnegatives) = cone.dimension
-cons_offset(cone::MOI.SecondOrderCone) = cone.dimension
-cons_offset(cone::MOI.PositiveSemidefiniteConeTriangle) = Int64((cone.side_dimension*(cone.side_dimension+1))/2)
-
-function restructure_arrays(_s::Array{Float64}, _y::Array{Float64}, cones::Array{<: MOI.AbstractVectorSet})
-    i=0
-    s = Array{Float64}[]
-    y = Array{Float64}[]
-    for cone in cones
-        offset = cons_offset(cone)
-        push!(s, _s[i.+(1:offset)])
-        push!(y, _y[i.+(1:offset)])
-        i += offset
-    end
-    return s, y
 end
 
 """
@@ -534,7 +505,7 @@ Dπ(cones, v) = MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), v, cones
 """
     backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
 
-Method to differentiate optimal solution `x`, `y`, `s` given perturbations related to 
+Method to differentiate optimal solution `x`, `y`, `s` given perturbations related to
 conic program parameters `A`, `b`, `c`. This is similar to [`backward!`](@ref) method
 but it this *does returns* the actual jacobians.
 
@@ -542,57 +513,28 @@ For theoretical background, refer Section 3 of Differentiating Through a Cone Pr
 """
 function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
     if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
-        @assert MOI.get(model.optimizer, MOI.SolverName()) == "SCS"
-        MOIU.load_variables(model.optimizer.model.optimizer, MOI.get(model, MOI.NumberOfVariables()))
-        
-        CONES_OFFSET = Dict(
-            MOI.Zeros => 0,
-            MOI.Nonnegatives => 0,
-            MOI.SecondOrderCone => 0,
-            MOI.PositiveSemidefiniteConeTriangle => 0,
-            MOI.ExponentialCone => 0, 
-            MOI.DualExponentialCone => 0
-        )
+        # fetch matrices from MatrixOptInterface
+        conic_form = MatOI.get_conic_form(Float64, model.optimizer, model.con_idx)
 
-        for con in model.con_idx
-            func = MOI.get(model.optimizer, MOI.ConstraintFunction(), con)
-            set = MOI.get(model.optimizer, MOI.ConstraintSet(), con)
-            F = typeof(func)
-            S = typeof(set)
-            MOIU.load_constraint(model.optimizer.model.optimizer, CI{F, S}(CONES_OFFSET[S]), func, set)
-            CONES_OFFSET[S] += cons_offset(set)
-        end
-        
-        # now SCS data shud be allocated
-        A = sparse(
-            model.optimizer.model.optimizer.data.I, 
-            model.optimizer.model.optimizer.data.J, 
-            model.optimizer.model.optimizer.data.V 
-        )
-        b = model.optimizer.model.optimizer.data.b 
+        A = conic_form.A
+        A = CSRToCSC(A)
+        b = conic_form.b
+        c = conic_form.c
 
-        # extract `c`
-        obj = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
-        MOIU.load(model.optimizer.model.optimizer, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), obj)
-        c = model.optimizer.model.optimizer.data.c
+        # programs in tests were cross-checked against `diffcp`, which follows SCS format
+        # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
+        # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
 
         # get x,y,s
         x = model.primal_optimal
-        s = model.optimizer.model.optimizer.sol.slack
-        y = model.optimizer.model.optimizer.sol.dual
-
-        # reorder constraints
-        cis = sort(
-            model.con_idx, 
-            by = x->CONES[typeof(MOI.get(model, MOI.ConstraintSet(), x))]
-        )
-        # restructure slack variables `s` and dual variables `y` according to constraint sizes
-        s, y = restructure_arrays(s, y, MOI.get(model, MOI.ConstraintSet(), cis))
+        s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
+        y = model.dual_optimal
 
         # pre-compute quantities for the derivative
-        m, n = size(A)
+        m = A.m
+        n = A.n
         N = m + n + 1
-        cones = MOI.get(model, MOI.ConstraintSet(), cis)
+        cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
         z = (x, y - s, [1.0])
         u, v, w = z
 
@@ -630,7 +572,7 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
         return -dx, -dy, -ds
     else
         @error "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
-    end    
+    end
 end
 
 MOI.supports(::Optimizer, ::MOI.VariableName, ::Type{MOI.VariableIndex}) = true
