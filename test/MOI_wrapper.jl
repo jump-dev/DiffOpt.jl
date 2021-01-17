@@ -1,9 +1,19 @@
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
-    Q = [4.0 1.0; 1.0 2.0]
-    q = [1.0; 1.0]
-    G = [1.0 1.0; 1.0 0.0; 0.0 1.0; -1.0 -1.0; -1.0 0.0; 0.0 -1.0]
-    h = [1.0; 0.7; 0.7; -1.0; 0.0; 0.0];
+    Q = [
+        4.0 1.0
+        1.0 2.0
+    ]
+    q = [1.0, 1.0]
+    G = [
+         1.0 1.0
+         1.0 0.0
+         0.0 1.0
+        -1.0 -1.0
+        -1.0 0.0
+        0.0 -1.0
+    ]
+    h = [1, 0.7, 0.7, -1, 0, 0]
 
     model = diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
@@ -45,10 +55,13 @@ end
 
 
 @testset "Differentiating trivial QP 1" begin
-    Q = [4.0 1.0; 1.0 2.0]
-    q = [1.0; 1.0]
-    G = [1.0 1.0;]
-    h = [-1.0;]
+    Q = [
+        4.0 1.0
+        1.0 2.0
+    ]
+    q = [1.0, 1.0]
+    G = [1.0 1.0]
+    h = [-1.0]
 
     model = diff_optimizer(OSQP.Optimizer)
     MOI.set(model, MOI.Silent(), true)
@@ -133,16 +146,19 @@ end
     # refered from: https://www.mathworks.com/help/optim/ug/quadprog.html#d120e113424
     # Find equivalent qpth program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_4_py.ipynb
 
-    Q = [1.0 -1.0 1.0;
+    Q = [
+         1.0 -1.0 1.0;
         -1.0  2.0 -2.0;
-        1.0 -2.0 4.0]
-    q = [2.0; -3.0; 1.0]
-    G = [0.0 0.0 1.0;
-         0.0 1.0 0.0;
-         1.0 0.0 0.0;
-         0.0 0.0 -1.0;
-         0.0 -1.0 0.0;
-         -1.0 0.0 0.0;]
+         1.0 -2.0 4.0
+    ]
+    q = [2.0, -3.0, 1.0]
+    G = [0.0 0.0 1.0
+         0.0 1.0 0.0
+         1.0 0.0 0.0
+         0.0 0.0 -1.0
+         0.0 -1.0 0.0
+         -1.0 0.0 0.0
+    ]
     h = [1.0; 1.0; 1.0; 0.0; 0.0; 0.0;]
     A = [1.0 1.0 1.0;]
     b = [0.5;]
