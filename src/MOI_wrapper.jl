@@ -376,20 +376,12 @@ function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::VI)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    @static if VERSION >= v"1.2"
-        filter!(≠(ci), model.con_idx)
-    else
-        filter!(x -> x≠ci, model.con_idx)
-    end
+    filter!(x -> x ≠ ci, model.con_idx)
     MOI.delete(model.optimizer, ci)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
-    @static if VERSION >= v"1.2"
-        filter!(≠(ci), model.con_idx)
-    else
-        filter!(x -> x≠ci, model.con_idx)
-    end
+    filter!(x -> x ≠ ci, model.con_idx)
     MOI.delete(model.optimizer, ci)
 end
 
@@ -451,11 +443,7 @@ function MOI.delete(model::Optimizer, v::VI)
     MOI.delete(model.optimizer, v)
 
     # delete from var_idx
-    @static if VERSION >= v"1.2"
-        filter!(≠(v), model.var_idx)
-    else
-        filter!(x -> x≠v, model.var_idx)
-    end
+    filter!(x -> x ≠ v, model.var_idx)
 end
 
 # for array deletion
