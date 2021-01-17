@@ -14,10 +14,10 @@ const MOIU = MathOptInterface.Utilities;
 const MatOI = MatrixOptInterface;
 const MOSD = MathOptSetDistances;
 
-include("./gen_random_problem.jl")
-include("./utils.jl")
-include("./moi_wrapper_methods.jl")
-include("./MOI_wrapper.jl")
+include("gen_random_problem.jl")
+include("utils.jl")
+include("moi_wrapper_methods.jl")
+include("MOI_wrapper.jl")
 
 
 export diff_optimizer, Optimizer, backward!, backward_conic!
