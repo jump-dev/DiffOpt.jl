@@ -83,7 +83,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
             zeros(0),
             zeros(0),
             Vector{VI}(),
-            Vector{CI}()
+            Vector{CI}(),
         )
     end
 end
@@ -112,8 +112,8 @@ function MOI.add_constraint(model::Optimizer, vf::SUPPORTED_VECTOR_FUNCTIONS, s:
     return ci
 end
 
-function MOI.add_constraints(model::Optimizer, f::Vector{F}, s::Vector{S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    return CI{F, S}[MOI.add_constraint(model, f[i], s[i]) for i in 1:size(f)[1]]
+function MOI.add_constraints(model::Optimizer, f::AbstractVector{F}, s::AbstractVector{S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+    return CI{F, S}[MOI.add_constraint(model, f[i], s[i]) for i in eachindex(f)]
 end
 
 
@@ -177,13 +177,14 @@ function MOI.optimize!(model::Optimizer)
     MOI.optimize!(model.optimizer)
 
     # do not fail. interferes with MOI.Tests.linear12test
-    if MOI.get(model.optimizer, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
-        # save the solution
-        model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
-        model.dual_optimal = MOI.get.(model.optimizer, MOI.ConstraintDual(), model.con_idx)
-    else
-        @warn "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
+    if !in(MOI.get(model.optimizer, MOI.TerminationStatus()),  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
+        @warn "problem status: $(MOI.get(model.optimizer, MOI.TerminationStatus()))"
+        return
     end
+    # save the solution
+    model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
+    model.dual_optimal = MOI.get.(model.optimizer, MOI.ConstraintDual(), model.con_idx)
+    return
 end
 
 
@@ -500,67 +501,67 @@ but it this *does returns* the actual jacobians.
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
 function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
-    if MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
-        # fetch matrices from MatrixOptInterface
-        conic_form = MatOI.get_conic_form(Float64, model.optimizer, model.con_idx)
-
-        A = conic_form.A
-        A = CSRToCSC(A)
-        b = conic_form.b
-        c = conic_form.c
-
-        # programs in tests were cross-checked against `diffcp`, which follows SCS format
-        # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
-        # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
-
-        # get x,y,s
-        x = model.primal_optimal
-        s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
-        y = model.dual_optimal
-
-        # pre-compute quantities for the derivative
-        m = A.m
-        n = A.n
-        N = m + n + 1
-        cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
-        z = (x, y - s, [1.0])
-        u, v, w = z
-
-        Q = [
-            zeros(n,n)   A'           c;
-            -A           zeros(m,m)   b;
-            -c'          -b'          zeros(1,1)
-        ]
-
-        # find gradient of projections on dual of the cones
-        Dπv = Dπ([MOI.dual_set(cone) for cone in cones], v)
-
-        M = ((Q - Matrix{Float64}(I, size(Q))) * BlockDiagonal([Matrix{Float64}(I, length(u), length(u)), Dπv, Matrix{Float64}(I,1,1)])) + Matrix{Float64}(I, size(Q))
-
-        # find projections on dual of the cones
-        πz = vcat([u, π([MOI.dual_set(cone) for cone in cones], v), max.(w,0.0)]...)
-
-        dQ = [
-            zeros(n,n)    dA'          dc;
-            -dA           zeros(m,m)   db;
-            -dc'         -db'          zeros(1,1)
-        ]
-
-        RHS = dQ * πz
-        if norm(RHS) <= 1e-4
-            dz = zeros(Float64, size(RHS))
-        else
-            dz = lsqr(M, RHS)
-        end
-
-        du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
-        dx = du - x * dw
-        dy = Dπv * dv - vcat(y...) * dw
-        ds = Dπv * dv - dv - vcat(s...) * dw
-        return -dx, -dy, -ds
-    else
-        @error "problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus())
+    if !in(MOI.get(model, MOI.TerminationStatus()), (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
+        error("problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus()))
     end
+
+    # fetch matrices from MatrixOptInterface
+    conic_form = MatOI.get_conic_form(Float64, model.optimizer, model.con_idx)
+
+    A = conic_form.A
+    A = CSRToCSC(A)
+    b = conic_form.b
+    c = conic_form.c
+
+    # programs in tests were cross-checked against `diffcp`, which follows SCS format
+    # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
+    # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
+
+    # get x,y,s
+    x = model.primal_optimal
+    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
+    y = model.dual_optimal
+
+    # pre-compute quantities for the derivative
+    m = A.m
+    n = A.n
+    N = m + n + 1
+    cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
+    z = (x, y - s, [1.0])
+    u, v, w = z
+
+    Q = [
+        zeros(n,n)   A'           c;
+        -A           zeros(m,m)   b;
+        -c'          -b'          zeros(1,1)
+    ]
+
+    # find gradient of projections on dual of the cones
+    Dπv = Dπ(MOI.dual_set.(cones), v)
+
+    M = ((Q - Matrix{Float64}(I, size(Q))) * BlockDiagonal([Matrix{Float64}(I, length(u), length(u)), Dπv, Matrix{Float64}(I,1,1)])) + Matrix{Float64}(I, size(Q))
+
+    # find projections on dual of the cones
+    πz = vcat([u, π([MOI.dual_set(cone) for cone in cones], v), max.(w,0.0)]...)
+
+    dQ = [
+        zeros(n,n)    dA'          dc;
+        -dA           zeros(m,m)   db;
+        -dc'         -db'          zeros(1,1)
+    ]
+
+    RHS = dQ * πz
+    if norm(RHS) <= 1e-4
+        dz = zeros(Float64, size(RHS))
+    else
+        dz = lsqr(M, RHS)
+    end
+
+    du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
+    dx = du - x * dw
+    dy = Dπv * dv - vcat(y...) * dw
+    ds = Dπv * dv - dv - vcat(s...) * dw
+    return -dx, -dy, -ds
 end
 
 MOI.supports(::Optimizer, ::MOI.VariableName, ::Type{MOI.VariableIndex}) = true

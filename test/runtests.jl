@@ -17,6 +17,11 @@ const MOIT = MathOptInterface.Test
 const ATOL = 1e-4
 const RTOL = 1e-4
 
+@testset "Examples" begin
+    include(joinpath(@__DIR__, "../examples/solve-LP.jl"))
+    include(joinpath(@__DIR__, "../examples/solve-QP.jl"))
+end
+
 @testset "Generate random problems" begin
     include("gen_random_problem.jl")
 end
