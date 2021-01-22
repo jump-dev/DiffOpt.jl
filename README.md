@@ -1,7 +1,7 @@
 # DiffOpt.jl
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://jump-dev.org/DiffOpt.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jump-dev.org/DiffOpt.jl/dev)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://jump.dev/DiffOpt.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jump.dev/DiffOpt.jl/dev)
 [![Build Status](https://github.com/jump-dev/DiffOpt.jl/workflows/CI/badge.svg)](https://github.com/jump-dev/DiffOpt.jl/actions)
 [![Coverage](https://codecov.io/gh/jump-dev/DiffOpt.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jump-dev/DiffOpt.jl)
 
@@ -9,8 +9,9 @@ Differentiating convex optimization program (`JuMP.jl` or `MathOptInterface.jl` 
 
 ## Installation
 DiffOpt can be installed through the Julia package manager:
+
 ```
-(v1.3) pkg> add https://github.com/jump-dev/DiffOpt.jl
+(v1.3) pkg> add DiffOpt
 ```
 
 ## Usage
@@ -19,10 +20,10 @@ Create a differentiable model from
 [existing optimizers](https://www.juliaopt.org/JuMP.jl/stable/installation/):
 
 ```julia
-    using DiffOpt
-    using GLPK
+using DiffOpt
+using GLPK
 
-    diff = diff_optimizer(GLPK.Optimizer)
+diff = diff_optimizer(GLPK.Optimizer)
 ```
 
 Update and solve the model:

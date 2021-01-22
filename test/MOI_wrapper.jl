@@ -49,7 +49,7 @@
 
     MOI.optimize!(model)
 
-    @test model.primal_optimal ≈ [0.3; 0.7] atol=ATOL rtol=RTOL
+    @test model.primal_optimal ≈ [0.3, 0.7] atol=ATOL rtol=RTOL
 end
 
 
@@ -97,7 +97,7 @@ end
 
     @test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
 
-    grad_wrt_h = backward!(model, ["h"], [1.0 1.0])[1]
+    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
 
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
 end
@@ -159,9 +159,9 @@ end
          0.0 -1.0 0.0
          -1.0 0.0 0.0
     ]
-    h = [1.0; 1.0; 1.0; 0.0; 0.0; 0.0;]
+    h = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0,]
     A = [1.0 1.0 1.0;]
-    b = [0.5;]
+    b = [0.5]
 
     model = diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
@@ -207,9 +207,9 @@ end
 
     z = model.primal_optimal
 
-    @test z ≈ [0.0; 0.5; 0.0] atol=ATOL rtol=RTOL
+    @test z ≈ [0.0, 0.5, 0.0] atol=ATOL rtol=RTOL
 
-    grads = backward!(model, ["Q","q","G","h","A","b"], [1.0 1.0 1.0])
+    grads = backward!(model, ["Q","q","G","h","A","b"], ones(3))
 
     dl_dQ = grads[1]
     dl_dq = grads[2]
@@ -284,7 +284,7 @@ end
     @test z ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
 
     # obtain gradients
-    grads = backward!(model, ["Q","q","G","h"], [1.0 1.0 1.0])
+    grads = backward!(model, ["Q","q","G","h"], ones(3))
 
     dl_dQ = grads[1]
     dl_dq = grads[2]
@@ -361,7 +361,7 @@ end
     @test ν ≈ 11/4       atol=ATOL rtol=RTOL
 
     # obtain gradients
-    dl_dz = [1.3 0.5]   # choosing a non trivial backward pass vector
+    dl_dz = [1.3, 0.5]   # choosing a non trivial backward pass vector
     grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], dl_dz)
 
     dl_dQ = grads[1]
@@ -432,14 +432,14 @@ end
     for i in 1:neq
         MOI.add_constraint(
             model,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0),MOI.EqualTo(b[i])
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0), MOI.EqualTo(b[i]),
         )
     end
 
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], ones(1,nz))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], ones(nz))  # using dl_dz=[1,1,1,1,1,....]
 
     # read gradients from files
     names = ["dP", "dq", "dG", "dh", "dA", "db"]
@@ -491,10 +491,10 @@ end
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["G", "h"], ones(1,1))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(model, ["G", "h"], [1.0])
 
-    @test grads[1] ≈ [0.0; 3.0] atol=ATOL rtol=RTOL
-    @test grads[2] ≈ [0.0; -1.0] atol=ATOL rtol=RTOL
+    @test grads[1] ≈ [0.0, 3.0] atol=ATOL rtol=RTOL
+    @test grads[2] ≈ [0.0, -1.0] atol=ATOL rtol=RTOL
 end
 
 
@@ -545,7 +545,7 @@ end
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["Q", "q", "G", "h"], ones(1,3))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward!(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1,1,1,....]
 
     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL

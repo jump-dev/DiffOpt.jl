@@ -9,9 +9,6 @@ Currently supports differentiating linear and quadratic programs only.
 const VI = MOI.VariableIndex
 const CI = MOI.ConstraintIndex
 
-# use `<:SUPPORTED_OBJECTIVES` if you need to specify `Type` - specified by F/S
-# use `::SUPPORTED_OBJECTIVES` if you need to specify a variable/object of that `Type` - specified by f/s
-
 const SUPPORTED_OBJECTIVES = Union{
     MOI.SingleVariable,
     MOI.ScalarAffineFunction{Float64},
@@ -257,7 +254,7 @@ Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64})
+function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
     Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx = get_problem_data(model.optimizer)
 
     z = model.primal_optimal
@@ -271,7 +268,7 @@ function backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64
 
     grads = []
     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
-    RHS = [dl_dz'; zeros(neq+nineq,1)]
+    RHS = [dl_dz; zeros(neq+nineq)]
 
     partial_grads = -(LHS \ RHS)
 
@@ -500,8 +497,10 @@ but it this *does returns* the actual jacobians.
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
-    if !in(MOI.get(model, MOI.TerminationStatus()), (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
+function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
+    if !in(
+            MOI.get(model, MOI.TerminationStatus()), (MOI.LOCALLY_SOLVED, MOI.OPTIMAL)
+        )
         error("problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus()))
     end
 
@@ -527,13 +526,12 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
     n = A.n
     N = m + n + 1
     cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
-    z = (x, y - s, [1.0])
-    u, v, w = z
+    (u, v, w) = (x, y - s, 1.0)
 
     Q = [
         zeros(n,n)   A'           c;
         -A           zeros(m,m)   b;
-        -c'          -b'          zeros(1,1)
+        -c'          -b'          0;
     ]
 
     # find gradient of projections on dual of the cones
@@ -542,25 +540,20 @@ function backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float
     M = ((Q - Matrix{Float64}(I, size(Q))) * BlockDiagonal([Matrix{Float64}(I, length(u), length(u)), Dπv, Matrix{Float64}(I,1,1)])) + Matrix{Float64}(I, size(Q))
 
     # find projections on dual of the cones
-    πz = vcat([u, π([MOI.dual_set(cone) for cone in cones], v), max.(w,0.0)]...)
+    vp = π(MOI.dual_set.(cones), v)
+    
+    RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u  - db ⋅ vp]
 
-    dQ = [
-        zeros(n,n)    dA'          dc;
-        -dA           zeros(m,m)   db;
-        -dc'         -db'          zeros(1,1)
-    ]
-
-    RHS = dQ * πz
-    if norm(RHS) <= 1e-4
-        dz = zeros(Float64, size(RHS))
+    dz = if norm(RHS) <= 1e-4
+        RHS .= 0
     else
-        dz = lsqr(M, RHS)
+        lsqr(M, RHS)
     end
 
-    du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
+    @inbounds (du, dv, dw) = (dz[1:n], dz[n+1:n+m], dz[n+m+1])
     dx = du - x * dw
-    dy = Dπv * dv - vcat(y...) * dw
-    ds = Dπv * dv - dv - vcat(s...) * dw
+    dy = Dπv * dv - collect(Iterators.flatten(y)) * dw
+    ds = Dπv * dv - dv - collect(Iterators.flatten(s)) * dw
     return -dx, -dy, -ds
 end
 
