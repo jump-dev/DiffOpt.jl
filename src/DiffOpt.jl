@@ -7,7 +7,7 @@ using MatrixOptInterface
 using MathOptSetDistances
 using BlockDiagonals
 using SparseArrays
-using IterativeSolvers
+using IterativeSolvers: lsqr
 
 const MOI = MathOptInterface;
 const MOIU = MathOptInterface.Utilities;
