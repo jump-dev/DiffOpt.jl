@@ -542,6 +542,7 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
     # find projections on dual of the cones
     vp = π(MOI.dual_set.(cones), v)
     
+    # dQ * [u, vp, max(0, w)]
     RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u  - db ⋅ vp]
 
     dz = if norm(RHS) <= 1e-4
