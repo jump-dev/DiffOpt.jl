@@ -529,17 +529,36 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
     # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
     (u, v, w) = (x, y - s, 1.0)
 
-    Q = [
-        zeros(n,n)   A'           c;
-        -A           zeros(m,m)   b;
-        -c'          -b'          0;
-    ]
-
+    
     # find gradient of projections on dual of the cones
     Dπv = Dπ(MOI.dual_set.(cones), v)
-
-    M = ((Q - Matrix{Float64}(I, size(Q))) * BlockDiagonal([Matrix{Float64}(I, length(u), length(u)), Dπv, Matrix{Float64}(I,1,1)])) + Matrix{Float64}(I, size(Q))
-
+    
+    # Q = [
+    #      0   A'   c;
+    #     -A   0    b;
+    #     -c' -b'   0;
+    # ]
+    # M = (Q- I) * B + I
+    # with B =
+    # [
+    #  I    .   .
+    #  .  Dπv   .
+    # .    .   I
+    # ]
+    # M = (
+    #         (Q - I) * BlockDiagonal([
+    #             Matrix{Float64}(I, length(u), length(u)),
+    #             Dπv,
+    #             Matrix{Float64}(I,1,1)
+    #         ])
+    #     ) + I
+    # NOTE: double transpose because Dπv is BlockDiagonal
+    # https://github.com/invenia/BlockDiagonals.jl/issues/16
+    M = [
+          spzeros(n,n)  (A' * Dπv)    c
+         -A               -Dπv + I    b
+         -c'           -(Dπv' * b)'   0
+    ]
     # find projections on dual of the cones
     vp = π(MOI.dual_set.(cones), v)
     
