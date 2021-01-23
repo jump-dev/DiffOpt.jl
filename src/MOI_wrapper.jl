@@ -545,13 +545,7 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
     #  .  Dπv   .
     # .    .   I
     # ]
-    # M = (
-    #         (Q - I) * BlockDiagonal([
-    #             Matrix{Float64}(I, length(u), length(u)),
-    #             Dπv,
-    #             Matrix{Float64}(I,1,1)
-    #         ])
-    #     ) + I
+
     # NOTE: double transpose because Dπv is BlockDiagonal
     # https://github.com/invenia/BlockDiagonals.jl/issues/16
     M = [
