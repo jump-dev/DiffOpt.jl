@@ -526,6 +526,7 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
     n = A.n
     N = m + n + 1
     cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
+    # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
     (u, v, w) = (x, y - s, 1.0)
 
     Q = [

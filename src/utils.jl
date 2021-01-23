@@ -97,13 +97,13 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     end
 
     # handle equality constraints
-    eq_con_idx   = MOI.get(
+    eq_con_idx = MOI.get(
                         model,
                         MOI.ListOfConstraintIndices{
                             MOI.ScalarAffineFunction{Float64},
                             MOI.EqualTo{Float64}
                         }())
-    neq   = size(eq_con_idx)[1]
+    neq = size(eq_con_idx)[1]
 
     A = zeros(neq, nz)
     b = zeros(neq)
@@ -152,7 +152,7 @@ end
 # might slow down computation
 # need to find a faster way
 function CSRToCSC(B::MatOI.SparseMatrixCSRtoCSC{Int64})
-    A = sparse(zeros(B.m, B.n))
+    A = spzeros(B.m, B.n)
     last = 0
     for i in 1:B.n
         rnge = (last+1):B.colptr[i]
