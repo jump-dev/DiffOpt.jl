@@ -2,17 +2,18 @@ module DiffOpt
 
 using Random
 using LinearAlgebra
-using MathOptInterface
-using MatrixOptInterface
-using MathOptSetDistances
-using BlockDiagonals
 using SparseArrays
 using IterativeSolvers: lsqr
 
-const MOI = MathOptInterface;
-const MOIU = MathOptInterface.Utilities;
-const MatOI = MatrixOptInterface;
-const MOSD = MathOptSetDistances;
+using MathOptInterface
+const MOI = MathOptInterface
+const MOIU = MathOptInterface.Utilities
+
+using MathOptSetDistances
+const MOSD = MathOptSetDistances
+
+using MatrixOptInterface
+const MatOI = MatrixOptInterface
 
 include("gen_random_problem.jl")
 include("utils.jl")
