@@ -11,7 +11,7 @@ Differentiating convex optimization program (`JuMP.jl` or `MathOptInterface.jl` 
 DiffOpt can be installed through the Julia package manager:
 
 ```
-(v1.3) pkg> add DiffOpt
+(v1.3) pkg> add https://github.com/jump-dev/DiffOpt.jl
 ```
 
 ## Usage
