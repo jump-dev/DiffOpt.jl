@@ -64,7 +64,7 @@ for i in 1:size(constraint_indices)[1]
     μ_i = MOI.get(model, MOI.ConstraintDual(), con_index)
     
     # μ[i] * (G * x - h)[i] = 0
-    @test abs(μ_i * (G[i,:]' * x̄ - h[i])) < 1e-2
+    @test abs(μ_i * (G[i,:]' * x̄ - h[i])) < 3e-2
 
     # μ[i] <= 0
     @test μ_i <= 1e-2
