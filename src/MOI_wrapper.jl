@@ -565,7 +565,7 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
         lsqr(M, RHS)
     end
 
-    @inbounds (du, dv, dw) = (dz[1:n], dz[n+1:n+m], dz[n+m+1])
+    du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
     dx = du - x * dw
     dy = Dπv * dv - collect(Iterators.flatten(y)) * dw
     ds = Dπv * dv - dv - collect(Iterators.flatten(s)) * dw
