@@ -5,8 +5,10 @@ using MathOptInterface
 const MOI  = MathOptInterface
 const MOIU = MathOptInterface.Utilities;
 
+using Test
+
 D = 10  # variable dimension
-N = 20; # no of inequality constraints
+N = 20  # no of inequality constraints
 
 s = rand(N)
 s = 2*s.-1
@@ -14,8 +16,8 @@ s = 2*s.-1
 s = max.(s, 0)
 x̂ = rand(D)
 A = rand(N, D)
-b = A*x̂ .+ s
-c = -A'*λ;
+b = A*x̂ + s
+c = -A' * λ
 
 # can feed dual problem to optimizer like this:
 # model = MOI.instantiate(dual_optimizer(GLPK.Optimizer), with_bridge_type=Float64)
@@ -69,5 +71,3 @@ for con_index in constraint_indices
         @assert μ*(con_value - set.lower) < 1e-10
     end
 end
-
-

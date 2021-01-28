@@ -26,16 +26,18 @@ Inverse matrix specified on RHS of eqn(7) in https://arxiv.org/pdf/1703.00443.pd
 Helper method while calling [`backward!`](@ref)
 """
 function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
-    if A == nothing || size(A)[1] == 0
+    if A === nothing || size(A)[1] == 0
         return [Q         G' * Diagonal(λ);
                 G         Diagonal(G * z - h)]
     else
-        @assert size(A)[2] == size(G)[2]
         p, n = size(A)
-        m    = size(G)[1]
+        m    = size(G, 1)
+        if n != size(G, 2)
+            throw(DimensionError("Sizes of $A and $G do not match"))
+        end
         return [Q         G' * Diagonal(λ)       A';
-                G         Diagonal(G * z - h)    zeros(m, p);
-                A         zeros(p, m)            zeros(p, p)]
+                G         Diagonal(G * z - h)    spzeros(m, p);
+                A         spzeros(p, m)          spzeros(p, p)]
     end
 end
 
@@ -66,7 +68,7 @@ Return problem parameters as matrices along with other program info such as numb
 """
 function get_problem_data(model::MOI.AbstractOptimizer)
     var_list = MOI.get(model, MOI.ListOfVariableIndices())
-    nz = size(var_list)[1]
+    nz = size(var_list, 1)
 
     # handle inequality constraints
     ineq_con_idx = MOI.get(
@@ -75,10 +77,10 @@ function get_problem_data(model::MOI.AbstractOptimizer)
                             MOI.ScalarAffineFunction{Float64},
                             MOI.LessThan{Float64}
                         }())
-    nineq = size(ineq_con_idx)[1]
+    nineq = length(ineq_con_idx)
 
-    G = zeros(nineq, nz)
-    h = zeros(nineq)
+    G = spzeros(nineq, nz)
+    h = spzeros(nineq)
 
     for i in 1:nineq
         con = ineq_con_idx[i]
@@ -97,16 +99,16 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     end
 
     # handle equality constraints
-    eq_con_idx   = MOI.get(
+    eq_con_idx = MOI.get(
                         model,
                         MOI.ListOfConstraintIndices{
                             MOI.ScalarAffineFunction{Float64},
                             MOI.EqualTo{Float64}
                         }())
-    neq   = size(eq_con_idx)[1]
+    neq = length(eq_con_idx)
 
-    A = zeros(neq, nz)
-    b = zeros(neq)
+    A = spzeros(neq, nz)
+    b = spzeros(neq)
 
     for i in 1:neq
         con = eq_con_idx[i]
@@ -124,15 +126,14 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     # handle objective
     # works both for affine and quadratic objective functions
     objective_function = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
-    Q = zeros(nz, nz)
-    q = zeros(nz)
+    Q = spzeros(nz, nz)
+    q = spzeros(nz)
 
-    if typeof(objective_function) == MathOptInterface.ScalarAffineFunction{Float64}
+    if objective_function isa MathOptInterface.ScalarAffineFunction{Float64}
         for x in objective_function.terms
             q[x.variable_index.value] = x.coefficient
         end
-    elseif typeof(objective_function) == MathOptInterface.ScalarQuadraticFunction{Float64}
-        # @assert size(objective_function.quadratic_terms)[1] == (nz * (nz + 1)) / 2
+    elseif objective_function isa MathOptInterface.ScalarQuadraticFunction{Float64}
 
         var_to_id = Dict(var_list .=> 1:nz)
 
@@ -152,7 +153,7 @@ end
 # might slow down computation
 # need to find a faster way
 function CSRToCSC(B::MatOI.SparseMatrixCSRtoCSC{Int64})
-    A = sparse(zeros(B.m, B.n))
+    A = spzeros(B.m, B.n)
     last = 0
     for i in 1:B.n
         rnge = (last+1):B.colptr[i]
