@@ -469,7 +469,7 @@ end
     Dπ(v::Vector{Float64}, model, conic_form, index_map)
 
 Find gradient of projection of vectors in `v` on product of `cones`.
-For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
+For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
 function Dπ(v, model, conic_form, index_map)
     return map_rows(model, conic_form, index_map) do ci
