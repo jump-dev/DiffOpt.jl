@@ -57,10 +57,6 @@ end
 # end
 
 
-is_equality(set::MOI.AbstractSet) = false
-is_equality(set::MOI.EqualTo) = true
-
-
 """
     get_problem_data(model::MOI.AbstractOptimizer)
 
