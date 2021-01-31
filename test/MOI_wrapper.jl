@@ -896,7 +896,7 @@ end
     G = [1.0 1.0]
     h = [-1.0]
 
-    model = diff_optimizer(OSQP.Optimizer)
+    model = diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 2)
 
@@ -915,8 +915,8 @@ end
                             quad_terms,
                             0.0,
                         )
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
 
     # add constraint
     MOI.add_constraint(

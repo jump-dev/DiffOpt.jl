@@ -5,7 +5,7 @@ using MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities;
 
-using OSQP
+using Ipopt
 
 n = 20 # variable dimension
 m = 15 # no of inequality constraints
@@ -17,7 +17,7 @@ q = rand(n)
 G = rand(m, n)
 h = G * x̂ + rand(m);
 
-model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
+model = MOI.instantiate(Ipopt.Optimizer, with_bridge_type=Float64)
 x = MOI.add_variables(model, n);
 
 # define objective
