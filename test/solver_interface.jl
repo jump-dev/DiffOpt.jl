@@ -1,3 +1,5 @@
+const MOIT = MOI.Test
+
 @testset "Linear tests" begin
     MOIT.contlineartest(diff_optimizer(GLPK.Optimizer), MOIT.TestConfig(basis = true), [
         "partial_start",  # see below

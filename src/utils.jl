@@ -152,8 +152,8 @@ end
 
 # might slow down computation
 # need to find a faster way
-function CSRToCSC(B::MatOI.SparseMatrixCSRtoCSC{Int64})
-    A = spzeros(B.m, B.n)
+function CSRToCSC(B::MatOI.SparseMatrixCSRtoCSC{T, Int}) where {T}
+    A = spzeros(T, B.m, B.n)
     last = 0
     for i in 1:B.n
         rnge = (last+1):B.colptr[i]
