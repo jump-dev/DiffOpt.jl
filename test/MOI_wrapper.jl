@@ -952,7 +952,7 @@ end
     @test isempty(model.gradient_cache)
 
     grad_wrt_h = backward!(model, ["h"], ones(3))[1]
-    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+    @test grad_wrt_h ≈ [1.0] atol=5e-3 rtol=RTOL
     @test !isempty(model.gradient_cache)
 
     # adding constraint invalidates the cache
