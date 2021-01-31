@@ -22,6 +22,8 @@ Create a differentiable model from
 ```julia
 using DiffOpt
 using GLPK
+using MathOptInterface
+const MOI = MathOptInterface
 
 diff = diff_optimizer(GLPK.Optimizer)
 ```
