@@ -73,6 +73,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     dual_optimal::Vector{Union{Vector{Float64}, Float64}}  # refer - https://github.com/jump-dev/DiffOpt.jl/issues/21#issuecomment-651130485
     var_idx::Vector{VI}
     con_idx::Vector{CI}
+    gradient_cache::NamedTuple
 
     function Optimizer(optimizer_constructor::OT) where {OT <: MOI.ModelLike}
         new{OT}(
@@ -81,12 +82,14 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
             zeros(0),
             Vector{VI}(),
             Vector{CI}(),
+            NamedTuple(),
         )
     end
 end
 
 
 function MOI.add_variable(model::Optimizer)
+    model.gradient_cache = NamedTuple()
     vi = MOI.add_variable(model.optimizer)
     push!(model.var_idx, vi)
     return vi
@@ -94,35 +97,39 @@ end
 
 
 function MOI.add_variables(model::Optimizer, N::Int)
+    model.gradient_cache = NamedTuple()
     return VI[MOI.add_variable(model) for i in 1:N]
 end
 
 function MOI.add_constraint(model::Optimizer, f::SUPPORTED_SCALAR_FUNCTIONS, s::SUPPORTED_SCALAR_SETS)
+    model.gradient_cache = NamedTuple()
     ci = MOI.add_constraint(model.optimizer, f, s)
     push!(model.con_idx, ci)
     return ci
 end
 
 function MOI.add_constraint(model::Optimizer, vf::SUPPORTED_VECTOR_FUNCTIONS, s::SUPPORTED_VECTOR_SETS)
+    model.gradient_cache = NamedTuple()
     ci = MOI.add_constraint(model.optimizer, vf, s)
     push!(model.con_idx, ci)   # adding it as a whole here; need to define a method to extract matrices
     return ci
 end
 
 function MOI.add_constraints(model::Optimizer, f::AbstractVector{F}, s::AbstractVector{S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+    model.gradient_cache = NamedTuple()
     return CI{F, S}[MOI.add_constraint(model, f[i], s[i]) for i in eachindex(f)]
 end
 
 
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES}, f::SUPPORTED_OBJECTIVES)
+    model.gradient_cache = NamedTuple()
     MOI.set(model.optimizer, attr, f)
 end
 
-
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
+    model.gradient_cache = NamedTuple()
     return MOI.set(model.optimizer, attr, sense)
 end
-
 
 function MOI.get(model::Optimizer, attr::MOI.AbstractModelAttribute)
     return MOI.get(model.optimizer, attr)
@@ -138,7 +145,8 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}) where 
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
-    return MOI.set(model.optimizer,attr,ci,s)
+    model.gradient_cache = NamedTuple()
+    return MOI.set(model.optimizer, attr, ci, s)
 end
 
 function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
@@ -146,7 +154,8 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) w
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
-    return MOI.set(model.optimizer,attr,ci,f)
+    model.gradient_cache = NamedTuple()
+    return MOI.set(model.optimizer, attr, ci, f)
 end
 
 function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
@@ -158,7 +167,8 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}) where 
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    return MOI.set(model.optimizer,attr,ci,s)
+    model.gradient_cache = NamedTuple()
+    return MOI.set(model.optimizer, attr, ci, s)
 end
 
 function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
@@ -166,11 +176,12 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) w
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+    model.gradient_cache = NamedTuple()
     return MOI.set(model.optimizer, attr, ci, f)
 end
 
-
 function MOI.optimize!(model::Optimizer)
+    model.gradient_cache = NamedTuple()
     MOI.optimize!(model.optimizer)
 
     # do not fail. interferes with MOI.Tests.linear12test
@@ -255,24 +266,37 @@ Note that this method *does not returns* the actual jacobians.
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
 function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
-    Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx = get_problem_data(model.optimizer)
-
     z = model.primal_optimal
+    if !isempty(model.gradient_cache)
+	@info "using cache"
+        (Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx) = model.gradient_cache.problem_data
+        λ = model.gradient_cache.inequality_duals
+        ν = model.gradient_cache.equality_duals
+        LHS = model.gradient_cache.lhs
 
-    # separate λ, ν
-    λ = filter(con -> !is_equality(MOI.get(model.optimizer, MOI.ConstraintSet(), con)), model.con_idx)
-    ν = filter(con -> is_equality(MOI.get(model.optimizer, MOI.ConstraintSet(), con)), model.con_idx)
+    else # full computation
+        Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx = get_problem_data(model.optimizer)
 
-    λ = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in λ]
-    ν = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in ν]
+        # separate λ, ν
+        λ = filter(con -> !is_equality(MOI.get(model.optimizer, MOI.ConstraintSet(), con)), model.con_idx)
+        ν = filter(con -> is_equality(MOI.get(model.optimizer, MOI.ConstraintSet(), con)), model.con_idx)
 
-    grads = []
-    LHS = create_LHS_matrix(z, λ, Q, G, h, A)
+        λ = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in λ]
+        ν = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in ν]
+
+        LHS = create_LHS_matrix(z, λ, Q, G, h, A)
+        model.gradient_cache = (
+            problem_data = (Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx),
+            inequality_duals = λ,
+            equality_duals = ν,
+            lhs = LHS,
+        )
+    end
+    
     RHS = [dl_dz; zeros(neq+nineq)]
-
     partial_grads = -(LHS \ RHS)
-
     dz = partial_grads[1:nz]
+
     if nineq > 0
         dλ = partial_grads[nz+1:nz+nineq]
     end
@@ -280,6 +304,7 @@ function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float
         dν = partial_grads[nz+nineq+1:nz+nineq+neq]
     end
 
+    grads = []
     for param in params
         if param == "Q"
             push!(grads, 0.5 * (dz * z' + z * dz'))
@@ -337,6 +362,8 @@ function MOI.empty!(model::Optimizer)
     empty!(model.dual_optimal)
     empty!(model.var_idx)
     empty!(model.con_idx)
+    model.gradient_cache = NamedTuple()
+    return
 end
 
 function MOI.is_empty(model::Optimizer)
@@ -344,13 +371,15 @@ function MOI.is_empty(model::Optimizer)
            isempty(model.primal_optimal) &&
            isempty(model.dual_optimal) &&
            isempty(model.var_idx) &&
-           isempty(model.con_idx)
+           isempty(model.con_idx) &&
+           isempty(model.gradient_cache)
 end
 
 # now supports name too
 MOIU.supports_default_copy_to(model::Optimizer, copy_names::Bool) = true #!copy_names
 
 function MOI.copy_to(model::Optimizer, src::MOI.ModelLike; copy_names = false)
+    model.gradient_cache = NamedTuple()
     return MOIU.default_copy_to(model.optimizer, src, copy_names)
 end
 
@@ -360,6 +389,7 @@ end
 
 function MOI.set(model::Optimizer, ::MOI.VariablePrimalStart,
                  vi::VI, value::Float64)
+    model.gradient_cache = NamedTuple()
     MOI.set(model.optimizer, MOI.VariablePrimalStart(), vi, value)
 end
 
@@ -374,11 +404,13 @@ function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::VI)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+    model.gradient_cache = NamedTuple()
     filter!(x -> x ≠ ci, model.con_idx)
     MOI.delete(model.optimizer, ci)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
+    model.gradient_cache = NamedTuple()
     filter!(x -> x ≠ ci, model.con_idx)
     MOI.delete(model.optimizer, ci)
 end
@@ -434,6 +466,7 @@ end
 
 
 function MOI.delete(model::Optimizer, v::VI)
+    model.gradient_cache = NamedTuple()
     # remove those constraints that depend on this Variable
     filter!(ci -> !_constraint_contains(model, v, ci), model.con_idx)
 
@@ -446,6 +479,7 @@ end
 
 # for array deletion
 function MOI.delete(model::Optimizer, indices::Vector{VI})
+    model.gradient_cache = NamedTuple()
     for i in indices
         MOI.delete(model, i)
     end
@@ -456,6 +490,7 @@ function MOI.modify(
     ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}},
     chg::MOI.AbstractFunctionModification
 )
+    model.gradient_cache = NamedTuple()
     MOI.modify(
         model.optimizer,
         MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
@@ -464,10 +499,12 @@ function MOI.modify(
 end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+    model.gradient_cache = NamedTuple()
     MOI.modify(model.optimizer, ci, chg)
 end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:MOI.VectorAffineFunction{Float64}, S <: SUPPORTED_VECTOR_SETS}
+    model.gradient_cache = NamedTuple()
     MOI.modify(model.optimizer, ci, chg)
 end
 
@@ -505,57 +542,69 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
     end
 
     # fetch matrices from MatrixOptInterface
-    conic_form = MatOI.get_conic_form(Float64, model.optimizer, model.con_idx)
+    if !isempty(model.gradient_cache)
+        A = model.gradient_cache.A
+        b = model.gradient_cache.b
+        c = model.gradient_cache.c
+        (x, s, y) = model.gradient_cache.xsy
+        Dπv = model.gradient_cache.Dπv
+        M = model.gradient_cache.M
+        vp = model.gradient_cache.vp
+        (u, v, w) = (x, y - s, 1.0)
+        m = A.m
+        n = A.n
+        N = m + n + 1
+    else
+        conic_form = MatOI.get_conic_form(Float64, model.optimizer, model.con_idx)
 
-    A = conic_form.A
-    A = CSRToCSC(A)
-    b = conic_form.b
-    c = conic_form.c
+        A = conic_form.A
+        A = CSRToCSC(A)
+        b = conic_form.b
+        c = conic_form.c
+        # programs in tests were cross-checked against `diffcp`, which follows SCS format
+        # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
+        # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
 
-    # programs in tests were cross-checked against `diffcp`, which follows SCS format
-    # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
-    # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
+        # get x,y,s
+        x = model.primal_optimal
+        s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
+        y = model.dual_optimal
+        # pre-compute quantities for the derivative
+        m = A.m
+        n = A.n
+        N = m + n + 1
+        cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
+        # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
+        (u, v, w) = (x, y - s, 1.0)
 
-    # get x,y,s
-    x = model.primal_optimal
-    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
-    y = model.dual_optimal
+        # find gradient of projections on dual of the cones
+        Dπv = Dπ(MOI.dual_set.(cones), v)
+        
+        # Q = [
+        #      0   A'   c;
+        #     -A   0    b;
+        #     -c' -b'   0;
+        # ]
+        # M = (Q- I) * B + I
+        # with B =
+        # [
+        #  I    .   .
+        #  .  Dπv   .
+        # .    .   I
+        # ]
 
-    # pre-compute quantities for the derivative
-    m = A.m
-    n = A.n
-    N = m + n + 1
-    cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
-    # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-    (u, v, w) = (x, y - s, 1.0)
-
+        # NOTE: double transpose because Dπv is BlockDiagonal
+        # https://github.com/invenia/BlockDiagonals.jl/issues/16
+        M = [
+              spzeros(n,n)  (A' * Dπv)    c
+             -A               -Dπv + I    b
+             -c'           -(Dπv' * b)'   0
+        ]
+        # find projections on dual of the cones
+        vp = π(MOI.dual_set.(cones), v)
+    end
     
-    # find gradient of projections on dual of the cones
-    Dπv = Dπ(MOI.dual_set.(cones), v)
-    
-    # Q = [
-    #      0   A'   c;
-    #     -A   0    b;
-    #     -c' -b'   0;
-    # ]
-    # M = (Q- I) * B + I
-    # with B =
-    # [
-    #  I    .   .
-    #  .  Dπv   .
-    # .    .   I
-    # ]
 
-    # NOTE: double transpose because Dπv is BlockDiagonal
-    # https://github.com/invenia/BlockDiagonals.jl/issues/16
-    M = [
-          spzeros(n,n)  (A' * Dπv)    c
-         -A               -Dπv + I    b
-         -c'           -(Dπv' * b)'   0
-    ]
-    # find projections on dual of the cones
-    vp = π(MOI.dual_set.(cones), v)
-    
     # dQ * [u, vp, max(0, w)]
     RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u  - db ⋅ vp]
 

@@ -881,3 +881,83 @@ end
     @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
     @test ds ≈ zeros(6) atol=ATOL rtol=RTOL
 end
+
+@testset "Verifying cache after differentiating a QP" begin
+    Q = [
+        4.0 1.0
+        1.0 2.0
+    ]
+    q = [1.0, 1.0]
+    G = [1.0 1.0]
+    h = [-1.0]
+
+    model = diff_optimizer(OSQP.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
+    x = MOI.add_variables(model, 2)
+
+    # define objective
+    quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
+    for i in 1:2
+        for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
+            push!(
+                quad_terms,
+                MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j])
+            )
+        end
+    end
+    objective_function = MOI.ScalarQuadraticFunction(
+                            MOI.ScalarAffineTerm.(q, x),
+                            quad_terms,
+                            0.0,
+                        )
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    # add constraint
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
+        MOI.LessThan(h[1]),
+    )
+    MOI.optimize!(model)
+    
+    @test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
+    @test isempty(model.gradient_cache)
+    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+    @test !isempty(model.gradient_cache)
+    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+
+    # adding two variables invalidates the cache
+    y = MOI.add_variables(model, 2)
+    for yi in y
+        MOI.delete(model, yi)
+    end
+    @test isempty(model.gradient_cache)
+    MOI.optimize!(model)
+    # grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    # @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+    # @test !isempty(model.gradient_cache)
+
+    # adding single variable invalidates the cache
+    y0 = MOI.add_variable(model)
+    @test isempty(model.gradient_cache)
+    MOI.optimize!(model)
+    # grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    # @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+    # @test !isempty(model.gradient_cache)
+
+    # adding constraint invalidates the cache
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0, 1.0], y), 0.0),
+        MOI.GreaterThan(0.0),
+    )
+    @test isempty(model.gradient_cache)
+    MOI.optimize!(model)
+    # grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    # @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+    # @test !isempty(model.gradient_cache)
+
+end
