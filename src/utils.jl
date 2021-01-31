@@ -68,7 +68,7 @@ Return problem parameters as matrices along with other program info such as numb
 """
 function get_problem_data(model::MOI.AbstractOptimizer)
     var_list = MOI.get(model, MOI.ListOfVariableIndices())
-    nz = size(var_list, 1)
+    nz = length(var_list)
 
     # handle inequality constraints
     ineq_con_idx = MOI.get(
@@ -117,7 +117,9 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         set = MOI.get(model, MOI.ConstraintSet(), con)
 
         for x in func.terms
-            A[i, x.variable_index.value] = x.coefficient
+            # never nothing, variable is present
+            vidx = findfirst(v -> v == x.variable_index, var_list)
+            A[i, vidx] = x.coefficient
         end
         b[i] = set.value - func.constant
     end

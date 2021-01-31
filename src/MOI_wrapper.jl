@@ -268,7 +268,6 @@ For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
     z = model.primal_optimal
     if !isempty(model.gradient_cache)
-	@info "using cache"
         (Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx) = model.gradient_cache.problem_data
         λ = model.gradient_cache.inequality_duals
         ν = model.gradient_cache.equality_duals

@@ -1,3 +1,8 @@
+using DiffOpt
+using Test
+using MathOptInterface
+const MOI = MathOptInterface
+
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
     Q = [
@@ -921,7 +926,7 @@ end
     )
     MOI.optimize!(model)
     
-    @test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
+    @test model.primal_optimal ≈ [-0.25, -0.75] atol=ATOL rtol=RTOL
     @test isempty(model.gradient_cache)
     grad_wrt_h = backward!(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
@@ -931,33 +936,36 @@ end
 
     # adding two variables invalidates the cache
     y = MOI.add_variables(model, 2)
-    for yi in y
-        MOI.delete(model, yi)
-    end
+    MOI.delete(model, y)
+
     @test isempty(model.gradient_cache)
     MOI.optimize!(model)
-    # grad_wrt_h = backward!(model, ["h"], ones(2))[1]
-    # @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
-    # @test !isempty(model.gradient_cache)
+    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+    @test !isempty(model.gradient_cache)
 
     # adding single variable invalidates the cache
     y0 = MOI.add_variable(model)
     @test isempty(model.gradient_cache)
+    MOI.add_constraint(model, MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, y0)], 0.0), MOI.EqualTo(42.0))
     MOI.optimize!(model)
-    # grad_wrt_h = backward!(model, ["h"], ones(2))[1]
-    # @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
-    # @test !isempty(model.gradient_cache)
+    @test isempty(model.gradient_cache)
+
+    grad_wrt_h = backward!(model, ["h"], ones(3))[1]
+    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+    @test !isempty(model.gradient_cache)
 
     # adding constraint invalidates the cache
     MOI.add_constraint(
         model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0, 1.0], y), 0.0),
-        MOI.GreaterThan(0.0),
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0, 1.0], x), 0.0),
+        MOI.LessThan(0.0),
     )
     @test isempty(model.gradient_cache)
     MOI.optimize!(model)
-    # grad_wrt_h = backward!(model, ["h"], ones(2))[1]
-    # @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
-    # @test !isempty(model.gradient_cache)
-
+    grad_wrt_h = backward!(model, ["h"], ones(3))[1]
+    @test grad_wrt_h[1] ≈ 1.0 atol=5e-3 rtol=RTOL
+    # second constraint inactive
+    @test grad_wrt_h[2] ≈ 0.0 atol=5e-3 rtol=RTOL
+    @test !isempty(model.gradient_cache)
 end
