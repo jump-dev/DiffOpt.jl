@@ -2,6 +2,7 @@ using DiffOpt
 using Test
 using MathOptInterface
 const MOI = MathOptInterface
+const MOIU = MOI.Utilities
 
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
@@ -968,4 +969,65 @@ end
     # second constraint inactive
     @test grad_wrt_h[2] ≈ 0.0 atol=5e-3 rtol=RTOL
     @test !isempty(model.gradient_cache)
+end
+
+
+@testset "Verifying cache on a PSD" begin
+    
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
+
+    x = MOI.add_variable(model)
+    fx = MOI.SingleVariable(x)
+
+    func = MOIU.operate(vcat, Float64, fx, 1.0, fx, 1.0, 1.0, fx)
+
+    c = MOI.add_constraint(model, func, MOI.PositiveSemidefiniteConeTriangle(3))
+
+    # MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), MOI.SingleVariable(x))
+    MOI.set(
+        model,
+        MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [x]), 0.0)
+    )
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    @test isempty(model.gradient_cache)
+    MOI.optimize!(model)
+    @test isempty(model.gradient_cache)
+
+    x = model.primal_optimal
+    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
+    y = model.dual_optimal
+
+    @test x ≈ [1.0] atol=ATOL rtol=RTOL
+    @test s ≈ [ones(6)] atol=ATOL rtol=RTOL
+    @test y ≈ [[1/3.,  -1/6.,  1/3.,  -1/6.,  -1/6.,  1/3.]]  atol=ATOL rtol=RTOL
+
+    dA = zeros(6, 1)
+    db = ones(6)
+    dc = zeros(1)
+
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
+
+    @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
+    @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
+    @test ds ≈ [0.5, 1.0, 0.5, 1.0, 1.0, 0.5] atol=ATOL rtol=RTOL
+
+    @test !isempty(model.gradient_cache)
+
+    dx2, dy2, ds2 = backward_conic!(model, dA, db, dc)
+    @test all(
+        (dx2, dy2, ds2) .≈ (dx, dy, ds)
+    )
+
+    # test 2
+    dA = zeros(6, 1)
+    db = zeros(6)
+    dc = ones(1)
+
+    dx, dy, ds = backward_conic!(model, dA, db, dc)
+
+    @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
+    @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
+    @test ds ≈ zeros(6) atol=ATOL rtol=RTOL
 end

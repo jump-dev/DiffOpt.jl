@@ -601,6 +601,16 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
         ]
         # find projections on dual of the cones
         vp = π(MOI.dual_set.(cones), v)
+
+        model.gradient_cache = (
+            A = A,
+            b = b,
+            c = c,
+            xsy = (x, s, y),
+            Dπv = Dπv,
+            M = M,
+            vp = vp,
+        )
     end
     
 
