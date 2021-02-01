@@ -456,12 +456,12 @@ of length equal to the number of rows in the conic form onto the cartesian
 product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function π(v, model, conic_form, index_map)
-    return map_rows(model, conic_form, index_map) do (ci, r)
+function π(v::Vector{T}, model, conic_form, index_map) where T
+    return map_rows(model, conic_form, index_map, Flattened{T}()) do ci, r
         MOSD.projection_on_set(
             MOSD.DefaultDistance(),
             v[r],
-            MOI.get(model, MOI.ConstraintSet(), ci)
+            MOI.dual_set(MOI.get(model, MOI.ConstraintSet(), ci))
         )
     end
 end
@@ -476,27 +476,42 @@ the vectors `v` of length equal to the number of rows in the conic form onto the
 cartesian product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function Dπ(v, model, conic_form, index_map)
-    return map_rows(model, conic_form, index_map) do (ci, r)
-        MOSD.projection_gradient_on_set(
-            MOSD.DefaultDistance(),
-            v[r],
-            MOI.get(model, MOI.ConstraintSet(), ci)
-        )
-    end
+function Dπ(v::Vector{T}, model, conic_form, index_map) where T
+    return BlockDiagonals.BlockDiagonal(
+        map_rows(model, conic_form, index_map, Nested{Matrix{T}}()) do ci, r
+            MOSD.projection_gradient_on_set(
+                MOSD.DefaultDistance(),
+                v[r],
+                MOI.dual_set(MOI.get(model, MOI.ConstraintSet(), ci))
+            )
+        end
+    )
 end
 
-_set_type(::Type{MOI.ConstraintIndex{F,S}}) where {F,S} = S
+struct Nested{T} end
+struct Flattened{T} end
 
-function _map_rows!(f::Function, x::Vector, model::Optimizer, conic_form, index_map, F, S)
+function _assign_mapped!(x, y, r, k, ::Nested)
+    x[k] = y
+end
+function _assign_mapped!(x, y, r, k, ::Flattened)
+    x[r] = y
+end
+
+function _map_rows!(f::Function, x::Vector, model, conic_form, index_map, map_mode, k, F, S)
     for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
         r = MatOI.rows(conic_form, index_map[ci])
-        x[r] = f(ci, r)
+        k += 1
+        _assign_mapped!(x, f(ci, r), r, k, map_mode)
     end
+    return k
 end
 
+_map_output(conic_form, ::Nested{T}) where {T} = Vector{T}(undef, length(conic_form.dimension))
+_map_output(conic_form, ::Flattened{T}) where {T} = Vector{T}(undef, length(conic_form.b))
+
 """
-    map_rows(f::Function, model::Optimizer, conic_form, index_map)
+    map_rows(f::Function, model, conic_form, index_map)
 
 Given a `model`, its `conic_form` and the `index_map` from the indices of
 `model` to the indices of `conic_form`, return a vector of length equal to
@@ -505,17 +520,18 @@ to each cone is equal to `f(ci, r)` where `ci` is the corresponding constraint
 index in `model` and `r` is a `UnitRange` of the corresponding rows in the conic
 form.
 """
-function map_rows(f::Function, model::Optimizer, conic_form, index_map)
-    x = Vector{Float64}(undef, length(conic_form.b))
+function map_rows(f::Function, model, conic_form, index_map, map_mode)
+    x = _map_output(conic_form, map_mode)
+    k = 0
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
         # Function barrier for type unstability of `F` and `S`
-        _map_rows!(f, x, model, attr, conic_form, index_map, F, S)
+        k = _map_rows!(f, x, model, conic_form, index_map, map_mode, k, F, S)
     end
     return x
 end
 
 """
-    backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
+    backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
 
 Method to differentiate optimal solution `x`, `y`, `s` given perturbations related to
 conic program parameters `A`, `b`, `c`. This is similar to [`backward!`](@ref) method
@@ -531,14 +547,14 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
     end
 
     # fetch matrices from MatrixOptInterface
-    cone_types = unique(_set_type.(MOI.get(model.optimizer, MOI.ListOfConstraints())))
+    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int}, Vector{Float64}}(cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     # fix optimization sense
     if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
-        conic.sense = MOI.MIN_SENSE
-        conic.c = -conic.c
+        conic_form.sense = MOI.MIN_SENSE
+        conic_form.c = -conic_form.c
     end
 
     A = conic_form.A
@@ -552,8 +568,8 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
 
     # get x,y,s
     x = model.primal_optimal
-    s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci), model, conic_form, index_map)
-    y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci), model, conic_form, index_map)
+    s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, Flattened{Float64}())
+    y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci), model.optimizer, conic_form, index_map, Flattened{Float64}())
 
     # pre-compute quantities for the derivative
     m = A.m
@@ -564,7 +580,7 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
 
 
     # find gradient of projections on dual of the cones
-    Dπv = Dπ(v, model, conic_form, index_map)
+    Dπv = Dπ(v, model.optimizer, conic_form, index_map)
 
     # Q = [
     #      0   A'   c;
@@ -587,10 +603,10 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
          -c'           -(Dπv' * b)'   0
     ]
     # find projections on dual of the cones
-    vp = π(v, model, conic_form, index_map)
+    vp = π(v, model.optimizer, conic_form, index_map)
 
     # dQ * [u, vp, max(0, w)]
-    RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u  - db ⋅ vp]
+    RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u - db ⋅ vp]
 
     dz = if norm(RHS) <= 1e-4
         RHS .= 0
