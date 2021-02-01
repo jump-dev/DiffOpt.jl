@@ -76,7 +76,6 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
         new{OT}(
             optimizer_constructor,
             zeros(0),
-            zeros(0),
             Vector{VI}(),
         )
     end
@@ -451,14 +450,17 @@ end
 """
     π(v::Vector{Float64}, model, conic_form, index_map)
 
-Find projection of vectors in `v` on product of `cones`.
-For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
+Given a `model`, its `conic_form` and the `index_map` from the indices of
+`model` to the indices of `conic_form`, find the projection of the vectors `v`
+of length equal to the number of rows in the conic form onto the cartesian
+product of the cones corresponding to these rows.
+For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
 function π(v, model, conic_form, index_map)
-    return map_rows(model, conic_form, index_map) do ci
+    return map_rows(model, conic_form, index_map) do (ci, r)
         MOSD.projection_on_set(
             MOSD.DefaultDistance(),
-            v[MatOI.rows(conic_form, index_map[ci])],
+            v[r],
             MOI.get(model, MOI.ConstraintSet(), ci)
         )
     end
@@ -468,14 +470,17 @@ end
 """
     Dπ(v::Vector{Float64}, model, conic_form, index_map)
 
-Find gradient of projection of vectors in `v` on product of `cones`.
+Given a `model`, its `conic_form` and the `index_map` from the indices of
+`model` to the indices of `conic_form`, find the gradient of the projection of
+the vectors `v` of length equal to the number of rows in the conic form onto the
+cartesian product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
 function Dπ(v, model, conic_form, index_map)
-    return map_rows(model, conic_form, index_map) do ci
+    return map_rows(model, conic_form, index_map) do (ci, r)
         MOSD.projection_gradient_on_set(
             MOSD.DefaultDistance(),
-            v[MatOI.rows(conic_form, index_map[ci])],
+            v[r],
             MOI.get(model, MOI.ConstraintSet(), ci)
         )
     end
@@ -485,15 +490,26 @@ _set_type(::Type{MOI.ConstraintIndex{F,S}}) where {F,S} = S
 
 function _map_rows!(f::Function, x::Vector, model::Optimizer, conic_form, index_map, F, S)
     for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
-        x[MatOI.rows(conic_form, index_map[ci])] = f(ci)
+        r = MatOI.rows(conic_form, index_map[ci])
+        x[r] = f(ci, r)
     end
 end
 
+"""
+    map_rows(f::Function, model::Optimizer, conic_form, index_map)
+
+Given a `model`, its `conic_form` and the `index_map` from the indices of
+`model` to the indices of `conic_form`, return a vector of length equal to
+the number of rows in the conic form where the value for the rows corresponding
+to each cone is equal to `f(ci, r)` where `ci` is the corresponding constraint
+index in `model` and `r` is a `UnitRange` of the corresponding rows in the conic
+form.
+"""
 function map_rows(f::Function, model::Optimizer, conic_form, index_map)
     x = Vector{Float64}(undef, length(conic_form.b))
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
         # Function barrier for type unstability of `F` and `S`
-        _map_rows!(x, model, attr, conic_form, index_map, F, S)
+        _map_rows!(f, x, model, attr, conic_form, index_map, F, S)
     end
     return x
 end
@@ -536,8 +552,8 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
 
     # get x,y,s
     x = model.primal_optimal
-    s = map_rows(ci -> MOI.get(model, MOI.ConstraintPrimal(), ci), model, conic_form, index_map)
-    y = map_rows(ci -> MOI.get(model, MOI.ConstraintDual(), ci), model, conic_form, index_map)
+    s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci), model, conic_form, index_map)
+    y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci), model, conic_form, index_map)
 
     # pre-compute quantities for the derivative
     m = A.m
