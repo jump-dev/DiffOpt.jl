@@ -133,7 +133,8 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
     if objective_function isa MathOptInterface.ScalarAffineFunction{Float64}
         for x in objective_function.terms
-            q[x.variable_index.value] = x.coefficient
+            vidx = findfirst(v -> v == x.variable_index, var_list)
+            q[vidx] = x.coefficient
         end
     elseif objective_function isa MathOptInterface.ScalarQuadraticFunction{Float64}
 
