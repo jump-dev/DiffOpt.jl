@@ -448,7 +448,7 @@ function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionMod
 end
 
 """
-    π(v::Vector{Float64}, model, conic_form, index_map)
+    π(v::Vector{Float64}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap)
 
 Given a `model`, its `conic_form` and the `index_map` from the indices of
 `model` to the indices of `conic_form`, find the projection of the vectors `v`
@@ -456,7 +456,7 @@ of length equal to the number of rows in the conic form onto the cartesian
 product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function π(v::Vector{T}, model, conic_form, index_map) where T
+function π(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap) where T
     return map_rows(model, conic_form, index_map, Flattened{T}()) do ci, r
         MOSD.projection_on_set(
             MOSD.DefaultDistance(),
@@ -468,7 +468,7 @@ end
 
 
 """
-    Dπ(v::Vector{Float64}, model, conic_form, index_map)
+    Dπ(v::Vector{Float64}, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap)
 
 Given a `model`, its `conic_form` and the `index_map` from the indices of
 `model` to the indices of `conic_form`, find the gradient of the projection of
@@ -476,7 +476,7 @@ the vectors `v` of length equal to the number of rows in the conic form onto the
 cartesian product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function Dπ(v::Vector{T}, model, conic_form, index_map) where T
+function Dπ(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap) where T
     return BlockDiagonals.BlockDiagonal(
         map_rows(model, conic_form, index_map, Nested{Matrix{T}}()) do ci, r
             MOSD.projection_gradient_on_set(
@@ -498,7 +498,7 @@ function _assign_mapped!(x, y, r, k, ::Flattened)
     x[r] = y
 end
 
-function _map_rows!(f::Function, x::Vector, model, conic_form, index_map, map_mode, k, F, S)
+function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode, k, F, S)
     for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
         r = MatOI.rows(conic_form, index_map[ci])
         k += 1
@@ -511,16 +511,17 @@ _map_output(conic_form, ::Nested{T}) where {T} = Vector{T}(undef, length(conic_f
 _map_output(conic_form, ::Flattened{T}) where {T} = Vector{T}(undef, length(conic_form.b))
 
 """
-    map_rows(f::Function, model, conic_form, index_map)
+    map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested{T}, Flattened{T}})
 
-Given a `model`, its `conic_form` and the `index_map` from the indices of
-`model` to the indices of `conic_form`, return a vector of length equal to
-the number of rows in the conic form where the value for the rows corresponding
+Given a `model`, its `conic_form`, the `index_map` from the indices of `model`
+to the indices of `conic_form` and `map_mode` of type `Nested` (resp.
+`Flattened`), return a `Vector{T}` of length equal to the number of cones (resp.
+rows) in the conic form where the value for the index (resp. rows) corresponding
 to each cone is equal to `f(ci, r)` where `ci` is the corresponding constraint
 index in `model` and `r` is a `UnitRange` of the corresponding rows in the conic
 form.
 """
-function map_rows(f::Function, model, conic_form, index_map, map_mode)
+function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested, Flattened})
     x = _map_output(conic_form, map_mode)
     k = 0
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
