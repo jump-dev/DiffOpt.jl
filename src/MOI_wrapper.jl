@@ -482,7 +482,7 @@ function Dπ(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConi
             MOSD.projection_gradient_on_set(
                 MOSD.DefaultDistance(),
                 v[r],
-                MOI.dual_set(MOI.get(model, MOI.ConstraintSet(), ci))
+                MOI.dual_set(MOI.get(model, MOI.ConstraintSet(), ci)),
             )
         end
     )
