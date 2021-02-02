@@ -559,8 +559,18 @@ end
 
 
 @testset "Differentiating simple SOCP" begin
-    # referred from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L789
+    # referred from _soc2test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L1355
     # find equivalent diffcp python program here: https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_socp_1_py.ipynb
+
+    # Problem SOC2
+    # min  x
+    # s.t. y ≥ 1/√2
+    #      x² + y² ≤ 1
+    # in conic form:
+    # min  x
+    # s.t.  -1/√2 + y ∈ R₊
+    #        1 - t ∈ {0}
+    #      (t,x,y) ∈ SOC₃
 
     model = diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
@@ -597,8 +607,17 @@ end
 end
 
 @testset "Differentiating simple PSD program" begin
-    # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2339
+    # refered from _psd0test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L3919
     # find equivalent diffcp program here: https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_1_py.ipynb
+
+    # min X[1,1] + X[2,2]    max y
+    #     X[2,1] = 1         [0   y/2     [ 1  0
+    #                         y/2 0    <=   0  1]
+    #     X >= 0              y free
+    # Optimal solution:
+    #     ⎛ 1   1 ⎞
+    # X = ⎜       ⎟           y = 2
+    #     ⎝ 1   1 ⎠
 
     model = diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
@@ -658,8 +677,33 @@ end
 
 
 @testset "Differentiating conic with PSD and SOC constraints" begin
-    # similar to https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2417
+    # similar to _psd1test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4054
     # find equivalent diffcp example here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_2_py.ipynb
+
+    #     | 2 1 0 |
+    # min | 1 2 1 | . X + x1
+    #     | 0 1 2 |
+    #
+    #
+    # s.t. | 1 0 0 |
+    #      | 0 1 0 | . X + x1 = 1
+    #      | 0 0 1 |
+    #
+    #      | 1 1 1 |
+    #      | 1 1 1 | . X + x2 + x3 = 1/2
+    #      | 1 1 1 |
+    #
+    #      (x1,x2,x3) in C^3_q
+    #      X in C_psd
+    #
+    # The dual is
+    # max y1 + y2/2
+    #
+    # s.t. | y1+y2    y2    y2 |
+    #      |    y2 y1+y2    y2 | in C_psd
+    #      |    y2    y2 y1+y2 |
+    #
+    #      (1-y1, -y2, -y2) in C^3_q
 
     model = diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
@@ -744,7 +788,7 @@ end
 end
 
 @testset "Differentiating conic with PSD and POS constraints" begin
-    # refer https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2575
+    # refer psdt2test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4306
     # find equivalent diffcp program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
 
     model = diff_optimizer(SCS.Optimizer)
@@ -825,8 +869,13 @@ end
 
 
 @testset "Differentiating a simple PSD" begin
-    # refer https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2643
+    # refer _psd3test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4484
     # find equivalent diffcp program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_0_py.ipynb
+
+    # min x
+    # s.t. [x 1 1]
+    #      [1 x 1] ⪰ 0
+    #      [1 1 x]
 
     model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
@@ -836,6 +885,7 @@ end
 
     func = MOIU.operate(vcat, Float64, fx, one(Float64), fx, one(Float64), one(Float64), fx)
 
+    # do not confuse this constraint with the matrix `c` in the conic form (of the matrices A, b, c)
     c = MOI.add_constraint(model, func, MOI.PositiveSemidefiniteConeTriangle(3))
 
     # MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), MOI.SingleVariable(x))
