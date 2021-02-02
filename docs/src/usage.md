@@ -28,9 +28,9 @@ Finally differentiate the model (primal and dual variables specifically) to obta
 \end{align*}
 ```
 
-we can use the `backward!` method
+we can use the `backward_quad` method
 ```julia
-    grads = backward!(model, ["Q", "q", "h"], [1.0 1.0])
+    grads = backward_quad(model, ["Q", "q", "h"], [1.0 1.0])
 ```
 
 2. To differentiate convex conic program
@@ -44,7 +44,7 @@ we can use the `backward!` method
 \end{align*}
 ```
 
-we can use the `backward_conic!` method with perturbations in matrices `A`, `b`, `c`
+we can use the `backward_conic` method with perturbations in matrices `A`, `b`, `c`
 ```julia
-    grads = backward_conic!(model, dA, db, dc)
+    grads = backward_conic(model, dA, db, dc)
 ```

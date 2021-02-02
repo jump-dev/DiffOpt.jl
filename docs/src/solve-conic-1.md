@@ -192,7 +192,7 @@ db = ones(11)
 dc = ones(9)
 
 # differentiate and get the gradients
-dx, dy, ds = backward_conic!(model, dA, db, dc)
+dx, dy, ds = backward_conic(model, dA, db, dc)
 
 println("dx -> ", round.(dx; digits=3))
 println("ds -> ", round.(ds; digits=3))
