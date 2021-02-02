@@ -498,7 +498,7 @@ function _assign_mapped!(x, y, r, k, ::Flattened)
     x[r] = y
 end
 
-function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode, k, F, S)
+function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.DoubleDicts.IndexWithType{F, S}, map_mode, k) where {F, S}
     for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
         r = MatOI.rows(conic_form, index_map[ci])
         k += 1
@@ -526,7 +526,9 @@ function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, inde
     k = 0
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
         # Function barrier for type unstability of `F` and `S`
-        k = _map_rows!(f, x, model, conic_form, index_map, map_mode, k, F, S)
+        # `conmap` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
+        # so that we only pass the inner one which is type stable.
+        k = _map_rows!(f, x, model, conic_form, index_map.conmap[F, S], map_mode, k)
     end
     return x
 end
