@@ -396,7 +396,7 @@ end
     matrices = []
 
     for name in names
-        push!(matrices, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("data",name*".txt")), ' ', Float64, '\n'))
+        push!(matrices, readdlm(joinpath(dirname(dirname(pathof(DiffOpt))), "test", "data", name * ".txt"), ' ', Float64, '\n'))
     end
 
     Q, q, G, h, A, b = matrices
