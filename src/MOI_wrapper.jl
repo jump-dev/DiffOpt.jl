@@ -559,7 +559,9 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
 
     # fetch matrices from MatrixOptInterface
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
-    conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int}, Vector{Float64}}(cone_types)
+    # We use `MatOI.OneBasedIndexing` as it is the same indexing as used by `SparseMatrixCSC`
+    # so we can do an allocation-free conversion to `SparseMatrixCSC`.
+    conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     # fix optimization sense
@@ -568,8 +570,7 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
         conic_form.c = -conic_form.c
     end
 
-    A = conic_form.A
-    A = CSRToCSC(A)
+    A = convert(SparseMatrixCSC{Float64, Int}, conic_form.A)
     b = conic_form.b
     c = conic_form.c
 
