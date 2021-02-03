@@ -488,9 +488,12 @@ function Dπ(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConi
     )
 end
 
+# See the docstring of `map_rows`.
 struct Nested{T} end
 struct Flattened{T} end
 
+# Store in `x` the values `y` corresponding to the rows `r` and the `k`th
+# constraint.
 function _assign_mapped!(x, y, r, k, ::Nested)
     x[k] = y
 end
@@ -498,6 +501,7 @@ function _assign_mapped!(x, y, r, k, ::Flattened)
     x[r] = y
 end
 
+# Map the rows corresponding to `F`-in-`S` constraints and store it in `x`.
 function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.DoubleDicts.IndexWithType{F, S}, map_mode, k) where {F, S}
     for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
         r = MatOI.rows(conic_form, index_map[ci])
@@ -507,8 +511,9 @@ function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricCo
     return k
 end
 
-_map_output(conic_form, ::Nested{T}) where {T} = Vector{T}(undef, length(conic_form.dimension))
-_map_output(conic_form, ::Flattened{T}) where {T} = Vector{T}(undef, length(conic_form.b))
+# Allocate a vector for storing the output of `map_rows`.
+_allocate_rows(conic_form, ::Nested{T}) where {T} = Vector{T}(undef, length(conic_form.dimension))
+_allocate_rows(conic_form, ::Flattened{T}) where {T} = Vector{T}(undef, length(conic_form.b))
 
 """
     map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested{T}, Flattened{T}})
@@ -522,12 +527,15 @@ index in `model` and `r` is a `UnitRange` of the corresponding rows in the conic
 form.
 """
 function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested, Flattened})
-    x = _map_output(conic_form, map_mode)
+    x = _allocate_rows(conic_form, map_mode)
     k = 0
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
         # Function barrier for type unstability of `F` and `S`
         # `conmap` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
-        # so that we only pass the inner one which is type stable.
+        # which returns a `MOIU.DoubleDicts.IndexWithType{F, S}` which is type stable.
+        # If we have a small number of different constraint types and many
+        # constraint of each type, this mostly removes type unstabilities
+        # as most the time is in `_map_rows!` which is type stable.
         k = _map_rows!(f, x, model, conic_form, index_map.conmap[F, S], map_mode, k)
     end
     return x
