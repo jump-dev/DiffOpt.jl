@@ -55,7 +55,7 @@ grads = backward(diff, ["Q", "q", "h"], bpv)
 Secondly, for a conic problem of the format:
 ```
 minimize_x c^T x
-subject to: Ax + b \in K
+subject to: Ax + b in K
 ```
 where
 - `the obejctive is linear
