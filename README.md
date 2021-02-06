@@ -48,7 +48,7 @@ subject to: Az = b,
 ```
 then one can compute gradients by providing a backward pass vector
 ```julia
-bpv = [1.0 1.0]
+bpv = [1.0, 1.0]
 grads = backward(diff, ["Q", "q", "h"], bpv)
 ```
 
