@@ -1008,10 +1008,10 @@ end
     MOI.optimize!(model)
     
     @test model.primal_optimal ≈ [-0.25, -0.75] atol=ATOL rtol=RTOL
-    @test isempty(model.gradient_cache)
+    @test model.gradient_cache === nothing
     grad_wrt_h = backward!(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
-    @test !isempty(model.gradient_cache)
+    @test model.gradient_cache !== nothing
     grad_wrt_h = backward!(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
 
@@ -1019,22 +1019,22 @@ end
     y = MOI.add_variables(model, 2)
     MOI.delete(model, y)
 
-    @test isempty(model.gradient_cache)
+    @test model.gradient_cache === nothing
     MOI.optimize!(model)
     grad_wrt_h = backward!(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
-    @test !isempty(model.gradient_cache)
+    @test model.gradient_cache isa DiffOpt.QPCache
 
     # adding single variable invalidates the cache
     y0 = MOI.add_variable(model)
-    @test isempty(model.gradient_cache)
+    @test model.gradient_cache === nothing
     MOI.add_constraint(model, MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, y0)], 0.0), MOI.EqualTo(42.0))
     MOI.optimize!(model)
-    @test isempty(model.gradient_cache)
+    @test model.gradient_cache === nothing
 
     grad_wrt_h = backward!(model, ["h"], ones(3))[1]
     @test grad_wrt_h ≈ [1.0] atol=5e-3 rtol=RTOL
-    @test !isempty(model.gradient_cache)
+    @test model.gradient_cache isa DiffOpt.QPCache
 
     # adding constraint invalidates the cache
     MOI.add_constraint(
@@ -1042,13 +1042,13 @@ end
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0, 1.0], x), 0.0),
         MOI.LessThan(0.0),
     )
-    @test isempty(model.gradient_cache)
+    @test model.gradient_cache === nothing
     MOI.optimize!(model)
     grad_wrt_h = backward!(model, ["h"], ones(3))[1]
     @test grad_wrt_h[1] ≈ 1.0 atol=5e-3 rtol=RTOL
     # second constraint inactive
     @test grad_wrt_h[2] ≈ 0.0 atol=5e-3 rtol=RTOL
-    @test !isempty(model.gradient_cache)
+    @test model.gradient_cache isa DiffOpt.QPCache
 end
 
 
@@ -1071,9 +1071,9 @@ end
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [x]), 0.0)
     )
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-    @test isempty(model.gradient_cache)
+    @test model.gradient_cache === nothing
     MOI.optimize!(model)
-    @test isempty(model.gradient_cache)
+    @test model.gradient_cache === nothing
 
     x = model.primal_optimal
 
@@ -1098,7 +1098,7 @@ end
     @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
     @test ds ≈ [0.5, 1.0, 0.5, 1.0, 1.0, 0.5] atol=ATOL rtol=RTOL
 
-    @test !isempty(model.gradient_cache)
+    @test model.gradient_cache isa DiffOpt.ConicCache
 
     dx2, dy2, ds2 = backward_conic!(model, dA, db, dc)
     @test all(

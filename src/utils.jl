@@ -146,7 +146,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         q = MOI.coefficient.(objective_function.affine_terms)
     end
 
-    return Q, q, G, h, A, b, nz, var_list, nineq, ineq_con_idx, neq, eq_con_idx
+    return (Q, q, G, h, A, b, nz, var_list, nineq, ineq_con_idx, neq, eq_con_idx)
 end
 
 # used for testing mostly

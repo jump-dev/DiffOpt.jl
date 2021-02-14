@@ -67,59 +67,88 @@ function diff_optimizer(optimizer_constructor)::Optimizer
 end
 
 
+Base.@kwdef struct QPCache
+    problem_data::Tuple{
+        Matrix{Float64}, Vector{Float64}, # Q, q
+        Matrix{Float64}, Vector{Float64}, # G, h
+        Matrix{Float64}, Vector{Float64}, # A, b
+        Int, Vector{VI}, # nz, var_list
+        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}}, # nineq, ineq_con_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}} # neq, eq_con_idx
+    }
+    inequality_duals::Vector{Float64}
+    equality_duals::Vector{Float64}
+    lhs::SparseMatrixCSC{Float64, Int}
+end
+
+Base.@kwdef struct ConicCache
+    M::SparseMatrixCSC{Float64, Int}
+    vp::Vector
+    Dπv::BlockDiagonals.BlockDiagonal{Float64, Matrix{Float64}}
+    xys::NTuple{3, Vector{Float64}}
+    A::SparseMatrixCSC{Float64, Int}
+    b::Vector{Float64}
+    c::Vector{Float64}
+end
+
+const CACHE_TYPE = Union{
+    Nothing,
+    QPCache,
+    ConicCache,
+}
+
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
     primal_optimal::Vector{Float64}  # solution
     var_idx::Vector{VI}
-    gradient_cache::NamedTuple
+    gradient_cache::CACHE_TYPE
 
     function Optimizer(optimizer_constructor::OT) where {OT <: MOI.ModelLike}
         new{OT}(
             optimizer_constructor,
             zeros(0),
             Vector{VI}(),
-            NamedTuple(),
+            nothing,
         )
     end
 end
 
 
 function MOI.add_variable(model::Optimizer)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     vi = MOI.add_variable(model.optimizer)
     push!(model.var_idx, vi)
     return vi
 end
 
-
 function MOI.add_variables(model::Optimizer, N::Int)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return VI[MOI.add_variable(model) for i in 1:N]
 end
 
 function MOI.add_constraint(model::Optimizer, f::SUPPORTED_SCALAR_FUNCTIONS, s::SUPPORTED_SCALAR_SETS)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return MOI.add_constraint(model.optimizer, f, s)
 end
 
 function MOI.add_constraint(model::Optimizer, vf::SUPPORTED_VECTOR_FUNCTIONS, s::SUPPORTED_VECTOR_SETS)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return MOI.add_constraint(model.optimizer, vf, s)
 end
 
 function MOI.add_constraints(model::Optimizer, f::AbstractVector{F}, s::AbstractVector{S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return CI{F, S}[MOI.add_constraint(model, f[i], s[i]) for i in eachindex(f)]
 end
 
 
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES}, f::SUPPORTED_OBJECTIVES)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     MOI.set(model.optimizer, attr, f)
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return MOI.set(model.optimizer, attr, sense)
 end
 
@@ -137,7 +166,7 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}) where 
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return MOI.set(model.optimizer, attr, ci, s)
 end
 
@@ -146,7 +175,7 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) w
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return MOI.set(model.optimizer, attr, ci, f)
 end
 
@@ -159,7 +188,7 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}) where 
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return MOI.set(model.optimizer, attr, ci, s)
 end
 
@@ -168,12 +197,12 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) w
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return MOI.set(model.optimizer, attr, ci, f)
 end
 
 function MOI.optimize!(model::Optimizer)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     MOI.optimize!(model.optimizer)
 
     # do not fail. interferes with MOI.Tests.linear12test
@@ -258,7 +287,7 @@ For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
 function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
     z = model.primal_optimal
-    if !isempty(model.gradient_cache)
+    if model.gradient_cache !== nothing
         (Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx) = model.gradient_cache.problem_data
         λ = model.gradient_cache.inequality_duals
         ν = model.gradient_cache.equality_duals
@@ -273,11 +302,11 @@ function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float
         ν = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in eq_con_idx]
     
         LHS = create_LHS_matrix(z, λ, Q, G, h, A)
-        model.gradient_cache = (
-            problem_data = (Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx),
-            inequality_duals = λ,
-            equality_duals = ν,
-            lhs = LHS,
+        model.gradient_cache = QPCache(
+            (Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx),
+            λ,
+            ν,
+            LHS,
         )
     end
 
@@ -348,14 +377,14 @@ function MOI.empty!(model::Optimizer)
     MOI.empty!(model.optimizer)
     empty!(model.primal_optimal)
     empty!(model.var_idx)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return
 end
 
 function MOI.is_empty(model::Optimizer)
     return MOI.is_empty(model.optimizer) &&
            isempty(model.primal_optimal) &&
-           isempty(model.gradient_cache)
+           model.gradient_cache === nothing
            isempty(model.var_idx)
 end
 
@@ -363,7 +392,7 @@ end
 MOIU.supports_default_copy_to(model::Optimizer, copy_names::Bool) = true #!copy_names
 
 function MOI.copy_to(model::Optimizer, src::MOI.ModelLike; copy_names = false)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     return MOIU.default_copy_to(model.optimizer, src, copy_names)
 end
 
@@ -373,7 +402,7 @@ end
 
 function MOI.set(model::Optimizer, ::MOI.VariablePrimalStart,
                  vi::VI, value::Float64)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     MOI.set(model.optimizer, MOI.VariablePrimalStart(), vi, value)
 end
 
@@ -388,12 +417,12 @@ function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::VI)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     MOI.delete(model.optimizer, ci)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     MOI.delete(model.optimizer, ci)
 end
 
@@ -446,7 +475,7 @@ end
 
 
 function MOI.delete(model::Optimizer, v::VI)
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     # delete in inner solver
     MOI.delete(model.optimizer, v)
 
@@ -456,7 +485,7 @@ end
 
 # for array deletion
 function MOI.delete(model::Optimizer, indices::Vector{VI})
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     for i in indices
         MOI.delete(model, i)
     end
@@ -467,7 +496,7 @@ function MOI.modify(
     ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}},
     chg::MOI.AbstractFunctionModification
 )
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     MOI.modify(
         model.optimizer,
         MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
@@ -476,12 +505,12 @@ function MOI.modify(
 end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     MOI.modify(model.optimizer, ci, chg)
 end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:MOI.VectorAffineFunction{Float64}, S <: SUPPORTED_VECTOR_SETS}
-    model.gradient_cache = NamedTuple()
+    model.gradient_cache = nothing
     MOI.modify(model.optimizer, ci, chg)
 end
 
@@ -595,7 +624,7 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
         error("problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus()))
     end
 
-    if !isempty(model.gradient_cache)
+    if model.gradient_cache !== nothing
         M = model.gradient_cache.M
         vp = model.gradient_cache.vp
         Dπv = model.gradient_cache.Dπv
@@ -669,7 +698,7 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
         # find projections on dual of the cones
         vp = π(v, model.optimizer, conic_form, index_map)
 
-        model.gradient_cache = (
+        model.gradient_cache = ConicCache(
             M = M,
             vp = vp,
             Dπv = Dπv,
