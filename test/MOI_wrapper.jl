@@ -799,16 +799,16 @@ end
     ]  atol=ATOL rtol=RTOL
 
     # test c_extra
-    dA = zeros(12, 9)
-    db = zeros(12)
-    db[3] = 1.0
-    dc = zeros(9)
+    dA = spzeros(12, 9)
+    db = spzeros(12)
+    db[3] = 1
+    dc = spzeros(9)
 
     dx, dy, ds = backward_conic!(model, dA, db, dc)
 
     # a small change in the constant in c_extra should not affect any other variable or constraint other than c_extra itself
     @test dx ≈ zeros(9) atol=1e-2
-    @test dy ≈ zeros(12) atol=0.015
+    @test dy ≈ zeros(12) atol=0.012
     @test [ds[1:2]; ds[4:end]] ≈ zeros(11) atol=1e-2
     @test ds[3] ≈ 1.0 atol=1e-2   # except c_extra itself
 end
