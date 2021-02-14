@@ -148,3 +148,24 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
     return Q, q, G, h, A, b, nz, var_list, nineq, ineq_con_idx, neq, eq_con_idx
 end
+
+# used for testing mostly
+# computes the tuple `(s, y)`, vectorized forms of the slack and duals of inequality constraints
+function _slack_dual_vectors(model)
+    cone_types = unique!([S for (_, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
+    index_map = MOI.copy_to(conic_form, model)
+
+    # fix optimization sense
+    if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
+        conic_form.sense = MOI.MIN_SENSE
+        conic_form.c = -conic_form.c
+    end    
+    s = map_rows(model.optimizer, conic_form, index_map, Flattened{Float64}()) do (ci, r)
+        MOI.get(model, MOI.ConstraintPrimal(), ci)
+    end
+    y = map_rows(model.optimizer, conic_form, index_map, Flattened{Float64}()) do (ci, r)
+        MOI.get(model, MOI.ConstraintDual(), ci)
+    end
+    return (s, y)
+end

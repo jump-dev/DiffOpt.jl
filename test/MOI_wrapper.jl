@@ -808,7 +808,7 @@ end
 
     # a small change in the constant in c_extra should not affect any other variable or constraint other than c_extra itself
     @test dx ≈ zeros(9) atol=1e-2
-    @test dy ≈ zeros(12) atol=1e-2
+    @test dy ≈ zeros(12) atol=0.015
     @test [ds[1:2]; ds[4:end]] ≈ zeros(11) atol=1e-2
     @test ds[3] ≈ 1.0 atol=1e-2   # except c_extra itself
 end
@@ -1076,12 +1076,17 @@ end
     @test isempty(model.gradient_cache)
 
     x = model.primal_optimal
-    s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
-    y = model.dual_optimal
+
+    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
+    index_map = MOI.copy_to(conic_form, model)
+
+    s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
+    y = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintDual(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
 
     @test x ≈ [1.0] atol=ATOL rtol=RTOL
-    @test s ≈ [ones(6)] atol=ATOL rtol=RTOL
-    @test y ≈ [[1/3.,  -1/6.,  1/3.,  -1/6.,  -1/6.,  1/3.]]  atol=ATOL rtol=RTOL
+    @test s ≈ ones(6) atol=ATOL rtol=RTOL
+    @test y ≈ [1/3,  -1/6,  1/3,  -1/6,  -1/6,  1/3]  atol=ATOL rtol=RTOL
 
     dA = zeros(6, 1)
     db = ones(6)
