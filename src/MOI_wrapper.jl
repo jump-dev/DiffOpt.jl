@@ -70,18 +70,14 @@ end
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
     primal_optimal::Vector{Float64}  # solution
-    dual_optimal::Vector{Union{Vector{Float64}, Float64}}  # refer - https://github.com/jump-dev/DiffOpt.jl/issues/21#issuecomment-651130485
     var_idx::Vector{VI}
-    con_idx::Vector{CI}
     gradient_cache::NamedTuple
 
     function Optimizer(optimizer_constructor::OT) where {OT <: MOI.ModelLike}
         new{OT}(
             optimizer_constructor,
             zeros(0),
-            zeros(0),
             Vector{VI}(),
-            Vector{CI}(),
             NamedTuple(),
         )
     end
@@ -103,16 +99,12 @@ end
 
 function MOI.add_constraint(model::Optimizer, f::SUPPORTED_SCALAR_FUNCTIONS, s::SUPPORTED_SCALAR_SETS)
     model.gradient_cache = NamedTuple()
-    ci = MOI.add_constraint(model.optimizer, f, s)
-    push!(model.con_idx, ci)
-    return ci
+    return MOI.add_constraint(model.optimizer, f, s)
 end
 
 function MOI.add_constraint(model::Optimizer, vf::SUPPORTED_VECTOR_FUNCTIONS, s::SUPPORTED_VECTOR_SETS)
     model.gradient_cache = NamedTuple()
-    ci = MOI.add_constraint(model.optimizer, vf, s)
-    push!(model.con_idx, ci)   # adding it as a whole here; need to define a method to extract matrices
-    return ci
+    return MOI.add_constraint(model.optimizer, vf, s)
 end
 
 function MOI.add_constraints(model::Optimizer, f::AbstractVector{F}, s::AbstractVector{S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
@@ -191,7 +183,6 @@ function MOI.optimize!(model::Optimizer)
     end
     # save the solution
     model.primal_optimal = MOI.get(model.optimizer, MOI.VariablePrimal(), model.var_idx)
-    model.dual_optimal = MOI.get.(model.optimizer, MOI.ConstraintDual(), model.con_idx)
     return
 end
 
@@ -277,12 +268,10 @@ function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float
         Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx = get_problem_data(model.optimizer)
 
         # separate λ, ν
-        λ = filter(con -> !is_equality(MOI.get(model.optimizer, MOI.ConstraintSet(), con)), model.con_idx)
-        ν = filter(con -> is_equality(MOI.get(model.optimizer, MOI.ConstraintSet(), con)), model.con_idx)
 
-        λ = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in λ]
-        ν = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in ν]
-
+        λ = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in ineq_con_idx]
+        ν = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in eq_con_idx]
+    
         LHS = create_LHS_matrix(z, λ, Q, G, h, A)
         model.gradient_cache = (
             problem_data = (Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx),
@@ -291,7 +280,7 @@ function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float
             lhs = LHS,
         )
     end
-    
+
     RHS = [dl_dz; zeros(neq+nineq)]
     partial_grads = -(LHS \ RHS)
     dz = partial_grads[1:nz]
@@ -358,9 +347,7 @@ MOI.get(model::Optimizer, attr::MOI.SolveTime) = MOI.get(model.optimizer, attr)
 function MOI.empty!(model::Optimizer)
     MOI.empty!(model.optimizer)
     empty!(model.primal_optimal)
-    empty!(model.dual_optimal)
     empty!(model.var_idx)
-    empty!(model.con_idx)
     model.gradient_cache = NamedTuple()
     return
 end
@@ -368,10 +355,8 @@ end
 function MOI.is_empty(model::Optimizer)
     return MOI.is_empty(model.optimizer) &&
            isempty(model.primal_optimal) &&
-           isempty(model.dual_optimal) &&
-           isempty(model.var_idx) &&
-           isempty(model.con_idx) &&
            isempty(model.gradient_cache)
+           isempty(model.var_idx)
 end
 
 # now supports name too
@@ -404,13 +389,11 @@ end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
     model.gradient_cache = NamedTuple()
-    filter!(x -> x ≠ ci, model.con_idx)
     MOI.delete(model.optimizer, ci)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
     model.gradient_cache = NamedTuple()
-    filter!(x -> x ≠ ci, model.con_idx)
     MOI.delete(model.optimizer, ci)
 end
 
@@ -426,9 +409,7 @@ function MOI.is_valid(model::Optimizer, v::VI)
     return v in model.var_idx
 end
 
-function MOI.is_valid(model::Optimizer, con::CI)
-    return con in model.con_idx
-end
+MOI.is_valid(model::Optimizer, con::CI) = MOI.is_valid(model.optimizer, con)
 
 function MOI.get(model::Optimizer, attr::MOI.ConstraintDual, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
     return MOI.get(model.optimizer, attr, ci)
@@ -466,9 +447,6 @@ end
 
 function MOI.delete(model::Optimizer, v::VI)
     model.gradient_cache = NamedTuple()
-    # remove those constraints that depend on this Variable
-    filter!(ci -> !_constraint_contains(model, v, ci), model.con_idx)
-
     # delete in inner solver
     MOI.delete(model.optimizer, v)
 
@@ -508,24 +486,101 @@ function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionMod
 end
 
 """
-    π(cones::Array{<: MOI.AbstractVectorSet}, v::Vector{Vector{Float64}})
+    π(v::Vector{Float64}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap)
 
-Find projection of vectors in `v` on product of `cones`.
-For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
+Given a `model`, its `conic_form` and the `index_map` from the indices of
+`model` to the indices of `conic_form`, find the projection of the vectors `v`
+of length equal to the number of rows in the conic form onto the cartesian
+product of the cones corresponding to these rows.
+For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-π(cones, v) = MOSD.projection_on_set(MOSD.DefaultDistance(), v, cones)
+function π(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap) where T
+    return map_rows(model, conic_form, index_map, Flattened{T}()) do ci, r
+        MOSD.projection_on_set(
+            MOSD.DefaultDistance(),
+            v[r],
+            MOI.dual_set(MOI.get(model, MOI.ConstraintSet(), ci))
+        )
+    end
+end
 
 
 """
-    Dπ(cones::Array{<: MOI.AbstractVectorSet}, v::Vector{Vector{Float64}})
+    Dπ(v::Vector{Float64}, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap)
 
-Find gradient of projection of vectors in `v` on product of `cones`.
-For more info, refer https://github.com/matbesancon/MathOptSetDistances.jl
+Given a `model`, its `conic_form` and the `index_map` from the indices of
+`model` to the indices of `conic_form`, find the gradient of the projection of
+the vectors `v` of length equal to the number of rows in the conic form onto the
+cartesian product of the cones corresponding to these rows.
+For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-Dπ(cones, v) = MOSD.projection_gradient_on_set(MOSD.DefaultDistance(), v, cones)
+function Dπ(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap) where T
+    return BlockDiagonals.BlockDiagonal(
+        map_rows(model, conic_form, index_map, Nested{Matrix{T}}()) do ci, r
+            MOSD.projection_gradient_on_set(
+                MOSD.DefaultDistance(),
+                v[r],
+                MOI.dual_set(MOI.get(model, MOI.ConstraintSet(), ci)),
+            )
+        end
+    )
+end
+
+# See the docstring of `map_rows`.
+struct Nested{T} end
+struct Flattened{T} end
+
+# Store in `x` the values `y` corresponding to the rows `r` and the `k`th
+# constraint.
+function _assign_mapped!(x, y, r, k, ::Nested)
+    x[k] = y
+end
+function _assign_mapped!(x, y, r, k, ::Flattened)
+    x[r] = y
+end
+
+# Map the rows corresponding to `F`-in-`S` constraints and store it in `x`.
+function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.DoubleDicts.IndexWithType{F, S}, map_mode, k) where {F, S}
+    for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
+        r = MatOI.rows(conic_form, index_map[ci])
+        k += 1
+        _assign_mapped!(x, f(ci, r), r, k, map_mode)
+    end
+    return k
+end
+
+# Allocate a vector for storing the output of `map_rows`.
+_allocate_rows(conic_form, ::Nested{T}) where {T} = Vector{T}(undef, length(conic_form.dimension))
+_allocate_rows(conic_form, ::Flattened{T}) where {T} = Vector{T}(undef, length(conic_form.b))
 
 """
-    backward_conic!(model::Optimizer, dA::Array{Float64,2}, db::Array{Float64}, dc::Array{Float64})
+    map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested{T}, Flattened{T}})
+
+Given a `model`, its `conic_form`, the `index_map` from the indices of `model`
+to the indices of `conic_form` and `map_mode` of type `Nested` (resp.
+`Flattened`), return a `Vector{T}` of length equal to the number of cones (resp.
+rows) in the conic form where the value for the index (resp. rows) corresponding
+to each cone is equal to `f(ci, r)` where `ci` is the corresponding constraint
+index in `model` and `r` is a `UnitRange` of the corresponding rows in the conic
+form.
+"""
+function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested, Flattened})
+    x = _allocate_rows(conic_form, map_mode)
+    k = 0
+    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
+        # Function barrier for type unstability of `F` and `S`
+        # `conmap` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
+        # which returns a `MOIU.DoubleDicts.IndexWithType{F, S}` which is type stable.
+        # If we have a small number of different constraint types and many
+        # constraint of each type, this mostly removes type unstabilities
+        # as most the time is in `_map_rows!` which is type stable.
+        k = _map_rows!(f, x, model, conic_form, index_map.conmap[F, S], map_mode, k)
+    end
+    return x
+end
+
+"""
+    backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
 
 Method to differentiate optimal solution `x`, `y`, `s` given perturbations related to
 conic program parameters `A`, `b`, `c`. This is similar to [`backward!`](@ref) method
@@ -541,81 +596,67 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
     end
 
     # fetch matrices from MatrixOptInterface
-    if !isempty(model.gradient_cache)
-        A = model.gradient_cache.A
-        b = model.gradient_cache.b
-        c = model.gradient_cache.c
-        (x, s, y) = model.gradient_cache.xsy
-        Dπv = model.gradient_cache.Dπv
-        M = model.gradient_cache.M
-        vp = model.gradient_cache.vp
-        (u, v, w) = (x, y - s, 1.0)
-        m = A.m
-        n = A.n
-        N = m + n + 1
-    else
-        conic_form = MatOI.get_conic_form(Float64, model.optimizer, model.con_idx)
+    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    # We use `MatOI.OneBasedIndexing` as it is the same indexing as used by `SparseMatrixCSC`
+    # so we can do an allocation-free conversion to `SparseMatrixCSC`.
+    conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
+    index_map = MOI.copy_to(conic_form, model)
 
-        A = conic_form.A
-        A = CSRToCSC(A)
-        b = conic_form.b
-        c = conic_form.c
-        # programs in tests were cross-checked against `diffcp`, which follows SCS format
-        # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
-        # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
-
-        # get x,y,s
-        x = model.primal_optimal
-        s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
-        y = model.dual_optimal
-        # pre-compute quantities for the derivative
-        m = A.m
-        n = A.n
-        N = m + n + 1
-        cones = MOI.get(model, MOI.ConstraintSet(), model.con_idx)
-        # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-        (u, v, w) = (x, y - s, 1.0)
-
-        # find gradient of projections on dual of the cones
-        Dπv = Dπ(MOI.dual_set.(cones), v)
-        
-        # Q = [
-        #      0   A'   c;
-        #     -A   0    b;
-        #     -c' -b'   0;
-        # ]
-        # M = (Q- I) * B + I
-        # with B =
-        # [
-        #  I    .   .
-        #  .  Dπv   .
-        # .    .   I
-        # ]
-
-        # NOTE: double transpose because Dπv is BlockDiagonal
-        # https://github.com/invenia/BlockDiagonals.jl/issues/16
-        M = [
-              spzeros(n,n)  (A' * Dπv)    c
-             -A               -Dπv + I    b
-             -c'           -(Dπv' * b)'   0
-        ]
-        # find projections on dual of the cones
-        vp = π(MOI.dual_set.(cones), v)
-
-        model.gradient_cache = (
-            A = A,
-            b = b,
-            c = c,
-            xsy = (x, s, y),
-            Dπv = Dπv,
-            M = M,
-            vp = vp,
-        )
+    # fix optimization sense
+    if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
+        conic_form.sense = MOI.MIN_SENSE
+        conic_form.c = -conic_form.c
     end
-    
+
+    A = convert(SparseMatrixCSC{Float64, Int}, conic_form.A)
+    b = conic_form.b
+    c = conic_form.c
+
+    # programs in tests were cross-checked against `diffcp`, which follows SCS format
+    # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
+    # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
+
+    # get x,y,s
+    x = model.primal_optimal
+    s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, Flattened{Float64}())
+    y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci), model.optimizer, conic_form, index_map, Flattened{Float64}())
+
+    # pre-compute quantities for the derivative
+    m = A.m
+    n = A.n
+    N = m + n + 1
+    # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
+    (u, v, w) = (x, y - s, 1.0)
+
+
+    # find gradient of projections on dual of the cones
+    Dπv = Dπ(v, model.optimizer, conic_form, index_map)
+
+    # Q = [
+    #      0   A'   c;
+    #     -A   0    b;
+    #     -c' -b'   0;
+    # ]
+    # M = (Q- I) * B + I
+    # with B =
+    # [
+    #  I    .   .
+    #  .  Dπv   .
+    # .    .   I
+    # ]
+
+    # NOTE: double transpose because Dπv is BlockDiagonal
+    # https://github.com/invenia/BlockDiagonals.jl/issues/16
+    M = [
+          spzeros(n,n)  (A' * Dπv)    c
+         -A               -Dπv + I    b
+         -c'           -(Dπv' * b)'   0
+    ]
+    # find projections on dual of the cones
+    vp = π(v, model.optimizer, conic_form, index_map)
 
     # dQ * [u, vp, max(0, w)]
-    RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u  - db ⋅ vp]
+    RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u - db ⋅ vp]
 
     dz = if norm(RHS) <= 1e-4
         RHS .= 0
@@ -625,8 +666,8 @@ function backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float
 
     du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
     dx = du - x * dw
-    dy = Dπv * dv - collect(Iterators.flatten(y)) * dw
-    ds = Dπv * dv - dv - collect(Iterators.flatten(s)) * dw
+    dy = Dπv * dv - y * dw
+    ds = Dπv * dv - dv - s * dw
     return -dx, -dy, -ds
 end
 

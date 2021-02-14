@@ -51,24 +51,6 @@ end
     @test MOI.get(model, MOI.ObjectiveValue()) >= 1.0
 end
 
-@testset "Removing variables from model" begin
-    model = diff_optimizer(GLPK.Optimizer)
-
-    x = MOI.add_variable(model)
-    y = MOI.add_variable(model)
-
-    MOI.add_constraint(model, MOI.SingleVariable(x), MOI.LessThan(0.))
-    MOI.add_constraint(model, MOI.SingleVariable(y), MOI.LessThan(0.))
-    MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1., 1.], [x, y]), 0.), MOI.LessThan(0.))
-
-    MOI.delete(model, x)
-
-    @test size(model.con_idx)[1] == 1
-
-    func = MOI.get(model, MOI.ConstraintFunction(), model.con_idx[1])
-    @test func.variable == y
-end
-
 @testset "ModelLike" begin
     for opt in [GLPK.Optimizer]
         MODEL = diff_optimizer(opt)
