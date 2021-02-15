@@ -1,5 +1,4 @@
 using DiffOpt
-using MathOptInterface
 using Test
 using OSQP
 using Ipopt
@@ -10,9 +9,13 @@ using LinearAlgebra
 using DelimitedFiles
 using GLPK
 
-const MOI = MathOptInterface;
-const MOIU = MathOptInterface.Utilities;
+import MathOptInterface
+const MOI = MathOptInterface
+const MOIU = MathOptInterface.Utilities
 const MOIT = MathOptInterface.Test
+
+import MatrixOptInterface
+const MatOI = MatrixOptInterface
 
 const ATOL = 1e-4
 const RTOL = 1e-4
@@ -28,10 +31,6 @@ end
 
 @testset "MOI_wrapper" begin
     include("MOI_wrapper.jl")
-end
-
-@testset "Utility Methods" begin
-    include("utils.jl")
 end
 
 @testset "Solver Interface" begin

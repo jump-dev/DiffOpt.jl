@@ -5,6 +5,8 @@ using LinearAlgebra
 using SparseArrays
 using IterativeSolvers: lsqr
 
+import BlockDiagonals
+
 using MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
