@@ -9,6 +9,8 @@ using LinearAlgebra
 using DelimitedFiles
 using GLPK
 
+using SparseArrays: spzeros
+
 import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
