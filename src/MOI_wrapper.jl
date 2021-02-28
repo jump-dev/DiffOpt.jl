@@ -333,10 +333,10 @@ function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float
     partial_grads = -LHS \ RHS
     dz = partial_grads[1:nz]
 
-    if nineq > 0
+    if nineq+nineq_sv_le > 0
         dλ = partial_grads[nz+1:nz+nineq+nineq_sv_le]
     end
-    if neq > 0
+    if neq+neq_sv > 0
         dν = partial_grads[nz+nineq+nineq_sv_le+1:nz+nineq+nineq_sv_le+neq+neq_sv]
     end
 

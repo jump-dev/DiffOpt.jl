@@ -624,15 +624,6 @@ end
 
     MOI.optimize!(model)
 
-    (
-        Q, q, G, h, A, b,
-        nz, var_list,
-        nineq, ineq_con_idx,
-        nineq_sv_le, ineq_con_sv_le_idx,
-        neq, eq_con_idx,
-        neq_sv, eq_con_sv_idx,
-    ) = DiffOpt.get_problem_data(model)
-
     # obtain gradients
     grads = backward!(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1]
 
@@ -648,6 +639,59 @@ end
                       0.0 0.0 0.0                      
                       ]   atol=ATOL rtol=RTOL
     @test grads[4] ≈ [0.0, 1/3, -1/3, 2/3, 0.0, 0.0, 0.0, 0.0]   atol=ATOL rtol=RTOL
+
+    model = diff_optimizer(GLPK.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
+    v = MOI.add_variables(model, 3)
+
+    # define objective
+    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-2.0, -3.0, -4.0], v), 0.0)
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    # set constraints
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([3.0, 2.0, 1.0], v), 0.0),
+        MOI.LessThan(10.0),
+    )
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([2.0, 5.0, 3.0], v), 0.0),
+        MOI.LessThan(15.0),
+    )
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.0),
+        MOI.LessThan(0.0),
+    )
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, -1.0], v), 0.0),
+        MOI.LessThan(0.0),
+    )
+    #      0 = x
+    MOI.add_constraint(
+        model,
+        MOI.SingleVariable(v[1]),
+        MOI.EqualTo(0.0),
+    )
+
+    MOI.optimize!(model)
+
+    # obtain gradients
+    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], ones(3))  # using dl_dz=[1,1,1]
+
+    @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
+    @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
+    @test grads[3] ≈ [0.0 0.0 0.0;
+                      0.0 0.0 -5/3;
+                      0.0 0.0 -10/3;
+                      0.0 0.0 0.0
+                      ]   atol=ATOL rtol=RTOL
+    @test grads[4] ≈ [0.0, 1/3, 2/3, 0.0]   atol=ATOL rtol=RTOL
+    @test grads[5] ≈ zeros(1, 3) .+ [0.0 0.0 -5/3]
+    @test grads[6] ≈ [1/3]
 end
 
 @testset "Differentiating simple SOCP" begin
