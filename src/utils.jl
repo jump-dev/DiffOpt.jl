@@ -64,7 +64,7 @@ Return problem parameters as matrices along with other program info such as numb
 """
 function get_problem_data(model::MOI.AbstractOptimizer)
     var_list = MOI.get(model, MOI.ListOfVariableIndices())
-    nz = size(var_list, 1)
+    nz = length(var_list)
 
     # handle inequality constraints
     ineq_con_idx = MOI.get(
@@ -113,7 +113,9 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         set = MOI.get(model, MOI.ConstraintSet(), con)
 
         for x in func.terms
-            A[i, x.variable_index.value] = x.coefficient
+            # never nothing, variable is present
+            vidx = findfirst(v -> v == x.variable_index, var_list)
+            A[i, vidx] = x.coefficient
         end
         b[i] = set.value - func.constant
     end
@@ -127,7 +129,8 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
     if objective_function isa MathOptInterface.ScalarAffineFunction{Float64}
         for x in objective_function.terms
-            q[x.variable_index.value] = x.coefficient
+            vidx = findfirst(v -> v == x.variable_index, var_list)
+            q[vidx] = x.coefficient
         end
     elseif objective_function isa MathOptInterface.ScalarQuadraticFunction{Float64}
 
@@ -143,5 +146,26 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         q = MOI.coefficient.(objective_function.affine_terms)
     end
 
-    return Q, q, G, h, A, b, nz, var_list, nineq, ineq_con_idx, neq, eq_con_idx
+    return (Q, q, G, h, A, b, nz, var_list, nineq, ineq_con_idx, neq, eq_con_idx)
+end
+
+# used for testing mostly
+# computes the tuple `(s, y)`, vectorized forms of the slack and duals of inequality constraints
+function _slack_dual_vectors(model)
+    cone_types = unique!([S for (_, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
+    index_map = MOI.copy_to(conic_form, model)
+
+    # fix optimization sense
+    if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
+        conic_form.sense = MOI.MIN_SENSE
+        conic_form.c = -conic_form.c
+    end    
+    s = map_rows(model.optimizer, conic_form, index_map, Flattened{Float64}()) do (ci, r)
+        MOI.get(model, MOI.ConstraintPrimal(), ci)
+    end
+    y = map_rows(model.optimizer, conic_form, index_map, Flattened{Float64}()) do (ci, r)
+        MOI.get(model, MOI.ConstraintDual(), ci)
+    end
+    return (s, y)
 end
