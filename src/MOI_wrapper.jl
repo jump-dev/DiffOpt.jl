@@ -74,7 +74,9 @@ Base.@kwdef struct QPCache
         Matrix{Float64}, Vector{Float64}, # A, b
         Int, Vector{VI}, # nz, var_list
         Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}}, # nineq, ineq_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}} # neq, eq_con_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}}}, # nineq_sv_le, ineq_con_sv_le_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}}, # neq, eq_con_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.EqualTo{Float64}}}, # neq_sv, eq_con_sv_idx
     }
     inequality_duals::Vector{Float64}
     equality_duals::Vector{Float64}
@@ -288,37 +290,54 @@ For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
     z = model.primal_optimal
     if model.gradient_cache !== nothing
-        (Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx) = model.gradient_cache.problem_data
+        (
+            Q, q, G, h, A, b, nz, var_list,
+            nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
+            neq_sv, eq_con_sv_idx,
+        ) = model.gradient_cache.problem_data
         λ = model.gradient_cache.inequality_duals
         ν = model.gradient_cache.equality_duals
         LHS = model.gradient_cache.lhs
 
     else # full computation
-        Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx = get_problem_data(model.optimizer)
+        problem_data = get_problem_data(model.optimizer)
+        (
+            Q, q, G, h, A, b, nz, var_list,
+            nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
+            neq_sv, eq_con_sv_idx,
+        ) = problem_data
 
         # separate λ, ν
 
-        λ = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in ineq_con_idx]
-        ν = [MOI.get(model.optimizer, MOI.ConstraintDual(), con) for con in eq_con_idx]
+        λ = MOI.get.(model.optimizer, MOI.ConstraintDual(), ineq_con_idx)
+        append!(
+            λ,
+            MOI.get.(model.optimizer, MOI.ConstraintDual(), ineq_con_sv_le_idx)
+        )
+        ν = MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
+        append!(
+            ν,
+            MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_sv_idx)
+        )
     
         LHS = create_LHS_matrix(z, λ, Q, G, h, A)
         model.gradient_cache = QPCache(
-            (Q, q, G, h, A, b, nz, var_idx, nineq, ineq_con_idx, neq, eq_con_idx),
+            problem_data,
             λ,
             ν,
             LHS,
         )
     end
 
-    RHS = [dl_dz; zeros(neq+nineq)]
+    RHS = [dl_dz; zeros(neq + nineq + neq_sv + nineq_sv_le)]
     partial_grads = -(LHS \ RHS)
     dz = partial_grads[1:nz]
 
     if nineq > 0
-        dλ = partial_grads[nz+1:nz+nineq]
+        dλ = partial_grads[nz+1:nz+nineq+nineq_sv_le]
     end
     if neq > 0
-        dν = partial_grads[nz+nineq+1:nz+nineq+neq]
+        dν = partial_grads[nz+nineq+nineq_sv_le+1:nz+nineq+nineq_sv_le+neq+neq_sv]
     end
 
     grads = []

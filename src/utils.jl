@@ -71,12 +71,19 @@ function get_problem_data(model::MOI.AbstractOptimizer)
                         model,
                         MOI.ListOfConstraintIndices{
                             MOI.ScalarAffineFunction{Float64},
-                            MOI.LessThan{Float64}
+                            MOI.LessThan{Float64},
                         }())
     nineq = length(ineq_con_idx)
+    ineq_con_sv_le_idx = MOI.get(
+                        model,
+                        MOI.ListOfConstraintIndices{
+                            MOI.SingleVariable,
+                            MOI.LessThan{Float64},
+                        }())
+    nineq_sv_le = length(ineq_con_sv_le_idx)
 
-    G = spzeros(nineq, nz)
-    h = spzeros(nineq)
+    G = spzeros(nineq + nineq_sv_le, nz)
+    h = spzeros(nineq + nineq_sv_le)
 
     for i in 1:nineq
         con = ineq_con_idx[i]
@@ -93,6 +100,14 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         end
         h[i] = set.upper - func.constant
     end
+    for i in eachindex(ineq_con_sv_le_idx)
+        con = ineq_con_sv_le_idx[i]
+        func = MOI.get(model, MOI.ConstraintFunction(), con)
+        set = MOI.get(model, MOI.ConstraintSet(), con)
+        vidx = findfirst(v -> v == func.variable, var_list)
+        G[i+nineq,vidx] = 1
+        h[i+nineq] = MOI.constant(set)
+    end
 
     # handle equality constraints
     eq_con_idx = MOI.get(
@@ -103,8 +118,16 @@ function get_problem_data(model::MOI.AbstractOptimizer)
                         }())
     neq = length(eq_con_idx)
 
-    A = spzeros(neq, nz)
-    b = spzeros(neq)
+    eq_con_sv_idx = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{
+            MOI.SingleVariable,
+            MOI.EqualTo{Float64}
+        }())
+    neq_sv = length(eq_con_sv_idx)
+
+    A = spzeros(neq + neq_sv, nz)
+    b = spzeros(neq + neq_sv)
 
     for i in 1:neq
         con = eq_con_idx[i]
@@ -118,6 +141,14 @@ function get_problem_data(model::MOI.AbstractOptimizer)
             A[i, vidx] = x.coefficient
         end
         b[i] = set.value - func.constant
+    end
+    for i in 1:neq_sv
+        con = eq_con_sv_idx[i]
+        func = MOI.get(model, MOI.ConstraintFunction(), con)
+        set = MOI.get(model, MOI.ConstraintSet(), con)
+        vidx = findfirst(v -> v == func.variable, var_list)
+        A[i+neq,vidx] = 1
+        b[i+neq] = set.value
     end
 
 
@@ -146,7 +177,14 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         q = MOI.coefficient.(objective_function.affine_terms)
     end
 
-    return (Q, q, G, h, A, b, nz, var_list, nineq, ineq_con_idx, neq, eq_con_idx)
+    return (
+        Q, q, G, h, A, b,
+        nz, var_list,
+        nineq, ineq_con_idx,
+        nineq_sv_le, ineq_con_sv_le_idx,
+        neq, eq_con_idx,
+        neq_sv, eq_con_sv_idx,
+    )
 end
 
 # used for testing mostly
