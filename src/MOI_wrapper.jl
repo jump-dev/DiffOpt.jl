@@ -256,10 +256,14 @@ function backward(model::Optimizer, params...)
 
     # check objective
     # works both for affine and quadratic objective functions
-    obj = MOI.get(model.optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
-    if !in(typeof(obj), QP_OBJECTIVE_TYPES)
-        isQP = false
-    end
+    # obj = MOI.get(model.optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
+    # if !in(typeof(obj), QP_OBJECTIVE_TYPES)
+    #     isQP = false
+    # end
+
+    # if !in(MOI.get(model.optimizer, MOI.ObjectiveFunctionType()), QP_OBJECTIVE_TYPES)
+    #     isQP = false
+    # end
 
     if isQP
         return backward_quad(model, params...)
@@ -663,7 +667,7 @@ function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, inde
 end
 
 """
-    backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
+    backward_conic(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
 
 
 Method to differentiate optimal solution `x`, `y`, `s` given perturbations related to

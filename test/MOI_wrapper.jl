@@ -1009,10 +1009,10 @@ end
     
     @test model.primal_optimal ≈ [-0.25, -0.75] atol=ATOL rtol=RTOL
     @test model.gradient_cache === nothing
-    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    grad_wrt_h = backward(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
     @test model.gradient_cache !== nothing
-    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    grad_wrt_h = backward(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
 
     # adding two variables invalidates the cache
@@ -1021,7 +1021,7 @@ end
 
     @test model.gradient_cache === nothing
     MOI.optimize!(model)
-    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    grad_wrt_h = backward(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
     @test model.gradient_cache isa DiffOpt.QPCache
 
@@ -1032,7 +1032,7 @@ end
     MOI.optimize!(model)
     @test model.gradient_cache === nothing
 
-    grad_wrt_h = backward!(model, ["h"], ones(3))[1]
+    grad_wrt_h = backward(model, ["h"], ones(3))[1]
     @test grad_wrt_h ≈ [1.0] atol=5e-3 rtol=RTOL
     @test model.gradient_cache isa DiffOpt.QPCache
 
@@ -1044,7 +1044,7 @@ end
     )
     @test model.gradient_cache === nothing
     MOI.optimize!(model)
-    grad_wrt_h = backward!(model, ["h"], ones(3))[1]
+    grad_wrt_h = backward(model, ["h"], ones(3))[1]
     @test grad_wrt_h[1] ≈ 1.0 atol=5e-3 rtol=RTOL
     # second constraint inactive
     @test grad_wrt_h[2] ≈ 0.0 atol=5e-3 rtol=RTOL
@@ -1092,7 +1092,7 @@ end
     db = ones(6)
     dc = zeros(1)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward_conic(model, dA, db, dc)
 
     @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
     @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
@@ -1100,7 +1100,7 @@ end
 
     @test model.gradient_cache isa DiffOpt.ConicCache
 
-    dx2, dy2, ds2 = backward_conic!(model, dA, db, dc)
+    dx2, dy2, ds2 = backward_conic(model, dA, db, dc)
     @test all(
         (dx2, dy2, ds2) .≈ (dx, dy, ds)
     )
@@ -1110,7 +1110,7 @@ end
     db = zeros(6)
     dc = ones(1)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward_conic(model, dA, db, dc)
 
     @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
     @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
