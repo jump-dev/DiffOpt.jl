@@ -595,10 +595,14 @@ end
     )
     MOI.add_constraint(
         model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.),
+        MOI.LessThan(0.0),
+    )
+    MOI.add_constraint(
+        model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, -1.0], v), 0.),
         MOI.LessThan(0.0),
     )
-
     #      x ≤ 3
     MOI.add_constraint(
         model,
@@ -609,18 +613,13 @@ end
     MOI.add_constraint(
         model,
         MOI.SingleVariable(v[2]),
-        MOI.GreaterThan(0.0),
-    )
-    MOI.add_constraint(
-        model,
-        MOI.SingleVariable(v[2]),
         MOI.LessThan(2.0),
     )
     #      z ≥ 2
     MOI.add_constraint(
         model,
         MOI.SingleVariable(v[3]),
-        MOI.GreaterThan(2.0),
+        MOI.LessThan(6.0),
     )
 
     MOI.optimize!(model)
@@ -635,16 +634,20 @@ end
     ) = DiffOpt.get_problem_data(model)
 
     # obtain gradients
-    grads = backward!(model, ["G", "h"], ones(3))  # using dl_dz=[1,1,1]
+    grads = backward!(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1]
 
     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
     @test grads[3] ≈ [0.0 0.0 0.0;
-                    0.0 0.0 -5/3;
-                    0.0 0.0 5/3;
-                    0.0 0.0 -10/3;
-                    0.0 0.0 0.0]   atol=ATOL rtol=RTOL
-    @test grads[4] ≈ [0.0; 1/3; -1/3; 2/3; 0.0]   atol=ATOL rtol=RTOL
+                      0.0 0.0 -5/3;
+                      0.0 0.0 5/3;
+                      0.0 0.0 -10/3;
+                      0.0 0.0 0.0
+                      0.0 0.0 0.0
+                      0.0 0.0 0.0
+                      0.0 0.0 0.0                      
+                      ]   atol=ATOL rtol=RTOL
+    @test grads[4] ≈ [0.0, 1/3, -1/3, 2/3, 0.0, 0.0, 0.0, 0.0]   atol=ATOL rtol=RTOL
 end
 
 @testset "Differentiating simple SOCP" begin
