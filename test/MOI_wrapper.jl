@@ -625,7 +625,7 @@ end
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1]
+    grads = backward(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1]
 
     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
@@ -680,7 +680,7 @@ end
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], ones(3))  # using dl_dz=[1,1,1]
+    grads = backward(model, ["Q", "q", "G", "h", "A", "b"], ones(3))  # using dl_dz=[1,1,1]
 
     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
