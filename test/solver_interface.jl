@@ -97,6 +97,7 @@ end
         "solve_qcp_edge_cases",  # currently only affine or conic constraints
         "solve_objbound_edge_cases",
         "solve_qp_edge_cases",  # No quadratics
+        "solve_qp_zero_offdiag",
         "update_dimension_nonnegative_variables", # TODO: fix this
 
         # see below
