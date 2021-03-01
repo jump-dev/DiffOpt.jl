@@ -344,7 +344,6 @@ Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-
 function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
     z = model.primal_optimal
     if model.gradient_cache !== nothing
