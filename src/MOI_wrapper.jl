@@ -251,21 +251,15 @@ function backward(model::Optimizer, params...)
         func = types[1]
         set = types[2]
 
-        if !isa(func, QP_FUNCTION_TYPES) || !isa(set, QP_SET_TYPES)
+        if !(func <: QP_FUNCTION_TYPES) || !(set <: QP_SET_TYPES)
             isQP = false
         end
     end
 
     # check objective
-    # works both for affine and quadratic objective functions
-    # obj = MOI.get(model.optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
-    # if !in(typeof(obj), QP_OBJECTIVE_TYPES)
-    #     isQP = false
-    # end
-
-    # if !in(MOI.get(model.optimizer, MOI.ObjectiveFunctionType()), QP_OBJECTIVE_TYPES)
-    #     isQP = false
-    # end
+    if !(MOI.get(model.optimizer, MOI.ObjectiveFunctionType()) <: QP_OBJECTIVE_TYPES)
+        isQP = false
+    end
 
     if isQP
         return backward_quad(model, params...)
