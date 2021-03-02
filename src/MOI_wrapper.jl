@@ -247,9 +247,7 @@ function backward(model::Optimizer, params...)
 
     # check constraints
     con_types = MOI.get(model.optimizer, MOI.ListOfConstraints())
-    for types in con_types
-        func = types[1]
-        set = types[2]
+    for (func, set) in con_types
 
         if !(func <: QP_FUNCTION_TYPES) || !(set <: QP_SET_TYPES)
             isQP = false
