@@ -218,22 +218,22 @@ function MOI.optimize!(model::Optimizer)
 end
 
 
-const QP_SET_TYPES = (
+const QP_SET_TYPES = Union{
     MOI.GreaterThan{Float64},
     MOI.LessThan{Float64},
     MOI.EqualTo{Float64},
-    MOI.Interval{Float64}
-)
+    MOI.Interval{Float64},
+}
 
-const QP_FUNCTION_TYPES = (
+const QP_FUNCTION_TYPES = Union{
     MOI.SingleVariable,
-    MOI.ScalarAffineFunction{Float64}
-)
+    MOI.ScalarAffineFunction{Float64},
+}
 
-const QP_OBJECTIVE_TYPES = (
+const QP_OBJECTIVE_TYPES = Union{
     MathOptInterface.ScalarAffineFunction{Float64},
     MathOptInterface.ScalarQuadraticFunction{Float64},
-)
+}
 
 """
     backward(model::Optimizer, params...)
@@ -251,7 +251,7 @@ function backward(model::Optimizer, params...)
         func = types[1]
         set = types[2]
 
-        if !in(func, QP_FUNCTION_TYPES) || !in(set, QP_SET_TYPES)
+        if !isa(func, QP_FUNCTION_TYPES) || !isa(set, QP_SET_TYPES)
             isQP = false
         end
     end

@@ -40,7 +40,7 @@ Finally, differentiate the model (primal and dual variables specifically) to
 obtain product of jacobians with respect to problem parameters and a backward
 pass vector.
 
-Currently, DiffOpt supports two backends. Firstly, if the optimization problem is of quadratic form i.e.
+Currently, DiffOpt supports two backends. If the optimization problem is of quadratic form i.e.
 ```
 minimize_z z^T Q z / 2 + q^T z
 subject to: Az = b,
@@ -59,7 +59,7 @@ subject to: Ax + b in K
 ```
 where
 - `the objective is linear
-- `K` is a cone composed of linear, Semidefinite, Second Order constraints
+- `K` is a Cartesian product of linear, semidefinite, second-order cones
 then one can compute gradients by providing perturbations
 ```julia
 grads = backward(diff, dA, db, dc)
