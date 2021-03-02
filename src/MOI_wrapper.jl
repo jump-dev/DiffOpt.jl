@@ -57,9 +57,9 @@ julia> model = diff_optimizer(GLPK.Optimizer)
 julia> model.add_variable(x)
 julia> model.add_constraint(...)
 
-julia> backward!(model)  # for convex quadratic models
+julia> backward_quad(model)  # for convex quadratic models
 
-julia> backward!(model)  # for convex conic models
+julia> backward_quad(model)  # for convex conic models
 ```
 """
 function diff_optimizer(optimizer_constructor)::Optimizer
@@ -218,6 +218,55 @@ function MOI.optimize!(model::Optimizer)
 end
 
 
+const QP_SET_TYPES = Union{
+    MOI.GreaterThan{Float64},
+    MOI.LessThan{Float64},
+    MOI.EqualTo{Float64},
+    MOI.Interval{Float64},
+}
+
+const QP_FUNCTION_TYPES = Union{
+    MOI.SingleVariable,
+    MOI.ScalarAffineFunction{Float64},
+}
+
+const QP_OBJECTIVE_TYPES = Union{
+    MathOptInterface.ScalarAffineFunction{Float64},
+    MathOptInterface.ScalarQuadraticFunction{Float64},
+}
+
+"""
+    backward(model::Optimizer, params...)
+
+Wrapper method for the backward pass. Checks the model/problem type and dispatches a call to
+[`backward_quad`](@ref) or [`backward_conic`](@ref) accordingly.
+"""
+function backward(model::Optimizer, params...)
+    # check if the model is a QP
+    isQP = true
+
+    # check constraints
+    con_types = MOI.get(model.optimizer, MOI.ListOfConstraints())
+    for (func, set) in con_types
+
+        if !(func <: QP_FUNCTION_TYPES) || !(set <: QP_SET_TYPES)
+            isQP = false
+        end
+    end
+
+    # check objective
+    if !(MOI.get(model.optimizer, MOI.ObjectiveFunctionType()) <: QP_OBJECTIVE_TYPES)
+        isQP = false
+    end
+
+    if isQP
+        return backward_quad(model, params...)
+    else
+        return backward_conic(model, params...)
+    end
+end
+
+
 # """
 #     Method to differentiate and obtain gradients/jacobians
 #     of z, λ, ν  with respect to the parameters specified in
@@ -272,7 +321,7 @@ end
 # end
 
 """
-    backward!(model::Optimizer, params::Array{String}, dl_dz::Array{Float64})
+    backward_quad(model::Optimizer, params::Array{String}, dl_dz::Array{Float64})
 
 Method to differentiate optimal solution `z` and return
 product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
@@ -287,7 +336,7 @@ Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function backward!(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
+function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
     z = model.primal_optimal
     if model.gradient_cache !== nothing
         (
@@ -628,15 +677,16 @@ function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, inde
 end
 
 """
-    backward_conic!(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
+    backward_conic(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
+
 
 Method to differentiate optimal solution `x`, `y`, `s` given perturbations related to
-conic program parameters `A`, `b`, `c`. This is similar to [`backward!`](@ref) method
+conic program parameters `A`, `b`, `c`. This is similar to [`backward_quad`](@ref) method
 but it this *does returns* the actual jacobians.
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function backward_conic!(model::Optimizer, dA::AbstractMatrix{<:Real}, db::AbstractVector{<:Real}, dc::AbstractVector{<:Real})
+function backward_conic(model::Optimizer, dA::AbstractMatrix{<:Real}, db::AbstractVector{<:Real}, dc::AbstractVector{<:Real})
     if !in(
             MOI.get(model, MOI.TerminationStatus()), (MOI.LOCALLY_SOLVED, MOI.OPTIMAL)
         )

@@ -103,7 +103,7 @@ end
 
     @test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
 
-    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    grad_wrt_h = backward(model, ["h"], ones(2))[1]
 
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
 end
@@ -215,7 +215,7 @@ end
 
     @test z ≈ [0.0, 0.5, 0.0] atol=ATOL rtol=RTOL
 
-    grads = backward!(model, ["Q","q","G","h","A","b"], ones(3))
+    grads = backward(model, ["Q","q","G","h","A","b"], ones(3))
 
     dl_dQ = grads[1]
     dl_dq = grads[2]
@@ -290,7 +290,7 @@ end
     @test z ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
 
     # obtain gradients
-    grads = backward!(model, ["Q","q","G","h"], ones(3))
+    grads = backward(model, ["Q","q","G","h"], ones(3))
 
     dl_dQ = grads[1]
     dl_dq = grads[2]
@@ -363,7 +363,7 @@ end
 
     # obtain gradients
     dl_dz = [1.3, 0.5]   # choosing a non trivial backward pass vector
-    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], dl_dz)
+    grads = backward(model, ["Q", "q", "G", "h", "A", "b"], dl_dz)
 
     dl_dQ = grads[1]
     dl_dq = grads[2]
@@ -440,7 +440,7 @@ end
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], ones(nz))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward(model, ["Q", "q", "G", "h", "A", "b"], ones(nz))  # using dl_dz=[1,1,1,1,1,....]
 
     # read gradients from files
     names = ["dP", "dq", "dG", "dh", "dA", "db"]
@@ -492,7 +492,7 @@ end
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["G", "h"], [1.0])
+    grads = backward(model, ["G", "h"], [1.0])
 
     @test grads[1] ≈ [0.0, 3.0] atol=ATOL rtol=RTOL
     @test grads[2] ≈ [0.0, -1.0] atol=ATOL rtol=RTOL
@@ -546,7 +546,7 @@ end
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1,1,1,....]
+    grads = backward(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1,1,1,....]
 
     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
@@ -625,7 +625,7 @@ end
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1]
+    grads = backward(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1]
 
     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
@@ -680,7 +680,7 @@ end
     MOI.optimize!(model)
 
     # obtain gradients
-    grads = backward!(model, ["Q", "q", "G", "h", "A", "b"], ones(3))  # using dl_dz=[1,1,1]
+    grads = backward(model, ["Q", "q", "G", "h", "A", "b"], ones(3))  # using dl_dz=[1,1,1]
 
     @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
     @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
@@ -741,7 +741,7 @@ end
     db = zeros(5)
     dc = zeros(3)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward(model, dA, db, dc)
 
     @test dx ≈ [1.12132144; 1/√2; 1/√2] atol=ATOL rtol=RTOL
     @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
@@ -804,7 +804,7 @@ function simple_psd(solver)
     db[1] = 1.0
     dc = zeros(3)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward(model, dA, db, dc)
 
     @test dx ≈ -ones(3) atol=ATOL rtol=RTOL  # will change the value of other 2 variables
     @test ds[2:4] ≈ -ones(3)  atol=ATOL rtol=RTOL  # will affect PSD constraint too
@@ -816,7 +816,7 @@ function simple_psd(solver)
     dc[1] = -1.0
     dc[3] = 1.0
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward(model, dA, db, dc)
 
     @test dx ≈ [1.0, 0.0, -1.0] atol=ATOL rtol=RTOL  # note: no effect on X[2]
 end
@@ -939,7 +939,7 @@ end
     db[3] = 1
     dc = spzeros(9)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward(model, dA, db, dc)
 
     # a small change in the constant in c_extra should not affect any other variable or constraint other than c_extra itself
     @test dx ≈ zeros(9) atol=1e-2
@@ -1009,7 +1009,7 @@ end
     db = ones(11)
     dc = ones(7)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward(model, dA, db, dc)
 
     atol = 0.3
     rtol = 0.01
@@ -1026,7 +1026,7 @@ end
     db = zeros(11)
     dc = zeros(7)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward(model, dA, db, dc)
 
     # note that there's no change in the PSD slack values or dual optimas
     @test dy ≈ [0.0, 0.0, 0.0, 0.125978, 0.0, 0.142644, 0.142641, 0.0127401, 0.0, 0.0, 0.0] atol=atol rtol=RTOL
@@ -1085,7 +1085,7 @@ end
     db = ones(6)
     dc = zeros(1)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward(model, dA, db, dc)
 
     @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
     @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
@@ -1096,7 +1096,7 @@ end
     db = zeros(6)
     dc = ones(1)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward(model, dA, db, dc)
 
     @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
     @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
@@ -1144,10 +1144,10 @@ end
     
     @test model.primal_optimal ≈ [-0.25, -0.75] atol=ATOL rtol=RTOL
     @test model.gradient_cache === nothing
-    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    grad_wrt_h = backward(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
     @test model.gradient_cache !== nothing
-    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    grad_wrt_h = backward(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
 
     # adding two variables invalidates the cache
@@ -1156,7 +1156,7 @@ end
 
     @test model.gradient_cache === nothing
     MOI.optimize!(model)
-    grad_wrt_h = backward!(model, ["h"], ones(2))[1]
+    grad_wrt_h = backward(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
     @test model.gradient_cache isa DiffOpt.QPCache
 
@@ -1167,7 +1167,7 @@ end
     MOI.optimize!(model)
     @test model.gradient_cache === nothing
 
-    grad_wrt_h = backward!(model, ["h"], ones(3))[1]
+    grad_wrt_h = backward(model, ["h"], ones(3))[1]
     @test grad_wrt_h ≈ [1.0] atol=5e-3 rtol=RTOL
     @test model.gradient_cache isa DiffOpt.QPCache
 
@@ -1179,7 +1179,7 @@ end
     )
     @test model.gradient_cache === nothing
     MOI.optimize!(model)
-    grad_wrt_h = backward!(model, ["h"], ones(3))[1]
+    grad_wrt_h = backward(model, ["h"], ones(3))[1]
     @test grad_wrt_h[1] ≈ 1.0 atol=5e-3 rtol=RTOL
     # second constraint inactive
     @test grad_wrt_h[2] ≈ 0.0 atol=5e-3 rtol=RTOL
@@ -1227,7 +1227,7 @@ end
     db = ones(6)
     dc = zeros(1)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward_conic(model, dA, db, dc)
 
     @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
     @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
@@ -1235,7 +1235,7 @@ end
 
     @test model.gradient_cache isa DiffOpt.ConicCache
 
-    dx2, dy2, ds2 = backward_conic!(model, dA, db, dc)
+    dx2, dy2, ds2 = backward_conic(model, dA, db, dc)
     @test all(
         (dx2, dy2, ds2) .≈ (dx, dy, ds)
     )
@@ -1245,7 +1245,7 @@ end
     db = zeros(6)
     dc = ones(1)
 
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
+    dx, dy, ds = backward_conic(model, dA, db, dc)
 
     @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
     @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
