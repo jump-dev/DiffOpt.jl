@@ -22,19 +22,19 @@ const MatOI = MatrixOptInterface
 const ATOL = 1e-4
 const RTOL = 1e-4
 
-@testset "Examples" begin
-    include(joinpath(@__DIR__, "../examples/solve-LP.jl"))
-    include(joinpath(@__DIR__, "../examples/solve-QP.jl"))
-end
+# @testset "Examples" begin
+#     include(joinpath(@__DIR__, "../examples/solve-LP.jl"))
+#     include(joinpath(@__DIR__, "../examples/solve-QP.jl"))
+# end
 
-@testset "Generate random problems" begin
-    include("gen_random_problem.jl")
-end
+# @testset "Generate random problems" begin
+#     include("gen_random_problem.jl")
+# end
 
 @testset "MOI_wrapper" begin
     include("MOI_wrapper.jl")
 end
 
-@testset "Solver Interface" begin
-    include("solver_interface.jl")
-end
+# @testset "Solver Interface" begin
+#     include("solver_interface.jl")
+# end

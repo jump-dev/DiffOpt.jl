@@ -389,7 +389,7 @@ end
 
 @testset "Differentiating non trivial convex QP MOI" begin
     nz = 10
-    nineq = 25
+    nineq_le = 25
     neq = 10
 
     # read matrices from files
@@ -423,7 +423,7 @@ end
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
-    for i in 1:nineq
+    for i in 1:nineq_le
         MOI.add_constraint(
             model,
             MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.0),MOI.LessThan(h[i])
@@ -496,6 +496,35 @@ end
 
     @test grads[1] ≈ [0.0, 3.0] atol=ATOL rtol=RTOL
     @test grads[2] ≈ [0.0, -1.0] atol=ATOL rtol=RTOL
+end
+
+
+@testset "Differentiating a simple LP with GreaterThan constraint" begin
+    # this is canonically same as above test
+    # min  x
+    # s.t. x >= 3
+    model = diff_optimizer(Ipopt.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
+
+    x = MOI.add_variables(model, 1)
+
+    # define objective
+    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.0)
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.),
+        MOI.GreaterThan(3.0)
+    )
+
+    MOI.optimize!(model)
+
+    # obtain gradients
+    grads = backward(model, ["G", "h"], [1.0])
+    @test grads[1] ≈ [3.0] atol=ATOL rtol=RTOL
+    @test grads[2] ≈ [-1.0] atol=ATOL rtol=RTOL   
 end
 
 
