@@ -516,7 +516,7 @@ end
     MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.),
-        MOI.GreaterThan(3.0)
+        MOI.GreaterThan(3.0),
     )
 
     MOI.optimize!(model)
