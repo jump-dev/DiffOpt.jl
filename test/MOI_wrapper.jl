@@ -728,11 +728,11 @@ end
     """
         max 2x + 3y + 4z
         s.t. 3x+2y+z <= 10
-            2x+5y+3z <= 15
-            x ≤ 3
-            0 ≤ y ≤ 2
-            6 ≥ z ≥ -1
-            x,y,z >= 0
+              2x+5y+3z <= 15
+              x ≤ 3
+              0 ≤ y ≤ 2
+              6 ≥ z ≥ -1
+              x, y, z >= 0
         variant of previous test with same solution
     """
     model = diff_optimizer(GLPK.Optimizer)
