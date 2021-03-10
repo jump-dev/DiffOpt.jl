@@ -326,7 +326,7 @@ function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{F
         )
         append!(
             λ,
-            MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_sv_idx)
+            MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_sv_idx),
         )
         ν = MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
         append!(
