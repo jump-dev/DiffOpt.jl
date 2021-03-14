@@ -46,7 +46,7 @@ MOI.optimize!(model)
 @test model.gradient_cache === nothing
 grad_wrt_h = backward(model, ["h"], ones(2))[1]
 @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
-@test !isnothing(model.gradient_cache)
+@test model.gradient_cache !== nothing
 
 # adding two variables invalidates the cache
 y = MOI.add_variables(model, 2)
