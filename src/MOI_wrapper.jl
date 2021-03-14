@@ -73,8 +73,10 @@ Base.@kwdef struct QPCache
         Matrix{Float64}, Vector{Float64}, # G, h
         Matrix{Float64}, Vector{Float64}, # A, b
         Int, Vector{VI}, # nz, var_list
-        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}}, # nineq, ineq_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}}}, # nineq_sv_le, ineq_con_sv_le_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}}, # nineq_le, le_con_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}}, # nineq_ge, ge_con_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}}}, # nineq_sv_le, le_con_sv_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.GreaterThan{Float64}}}, # nineq_sv_ge, ge_con_sv_idx
         Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}}, # neq, eq_con_idx
         Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.EqualTo{Float64}}}, # neq_sv, eq_con_sv_idx
     }
@@ -267,59 +269,6 @@ function backward(model::Optimizer, params...)
 end
 
 
-# """
-#     Method to differentiate and obtain gradients/jacobians
-#     of z, λ, ν  with respect to the parameters specified in
-#     in argument
-# """
-# function backward(params)
-#     grads = []
-#     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
-
-#     # compute the jacobian of (z, λ, ν) with respect to each
-#     # of the parameters recieved in the method argument
-#     # for instance, to get the jacobians w.r.t vector `b`
-#     # substitute db = I and set all other differential terms
-#     # in the right hand side to zero. For more info refer
-#     # equation (6) of https://arxiv.org/pdf/1703.00443.pdf
-#     for param in params
-#         if param == "Q"
-#             RHS = create_RHS_matrix(z, ones(nz, nz), zeros(nz, 1),
-#                                     λ, zeros(nineq, nz), zeros(nineq,1),
-#                                     ν, zeros(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "q"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), ones(nz, 1),
-#                                     λ, zeros(nineq, nz), zeros(nineq,1),
-#                                     ν, zeros(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "G"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
-#                                     λ, ones(nineq, nz), zeros(nineq,1),
-#                                     ν, zeros(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "h"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
-#                                     λ, zeros(nineq, nz), ones(nineq,1),
-#                                     ν, zeros(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "A"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
-#                                     λ, zeros(nineq, nz), zeros(nineq,1),
-#                                     ν, ones(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "b"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
-#                                     λ, zeros(nineq, nz), zeros(nineq,1),
-#                                     ν, zeros(neq, nz), ones(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         else
-#             push!(grads, [])
-#         end
-#     end
-#     return grads
-# end
-
 """
     backward_quad(model::Optimizer, params::Array{String}, dl_dz::Array{Float64})
 
@@ -341,7 +290,11 @@ function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{F
     if model.gradient_cache !== nothing
         (
             Q, q, G, h, A, b, nz, var_list,
-            nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
+            nineq_le, le_con_idx,
+            nineq_ge, ge_con_idx,
+            nineq_sv_le, le_con_sv_idx,
+            nineq_sv_ge, ge_con_sv_idx,
+            neq, eq_con_idx,
             neq_sv, eq_con_sv_idx,
         ) = model.gradient_cache.problem_data
         λ = model.gradient_cache.inequality_duals
@@ -352,16 +305,28 @@ function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{F
         problem_data = get_problem_data(model.optimizer)
         (
             Q, q, G, h, A, b, nz, var_list,
-            nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
+            nineq_le, le_con_idx,
+            nineq_ge, ge_con_idx,
+            nineq_sv_le, le_con_sv_idx,
+            nineq_sv_ge, ge_con_sv_idx,
+            neq, eq_con_idx,
             neq_sv, eq_con_sv_idx,
         ) = problem_data
 
         # separate λ, ν
 
-        λ = MOI.get.(model.optimizer, MOI.ConstraintDual(), ineq_con_idx)
+        λ = MOI.get.(model.optimizer, MOI.ConstraintDual(), le_con_idx)
         append!(
             λ,
-            MOI.get.(model.optimizer, MOI.ConstraintDual(), ineq_con_sv_le_idx)
+            MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_idx),
+        )
+        append!(
+            λ,
+            MOI.get.(model.optimizer, MOI.ConstraintDual(), le_con_sv_idx),
+        )
+        append!(
+            λ,
+            MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_sv_idx),
         )
         ν = MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
         append!(
@@ -378,15 +343,16 @@ function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{F
         )
     end
 
-    RHS = [dl_dz; zeros(neq + nineq + neq_sv + nineq_sv_le)]
+    nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
+    RHS = [dl_dz; zeros(neq + neq_sv + nineq_total)]
     partial_grads = -LHS \ RHS
     dz = partial_grads[1:nz]
 
-    if nineq+nineq_sv_le > 0
-        dλ = partial_grads[nz+1:nz+nineq+nineq_sv_le]
+    if nineq_total > 0
+        dλ = partial_grads[nz+1:nz+nineq_total]
     end
     if neq+neq_sv > 0
-        dν = partial_grads[nz+nineq+nineq_sv_le+1:nz+nineq+nineq_sv_le+neq+neq_sv]
+        dν = partial_grads[nz+nineq_total+1:nz+nineq_total+neq+neq_sv]
     end
 
     grads = []
