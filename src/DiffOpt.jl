@@ -20,6 +20,8 @@ const MatOI = MatrixOptInterface
 include("gen_random_problem.jl")
 include("utils.jl")
 include("moi_wrapper_methods.jl")
+include("conic_diff.jl")
+include("quadratic_diff.jl")
 include("MOI_wrapper.jl")
 
 

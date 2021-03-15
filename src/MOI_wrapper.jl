@@ -243,19 +243,10 @@ Wrapper method for the backward pass. Checks the model/problem type and dispatch
 """
 function backward(model::Optimizer, params...)
     # check if the model is a QP
-    isQP = true
-
-    # check constraints
-    con_types = MOI.get(model.optimizer, MOI.ListOfConstraints())
-    for (func, set) in con_types
-
-        if !(func <: QP_FUNCTION_TYPES) || !(set <: QP_SET_TYPES)
-            isQP = false
-        end
-    end
+    isQP = qp_supported(model.optimizer)
 
     # check objective
-    if !(MOI.get(model.optimizer, MOI.ObjectiveFunctionType()) <: QP_OBJECTIVE_TYPES)
+    if isQP && !(MOI.get(model.optimizer, MOI.ObjectiveFunctionType()) <: QP_OBJECTIVE_TYPES)
         isQP = false
     end
 
@@ -264,6 +255,18 @@ function backward(model::Optimizer, params...)
     else
         return backward_conic(model, params...)
     end
+end
+
+qp_supported(::F, ::S) where {F <: QP_FUNCTION_TYPES, S <: QP_SET_TYPES} = true
+qp_supported(::F, ::S) where {F, S} = false
+function qp_supported(model)
+    con_types = MOI.get(model, MOI.ListOfConstraints())
+    for (func, set) in con_types
+        if !qp_supported(func, set)
+            return false
+        end
+    end
+    return true
 end
 
 
@@ -676,113 +679,52 @@ function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, inde
     return x
 end
 
-"""
-    backward_conic(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
-
-
-Method to differentiate optimal solution `x`, `y`, `s` given perturbations related to
-conic program parameters `A`, `b`, `c`. This is similar to [`backward_quad`](@ref) method
-but it this *does returns* the actual jacobians.
-
-For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
-"""
-function backward_conic(model::Optimizer, dA::AbstractMatrix{<:Real}, db::AbstractVector{<:Real}, dc::AbstractVector{<:Real})
+function _check_termination_status(model::Optimizer)
     if !in(
-            MOI.get(model, MOI.TerminationStatus()), (MOI.LOCALLY_SOLVED, MOI.OPTIMAL)
+        MOI.get(model, MOI.TerminationStatus()), (MOI.LOCALLY_SOLVED, MOI.OPTIMAL)
         )
         error("problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus()))
     end
+end
 
-    if model.gradient_cache !== nothing
-        M = model.gradient_cache.M
-        vp = model.gradient_cache.vp
-        Dπv = model.gradient_cache.Dπv
-        (x, y, s) = model.gradient_cache.xys
-        A = model.gradient_cache.A
-        b = model.gradient_cache.b
-        c = model.gradient_cache.c
+"""
+    forward_conic(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
 
-        m = A.m
-        n = A.n
-        N = m + n + 1
-        # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-        (u, v, w) = (x, y - s, 1.0)
-    else
+Method to compute the product of the derivative (Jacobian) at the
+conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
+This is similar to [`forward_quad`](@ref).
 
-        # fetch matrices from MatrixOptInterface
-        cone_types = unique!([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
-        # We use `MatOI.OneBasedIndexing` as it is the same indexing as used by `SparseMatrixCSC`
-        # so we can do an allocation-free conversion to `SparseMatrixCSC`.
-        conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
-        index_map = MOI.copy_to(conic_form, model)
+For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
+"""
+function forward_conic(
+    model::Optimizer,
+    dA::AbstractMatrix{<:Real}, db::AbstractVector{<:Real}, dc::AbstractVector{<:Real}
+)
+    _check_termination_status(model)
 
-        # fix optimization sense
-        if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
-            conic_form.sense = MOI.MIN_SENSE
-            conic_form.c = -conic_form.c
-        end
+    if model.gradient_cache === nothing
+        build_conic_diff_cache!(model)
+    end
 
-        A = convert(SparseMatrixCSC{Float64, Int}, conic_form.A)
-        b = conic_form.b
-        c = conic_form.c
+    M = model.gradient_cache.M
+    vp = model.gradient_cache.vp
+    Dπv = model.gradient_cache.Dπv
+    (x, y, s) = model.gradient_cache.xys
+    A = model.gradient_cache.A
+    b = model.gradient_cache.b
+    c = model.gradient_cache.c
 
-        # programs in tests were cross-checked against `diffcp`, which follows SCS format
-        # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
-        # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
+    m = size(A, 1)
+    n = size(A, 2)
+    N = m + n + 1
+    # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
+    (u, v, w) = (x, y - s, 1.0)
 
-        # get x,y,s
-        x = model.primal_optimal
-        s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, Flattened{Float64}())
-        y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci), model.optimizer, conic_form, index_map, Flattened{Float64}())
-
-        # pre-compute quantities for the derivative
-        m = A.m
-        n = A.n
-        N = m + n + 1
-        # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-        (u, v, w) = (x, y - s, 1.0)
-
-
-        # find gradient of projections on dual of the cones
-        Dπv = Dπ(v, model.optimizer, conic_form, index_map)
-
-        # Q = [
-        #      0   A'   c;
-        #     -A   0    b;
-        #     -c' -b'   0;
-        # ]
-        # M = (Q- I) * B + I
-        # with B =
-        # [
-        #  I    .   .
-        #  .  Dπv   .
-        # .    .   I
-        # ]
-
-        M = [
-            spzeros(n,n)  (A' * Dπv)    c
-            -A               -Dπv + I    b
-            -c'            -b' * Dπv    0
-        ]
-        # find projections on dual of the cones
-        vp = π(v, model.optimizer, conic_form, index_map)
-
-        model.gradient_cache = ConicCache(
-            M = M,
-            vp = vp,
-            Dπv = Dπv,
-            xys = (x, y, s),
-            A = A,
-            b = b,
-            c = c,
-        )
-    end # cache
-
-    # dQ * [u, vp, max(0, w)]
+    # g = dQ * Π(z/|w|) = dQ * [u, vp, 1.0]
     RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u - db ⋅ vp]
 
-    dz = if norm(RHS) <= 1e-4
-        RHS .= 0
+    dz = if norm(RHS) <= 1e-4 # TODO: parametrize or remove
+        RHS .= 0 # because M is square
     else
         lsqr(M, RHS)
     end
@@ -792,6 +734,68 @@ function backward_conic(model::Optimizer, dA::AbstractMatrix{<:Real}, db::Abstra
     dy = Dπv * dv - y * dw
     ds = Dπv * dv - dv - s * dw
     return -dx, -dy, -ds
+end
+
+"""
+    backward_conic(model::Optimizer, dx::Vector{Float64}, dy::Vector{Float64}, ds::Vector{Float64})
+
+Method to compute the product of the transpose of the derivative (Jacobian) at the
+conic program parameters `A`, `b`, `c`  to the perturbations `dx`, `dy`, `ds`.
+This is similar to [`backward_quad`](@ref).
+
+For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
+"""
+function backward_conic(
+    model::Optimizer,
+    dx::AbstractMatrix{<:Real}, dy::AbstractVector{<:Real}, ds::AbstractVector{<:Real}
+)
+    _check_termination_status(model)
+
+    if model.gradient_cache === nothing
+        build_conic_diff_cache!(model)
+    end
+
+    M = model.gradient_cache.M
+    vp = model.gradient_cache.vp
+    Dπv = model.gradient_cache.Dπv
+    (x, y, s) = model.gradient_cache.xys
+    A = model.gradient_cache.A
+    b = model.gradient_cache.b
+    c = model.gradient_cache.c
+
+    m = size(A, 1)
+    n = size(A, 2)
+    N = m + n + 1
+    # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
+    (u, v, w) = (x, y - s, 1.0)
+
+    # dz = D \phi (z)^T (dx,dy,dz)
+    dz = [
+        dx
+        Dπv' * (dy + ds) - ds
+        - x' * dx - y' * dy - s' * ds
+    ]
+
+    g = if norm(dz) <= 1e-4 # TODO: parametrize or remove
+        dz .= 0 # because M is square
+    else
+        lsqr(M, dz)
+    end
+
+    πz = [
+        u
+        vp
+        1.0
+    ]
+
+    # possibly do this in parts or using sparse
+    dQ = - g * πz'
+
+    dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
+    db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
+    dc = - dQ[1:n, end] + dQ[end, 1:n]'
+
+    return dA, db, dc
 end
 
 MOI.supports(::Optimizer, ::MOI.VariableName, ::Type{MOI.VariableIndex}) = true
