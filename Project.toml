@@ -10,13 +10,11 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 MathOptSetDistances = "3b969827-a86c-476c-9527-bb6f1a8fbad5"
 MatrixOptInterface = "2f4eb8e6-3e35-4ae4-8c7a-f3d7d9bf20ed"
-OSQP = "ab2f91bb-94b4-55e3-9ba0-7f65df51de79"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 BlockDiagonals = "0.1"
-Ipopt = "0.6"
 IterativeSolvers = "0.8, 0.9"
 MathOptInterface = "0.9"
 MathOptSetDistances = "0.1"
