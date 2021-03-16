@@ -66,7 +66,7 @@ function diff_optimizer(optimizer_constructor)::Optimizer
     return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
 end
 
-
+# TODO: arragen this in fields
 Base.@kwdef struct QPCache
     problem_data::Tuple{
         Matrix{Float64}, Vector{Float64}, # Q, q
@@ -82,7 +82,6 @@ Base.@kwdef struct QPCache
     equality_duals::Vector{Float64}
     lhs::SparseMatrixCSC{Float64, Int}
 end
-
 Base.@kwdef struct ConicCache
     M::SparseMatrixCSC{Float64, Int}
     vp::Vector
@@ -92,24 +91,61 @@ Base.@kwdef struct ConicCache
     b::Vector{Float64}
     c::Vector{Float64}
 end
-
 const CACHE_TYPE = Union{
     Nothing,
     QPCache,
     ConicCache,
 }
 
+Base.@kwdef struct QPForwCache
+    dz::Vector{Float64}
+    dλ::Vector{Float64}
+    dν::Vector{Float64}
+end
+Base.@kwdef struct QPBackCache
+    dz::Vector{Float64}
+    dλ::Vector{Float64}
+    dν::Vector{Float64}
+end
+Base.@kwdef struct ConicForwCache
+    du::Vector{Float64}
+    dv::Vector{Float64}
+    dw::Vector{Float64}
+end
+Base.@kwdef struct ConicBackCache
+    g::Vector{Float64}
+    πz::Vector{Float64}
+end
+const CACHE_FORW_TYPE = Union{
+    Nothing,
+    QPForwCache,
+    ConicForwCache,
+}
+const CACHE_BACK_TYPE = Union{
+    Nothing,
+    QPBackCache,
+    ConicBackCache,
+}
+# TODO bechmark access to these type unstable type
+# possibly add fields for all of them
+
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
     primal_optimal::Vector{Float64}  # solution
     var_idx::Vector{VI}
+    # this one is needed in case we want to send a different perturbation
     gradient_cache::CACHE_TYPE
+    # these are needed to query projection results sparsely
+    forw_grad_cache::CACHE_FORW_TYPE
+    back_grad_cache::CACHE_BACK_TYPE
 
     function Optimizer(optimizer_constructor::OT) where {OT <: MOI.ModelLike}
         new{OT}(
             optimizer_constructor,
             zeros(0),
             Vector{VI}(),
+            nothing,
+            nothing,
             nothing,
         )
     end
@@ -269,60 +305,6 @@ function qp_supported(model)
     return true
 end
 
-
-# """
-#     Method to differentiate and obtain gradients/jacobians
-#     of z, λ, ν  with respect to the parameters specified in
-#     in argument
-# """
-# function backward(params)
-#     grads = []
-#     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
-
-#     # compute the jacobian of (z, λ, ν) with respect to each
-#     # of the parameters recieved in the method argument
-#     # for instance, to get the jacobians w.r.t vector `b`
-#     # substitute db = I and set all other differential terms
-#     # in the right hand side to zero. For more info refer
-#     # equation (6) of https://arxiv.org/pdf/1703.00443.pdf
-#     for param in params
-#         if param == "Q"
-#             RHS = create_RHS_matrix(z, ones(nz, nz), zeros(nz, 1),
-#                                     λ, zeros(nineq, nz), zeros(nineq,1),
-#                                     ν, zeros(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "q"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), ones(nz, 1),
-#                                     λ, zeros(nineq, nz), zeros(nineq,1),
-#                                     ν, zeros(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "G"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
-#                                     λ, ones(nineq, nz), zeros(nineq,1),
-#                                     ν, zeros(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "h"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
-#                                     λ, zeros(nineq, nz), ones(nineq,1),
-#                                     ν, zeros(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "A"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
-#                                     λ, zeros(nineq, nz), zeros(nineq,1),
-#                                     ν, ones(neq, nz), zeros(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         elseif param == "b"
-#             RHS = create_RHS_matrix(z, zeros(nz, nz), zeros(nz, 1),
-#                                     λ, zeros(nineq, nz), zeros(nineq,1),
-#                                     ν, zeros(neq, nz), ones(neq, 1))
-#             push!(grads, LHS \ RHS)
-#         else
-#             push!(grads, [])
-#         end
-#     end
-#     return grads
-# end
-
 """
     backward_quad(model::Optimizer, params::Array{String}, dl_dz::Array{Float64})
 
@@ -341,56 +323,24 @@ For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
 function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
     z = model.primal_optimal
-    if model.gradient_cache !== nothing
-        (
-            Q, q, G, h, A, b, nz, var_list,
-            nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
-            neq_sv, eq_con_sv_idx,
-        ) = model.gradient_cache.problem_data
-        λ = model.gradient_cache.inequality_duals
-        ν = model.gradient_cache.equality_duals
-        LHS = model.gradient_cache.lhs
-
-    else # full computation
-        problem_data = get_problem_data(model.optimizer)
-        (
-            Q, q, G, h, A, b, nz, var_list,
-            nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
-            neq_sv, eq_con_sv_idx,
-        ) = problem_data
-
-        # separate λ, ν
-
-        λ = MOI.get.(model.optimizer, MOI.ConstraintDual(), ineq_con_idx)
-        append!(
-            λ,
-            MOI.get.(model.optimizer, MOI.ConstraintDual(), ineq_con_sv_le_idx)
-        )
-        ν = MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
-        append!(
-            ν,
-            MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_sv_idx)
-        )
-    
-        LHS = create_LHS_matrix(z, λ, Q, G, h, A)
-        model.gradient_cache = QPCache(
-            problem_data,
-            λ,
-            ν,
-            LHS,
-        )
+    if model.gradient_cache === nothing
+        build_quad_diff_cache!(model)
     end
+    (
+        Q, q, G, h, A, b, nz, var_list,
+        nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
+        neq_sv, eq_con_sv_idx,
+    ) = model.gradient_cache.problem_data
+    λ = model.gradient_cache.inequality_duals
+    ν = model.gradient_cache.equality_duals
+    LHS = model.gradient_cache.lhs
 
-    RHS = [dl_dz; zeros(neq + nineq + neq_sv + nineq_sv_le)]
+    RHS = [dl_dz; zeros(nineq + nineq_sv_le + neq + neq_sv)]
     partial_grads = -LHS \ RHS
-    dz = partial_grads[1:nz]
 
-    if nineq+nineq_sv_le > 0
-        dλ = partial_grads[nz+1:nz+nineq+nineq_sv_le]
-    end
-    if neq+neq_sv > 0
-        dν = partial_grads[nz+nineq+nineq_sv_le+1:nz+nineq+nineq_sv_le+neq+neq_sv]
-    end
+    dz = partial_grads[1:nz]
+    dλ = partial_grads[nz+1:nz+nineq+nineq_sv_le]
+    dν = partial_grads[nz+nineq+nineq_sv_le+1:nz+nineq+nineq_sv_le+neq+neq_sv]
 
     grads = []
     for param in params
@@ -730,10 +680,12 @@ function forward_conic(
     end
 
     du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
-    dx = du - x * dw
-    dy = Dπv * dv - y * dw
-    ds = Dπv * dv - dv - s * dw
-    return -dx, -dy, -ds
+    model.forw_grad_cache = ConicForwCache(du, dv, dw)
+    return nothing
+    # dx = du - x * dw
+    # dy = Dπv * dv - y * dw
+    # ds = Dπv * dv - dv - s * dw
+    # return -dx, -dy, -ds
 end
 
 """
@@ -788,14 +740,13 @@ function backward_conic(
         1.0
     ]
 
-    # possibly do this in parts or using sparse
-    dQ = - g * πz'
-
-    dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
-    db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
-    dc = - dQ[1:n, end] + dQ[end, 1:n]'
-
-    return dA, db, dc
+    model.back_grad_cache = ConicBackCache(g, πz)
+    return nothing
+    # dQ = - g * πz'
+    # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
+    # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
+    # dc = - dQ[1:n, end] + dQ[end, 1:n]'
+    # return dA, db, dc
 end
 
 MOI.supports(::Optimizer, ::MOI.VariableName, ::Type{MOI.VariableIndex}) = true
