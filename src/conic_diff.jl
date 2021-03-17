@@ -70,6 +70,7 @@ function build_conic_diff_cache!(model)
         A = A,
         b = b,
         c = c,
+        index_map = index_map,
     )
     return nothing
 end

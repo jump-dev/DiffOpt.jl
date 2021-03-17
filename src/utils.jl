@@ -66,6 +66,11 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     var_list = MOI.get(model, MOI.ListOfVariableIndices())
     nz = length(var_list)
 
+    index_map = MOIU.IndexMap(nz)
+    for (i,vi) in enumerate(var_list)
+        index_map[vi] = MOI.VI(i)
+    end
+
     # handle inequality constraints
     le_con_idx = MOI.get(
                         model,
@@ -99,6 +104,9 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     G = spzeros(nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge, nz)
     h = spzeros(nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge)
 
+    ineq_cont = 0
+    eq_cont = 0
+
     for i in 1:nineq_le
         con = le_con_idx[i]
 
@@ -113,6 +121,10 @@ function get_problem_data(model::MOI.AbstractOptimizer)
             end
         end
         h[i] = set.upper - func.constant
+
+        ineq_cont += 1
+        index_map[con] =
+            CI{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}(ineq_cont)
     end
     for i in 1:nineq_ge # note: ax >= b needs to be converted in Gx <= h form 
         con = ge_con_idx[i]
@@ -128,6 +140,9 @@ function get_problem_data(model::MOI.AbstractOptimizer)
             end
         end
         h[i] = func.constant - set.lower
+        ineq_cont += 1
+        index_map[con] =
+            CI{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}(ineq_cont)
     end
     for i in eachindex(le_con_sv_idx)
         con = le_con_sv_idx[i]
@@ -136,6 +151,9 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         vidx = findfirst(v -> v == func.variable, var_list)
         G[i+nineq_le+nineq_ge,vidx] = 1
         h[i+nineq_le+nineq_ge] = MOI.constant(set)
+        ineq_cont += 1
+        index_map[con] =
+            CI{MOI.SingleVariable, MOI.LessThan{Float64}}(ineq_cont)
     end
     for i in eachindex(ge_con_sv_idx)  # note: x >= b needs to be converted in Gx <= h form 
         con = ge_con_sv_idx[i]
@@ -144,6 +162,9 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         vidx = findfirst(v -> v == func.variable, var_list)
         G[i+nineq_le+nineq_ge+nineq_sv_le,vidx] = -1
         h[i+nineq_le+nineq_ge+nineq_sv_le] = -MOI.constant(set)
+        ineq_cont += 1
+        index_map[con] =
+            CI{MOI.SingleVariable, MOI.GreaterThan{Float64}}(ineq_cont)
     end
 
     # handle equality constraints
@@ -178,6 +199,10 @@ function get_problem_data(model::MOI.AbstractOptimizer)
             A[i, vidx] = x.coefficient
         end
         b[i] = set.value - func.constant
+
+        eq_cont += 1
+        index_map[con] =
+            CI{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}(eq_cont)
     end
     for i in 1:neq_sv
         con = eq_con_sv_idx[i]
@@ -186,6 +211,9 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         vidx = findfirst(v -> v == func.variable, var_list)
         A[i+neq,vidx] = 1
         b[i+neq] = set.value
+        eq_cont += 1
+        index_map[con] =
+            CI{MOI.SingleVariable, MOI.GreaterThan{Float64}}(eq_cont)
     end
 
 
@@ -223,6 +251,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         nineq_sv_ge, ge_con_sv_idx,
         neq, eq_con_idx,
         neq_sv, eq_con_sv_idx,
+        index_map
     )
 end
 

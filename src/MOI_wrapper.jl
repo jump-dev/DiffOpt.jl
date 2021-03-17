@@ -83,6 +83,7 @@ Base.@kwdef struct QPCache
     inequality_duals::Vector{Float64}
     equality_duals::Vector{Float64}
     lhs::SparseMatrixCSC{Float64, Int}
+    index_map::MOIU.IndexMap
 end
 Base.@kwdef struct ConicCache
     M::SparseMatrixCSC{Float64, Int}
@@ -92,6 +93,8 @@ Base.@kwdef struct ConicCache
     A::SparseMatrixCSC{Float64, Int}
     b::Vector{Float64}
     c::Vector{Float64}
+    c::Vector{Float64}
+    index_map::MOIU.IndexMap
 end
 const CACHE_TYPE = Union{
     Nothing,
