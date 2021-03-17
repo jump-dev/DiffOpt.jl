@@ -26,4 +26,5 @@ function build_quad_diff_cache!(model)
         ν,
         LHS,
     )
+    return nothing
 end

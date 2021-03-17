@@ -97,12 +97,7 @@ const CACHE_TYPE = Union{
     ConicCache,
 }
 
-Base.@kwdef struct QPForwCache
-    dz::Vector{Float64}
-    dλ::Vector{Float64}
-    dν::Vector{Float64}
-end
-Base.@kwdef struct QPBackCache
+Base.@kwdef struct QPForwBackCache
     dz::Vector{Float64}
     dλ::Vector{Float64}
     dν::Vector{Float64}
@@ -118,16 +113,199 @@ Base.@kwdef struct ConicBackCache
 end
 const CACHE_FORW_TYPE = Union{
     Nothing,
-    QPForwCache,
+    QPForwBackCache,
     ConicForwCache,
 }
 const CACHE_BACK_TYPE = Union{
     Nothing,
-    QPBackCache,
+    QPForwBackCache,
     ConicBackCache,
 }
-# TODO bechmark access to these type unstable type
+# TODO bechmark access to these, ^^, type unstable type
 # possibly add fields for all of them
+
+const MOIDD = MOI.Utilities.DoubleDicts
+
+# TODO: possibly use sparse vector/MatrixCSC format for better performance
+# will need to keep indices correct
+Base.@kwdef struct DiffInputCache
+    dx::Dict{VI, Float64}
+    dA::MOIDD.DoubleDict{Dict{VI,Float64}} # also includes G for QPs
+    db::MOIDD.DoubleDict{Float64} # also includes h for QPs
+    dc::Dict{VI, Float64}
+    dQ::Dict{Tuple{VI, VI}, Float64}
+end
+
+struct ForwardDiffIn{T} <: MOI.AbstractModelAttribute end
+struct ForwardDiffOut{T} <: MOI.AbstractModelAttribute end
+struct BackwardDiffIn{T} <: MOI.AbstractModelAttribute end
+struct BackwardDiffOut{T} <: MOI.AbstractModelAttribute end
+
+struct LinearObjective <: MOI.AbstractModelAttribute end #(var)
+struct QuadraticObjective <: MOI.AbstractModelAttribute end #(var, var)
+struct ConstraintConstant <: MOI.AbstractModelAttribute end #(con)
+struct ConstraintCoefficient <: MOI.AbstractModelAttribute end #(var, con)
+
+get_dx(model::Optimizer, i) = get_dx(model.forw_grad_cache, model.gradient_cache, i)
+function get_dx(cache::ConicForwCache, ::ConicCache, i)
+    return cache.dz[i]
+end
+function get_dx(f_cache::QPForwBackCache, g_cache::QPCache, i)
+    du = f_cache.du
+    dw = f_cache.dw
+    x = g_cache.xys[1]
+    return du[i] - x[i] * dw
+end
+
+get_dc(model::Optimizer, i) = get_dc(model.forw_grad_cache, model.gradient_cache, i)
+function get_dc(b_cache::ConicBackCache, ::ConicCache, i)
+    g = b_cache.g
+    πz = b_cache.πz
+    dQ_i_end = - g[i] * πz[end]
+    dQ_end_i = - g[end] * πz[i]
+    return - dQ_i_end + dQ_i_end
+end
+function get_dc(b_cache::QPForwBackCache, g_cache::QPCache, i)
+    dz = b_cache.dz
+    return dz[i]
+end
+
+get_dQ(model::Optimizer, i, j) = get_dQ(model.forw_grad_cache, model.gradient_cache, i, j)
+function get_dQ(b_cache::ConicBackCache, ::ConicCache, i, j)
+    error("Quadratic function not availablein conic model differentiation")
+end
+function get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, i, j)
+    # TODO move z to cache
+    z = model.primal_optimal
+    dz = b_cache.dz
+    return 0.5 * (dz[i] * z[j] + z[i] * dz[j])
+end
+
+get_dA(model::Optimizer, i, j) = get_dA(model.forw_grad_cache, model.gradient_cache, i, j)
+function get_dA(b_cache::ConicBackCache, ::ConicCache, i, j)
+    (x, y, _) = g_cache.xys
+    n = length(x) # columns in A
+    m = length(y) # lines in A
+    # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
+    dQ_i_nj =  - g[i] * πz[n+j]
+    dQ_nj_i =  - g[n+j] * πz[i]
+    return - dQ_i_nj + dQ_nj_i
+end
+function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, i, j)
+    # TODO move z to cache
+    z = model.primal_optimal
+    dz = b_cache.dz
+    if true # A
+        ν = g_cache.equality_duals
+        dν = b_cache.dν
+        return dν[i] * z[j] + ν[i] * dz[j]
+    else # G
+        λ = g_cache.inequality_duals
+        dλ = b_cache.dλ
+        return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
+    end
+end
+
+get_db(model::Optimizer, i) = get_db(model.forw_grad_cache, model.gradient_cache, i)
+function get_db(b_cache::ConicBackCache, ::ConicCache, i)
+    (x, _, _) = g_cache.xys
+    n = length(x) # columns in A
+    # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
+    dQ_ni_end = - g[n+i] * πz[end]
+    dQ_end_ni = - g[end] * πz[n+i]
+    return - dQ_ni_end + dQ_end_ni
+end
+function get_db(b_cache::QPForwBackCache, g_cache::QPCache, i)
+    dν = b_cache.dν
+    return - dν[i]
+end
+
+# TODO: vector/batched version of these methods for better performance
+function MOI.get(model::Optimizer, ::ForwardDiffOut{VariablePrimal}, vi::VI)
+    i = error("get i from vi")
+    return get_dx(model, i)
+end
+function MOI.get(model::Optimizer, ::BackwardDiffIn{VariablePrimal}, vi::VI)
+    return get(model.input_cache.dx, vi, 0.0)
+end
+function MOI.set(model::Optimizer, ::BackwardDiffIn{VariablePrimal}, vi::VI, val)
+    model.input_cache.dx[vi] = val
+    return
+end
+
+function MOI.get(model::Optimizer, ::BackwardDiffOut{LinearObjective}, vi::VI)
+    i = error("get i from vi")
+    return get_dc(model, i)
+end
+function MOI.get(model::Optimizer, ::ForwardDiffIn{LinearObjective}, vi::VI)
+    return get(model.input_cache.dc, vi, 0.0)
+end
+function MOI.set(model::Optimizer, ::ForwardDiffIn{LinearObjective}, vi::VI, val)
+    model.input_cache.dc[vi] = val
+    return
+end
+
+function MOI.get(model::Optimizer,
+    ::BackwardDiffOut{QuadraticObjective}, vi1::VI, vi2::VI)
+    # (vi1, vi2) = ifelse(index(vi1) <= index(vi2), (vi1, vi2), (vi2, vi1))
+    i = error("get i from vi1")
+    j = error("get j from vi2")
+    return get_dQ(model, i, j)
+end
+function MOI.get(model::Optimizer,
+    ::ForwardDiffIn{QuadraticObjective}, vi1::VI, vi2::VI)
+    tuple = ifelse(index(vi1) <= index(vi2), (vi1, vi2), (vi2, vi1))
+    return get(model.input_cache.dQ, tuple, 0.0)
+end
+function MOI.set(model::Optimizer,
+    ::ForwardDiffIn{QuadraticObjective}, vi1::VI, vi2::VI, val)
+    tuple = ifelse(index(vi1) <= index(vi2), (vi1, vi2), (vi2, vi1))
+    model.input_cache.dQ[tuple] = val
+    return
+end
+
+# TODO: deal with vector constraints
+function MOI.get(model::Optimizer,
+    ::BackwardDiffOut{ConstraintConstant}, ci::CI{F,S}) where {F,S}
+    i = error("get i from ci")
+    return get_db(model, i)
+end
+function MOI.get(model::Optimizer,
+    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}) where {F,S}
+    return get(model.input_cache.db, ci, 0.0)
+end
+function MOI.set(model::Optimizer,
+    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}, val) where {F,S}
+    model.input_cache.db[ci] = val
+    return
+end
+
+# TODO: deal with vector constraints
+function MOI.get(model::Optimizer,
+    ::BackwardDiffOut{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
+    i = error("get i from ci")
+    j = error("get j from vi")
+    return get_dA(model, i, j)
+end
+function MOI.get(model::Optimizer,
+    ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
+    dict = get(model.input_cache.dA, ci, nothing)
+    if dict === nothing
+        return 0.0
+    else
+        return get(dict, vi, 0.0)
+    end
+end
+function MOI.set(model::Optimizer,
+    ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val) where {F,S}
+    dict = get(model.input_cache.dA, ci, nothing)
+    if dict === nothing
+        model.input_cache.dA[ci] = Dict(vi => val)
+    else
+        dict[vi] = val
+    end
+    return
+end
 
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
@@ -138,6 +316,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     # these are needed to query projection results sparsely
     forw_grad_cache::CACHE_FORW_TYPE
     back_grad_cache::CACHE_BACK_TYPE
+    input_cache::DiffInputCache
 
     function Optimizer(optimizer_constructor::OT) where {OT <: MOI.ModelLike}
         new{OT}(
@@ -147,10 +326,10 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
             nothing,
             nothing,
             nothing,
+            DiffInputCache(),
         )
     end
 end
-
 
 function MOI.add_variable(model::Optimizer)
     model.gradient_cache = nothing
@@ -179,7 +358,6 @@ function MOI.add_constraints(model::Optimizer, f::AbstractVector{F}, s::Abstract
     return CI{F, S}[MOI.add_constraint(model, f[i], s[i]) for i in eachindex(f)]
 end
 
-
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES}, f::SUPPORTED_OBJECTIVES)
     model.gradient_cache = nothing
     MOI.set(model.optimizer, attr, f)
@@ -193,7 +371,6 @@ end
 function MOI.get(model::Optimizer, attr::MOI.AbstractModelAttribute)
     return MOI.get(model.optimizer, attr)
 end
-
 
 function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     return MOI.get(model.optimizer, attr)
@@ -321,7 +498,7 @@ Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{Float64})
+function backward_quad(model::Optimizer, dl_dz::Vector{Float64})
     z = model.primal_optimal
     if model.gradient_cache === nothing
         build_quad_diff_cache!(model)
@@ -336,31 +513,52 @@ function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{F
     LHS = model.gradient_cache.lhs
 
     RHS = [dl_dz; zeros(nineq + nineq_sv_le + neq + neq_sv)]
-    partial_grads = -LHS \ RHS
+    partial_grads = - LHS \ RHS
 
     dz = partial_grads[1:nz]
     dλ = partial_grads[nz+1:nz+nineq+nineq_sv_le]
     dν = partial_grads[nz+nineq+nineq_sv_le+1:nz+nineq+nineq_sv_le+neq+neq_sv]
 
-    grads = []
-    for param in params
-        if param == "Q"
-            push!(grads, 0.5 * (dz * z' + z * dz'))
-        elseif param == "q"
-            push!(grads, dz)
-        elseif param == "G"
-            push!(grads, Diagonal(λ) * dλ * z' - λ * dz')
-        elseif param == "h"
-            push!(grads, -Diagonal(λ) * dλ)
-        elseif param == "A"
-            push!(grads, dν * z' - ν * dz')
-        elseif param == "b"
-            push!(grads, -dν)
-        else
-            push!(grads, [])
-        end
+    model.back_grad_cache = QPForwBackCache(dz, dλ, dν)
+    return nothing
+    # dQ = 0.5 * (dz * z' + z * dz')
+    # dq = dz
+    # dG = Diagonal(λ) * (dλ * z' + λ * dz') # THIS WAS WRONG
+    # dh = -Diagonal(λ) * dλ
+    # dA = dν * z'+ ν * dz'
+    # db = -dν
+end
+
+function forward_quad(model::Optimizer,
+    dQ, dq, dG, dh, dA, db
+)
+    z = model.primal_optimal
+    if model.gradient_cache === nothing
+        build_quad_diff_cache!(model)
     end
-    return grads
+    (
+        Q, q, G, h, A, b, nz, var_list,
+        nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
+        neq_sv, eq_con_sv_idx,
+    ) = model.gradient_cache.problem_data
+    λ = model.gradient_cache.inequality_duals
+    ν = model.gradient_cache.equality_duals
+    LHS = model.gradient_cache.lhs
+
+    RHS = [
+        dQ * z + dq + dG' * λ + dA' * ν
+        λ .* (dG * z) - λ .* dh
+        dA * z - db
+    ]
+
+    partial_grads = - LHS \ RHS
+
+    dz = partial_grads[1:nz]
+    dλ = partial_grads[nz+1:nz+nineq+nineq_sv_le]
+    dν = partial_grads[nz+nineq+nineq_sv_le+1:nz+nineq+nineq_sv_le+neq+neq_sv]
+
+    model.forw_grad_cache = QPForwBackCache(dz, dλ, dν)
+    return nothing
 end
 
 # `MOI.supports` methods
