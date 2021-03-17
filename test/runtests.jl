@@ -38,3 +38,7 @@ end
 @testset "Solver Interface" begin
     include("solver_interface.jl")
 end
+
+@testset "Singular error with deleted variables" begin
+    include("singular_exception.jl")
+end

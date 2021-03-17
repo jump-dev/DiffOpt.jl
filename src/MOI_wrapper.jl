@@ -73,8 +73,10 @@ Base.@kwdef struct QPCache
         Matrix{Float64}, Vector{Float64}, # G, h
         Matrix{Float64}, Vector{Float64}, # A, b
         Int, Vector{VI}, # nz, var_list
-        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}}, # nineq, ineq_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}}}, # nineq_sv_le, ineq_con_sv_le_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}}, # nineq_le, le_con_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}}, # nineq_ge, ge_con_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}}}, # nineq_sv_le, le_con_sv_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.GreaterThan{Float64}}}, # nineq_sv_ge, ge_con_sv_idx
         Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}}, # neq, eq_con_idx
         Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.EqualTo{Float64}}}, # neq_sv, eq_con_sv_idx
     }
@@ -500,24 +502,30 @@ For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
 function backward_quad(model::Optimizer, dl_dz::Vector{Float64})
     z = model.primal_optimal
+
     if model.gradient_cache === nothing
         build_quad_diff_cache!(model)
     end
     (
         Q, q, G, h, A, b, nz, var_list,
-        nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
+        nineq_le, le_con_idx,
+        nineq_ge, ge_con_idx,
+        nineq_sv_le, le_con_sv_idx,
+        nineq_sv_ge, ge_con_sv_idx,
+        neq, eq_con_idx,
         neq_sv, eq_con_sv_idx,
     ) = model.gradient_cache.problem_data
     λ = model.gradient_cache.inequality_duals
     ν = model.gradient_cache.equality_duals
     LHS = model.gradient_cache.lhs
 
-    RHS = [dl_dz; zeros(nineq + nineq_sv_le + neq + neq_sv)]
-    partial_grads = - LHS \ RHS
+    nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
+    RHS = [dl_dz; zeros(neq + neq_sv + nineq_total)]
+    partial_grads = -LHS \ RHS
 
     dz = partial_grads[1:nz]
-    dλ = partial_grads[nz+1:nz+nineq+nineq_sv_le]
-    dν = partial_grads[nz+nineq+nineq_sv_le+1:nz+nineq+nineq_sv_le+neq+neq_sv]
+    dλ = partial_grads[nz+1:nz+nineq_total]
+    dν = partial_grads[nz+nineq_total+1:nz+nineq_total+neq+neq_sv]
 
     model.back_grad_cache = QPForwBackCache(dz, dλ, dν)
     return nothing
@@ -538,7 +546,11 @@ function forward_quad(model::Optimizer,
     end
     (
         Q, q, G, h, A, b, nz, var_list,
-        nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
+        nineq_le, le_con_idx,
+        nineq_ge, ge_con_idx,
+        nineq_sv_le, le_con_sv_idx,
+        nineq_sv_ge, ge_con_sv_idx,
+        neq, eq_con_idx,
         neq_sv, eq_con_sv_idx,
     ) = model.gradient_cache.problem_data
     λ = model.gradient_cache.inequality_duals
@@ -553,9 +565,10 @@ function forward_quad(model::Optimizer,
 
     partial_grads = - LHS \ RHS
 
+    nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
     dz = partial_grads[1:nz]
-    dλ = partial_grads[nz+1:nz+nineq+nineq_sv_le]
-    dν = partial_grads[nz+nineq+nineq_sv_le+1:nz+nineq+nineq_sv_le+neq+neq_sv]
+    dλ = partial_grads[nz+1:nz+nineq_total]
+    dν = partial_grads[nz+nineq_total+1:nz+nineq_total+neq+neq_sv]
 
     model.forw_grad_cache = QPForwBackCache(dz, dλ, dν)
     return nothing

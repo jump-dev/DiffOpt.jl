@@ -1,0 +1,60 @@
+using DiffOpt
+import MathOptInterface
+const MOI = MathOptInterface
+using Test, LinearAlgebra
+import OSQP
+
+Q = [
+    4.0 1.0
+    1.0 2.0
+]
+q = [1.0, 1.0]
+G = [1.0 1.0]
+h = [-1.0]
+
+model = diff_optimizer(OSQP.Optimizer)
+MOI.set(model, MOI.Silent(), true)
+x = MOI.add_variables(model, 2)
+
+# define objective
+quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
+for i in 1:2
+    for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
+        push!(
+            quad_terms,
+            MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j])
+        )
+    end
+end
+objective_function = MOI.ScalarQuadraticFunction(
+                        MOI.ScalarAffineTerm.(q, x),
+                        quad_terms,
+                        0.0,
+                    )
+MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+# add constraint
+MOI.add_constraint(
+    model,
+    MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
+    MOI.LessThan(h[1]),
+)
+MOI.optimize!(model)
+
+@test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
+@test model.gradient_cache === nothing
+grad_wrt_h = backward(model, ["h"], ones(2))[1]
+@test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+@test model.gradient_cache !== nothing
+
+# adding two variables invalidates the cache
+y = MOI.add_variables(model, 2)
+for yi in y
+    MOI.delete(model, yi)
+end
+@test model.gradient_cache === nothing
+MOI.optimize!(model)
+grad_wrt_h = backward(model, ["h"], ones(2))[1]
+@test grad_wrt_h ≈ [1.0] atol=1e-3
+@test model.gradient_cache !== nothing

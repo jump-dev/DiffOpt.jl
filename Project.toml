@@ -15,7 +15,6 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 BlockDiagonals = "0.1"
-Ipopt = "0.6"
 IterativeSolvers = "0.8, 0.9"
 MathOptInterface = "0.9"
 MathOptSetDistances = "0.1"

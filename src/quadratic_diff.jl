@@ -2,16 +2,28 @@ function build_quad_diff_cache!(model)
     problem_data = get_problem_data(model.optimizer)
     (
         Q, q, G, h, A, b, nz, var_list,
-        nineq, ineq_con_idx, nineq_sv_le, ineq_con_sv_le_idx, neq, eq_con_idx,
+        nineq_le, le_con_idx,
+        nineq_ge, ge_con_idx,
+        nineq_sv_le, le_con_sv_idx,
+        nineq_sv_ge, ge_con_sv_idx,
+        neq, eq_con_idx,
         neq_sv, eq_con_sv_idx,
-    ) = problem_data
+    ) = model.gradient_cache.problem_data
 
     # separate λ, ν
 
-    λ = MOI.get.(model.optimizer, MOI.ConstraintDual(), ineq_con_idx)
+    λ = MOI.get.(model.optimizer, MOI.ConstraintDual(), le_con_idx)
     append!(
         λ,
-        MOI.get.(model.optimizer, MOI.ConstraintDual(), ineq_con_sv_le_idx)
+        MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_idx),
+    )
+    append!(
+        λ,
+        MOI.get.(model.optimizer, MOI.ConstraintDual(), le_con_sv_idx),
+    )
+    append!(
+        λ,
+        MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_sv_idx),
     )
     ν = MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
     append!(
