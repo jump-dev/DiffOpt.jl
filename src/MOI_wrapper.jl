@@ -151,19 +151,22 @@ struct QuadraticObjective <: MOI.AbstractModelAttribute end #(var, var)
 struct ConstraintConstant <: MOI.AbstractModelAttribute end #(con)
 struct ConstraintCoefficient <: MOI.AbstractModelAttribute end #(var, con)
 
-get_dx(model::Optimizer, i) = get_dx(model.forw_grad_cache, model.gradient_cache, i)
-function get_dx(cache::ConicForwCache, ::ConicCache, i)
+get_dx(model::Optimizer, vi) = get_dx(model.forw_grad_cache, model.gradient_cache, vi)
+function get_dx(cache::ConicForwCache, g_cache::ConicCache, vi)
+    i = g_cache.index_map[vi].value
     return cache.dz[i]
 end
-function get_dx(f_cache::QPForwBackCache, g_cache::QPCache, i)
+function get_dx(f_cache::QPForwBackCache, g_cache::QPCache, vi)
+    i = g_cache.index_map[vi].value
     du = f_cache.du
     dw = f_cache.dw
     x = g_cache.xys[1]
     return du[i] - x[i] * dw
 end
 
-get_dc(model::Optimizer, i) = get_dc(model.forw_grad_cache, model.gradient_cache, i)
-function get_dc(b_cache::ConicBackCache, ::ConicCache, i)
+get_dc(model::Optimizer, vi) = get_dc(model.forw_grad_cache, model.gradient_cache, vi)
+function get_dc(b_cache::ConicBackCache, g_cache::ConicCache, vi)
+    i = g_cache.index_map[vi].value
     g = b_cache.g
     πz = b_cache.πz
     dQ_i_end = - g[i] * πz[end]
@@ -171,23 +174,28 @@ function get_dc(b_cache::ConicBackCache, ::ConicCache, i)
     return - dQ_i_end + dQ_i_end
 end
 function get_dc(b_cache::QPForwBackCache, g_cache::QPCache, i)
+    i = g_cache.index_map[vi].value
     dz = b_cache.dz
     return dz[i]
 end
 
-get_dQ(model::Optimizer, i, j) = get_dQ(model.forw_grad_cache, model.gradient_cache, i, j)
-function get_dQ(b_cache::ConicBackCache, ::ConicCache, i, j)
+get_dQ(model::Optimizer, vi1, vi2) = get_dQ(model.forw_grad_cache, model.gradient_cache, vi1, vi2)
+function get_dQ(b_cache::ConicBackCache, g_cache::ConicCache, vi1, vi2)
     error("Quadratic function not availablein conic model differentiation")
 end
-function get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, i, j)
+function get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
+    i = g_cache.index_map[vi1].value
+    j = g_cache.index_map[vi2].value
     # TODO move z to cache
     z = model.primal_optimal
     dz = b_cache.dz
     return 0.5 * (dz[i] * z[j] + z[i] * dz[j])
 end
 
-get_dA(model::Optimizer, i, j) = get_dA(model.forw_grad_cache, model.gradient_cache, i, j)
-function get_dA(b_cache::ConicBackCache, ::ConicCache, i, j)
+get_dA(model::Optimizer, vi, ci) = get_dA(model.forw_grad_cache, model.gradient_cache, vi, ci)
+function get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci)
+    j = g_cache.index_map[vi].value
+    i = g_cache.index_map[ci].value
     (x, y, _) = g_cache.xys
     n = length(x) # columns in A
     m = length(y) # lines in A
@@ -196,23 +204,32 @@ function get_dA(b_cache::ConicBackCache, ::ConicCache, i, j)
     dQ_nj_i =  - g[n+j] * πz[i]
     return - dQ_i_nj + dQ_nj_i
 end
-function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, i, j)
+function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
+) where {F, S<:MOI.EqualTo}
+    j = g_cache.index_map[vi].value
+    i = g_cache.index_map[ci].value
     # TODO move z to cache
     z = model.primal_optimal
     dz = b_cache.dz
-    if true # A
-        ν = g_cache.equality_duals
-        dν = b_cache.dν
-        return dν[i] * z[j] + ν[i] * dz[j]
-    else # G
-        λ = g_cache.inequality_duals
-        dλ = b_cache.dλ
-        return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
-    end
+    ν = g_cache.equality_duals
+    dν = b_cache.dν
+    return dν[i] * z[j] + ν[i] * dz[j]
+end
+function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
+) where {F, S}
+    j = g_cache.index_map[vi].value
+    i = g_cache.index_map[ci].value
+    # TODO move z to cache
+    z = model.primal_optimal
+    dz = b_cache.dz
+    λ = g_cache.inequality_duals
+    dλ = b_cache.dλ
+    return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
 end
 
-get_db(model::Optimizer, i) = get_db(model.forw_grad_cache, model.gradient_cache, i)
-function get_db(b_cache::ConicBackCache, ::ConicCache, i)
+get_db(model::Optimizer, ci) = get_db(model.forw_grad_cache, model.gradient_cache, ci)
+function get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci)
+    i = g_cache.index_map[ci].value
     (x, _, _) = g_cache.xys
     n = length(x) # columns in A
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
@@ -220,15 +237,24 @@ function get_db(b_cache::ConicBackCache, ::ConicCache, i)
     dQ_end_ni = - g[end] * πz[n+i]
     return - dQ_ni_end + dQ_end_ni
 end
-function get_db(b_cache::QPForwBackCache, g_cache::QPCache, i)
+function get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
+) where {F,S<:MOI.EqualTo}
+    i = g_cache.index_map[ci].value
+    # dh = -Diagonal(λ) * dλ
+    dλ = b_cache.dλ
+    λ = g_cache.inequality_duals
+    return - λ[i] * dλ[i]
+end
+function get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
+) where {F,S}
+    i = g_cache.index_map[ci].value
     dν = b_cache.dν
     return - dν[i]
 end
 
 # TODO: vector/batched version of these methods for better performance
 function MOI.get(model::Optimizer, ::ForwardDiffOut{VariablePrimal}, vi::VI)
-    i = error("get i from vi")
-    return get_dx(model, i)
+    return get_dx(model, vi)
 end
 function MOI.get(model::Optimizer, ::BackwardDiffIn{VariablePrimal}, vi::VI)
     return get(model.input_cache.dx, vi, 0.0)
@@ -239,8 +265,7 @@ function MOI.set(model::Optimizer, ::BackwardDiffIn{VariablePrimal}, vi::VI, val
 end
 
 function MOI.get(model::Optimizer, ::BackwardDiffOut{LinearObjective}, vi::VI)
-    i = error("get i from vi")
-    return get_dc(model, i)
+    return get_dc(model, vi)
 end
 function MOI.get(model::Optimizer, ::ForwardDiffIn{LinearObjective}, vi::VI)
     return get(model.input_cache.dc, vi, 0.0)
@@ -252,10 +277,7 @@ end
 
 function MOI.get(model::Optimizer,
     ::BackwardDiffOut{QuadraticObjective}, vi1::VI, vi2::VI)
-    # (vi1, vi2) = ifelse(index(vi1) <= index(vi2), (vi1, vi2), (vi2, vi1))
-    i = error("get i from vi1")
-    j = error("get j from vi2")
-    return get_dQ(model, i, j)
+    return get_dQ(model, vi1, vi2)
 end
 function MOI.get(model::Optimizer,
     ::ForwardDiffIn{QuadraticObjective}, vi1::VI, vi2::VI)
@@ -272,8 +294,7 @@ end
 # TODO: deal with vector constraints
 function MOI.get(model::Optimizer,
     ::BackwardDiffOut{ConstraintConstant}, ci::CI{F,S}) where {F,S}
-    i = error("get i from ci")
-    return get_db(model, i)
+    return get_db(model, ci)
 end
 function MOI.get(model::Optimizer,
     ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}) where {F,S}
@@ -288,9 +309,7 @@ end
 # TODO: deal with vector constraints
 function MOI.get(model::Optimizer,
     ::BackwardDiffOut{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
-    i = error("get i from ci")
-    j = error("get j from vi")
-    return get_dA(model, i, j)
+    return get_dA(model, ci, vi)
 end
 function MOI.get(model::Optimizer,
     ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
