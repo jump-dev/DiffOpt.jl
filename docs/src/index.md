@@ -4,7 +4,7 @@
 [![AppVeyor Status](https://ci.appveyor.com/api/projects/status/github/AKS1996/DiffOpt.jl?branch=master&svg=true)](https://ci.appveyor.com/project/AKS1996/diffopt-jl)
 [![Docs status](https://img.shields.io/badge/docs-dev-blue.svg)](https://aks1996.github.io/DiffOpt.jl/dev/)
 
-[DiffOpt](https://github.com/AKS1996/JuMP.jl) is a package for differentiating convex optimization program ([JuMP.jl](https://github.com/jump-dev/JuMP.jl) or [MathOptInterface.jl](https://github.com/jump-dev/MathOptInterface.jl) models) with respect to program parameters. Note that this package does not contains any solver. This package has two major backends, available via `backward!` and `backward_conic!` methods, to differentiate models with optimal solutions.
+[DiffOpt](https://github.com/AKS1996/JuMP.jl) is a package for differentiating convex optimization program ([JuMP.jl](https://github.com/jump-dev/JuMP.jl) or [MathOptInterface.jl](https://github.com/jump-dev/MathOptInterface.jl) models) with respect to program parameters. Note that this package does not contains any solver. This package has two major backends, available via `backward_quad` and `backward_conic` methods, to differentiate models with optimal solutions.
 
 !!! note
     Currently supports *linear programs*, *convex quadratic programs* and *convex conic programs* (SDP, SOCP constraints only). 

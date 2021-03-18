@@ -1,9 +1,11 @@
 using Random
-using MathOptInterface
-using OSQP
+using Test
 
+using MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities;
+
+using Ipopt
 
 n = 20 # variable dimension
 m = 15 # no of inequality constraints
@@ -15,7 +17,7 @@ q = rand(n)
 G = rand(m, n)
 h = G * x̂ + rand(m);
 
-model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
+model = MOI.instantiate(Ipopt.Optimizer, with_bridge_type=Float64)
 x = MOI.add_variables(model, n);
 
 # define objective
@@ -32,27 +34,22 @@ MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), ob
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 # maintain constrain to index map - will be useful later
-constraint_indices = []
+constraint_indices = [
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.),MOI.LessThan(h[i]),
+    ) for i in 1:m
+]
 
-# add constraints
-for i in 1:m
-    push!(
-        constraint_indices,
-        MOI.add_constraint(
-            model,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.),MOI.LessThan(h[i])
-        )
-    )
-end
 
 MOI.optimize!(model)
 
-@assert MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
+@assert MOI.get(model, MOI.TerminationStatus()) in (MOI.LOCALLY_SOLVED, MOI.OPTIMAL)
 
-x̄ = MOI.get(model, MOI.VariablePrimal(), x);
+x̄ = MOI.get(model, MOI.VariablePrimal(), x)
 
 # objective value (predicted vs actual) sanity check
-@assert 0.5*x̄'*Q*x̄ + q'*x̄  <= 0.5*x̂'*Q*x̂ + q'*x̂   
+@test 0.5*x̄'*Q*x̄ + q'*x̄  <= 0.5*x̂'*Q*x̂ + q'*x̂   
 
 # NOTE: can't use Ipopt
 # Ipopt.Optimizer doesn't supports accessing MOI.ObjectiveFunctionType
@@ -67,10 +64,10 @@ for i in 1:size(constraint_indices)[1]
     μ_i = MOI.get(model, MOI.ConstraintDual(), con_index)
     
     # μ[i] * (G * x - h)[i] = 0
-    @assert abs(μ_i * (G[i,:]' * x̄ - h[i])) < 1e-2
+    @test abs(μ_i * (G[i,:]' * x̄ - h[i])) < 3e-2
 
     # μ[i] <= 0
-    @assert μ_i <= 1e-2
+    @test μ_i <= 1e-2
 end
 
 
@@ -85,5 +82,5 @@ for j in 1:n
         G_mu_sum += μ_i * G[i,j]
     end
 
-    @assert abs(G_mu_sum - (Q * x̄ + q)[j]) < 1e-2
+    @test abs(G_mu_sum - (Q * x̄ + q)[j]) < 1e-2
 end
