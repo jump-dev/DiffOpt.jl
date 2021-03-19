@@ -3,15 +3,17 @@ using Test
 import SCS
 import Plots
 using DiffOpt
+using LinearAlgebra
 using MathOptInterface
 
 const MOI = MathOptInterface;
 
+N = 50
+D = 2
 Random.seed!(rand(1:100))
-X = vcat(randn(30, 2), randn(30,2) .+ [4.0,1.5]')
-y = append!(ones(30), -ones(30));
+X = vcat(randn(N, D), randn(N,D) .+ [4.0,1.5]')
+y = append!(ones(N), -ones(N));
 
-penalty = 5.0
 (nobs, nfeat) = size(X)
 
 model = diff_optimizer(SCS.Optimizer) 
@@ -21,26 +23,12 @@ l = MOI.add_variables(model, nobs)
 w = MOI.add_variables(model, nfeat)
 b = MOI.add_variable(model)
 
-t = MOI.add_variable(model)  # extra variable for the SOC constraint
-
 MOI.add_constraint(
     model,
     MOI.VectorAffineFunction(
         MOI.VectorAffineTerm.(1:nobs, MOI.ScalarAffineTerm.(1.0, l)), zeros(nobs)
     ), 
     MOI.Nonnegatives(nobs)
-)
-
-MOI.add_constraint(
-    model,
-    MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(-1.0, t))], [√penalty]),
-    MOI.Zeros(1)
-)
-
-pen_const = MOI.add_constraint(
-    model, 
-    MOI.VectorAffineFunction(MOI.VectorAffineTerm.(1:(nfeat+2), MOI.ScalarAffineTerm.(1.0, vcat(t, w,b))), zeros(nfeat+2)), 
-    MOI.SecondOrderCone(nfeat + 2)
 )
 
 # define the whole matrix Ax, it'll be easier then
@@ -64,64 +52,77 @@ objective_function = MOI.ScalarAffineFunction(
                         MOI.ScalarAffineTerm.(ones(nobs), l),
                         0.0
                     )
-MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 MOI.optimize!(model);
 
 loss = MOI.get(model, MOI.ObjectiveValue())
-λ = MOI.get(model, MOI.ConstraintDual(), pen_const)[1]
 wv = MOI.get(model, MOI.VariablePrimal(), w)
 bv = MOI.get(model, MOI.VariablePrimal(), b)
 
 p = Plots.scatter(X[:,1], X[:,2], color = [yi > 0 ? :red : :blue for yi in y], label = "")
 Plots.yaxis!(p, (-2, 4.5))
-Plots.plot!(p, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "RHS = $(penalty), loss = $(round(loss, digits=2)), lambda = $(round(λ, digits=2))")
+Plots.plot!(p, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "loss = $(round(loss, digits=2))")
 
-@test (wv'wv + bv*bv) ≈ penalty atol=1e-4  # sanity check
-
-# x = model.primal_optimal
-# s = MOI.get(model, MOI.ConstraintPrimal(), model.con_idx)
-# dual = model.dual_optimal
-
-dA = zeros(2*(nobs+nfeat) + 1, nobs+nfeat+1+1)
-db = zeros(2*(nobs+nfeat) + 1)
-dc = zeros(nobs+nfeat+1+1); # c = sum(`l`) + 0'w + 0.b + 0.t
-
-# db[nobs+1] = 1.0   # only weighing the penalty constraint i.e. √penalty = t 
-# dc[1] = 1.0
-
-# dx, dy, ds = backward_conic!(model, dA, db, dc)
-
-# dl, dw, db, dt = dx[1:50], dx[51:52], dx[53], dx[54]
+# constructing perturbations
+ðA = zeros(2*nobs, nobs+nfeat+1)
+ðb = zeros(2*nobs)
+ðc = zeros(nobs+nfeat+1); # c = sum(`l`) + 0'w + 0.b
 
 ∇ = []
 
 # begin differentiating
 for Xi in 1:nobs
-    dA[nobs+5+Xi, nobs.+(1:2)] = ones(2) # set
+    ðA[nobs+Xi, nobs+nfeat+1] = 1.0
     
-    dx, dy, ds = backward_conic!(model, dA, db, dc)
-    push!(∇, norm(dx) + norm(dy))
+    dx, dy, ds = backward(model, ðA, ðb, ðc)
+    dl, dw, db = dx[1:nobs], dx[nobs+1:nobs+1+nfeat], dx[nobs+1+nfeat]
+    push!(∇, norm(dw)+norm(db))
     
-    dA[nobs+5+Xi, nobs.+(1:2)] = zeros(2)  # reset
+    ðA[nobs+Xi, nobs+nfeat+1] = 0.0
 end
 ∇ = normalize(∇);
 
 # point sensitvity wrt the separating hyperplane
 # gradients are normalized
 
-Plots.plot!(
-    Plots.scatter(
-        X[:,1], X[:,2], 
-        color = [yi > 0 ? :red : :blue for yi in y], label = "",
-        markersize= ∇ * 25
-    ),
-    ylims= (-2, 4.5),
-    [-bv / wv[2],
-    (-bv - 2wv[1])/wv[2]], label = "penalty = $(penalty), loss = $(round(loss, digits=2)), lambda = $(round(λ, digits=2))"
+p2 = Plots.scatter(
+    X[:,1], X[:,2], 
+    color = [yi > 0 ? :red : :blue for yi in y], label = "",
+    markersize = ∇ * 20
 )
+Plots.yaxis!(p2, (-2, 4.5))
+Plots.plot!(p2, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "loss = $(round(loss, digits=2))")
 
-#Plots.heatmap(reshape(∇,1,length(∇)))
+# constructing perturbations
+ðA = zeros(2*nobs, nobs+nfeat+1)
+ðb = zeros(2*nobs)
+ðc = zeros(nobs+nfeat+1); # c = sum(`l`) + 0'w + 0.b
+
+∇ = []
+
+# begin differentiating
+for Xi in 1:nobs
+    ðA[nobs+Xi, nobs.+(1:nfeat+1)] = ones(3)
+    
+    dx, dy, ds = backward(model, ðA, ðb, ðc)
+    dl, dw, db = dx[1:nobs], dx[nobs+1:nobs+1+nfeat], dx[nobs+1+nfeat]
+    push!(∇, norm(dw)+norm(db))
+    
+    ðA[nobs+Xi, nobs.+(1:nfeat+1)] = zeros(3)
+end
+∇ = normalize(∇);
+
+# point sensitvity wrt the separating hyperplane
+# gradients are normalized
+
+p3 = Plots.scatter(
+    X[:,1], X[:,2], 
+    color = [yi > 0 ? :red : :blue for yi in y], label = "",
+    markersize = ∇ * 20
+)
+Plots.yaxis!(p3, (-2, 4.5))
+Plots.plot!(p3, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "loss = $(round(loss, digits=2))")
 
 
