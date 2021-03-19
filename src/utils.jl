@@ -56,7 +56,7 @@ end
 #     end
 # end
 
-
+# TODO: use MatOI for building the matrix
 """
     get_problem_data(model::MOI.AbstractOptimizer)
 
@@ -68,7 +68,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
     index_map = MOIU.IndexMap(nz)
     for (i,vi) in enumerate(var_list)
-        index_map[vi] = MOI.VI(i)
+        index_map[vi] = VI(i)
     end
 
     # handle inequality constraints
@@ -126,7 +126,8 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         index_map[con] =
             CI{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}(ineq_cont)
     end
-    for i in 1:nineq_ge # note: ax >= b needs to be converted in Gx <= h form 
+    for i in 1:nineq_ge
+        # note: ax >= b needs to be converted in Gx <= h form 
         con = ge_con_idx[i]
 
         func = MOI.get(model, MOI.ConstraintFunction(), con)
@@ -155,7 +156,8 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         index_map[con] =
             CI{MOI.SingleVariable, MOI.LessThan{Float64}}(ineq_cont)
     end
-    for i in eachindex(ge_con_sv_idx)  # note: x >= b needs to be converted in Gx <= h form 
+    for i in eachindex(ge_con_sv_idx)
+        # note: x >= b needs to be converted in Gx <= h form 
         con = ge_con_sv_idx[i]
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)
@@ -202,7 +204,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
         eq_cont += 1
         index_map[con] =
-            CI{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}(eq_cont)
+            CI{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}(eq_cont)
     end
     for i in 1:neq_sv
         con = eq_con_sv_idx[i]
@@ -213,7 +215,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         b[i+neq] = set.value
         eq_cont += 1
         index_map[con] =
-            CI{MOI.SingleVariable, MOI.GreaterThan{Float64}}(eq_cont)
+            CI{MOI.SingleVariable, MOI.EqualTo{Float64}}(eq_cont)
     end
 
 
@@ -251,8 +253,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         nineq_sv_ge, ge_con_sv_idx,
         neq, eq_con_idx,
         neq_sv, eq_con_sv_idx,
-        index_map
-    )
+    ), index_map
 end
 
 # used for testing mostly

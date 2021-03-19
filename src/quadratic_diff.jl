@@ -1,14 +1,17 @@
 function build_quad_diff_cache!(model)
-    problem_data = get_problem_data(model.optimizer)
+    problem_data, index_map = get_problem_data(model.optimizer)
     (
-        Q, q, G, h, A, b, nz, var_list,
+        Q, q, G, h, A, b,
+        nz, var_list,
         nineq_le, le_con_idx,
         nineq_ge, ge_con_idx,
         nineq_sv_le, le_con_sv_idx,
         nineq_sv_ge, ge_con_sv_idx,
         neq, eq_con_idx,
         neq_sv, eq_con_sv_idx,
-    ) = model.gradient_cache.problem_data
+    ) = problem_data
+
+    z = model.primal_optimal
 
     # separate λ, ν
 
@@ -36,7 +39,9 @@ function build_quad_diff_cache!(model)
         problem_data,
         λ,
         ν,
+        z,
         LHS,
+        index_map,
     )
     return nothing
 end

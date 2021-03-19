@@ -55,7 +55,9 @@ const MOIU = MOI.Utilities
 
     MOI.optimize!(model)
 
-    @test model.primal_optimal ≈ [0.3, 0.7] atol=ATOL rtol=RTOL
+    x_sol = MOI.get(model, MOI.VariablePrimal(), x)
+
+    @test x_sol ≈ [0.3, 0.7] atol=ATOL rtol=RTOL
 end
 
 
@@ -93,7 +95,7 @@ end
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # add constraint
-    MOI.add_constraint(
+    ci = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
         MOI.LessThan(h[1])
@@ -101,13 +103,18 @@ end
 
     MOI.optimize!(model)
 
-    @test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
+    x_sol = MOI.get(model, MOI.VariablePrimal(), x)
 
-    grad_wrt_h = backward(model, ["h"], ones(2))[1]
+    @test x_sol ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
 
-    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), x, ones(2))
+
+    DiffOpt.backward!(model)
+
+    grad_wrt_h = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), ci)
+
+    @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
 end
-
 
 # @testset "Differentiating a non-convex QP" begin
 #     Q = [0.0 0.0; 1.0 2.0]
@@ -146,7 +153,6 @@ end
 
 #     @test_throws ErrorException MOI.optimize!(model) # should break
 # end
-
 
 @testset "Differentiating QP with inequality and equality constraints" begin
     # refered from: https://www.mathworks.com/help/optim/ug/quadprog.html#d120e113424
@@ -193,50 +199,75 @@ end
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # add constraint
+    ci_ineq = []
     for i in 1:6
-        MOI.add_constraint(
+        ci = MOI.add_constraint(
             model,
             MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i, :], x), 0.0),
             MOI.LessThan(h[i])
         )
+        push!(ci_ineq, ci)
     end
 
+    ci_eq = []
     for i in 1:1
-        MOI.add_constraint(
+        ci = MOI.add_constraint(
             model,
             MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0),
             MOI.EqualTo(b[i])
         )
+        push!(ci_eq, ci)
     end
 
     MOI.optimize!(model)
 
-    z = model.primal_optimal
+    z = MOI.get(model, MOI.VariablePrimal(), x)
 
     @test z ≈ [0.0, 0.5, 0.0] atol=ATOL rtol=RTOL
 
-    grads = backward(model, ["Q","q","G","h","A","b"], ones(3))
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), x, ones(3))
 
-    dl_dQ = grads[1]
-    dl_dq = grads[2]
-    dl_dG = grads[3]
-    dl_dh = grads[4]
-    dl_dA = grads[5]
-    dl_db = grads[6]
+    DiffOpt.backward!(model)#, ["Q","q","G","h","A","b"], ones(3))
 
-    @test dl_dQ ≈ zeros(3,3)  atol=ATOL rtol=RTOL
+    for iv in x, jv in x
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.QuadraticObjective}(), iv, jv)
+        @test grad ≈ 0.0  atol=ATOL rtol=RTOL
+    end
+    # @test dl_dQ ≈ zeros(3,3)  atol=ATOL rtol=RTOL
 
-    @test dl_dq ≈ zeros(3,1) atol=ATOL rtol=RTOL
+    for vi in x
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.LinearObjective}(), vi)
+        @test grad ≈ 0.0  atol=ATOL rtol=RTOL
+    end
+    # @test dl_dq ≈ zeros(3,1) atol=ATOL rtol=RTOL
 
-    @test dl_dG ≈ zeros(6,3) atol=ATOL rtol=RTOL
+    for vi in x, ci in ci_ineq
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), vi, ci)
+        @test grad ≈ 0.0  atol=ATOL rtol=RTOL
+    end
+    # @test dl_dG ≈ zeros(6,3) atol=ATOL rtol=RTOL
 
-    @test dl_dh ≈ zeros(6,1) atol=ATOL rtol=RTOL
+    for ci in ci_ineq
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), ci)
+        @test grad ≈ 0.0  atol=ATOL rtol=RTOL
+    end
+    # @test dl_dh ≈ zeros(6,1) atol=ATOL rtol=RTOL
 
-    @test dl_dA ≈ [0.0 -0.5 0.0] atol=ATOL rtol=RTOL
+    sol = [0.0 -0.5 0.0]
+    c = 0
+    for vi in x, ci in ci_eq
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), vi, ci)
+        c += 1
+        @test grad ≈ sol[c]  atol=ATOL rtol=RTOL
+    end
+    # @test dl_dA ≈ [0.0 -0.5 0.0] atol=ATOL rtol=RTOL
 
-    @test dl_db ≈ [1.0] atol=ATOL rtol=RTOL
+    grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), ci_eq[1])
+    @test grad ≈ 1.0 atol=ATOL rtol=RTOL
+    # @test dl_db ≈ [1.0] atol=ATOL rtol=RTOL
 end
 
+error("stopped here")
 
 
 # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
