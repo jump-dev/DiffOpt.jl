@@ -194,8 +194,3 @@ for con_index in keys(map)
     end
 end
 ```
-
-
-```julia
-
-```

@@ -60,8 +60,8 @@ diff_optimizer
 
 ## Adding new sets and constraints
 
-Usage interface DiffOpt models is same as other MOI Optimizers. So the same `add_variable`, `add_constraint` utilities can be used.
-
+The DiffOpt `Optimizer` behaves similarly to other MOI Optimizers
+and implements the `MOI.AbstractOptimizer` API.
 
 ## Projections on cone sets
 
