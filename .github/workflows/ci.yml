@@ -61,6 +61,7 @@ jobs:
           julia --project=docs -e "
             using Pkg
             Pkg.develop(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\"))
+            @info \"$(pwd())\"
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()"
       - run: |
