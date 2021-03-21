@@ -36,6 +36,10 @@ end
     include("MOI_wrapper.jl")
 end
 
+@testset "JuMP wrapper" begin
+    include("jump.jl")
+end
+
 @testset "Solver Interface" begin
     include("solver_interface.jl")
 end
