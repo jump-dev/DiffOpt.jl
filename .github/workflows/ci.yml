@@ -58,13 +58,13 @@ jobs:
           version: '1'
       - shell: bash
         run: |
-          julia --project=docs -e 'using Pkg; Pkg.develop(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\"))'
+          julia --project=docs -e "using Pkg; Pkg.develop(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\"))"
       - shell: bash
         run: |
-          julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd()))'
+          julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd()))"
       - shell: bash
         run: |
-          julia --project=docs -e 'using Pkg; Pkg.instantiate()'
+          julia --project=docs -e "using Pkg; Pkg.instantiate()"
       - shell: bash
         run: |
           julia --project=docs -e '
