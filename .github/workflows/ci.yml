@@ -59,11 +59,14 @@ jobs:
       - shell: bash
         run: |
           julia --project=docs -e 'using Pkg; Pkg.develop(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\"))'
+      - shell: bash
         run: |
           julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd()))'
+      - shell: bash
         run: |
           julia --project=docs -e 'using Pkg; Pkg.instantiate()'
-      - run: |
+      - shell: bash
+        run: |
           julia --project=docs -e '
             using Documenter: doctest
             using DiffOpt
