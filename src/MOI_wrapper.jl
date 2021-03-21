@@ -233,8 +233,9 @@ const QP_FUNCTION_TYPES = Union{
 }
 
 const QP_OBJECTIVE_TYPES = Union{
-    MathOptInterface.ScalarAffineFunction{Float64},
-    MathOptInterface.ScalarQuadraticFunction{Float64},
+    MOI.ScalarAffineFunction{Float64},
+    MOI.ScalarQuadraticFunction{Float64},
+    MOI.SingleVariable,
 }
 
 """
@@ -351,6 +352,10 @@ function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{F
     if nineq_total > 0
         dλ = partial_grads[nz+1:nz+nineq_total]
     end
+    @debug begin
+        @show neq+neq_sv
+    end
+    @assert length(eq_con_idx) + length(eq_con_sv_idx) == neq+neq_sv
     if neq+neq_sv > 0
         dν = partial_grads[nz+nineq_total+1:nz+nineq_total+neq+neq_sv]
     end
