@@ -57,14 +57,11 @@ jobs:
         with:
           version: '1'
       - shell: bash
-        run: |
-          julia --project=docs -e "using Pkg; Pkg.develop(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\"))"
+        run: julia --color=yes --project -e "using Pkg; Pkg.develop(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\")); Pkg.instantiate()"
       - shell: bash
-        run: |
-          julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd()))"
+        run: julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd()))"
       - shell: bash
-        run: |
-          julia --project=docs -e "using Pkg; Pkg.instantiate()"
+        run: julia --project=docs -e "using Pkg; Pkg.instantiate()"
       - shell: bash
         run: |
           julia --project=docs -e '
