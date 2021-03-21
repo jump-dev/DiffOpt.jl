@@ -152,7 +152,7 @@ p2 = Plots.scatter(
     markersize = ∇ * 20
 )
 Plots.yaxis!(p2, (-2, 4.5))
-Plots.plot!(p2, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "loss = $(round(loss, digits=2))")
+Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 Plots.savefig("sensitivity2.svg")
 nothing # hide
 ```
@@ -192,7 +192,7 @@ p3 = Plots.scatter(
     markersize = ∇ * 20
 )
 Plots.yaxis!(p3, (-2, 4.5))
-Plots.plot!(p3, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "loss = $(round(loss, digits=2))")
+Plots.plot!(p3, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 Plots.savefig(p3, "sensitivity3.svg")
 nothing # hide
 ```
