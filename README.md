@@ -58,7 +58,7 @@ minimize_x c^T x
 subject to: Ax + b in K
 ```
 where
-- `the objective is linear
+- the objective is linear
 - `K` is a Cartesian product of linear, semidefinite, second-order cones
 then one can compute gradients by providing perturbations
 ```julia
