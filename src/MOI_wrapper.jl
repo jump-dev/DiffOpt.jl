@@ -323,7 +323,12 @@ function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
     dz = b_cache.dz
     ν = g_cache.equality_duals
     dν = b_cache.dν
-    return dν[i] * z[j] + ν[i] * dz[j]
+    # this is the previously implemented
+    return dν[i] * z[j] - ν[i] * dz[j]
+    # from the paper, teh correct solution should be this
+    # and thec correct fix is probably correcting the signs of the duals
+    # since MOI standard is different from text book shadow prices
+    # return dν[i] * z[j] + ν[i] * dz[j]
 end
 function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
 ) where {F, S}
@@ -333,7 +338,13 @@ function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
     dz = b_cache.dz
     λ = g_cache.inequality_duals
     dλ = b_cache.dλ
-    return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
+    # this is the previously implemented
+    # return Diagonal(λ) * dλ * z' - λ * dz')
+    return λ[i] * (dλ[i] * z[j]) - λ[i] * dz[j]
+    # from the paper, teh correct solution should be this
+    # and thec correct fix is probably correcting the signs of the duals
+    # since MOI standard is different from text book shadow prices
+    # return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
 end
 
 function MOI.get(model::Optimizer,
@@ -570,10 +581,11 @@ function backward_quad(model::Optimizer)
     return nothing
     # dQ = 0.5 * (dz * z' + z * dz')
     # dq = dz
-    # dG = Diagonal(λ) * (dλ * z' + λ * dz') # THIS WAS WRONG
+    # dG = Diagonal(λ) * (dλ * z' + λ * dz') # was: Diagonal(λ) * dλ * z' - λ * dz')
     # dh = -Diagonal(λ) * dλ
-    # dA = dν * z'+ ν * dz'
+    # dA = dν * z'+ ν * dz' # was: dν * z' - ν * dz'
     # db = -dν
+    # todo, check MOI signs for dA and dG
 end
 
 function forward_quad(model::Optimizer)
@@ -1148,6 +1160,11 @@ function backward_conic(model::Optimizer)
         vp
         1.0
     ]
+
+    # TODO: very important
+    # contrast with:
+    # http://reports-archive.adm.cs.cmu.edu/anon/2019/CMU-CS-19-109.pdf
+    # pg 97, cap 7.4.2
 
     model.back_grad_cache = ConicBackCache(g, πz)
     return nothing

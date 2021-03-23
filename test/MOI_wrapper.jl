@@ -267,9 +267,6 @@ end
     # @test dl_db ≈ [1.0] atol=ATOL rtol=RTOL
 end
 
-error("stopped here")
-
-
 # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
 # Find equivalent CVXPYLayers and QPTH code here:
 #               https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_1_py.ipynb
@@ -299,6 +296,7 @@ error("stopped here")
             0.0),
         MOI.LessThan(-1.0)
     )
+    c = [c1, c2]
 
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     @test MOI.get(model, MOI.ObjectiveSense()) == MOI.MIN_SENSE
@@ -316,31 +314,43 @@ error("stopped here")
 
     MOI.optimize!(model)
 
-    z = model.primal_optimal
+    z = MOI.get(model, MOI.VariablePrimal(), v)
 
     @test z ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
 
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), v, ones(3))
+
     # obtain gradients
-    grads = backward(model, ["Q","q","G","h"], ones(3))
+    # grads = backward(model, ["Q","q","G","h"], ones(3))
+    DiffOpt.backward!(model)
 
-    dl_dQ = grads[1]
-    dl_dq = grads[2]
-    dl_dG = grads[3]
-    dl_dh = grads[4]
+    dQ = [-0.12244895  0.01530609 -0.11224488;
+           0.01530609  0.09183674  0.07653058;
+          -0.11224488  0.07653058 -0.06122449]
+    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.QuadraticObjective}(), iv, jv)
+        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
+    end
 
-    @test dl_dQ ≈ [-0.12244895  0.01530609 -0.11224488;
-                    0.01530609  0.09183674  0.07653058;
-                   -0.11224488  0.07653058 -0.06122449]  atol=ATOL rtol=RTOL
+    dq = [-0.2142857;  0.21428567; -0.07142857]
+    for (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.LinearObjective}(), iv)
+        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
+    end
 
-    @test dl_dq ≈ [-0.2142857;  0.21428567; -0.07142857] atol=ATOL rtol=RTOL
+    dG = [0.05102035   0.30612245  0.255102;
+          0.06122443   0.36734694  0.3061224]
+    for (i,iv) in enumerate(v), (j,jc) in enumerate(c)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
+    end
 
-    @test dl_dG ≈ [0.05102035   0.30612245  0.255102;
-                   0.06122443   0.36734694  0.3061224] atol=ATOL rtol=RTOL
-
-    @test dl_dh ≈ [-0.35714284; -0.4285714] atol=ATOL rtol=RTOL
+    dh = [-0.35714284; -0.4285714]
+    for (j,jc) in enumerate(c)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+    end
 end
-
-
 
 # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
 # Find equivalent CVXPYLayers and QPTH code here:
@@ -363,6 +373,8 @@ end
         MOI.EqualTo(1.0)
     )
 
+    ca = [c1]
+
     vc1 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0,0.0], [x,y]), 0.0),
@@ -377,6 +389,8 @@ end
     )
     @test vc2.value ≈ y.value atol=ATOL rtol=RTOL
 
+    cg = [vc1, vc2]
+
 
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     obj = MOI.ScalarQuadraticFunction(
@@ -388,35 +402,53 @@ end
 
     MOI.optimize!(model)
 
-    z = model.primal_optimal
+    z = MOI.get(model, MOI.VariablePrimal(), [x, y])
 
     @test z ≈ [0.25, 0.75] atol=ATOL rtol=RTOL
 
-    # obtain gradients
-    dl_dz = [1.3, 0.5]   # choosing a non trivial backward pass vector
-    grads = backward(model, ["Q", "q", "G", "h", "A", "b"], dl_dz)
+    v = [x, y]
 
-    dl_dQ = grads[1]
-    dl_dq = grads[2]
-    dl_dG = grads[3]
-    dl_dh = grads[4]
-    dl_dA = grads[5]
-    dl_db = grads[6]
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), [x, y], [1.3, 0.5])
 
-    @test dl_dQ ≈ [-0.05   -0.05;
-                   -0.05    0.15]  atol=ATOL rtol=RTOL
+    DiffOpt.backward!(model)
 
-    @test dl_dq ≈ [-0.2; 0.2] atol=ATOL rtol=RTOL
+    dQ = [-0.05   -0.05;
+          -0.05    0.15]
+    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.QuadraticObjective}(), iv, jv)
+        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
+    end
 
-    @test dl_dG ≈ [1e-8  1e-8; 1e-8 1e-8] atol=ATOL rtol=RTOL
+    dq = [-0.2; 0.2]
+    for (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.LinearObjective}(), iv)
+        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
+    end
 
-    @test dl_dh ≈ [1e-8; 1e-8] atol=ATOL rtol=RTOL
+    dG = [1e-8  1e-8; 1e-8 1e-8]
+    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
+    end
 
-    @test dl_dA ≈ [0.375 -1.075] atol=ATOL rtol=RTOL
+    dh = [1e-8; 1e-8]
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+    end
 
-    @test dl_db ≈ [0.7] atol=ATOL rtol=RTOL
+    dA = [0.375 -1.075]
+    for (i,iv) in enumerate(v), (j,jc) in enumerate(ca)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dA[j,i]  atol=ATOL rtol=RTOL
+    end
+
+    db = [0.7]
+    for (j,jc) in enumerate(ca)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ db[j]  atol=ATOL rtol=RTOL
+    end
 end
-
 
 @testset "Differentiating non trivial convex QP MOI" begin
     nz = 10
@@ -439,39 +471,49 @@ end
     model = diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
 
-    x = MOI.add_variables(model, nz)
+    v = MOI.add_variables(model, nz)
 
     # define objective
     quadratic_terms = MOI.ScalarQuadraticTerm{Float64}[]
     for i in 1:nz
         for j in i:nz # indexes (i,j), (j,i) will be mirrored. specify only one kind
-            push!(quadratic_terms, MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j]))
+            push!(quadratic_terms, MOI.ScalarQuadraticTerm(Q[i,j], v[i], v[j]))
         end
     end
 
-    objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x), quadratic_terms, 0.0)
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+    objective_function = MOI.ScalarQuadraticFunction(
+        MOI.ScalarAffineTerm.(q, v), quadratic_terms, 0.0)
+    MOI.set(model,
+        MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(),
+        objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
+    cg = []
     for i in 1:nineq_le
-        MOI.add_constraint(
+        c = MOI.add_constraint(
             model,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], x), 0.0),MOI.LessThan(h[i])
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[i,:], v), 0.0),
+            MOI.LessThan(h[i])
         )
+        push!(cg, c)
     end
 
+    ca = []
     for i in 1:neq
-        MOI.add_constraint(
+        c = MOI.add_constraint(
             model,
-            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0), MOI.EqualTo(b[i]),
+            MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], v), 0.0),
+            MOI.EqualTo(b[i]),
         )
+        push!(ca, c)
     end
 
     MOI.optimize!(model)
 
-    # obtain gradients
-    grads = backward(model, ["Q", "q", "G", "h", "A", "b"], ones(nz))  # using dl_dz=[1,1,1,1,1,....]
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), v, ones(nz))
+
+    DiffOpt.backward!(model)
 
     # read gradients from files
     names = ["dP", "dq", "dG", "dh", "dA", "db"]
@@ -481,16 +523,25 @@ end
         push!(grads_actual, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("data",name*".txt")), ' ', Float64, '\n'))
     end
 
-    grads_actual[2] = vec(grads_actual[2])
-    grads_actual[4] = vec(grads_actual[4])
-    grads_actual[6] = vec(grads_actual[6])
+    dq = grads_actual[2] # = vec(grads_actual[2])
+    dh = grads_actual[4] # = vec(grads_actual[4])
+    db = grads_actual[6] # = vec(grads_actual[6])
 
-    # testing differences
-    for i in 1:size(grads)[1]
-        @test grads[i] ≈  grads_actual[i] atol=1e-2 rtol=1e-2
+    for (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.LinearObjective}(), iv)
+        @test grad ≈ dq[i]  atol=1e-2 rtol=1e-2
+    end
+
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j]  atol=1e-2 rtol=1e-2
+    end
+
+    for (j,jc) in enumerate(ca)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ db[j]  atol=1e-2 rtol=1e-2
     end
 end
-
 
 @testset "Differentiating LP; checking gradients for non-active contraints" begin
     # Issue #40 from Gurobi.jl
@@ -501,34 +552,47 @@ end
     model = diff_optimizer(Clp.Optimizer)
     MOI.set(model, MOI.Silent(), true)
 
-    x = MOI.add_variables(model, 1)
+    v = MOI.add_variables(model, 1)
 
     # define objective
-    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.0)
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+    objective_function = MOI.ScalarAffineFunction(
+        MOI.ScalarAffineTerm.([1.0], v), 0.0)
+    MOI.set(model,
+        MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+        objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
-    MOI.add_constraint(
+    c1 = MOI.add_constraint(
         model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.),
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], v), 0.),
         MOI.LessThan(0.0)
     )
-    MOI.add_constraint(
+    c2 = MOI.add_constraint(
         model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], x), 0.),
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], v), 0.),
         MOI.LessThan(-3.0)
     )
+    cg = [c1, c2]
 
     MOI.optimize!(model)
 
-    # obtain gradients
-    grads = backward(model, ["G", "h"], [1.0])
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), v, 1.0)
 
-    @test grads[1] ≈ [0.0, 3.0] atol=ATOL rtol=RTOL
-    @test grads[2] ≈ [0.0, -1.0] atol=ATOL rtol=RTOL
+    DiffOpt.backward!(model)
+
+    dG = [0.0, 3.0]
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), v[1], jc)
+        @test grad ≈ dG[j]  atol=ATOL rtol=RTOL
+    end
+
+    dh = [0.0, -1.0]
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+    end
 end
-
 
 @testset "Differentiating a simple LP with GreaterThan constraint" begin
     # this is canonically same as above test
@@ -537,27 +601,38 @@ end
     model = diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
 
-    x = MOI.add_variables(model, 1)
+    v = MOI.add_variables(model, 1)
 
     # define objective
-    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.0)
+    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], v), 0.0)
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    MOI.add_constraint(
+    c = MOI.add_constraint(
         model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], x), 0.),
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0], v), 0.),
         MOI.GreaterThan(3.0),
     )
+    cg = [c]
 
     MOI.optimize!(model)
 
-    # obtain gradients
-    grads = backward(model, ["G", "h"], [1.0])
-    @test grads[1] ≈ [3.0] atol=ATOL rtol=RTOL
-    @test grads[2] ≈ [-1.0] atol=ATOL rtol=RTOL   
-end
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), v, 1.0)
 
+    DiffOpt.backward!(model)
+
+    dG = [3.0]
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), v[1], jc)
+        @test grad ≈ dG[j]  atol=ATOL rtol=RTOL
+    end
+
+    dh = [-1.0]
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+    end
+end
 
 @testset "Differentiating LP; checking gradients for non-active contraints" begin
     # refered from - https://en.wikipedia.org/wiki/Simplex_algorithm#Example
@@ -572,50 +647,74 @@ end
     v = MOI.add_variables(model, 3)
 
     # define objective
-    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-2.0, -3.0, -4.0], v), 0.0)
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+    objective_function = MOI.ScalarAffineFunction(
+        MOI.ScalarAffineTerm.([-2.0, -3.0, -4.0], v), 0.0)
+    MOI.set(model,
+        MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+        objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
-    MOI.add_constraint(
+    c1 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([3.0, 2.0, 1.0], v), 0.),
         MOI.LessThan(10.0)
     )
-    MOI.add_constraint(
+    c2 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([2.0, 5.0, 3.0], v), 0.),
         MOI.LessThan(15.0)
     )
-    MOI.add_constraint(
+    c3 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0, 0.0, 0.0], v), 0.),
         MOI.LessThan(0.0)
     )
-    MOI.add_constraint(
+    c4 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.),
         MOI.LessThan(0.0)
     )
-    MOI.add_constraint(
+    c5 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, -1.0], v), 0.),
         MOI.LessThan(0.0)
     )
+    cg = [c1, c2, c3, c4, c5]
 
     MOI.optimize!(model)
 
-    # obtain gradients
-    grads = backward(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1,1,1,....]
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), v, ones(3))
 
-    @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
-    @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
-    @test grads[3] ≈ [0.0 0.0 0.0;
-                    0.0 0.0 -5/3;
-                    0.0 0.0 5/3;
-                    0.0 0.0 -10/3;
-                    0.0 0.0 0.0]   atol=ATOL rtol=RTOL
-    @test grads[4] ≈ [0.0; 1/3; -1/3; 2/3; 0.0]   atol=ATOL rtol=RTOL
+    DiffOpt.backward!(model)
+
+    dQ = zeros(3,3)
+    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.QuadraticObjective}(), iv, jv)
+        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
+    end
+
+    dq = zeros(3)
+    for (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.LinearObjective}(), iv)
+        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
+    end
+
+    dG = [0.0 0.0 0.0;
+          0.0 0.0 -5/3;
+          0.0 0.0 5/3;
+          0.0 0.0 -10/3;
+          0.0 0.0 0.0]
+    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
+    end
+
+    dh = [0.0; 1/3; -1/3; 2/3; 0.0]
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+    end
 end
 
 @testset "Differentiating LP with variable bounds" begin
@@ -633,72 +732,98 @@ end
     v = MOI.add_variables(model, 3)
 
     # define objective
-    objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-2.0, -3.0, -4.0], v), 0.0)
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+    objective_function = MOI.ScalarAffineFunction(
+        MOI.ScalarAffineTerm.([-2.0, -3.0, -4.0], v), 0.0)
+    MOI.set(model,
+        MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+        objective_function)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
-    MOI.add_constraint(
+    c1 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([3.0, 2.0, 1.0], v), 0.),
         MOI.LessThan(10.0),
     )
-    MOI.add_constraint(
+    c2 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([2.0, 5.0, 3.0], v), 0.),
         MOI.LessThan(15.0),
     )
-    MOI.add_constraint(
+    c3 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0, 0.0, 0.0], v), 0.),
         MOI.LessThan(0.0),
     )
-    MOI.add_constraint(
+    c4 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.),
         MOI.LessThan(0.0),
     )
-    MOI.add_constraint(
+    c5 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, -1.0], v), 0.),
         MOI.LessThan(0.0),
     )
     #      x ≤ 3
-    MOI.add_constraint(
+    c6 = MOI.add_constraint(
         model,
         MOI.SingleVariable(v[1]),
         MOI.LessThan(3.0),
     )
     #      0 ≤ y ≤ 2
-    MOI.add_constraint(
+    c7 = MOI.add_constraint(
         model,
         MOI.SingleVariable(v[2]),
         MOI.LessThan(2.0),
     )
     #      z ≥ 2
-    MOI.add_constraint(
+    c8 = MOI.add_constraint(
         model,
         MOI.SingleVariable(v[3]),
         MOI.LessThan(6.0),
     )
+    cg = [c1, c2, c3, c4, c5, c6, c7, c8]
 
     MOI.optimize!(model)
 
-    # obtain gradients
-    grads = backward(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1]
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), v, ones(3))
 
-    @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
-    @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
-    @test grads[3] ≈ [0.0 0.0 0.0;
-                      0.0 0.0 -5/3;
-                      0.0 0.0 5/3;
-                      0.0 0.0 -10/3;
-                      0.0 0.0 0.0
-                      0.0 0.0 0.0
-                      0.0 0.0 0.0
-                      0.0 0.0 0.0                      
-                      ]   atol=ATOL rtol=RTOL
-    @test grads[4] ≈ [0.0, 1/3, -1/3, 2/3, 0.0, 0.0, 0.0, 0.0]   atol=ATOL rtol=RTOL
+    DiffOpt.backward!(model)
+
+    dQ = zeros(3,3)
+    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.QuadraticObjective}(), iv, jv)
+        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
+    end
+
+    dq = zeros(3)
+    for (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.LinearObjective}(), iv)
+        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
+    end
+
+    dG = [0.0 0.0 0.0;
+          0.0 0.0 -5/3;
+          0.0 0.0 5/3;
+          0.0 0.0 -10/3;
+          0.0 0.0 0.0
+          0.0 0.0 0.0
+          0.0 0.0 0.0
+          0.0 0.0 0.0]
+    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
+    end
+
+    dh = [0.0, 1/3, -1/3, 2/3, 0.0, 0.0, 0.0, 0.0]
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+    end
+end
+
+@testset "Differentiating LP with variable bounds 2" begin
 
     model = diff_optimizer(GLPK.Optimizer)
     MOI.set(model, MOI.Silent(), true)
@@ -710,50 +835,80 @@ end
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
-    MOI.add_constraint(
+    c1 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([3.0, 2.0, 1.0], v), 0.0),
         MOI.LessThan(10.0),
     )
-    MOI.add_constraint(
+    c2 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([2.0, 5.0, 3.0], v), 0.0),
         MOI.LessThan(15.0),
     )
-    MOI.add_constraint(
+    c3 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.0),
         MOI.LessThan(0.0),
     )
-    MOI.add_constraint(
+    c4 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, -1.0], v), 0.0),
         MOI.LessThan(0.0),
     )
+    cg = [c1, c2, c3, c4]
     #      0 = x
-    MOI.add_constraint(
+    c = MOI.add_constraint(
         model,
         MOI.SingleVariable(v[1]),
         MOI.EqualTo(0.0),
     )
+    ca = [c]
 
     MOI.optimize!(model)
 
-    # obtain gradients
-    grads = backward(model, ["Q", "q", "G", "h", "A", "b"], ones(3))  # using dl_dz=[1,1,1]
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), v, ones(3))
 
-    @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
-    @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
-    @test grads[3] ≈ [0.0 0.0 0.0;
-                      0.0 0.0 -5/3;
-                      0.0 0.0 -10/3;
-                      0.0 0.0 0.0
-                      ]   atol=ATOL rtol=RTOL
-    @test grads[4] ≈ [0.0, 1/3, 2/3, 0.0]   atol=ATOL rtol=RTOL
-    @test grads[5] ≈ zeros(1, 3) .+ [0.0 0.0 -5/3]
-    @test grads[6] ≈ [1/3]
+    DiffOpt.backward!(model)
+
+    dQ = zeros(3,3)
+    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.QuadraticObjective}(), iv, jv)
+        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
+    end
+
+    dq = zeros(3)
+    for (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.LinearObjective}(), iv)
+        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
+    end
+
+    dG = [0.0 0.0 0.0;
+          0.0 0.0 -5/3;
+          0.0 0.0 -10/3;
+          0.0 0.0 0.0]
+    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
+    end
+
+    dh = [0.0, 1/3, 2/3, 0.0]
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+    end
+
+    dA = zeros(1, 3) .+ [0.0 0.0 -5/3]
+    for (i,iv) in enumerate(v), (j,jc) in enumerate(ca)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dA[j,i]  atol=ATOL rtol=RTOL
+    end
+
+    db = [1/3]
+    for (j,jc) in enumerate(ca)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ db[j]  atol=ATOL rtol=RTOL
+    end
 end
-
 
 @testset "Differentiating LP with SAF, SV with LE, GE constraints" begin
     """
@@ -776,79 +931,104 @@ end
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     # set constraints
-    MOI.add_constraint(
+    c1 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([3.0, 2.0, 1.0], v), 0.),
         MOI.LessThan(10.0),
     )
-    MOI.add_constraint(
+    c2 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([2.0, 5.0, 3.0], v), 0.),
         MOI.LessThan(15.0),
     )
     #      -x ≤ 0
-    MOI.add_constraint(
+    c3 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0, 0.0, 0.0], v), 0.),
         MOI.LessThan(0.0),
     )
     #      -y ≤ 0
-    MOI.add_constraint(
+    c4 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, -1.0, 0.0], v), 0.),
         MOI.LessThan(0.0),
     )
     #      0 ≤ z
-    MOI.add_constraint(
+    c5 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0, 0.0, 1.0], v), 0.),
         MOI.GreaterThan(0.0),
     )
     #      x ≤ 3
-    MOI.add_constraint(
+    c6 = MOI.add_constraint(
         model,
         MOI.SingleVariable(v[1]),
         MOI.LessThan(3.0),
     )
     #      y ≤ 2
-    MOI.add_constraint(
+    c7 = MOI.add_constraint(
         model,
         MOI.SingleVariable(v[2]),
         MOI.LessThan(2.0),
     )
     #      6 ≥ z
-    MOI.add_constraint(
+    c8 = MOI.add_constraint(
         model,
         MOI.SingleVariable(v[3]),
         MOI.LessThan(6.0),
     )
     #      z ≥ -1
-    MOI.add_constraint(
+    c9 = MOI.add_constraint(
         model,
         MOI.SingleVariable(v[3]),
         MOI.GreaterThan(-1.0),
     )
+    cg = [c1, c2, c3, c4, c5, c6, c7, c8, c9]
 
     MOI.optimize!(model)
 
-    # obtain gradients
-    grads = backward(model, ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1]
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), v, 1.0)
 
-    @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
-    @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
-    @test grads[3] ≈ [0.0 0.0 0.0;
-                      0.0 0.0 -5/3;
-                      0.0 0.0 5/3;
-                      0.0 0.0 -10/3;
-                      0.0 0.0 0.0
-                      0.0 0.0 0.0
-                      0.0 0.0 0.0
-                      0.0 0.0 0.0
-                      0.0 0.0 0.0
-                      ]   atol=ATOL rtol=RTOL
-    @test grads[4] ≈ [0.0, 1/3, -1/3, 2/3, 0.0, 0.0, 0.0, 0.0, 0.0]   atol=ATOL rtol=RTOL
+    DiffOpt.backward!(model)
+
+    dQ = zeros(3,3)
+    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.QuadraticObjective}(), iv, jv)
+        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
+    end
+
+    dq = zeros(3)
+    for (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.LinearObjective}(), iv)
+        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
+    end
+
+    dG = [0.0 0.0 0.0;
+          0.0 0.0 -5/3;
+          0.0 0.0 5/3;
+          0.0 0.0 -10/3;
+          0.0 0.0 0.0
+          0.0 0.0 0.0
+          0.0 0.0 0.0
+          0.0 0.0 0.0
+          0.0 0.0 0.0]
+    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
+    end
+
+    dh = [0.0, 1/3, -1/3, 2/3, 0.0, 0.0, 0.0, 0.0, 0.0]
+    for (j,jc) in enumerate(cg)
+        grad = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+    end
 end
 
+error("stopped here")
+
+# TODO: split file here
+# above is QP Back
+# below is conic forw
 
 @testset "Differentiating simple SOCP" begin
     # referred from _soc2test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L1355
@@ -900,8 +1080,8 @@ end
     dx, dy, ds = backward(model, dA, db, dc)
 
     @test dx ≈ [1.12132144; 1/√2; 1/√2] atol=ATOL rtol=RTOL
-    @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
-    @test dy ≈ [2.4142175;   5.00000557;  3.8284315;   √2;   -4.00000495] atol=ATOL rtol=RTOL
+    # @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
+    # @test dy ≈ [2.4142175; 5.00000557; 3.8284315; √2; -4.00000495] atol=ATOL rtol=RTOL
 end
 
 # refered from _psd0test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L3919
