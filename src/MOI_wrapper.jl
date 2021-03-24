@@ -341,8 +341,8 @@ function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
     # this is the previously implemented
     # return Diagonal(λ) * dλ * z' - λ * dz')
     return λ[i] * (dλ[i] * z[j]) - λ[i] * dz[j]
-    # from the paper, teh correct solution should be this
-    # and thec correct fix is probably correcting the signs of the duals
+    # from the paper, the correct solution should be this
+    # and the correct fix is probably correcting the signs of the duals
     # since MOI standard is different from text book shadow prices
     # return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
 end
