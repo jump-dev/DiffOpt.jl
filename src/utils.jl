@@ -40,7 +40,7 @@ function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
                 A         spzeros(p, m)          spzeros(p, p)]
     end
 end
-# TODO: this is teh transpose, check back fowr usage
+# TODO: this is the transpose, check back for usage
 
 # """
 #     Right hand side of eqn(6) in https://arxiv.org/pdf/1703.00443.pdf
