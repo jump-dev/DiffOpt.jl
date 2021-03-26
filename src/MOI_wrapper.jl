@@ -1104,6 +1104,7 @@ function forward_conic(model::Optimizer)
     dc = zeros(length(c))
     _fill_array(model, dc, index_map, model.input_cache.dc)
     db = zeros(length(b))
+    _fill_conic_b(model, db)
     (lines, cols) = size(A)
     nz = nnz(A)
     dAv = zeros(Float64, 0)
@@ -1115,6 +1116,7 @@ function forward_conic(model::Optimizer)
     _fill_conic_A(model, dAv, dAi, dAj)
     @show dAv, dAi, dAj, lines, cols
     dA = sparse(dAi, dAj, dAv, lines, cols)
+    @show dc
 
     m = size(A, 1)
     n = size(A, 2)
@@ -1143,16 +1145,16 @@ end
 function _fill_array(model, array, map, dict)
     for (ci, val) in dict
         i = map[ci].value
-        array[i] = val
+        _push_terms(array, val, i)
     end
 end
 function _push_terms(array, val::Number, i)
-    array[i] = val
+    array[i+1] = val
     return
 end
 function _push_terms(array, val::Vector, i)
     for k in eachindex(val)
-        array[i + k - 1] = val[k]
+        array[i + k] = val[k]
     end
     return
 end
@@ -1161,7 +1163,11 @@ function _fill_conic_b(model, db)
     conmap = model.gradient_cache.index_map.conmap
     dict_db = model.input_cache.db
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
-        fill_array(model, db, conmap[F,S], dict_db[F,S])
+        _fill_array(model, db, conmap[F,S], dict_db[F,S])
+    end
+    dict_dbv = model.input_cache.dbv
+    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
+        _fill_array(model, db, conmap[F,S], dict_dbv[F,S])
     end
     return
 end
@@ -1185,7 +1191,7 @@ function _fill_matrix(model, dAv, dAi, dAj, conmap, dict_dA, varmap)
         @show i = conmap[ci].value
         for (vi, val) in dict
             j = varmap[vi].value
-            _push_terms(dAv, dAi, dAj, val, i, j)
+            _push_terms(dAv, dAi, dAj, val, i+1, j)
         end
     end
     return
