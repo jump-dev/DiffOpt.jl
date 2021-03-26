@@ -71,6 +71,7 @@ function build_conic_diff_cache!(model)
         b = b,
         c = c,
         index_map = index_map,
+        conic_form = conic_form,
     )
     return nothing
 end

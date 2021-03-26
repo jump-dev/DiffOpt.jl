@@ -86,6 +86,11 @@ Base.@kwdef struct QPCache
     lhs::SparseMatrixCSC{Float64, Int}
     index_map::MOIU.IndexMap
 end
+
+const CONIC_FORM = MatOI.GeometricConicForm{
+    Float64,
+    MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing},
+    Vector{Float64}}
 Base.@kwdef struct ConicCache
     M::SparseMatrixCSC{Float64, Int}
     vp::Vector
@@ -95,6 +100,7 @@ Base.@kwdef struct ConicCache
     b::Vector{Float64}
     c::Vector{Float64}
     index_map::MOIU.IndexMap
+    conic_form::CONIC_FORM
 end
 const CACHE_TYPE = Union{
     Nothing,
@@ -138,7 +144,9 @@ Base.@kwdef struct DiffInputCache
     # ds
     # dy #= [d\lambada, d\nu] for QP
     dA::MOIDD.DoubleDict{Dict{VI,Float64}} = MOIDD.DoubleDict{Dict{VI,Float64}}() # also includes G for QPs
+    dAv::MOIDD.DoubleDict{Dict{VI,Vector{Float64}}} = MOIDD.DoubleDict{Dict{VI,Vector{Float64}}}() # also includes G for QPs
     db::MOIDD.DoubleDict{Float64} = MOIDD.DoubleDict{Float64}() # also includes h for QPs
+    dbv::MOIDD.DoubleDict{Vector{Float64}} = MOIDD.DoubleDict{Vector{Float64}}() # also includes h for QPs
     dc::Dict{VI, Float64} = Dict{VI, Float64}()
     dQ::Dict{Tuple{VI, VI}, Float64} = Dict{Tuple{VI, VI}, Float64}()
 end
@@ -183,16 +191,18 @@ function MOI.get(model::Optimizer, ::ForwardDiffOut{MOI.VariablePrimal}, vi::VI)
     return get_dx(model, vi)
 end
 get_dx(model::Optimizer, vi) = get_dx(model.forw_grad_cache, model.gradient_cache, vi)
-function get_dx(cache::ConicForwCache, g_cache::ConicCache, vi)
+function get_dx(cache::QPForwBackCache, g_cache::QPCache, vi)
     i = g_cache.index_map[vi].value
     return cache.dz[i]
 end
-function get_dx(f_cache::QPForwBackCache, g_cache::QPCache, vi)
+function get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     i = g_cache.index_map[vi].value
     du = f_cache.du
     dw = f_cache.dw
     x = g_cache.xys[1]
-    return du[i] - x[i] * dw
+    return - (du[i] - x[i] * dw[])
+    # TODO:  check this sign, had to change to passa tests
+    # need to chec standard form
 end
 
 function MOI.get(model::Optimizer, ::BackwardDiffIn{MOI.VariablePrimal}, vi::VI)
@@ -263,7 +273,21 @@ function MOI.get(model::Optimizer,
     return get_db(model, ci)
 end
 get_db(model::Optimizer, ci) = get_db(model.back_grad_cache, model.gradient_cache, ci)
-function get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci)
+function get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
+) where {F<:MOI.AbstractVectorFunction,S}
+    cf = g_cache.conic_form
+    _ci = g_cache.index_map[ci]
+    i = MatOI.rows(conic_form, _ci) # vector
+    # i = g_cache.index_map[ci].value
+    (x, _, _) = g_cache.xys
+    n = length(x) # columns in A
+    # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
+    dQ_ni_end = - g[n .+ i] * πz[end]
+    dQ_end_ni = - g[end] * πz[n .+ i]
+    return - dQ_ni_end + dQ_end_ni
+end
+function get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
+) where {F<:MOI.AbstractScalarFunction,S}
     i = g_cache.index_map[ci].value
     (x, _, _) = g_cache.xys
     n = length(x) # columns in A
@@ -287,13 +311,34 @@ function get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     return - dν[i]
 end
 
+# TODO: vector get for vector constraints
 function MOI.get(model::Optimizer,
-    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}) where {F,S}
+    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}
+) where {F<:MOI.ScalarAffineFunction,S}
     return get(model.input_cache.db, ci, 0.0)
 end
+function MOI.get(model::Optimizer,
+    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}
+) where {F<:MOI.VectorAffineFunction,S}
+    val = get(model.input_cache.dbv, ci, nothing)
+    if val === nothing
+        set = MOI.get(model, MOI.ConstraintSet(), ci)
+        dim = MOI.dimension(set)
+        return zeros(dim)
+    else
+        return val
+    end
+end
 function MOI.set(model::Optimizer,
-    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}, val) where {F,S}
+    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}, val::Number
+) where {F<:MOI.ScalarAffineFunction,S}
     model.input_cache.db[ci] = val
+    return
+end
+function MOI.set(model::Optimizer,
+    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}, val::Vector
+) where {F<:MOI.VectorAffineFunction,S}
+    model.input_cache.dbv[ci] = val
     return
 end
 
@@ -303,7 +348,8 @@ function MOI.get(model::Optimizer,
     return get_dA(model, vi, ci)
 end
 get_dA(model::Optimizer, vi, ci) = get_dA(model.back_grad_cache, model.gradient_cache, vi, ci)
-function get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci)
+function get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
+) where {F<:MOI.AbstractScalarFunction,S}
     j = g_cache.index_map[vi].value
     i = g_cache.index_map[ci].value
     (x, y, _) = g_cache.xys
@@ -313,6 +359,21 @@ function get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci)
     dQ_i_nj =  - g[i] * πz[n+j]
     dQ_nj_i =  - g[n+j] * πz[i]
     return - dQ_i_nj + dQ_nj_i
+end
+function get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
+) where {F<:MOI.AbstractVectorFunction,S}
+    cf = g_cache.conic_form
+    _ci = g_cache.index_map[ci]
+    i = MatOI.rows(conic_form, _ci) # vector
+    j = g_cache.index_map[vi].value
+    # i = g_cache.index_map[ci].value
+    (x, y, _) = g_cache.xys
+    n = length(x) # columns in A
+    m = length(y) # lines in A
+    # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
+    dQ_i_nj =  - g[i] * πz[n+j]
+    dQ_nj_i =  - g[n+j] * πz[i]
+    return - dQ_i_nj .+ dQ_nj_i
 end
 # quadratic matrix indexes are split by type either == or (<=/>=)
 function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
@@ -347,6 +408,7 @@ function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
     # return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
 end
 
+# TODO: vector get for vector constraints
 function MOI.get(model::Optimizer,
     ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
     dict = get(model.input_cache.dA, ci, nothing)
@@ -357,10 +419,22 @@ function MOI.get(model::Optimizer,
     end
 end
 function MOI.set(model::Optimizer,
-    ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val) where {F,S}
+    ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val::Number
+) where {F<:MOI.ScalarAffineFunction,S}
     dict = get(model.input_cache.dA, ci, nothing)
     if dict === nothing
         model.input_cache.dA[ci] = Dict(vi => val)
+    else
+        dict[vi] = val
+    end
+    return
+end
+function MOI.set(model::Optimizer,
+    ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val::Vector
+) where {F<:MOI.VectorAffineFunction,S}
+    dict = get(model.input_cache.dAv, ci, nothing)
+    if dict === nothing
+        model.input_cache.dAv[ci] = Dict(vi => val)
     else
         dict[vi] = val
     end
@@ -1039,7 +1113,8 @@ function forward_conic(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     _fill_conic_A(model, dAv, dAi, dAj)
-    dA = sparse(dAv, dAi, dAj, lines, cols)
+    @show dAv, dAi, dAj, lines, cols
+    dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
     n = size(A, 2)
@@ -1057,7 +1132,7 @@ function forward_conic(model::Optimizer)
     end
 
     du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
-    model.forw_grad_cache = ConicForwCache(du, dv, dw)
+    model.forw_grad_cache = ConicForwCache(du, dv, [dw])
     return nothing
     # dx = du - x * dw
     # dy = Dπv * dv - y * dw
@@ -1070,6 +1145,16 @@ function _fill_array(model, array, map, dict)
         i = map[ci].value
         array[i] = val
     end
+end
+function _push_terms(array, val::Number, i)
+    array[i] = val
+    return
+end
+function _push_terms(array, val::Vector, i)
+    for k in eachindex(val)
+        array[i + k - 1] = val[k]
+    end
+    return
 end
 
 function _fill_conic_b(model, db)
@@ -1088,17 +1173,34 @@ function _fill_conic_A(model, dAv, dAi, dAj)
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
         _fill_matrix(model, dAv, dAi, dAj, conmap[F,S], dict_dA[F,S], varmap)
     end
+    dict_dAv = model.input_cache.dAv
+    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
+        _fill_matrix(model, dAv, dAi, dAj, conmap[F,S], dict_dAv[F,S], varmap)
+    end
     return
 end
 function _fill_matrix(model, dAv, dAi, dAj, conmap, dict_dA, varmap)
     for (ci, dict) in dict_dA
-        i = conmap[ci].value
+        @show ci
+        @show i = conmap[ci].value
         for (vi, val) in dict
             j = varmap[vi].value
-            push!(dAv, val)
-            push!(dAi, i)
-            push!(dAj, j)
+            _push_terms(dAv, dAi, dAj, val, i, j)
         end
+    end
+    return
+end
+function _push_terms(dAv, dAi, dAj, val::Number, i, j)
+    push!(dAv, val)
+    push!(dAi, i + 1)
+    push!(dAj, j)
+    return
+end
+function _push_terms(dAv, dAi, dAj, val::Vector, i, j)
+    for k in eachindex(val)
+        push!(dAv, val[k])
+        push!(dAi, i + k)# - 1) ci is zero based
+        push!(dAj, j)
     end
     return
 end
