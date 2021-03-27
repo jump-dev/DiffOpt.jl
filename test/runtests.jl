@@ -25,6 +25,7 @@ const RTOL = 1e-4
 @testset "Examples" begin
     include(joinpath(@__DIR__, "../examples/solve-LP.jl"))
     include(joinpath(@__DIR__, "../examples/solve-QP.jl"))
+    include(joinpath(@__DIR__, "../examples/unit-example.jl"))
 end
 
 @testset "Generate random problems" begin
