@@ -60,9 +60,9 @@ Add the constraints.
 MOI.add_constraint(
     model,
     MOI.VectorAffineFunction(
-        MOI.VectorAffineTerm.(1:N, MOI.ScalarAffineTerm.(1.0, l)), zeros(N)
+        MOI.VectorAffineTerm.(1:N, MOI.ScalarAffineTerm.(1.0, l)), zeros(N),
     ), 
-    MOI.Nonnegatives(N)
+    MOI.Nonnegatives(N),
 )
 
 # define the whole matrix Ax, it'll be easier then
