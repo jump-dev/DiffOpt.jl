@@ -45,14 +45,12 @@ nothing # hide
 
 Let's define the variables.
 ```@example 1
-(nobs, nfeat) = size(X)
-
 model = diff_optimizer(SCS.Optimizer) 
 MOI.set(model, MOI.Silent(), true)
 
 # add variables
-l = MOI.add_variables(model, nobs)
-w = MOI.add_variables(model, nfeat)
+l = MOI.add_variables(model, N)
+w = MOI.add_variables(model, D)
 b = MOI.add_variable(model)
 nothing # hide
 ```
@@ -62,26 +60,26 @@ Add the constraints.
 MOI.add_constraint(
     model,
     MOI.VectorAffineFunction(
-        MOI.VectorAffineTerm.(1:nobs, MOI.ScalarAffineTerm.(1.0, l)), zeros(nobs)
+        MOI.VectorAffineTerm.(1:N, MOI.ScalarAffineTerm.(1.0, l)), zeros(N)
     ), 
-    MOI.Nonnegatives(nobs)
+    MOI.Nonnegatives(N)
 )
 
 # define the whole matrix Ax, it'll be easier then
 # refer https://discourse.julialang.org/t/solve-minimization-problem-where-constraint-is-the-system-of-linear-inequation-with-mathoptinterface-efficiently/23571/4
-Ax = Matrix{MOI.ScalarAffineTerm{Float64}}(undef, nobs, nfeat+2)
-for i in 1:nobs
+Ax = Matrix{MOI.ScalarAffineTerm{Float64}}(undef, N, D+2)
+for i in 1:N
     Ax[i, :] = MOI.ScalarAffineTerm.([1.0; y[i]*X[i,:]; y[i]], [l[i]; w; b])
 end
-terms = MOI.VectorAffineTerm.(1:nobs, Ax)
+terms = MOI.VectorAffineTerm.(1:N, Ax)
 f = MOI.VectorAffineFunction(
     vec(terms),
-    -ones(nobs),
+    -ones(N),
 )
 MOI.add_constraint(
     model,
     f,
-    MOI.Nonnegatives(nobs),
+    MOI.Nonnegatives(N),
 )
 nothing # hide
 ```
@@ -89,7 +87,7 @@ nothing # hide
 Define the linear objective function and solve the SVM model.
 ```@example 1
 objective_function = MOI.ScalarAffineFunction(
-                        MOI.ScalarAffineTerm.(ones(nobs), l),
+                        MOI.ScalarAffineTerm.(ones(N), l),
                         0.0,
                     )
 MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
@@ -119,26 +117,68 @@ nothing # hide
 
 ![svg](svm_separating.svg)
 
-## Experiment 1: Changing the labels
+# Experiments
+Now that we've solved the SVM, we can compute the sensitivity of program variables -- the separating hyperplane in our case -- with respect to perturbations in problem data -- the data points -- using DiffOpt. For illustration, we've explored two questions:
 
-Let's change data point labels `y` without changing the predictors `X`. Construct the perturbations.
+- How does a change in labels of the data points (`y=1` to `y=-1`, and vice versa) affects the position of the hyperplane? This is achieved by finding gradient of `w`, `b` with respect to `y[i]`, classification label of the ith data point (do not confuse `y[i]` with the array of dual variables.)
+- How does a change in coordinates of the data points, `X`, affects the position of the hyperplane? This is achieved by finding gradient of `w`, `b` with respect to `X[i]`, 2D coordinates of the data points.
+
+Note that the SVM program can be modelled as a conic optimization program
+
+```math
+\begin{align*}
+& \min_{x \in \mathbb{R}^n} & c^T x \\
+& \text{s.t.}               & A x + s = b  \\
+&                           & b \in \mathbb{R}^m  \\
+&                           & s \in \mathcal{K}
+\end{align*}
+```
+
+where
+```math
+\begin{align*}
+c &= [l_1 - 1, l_2 -1, ... l_N -1, 0, 0, ... 0 \text{(D+1 times)}] \\\\
+
+A &= 
+\begin{bmatrix}
+ -l_1 &    0 & ... &    0 &            0 & ... & 0 & 0  \\ 
+    0 & -l_2 & ... &    0 &            0 & ... & 0 & 0  \\ 
+    : &    : & ... &    : &            0 & ... & 0 & 0  \\ 
+    0 &    0 & ... & -l_N &            0 & ... & 0 & 0  \\ 
+    0 &    0 & ... &    0 & -y_1 X_{1,1} & ... & -y_1 X_{1,N} & -y_1  \\ 
+    0 &    0 & ... &    0 & -y_2 X_{2,1} & ... & -y_1 X_{2,N} & -y_2  \\ 
+    : &    : & ... &    : &           :  & ... &          :   & :   \\ 
+    0 &    0 & ... &    0 & -y_N X_{N,1} & ... & -y_N X_{N,N} & -y_N  \\ 
+\end{bmatrix} \\\\
+
+b &= [0, 0, ... 0 \text{(N times)}, l_1 - 1, l_2 -1, ... l_N -1] \\\\
+
+\mathcal{K} &= \text{Set of Nonnegative cones}
+\end{align*}
+```
+
+
+## Experiment 1: Gradient of hyperplane wrt the data point labels
+
+Construct perturbations in data point labels `y` without changing the data point coordinates `X`.
 
 ```@example 1
-ðA = zeros(2*nobs, nobs+nfeat+1)
-ðb = zeros(2*nobs)
-ðc = zeros(nobs+nfeat+1)
+ðA = zeros(2*N, N+D+1)
+ðb = zeros(2*N)
+ðc = zeros(N+D+1)
 
 ∇ = Float64[]
 
 # begin differentiating
-for Xi in 1:nobs
-    ðA[nobs+Xi, nobs+nfeat+1] = 1.0
+for Xi in 1:N
+    # note that 
+    ðA[N+Xi, N+D+1] = 1.0
     
     dx, dy, ds = backward(model, ðA, ðb, ðc)
-    dl, dw, db = dx[1:nobs], dx[nobs+1:nobs+1+nfeat], dx[nobs+1+nfeat]
+    dl, dw, db = dx[1:N], dx[N+1:N+1+D], dx[N+1+D]
     push!(∇, norm(dw)+norm(db))
     
-    ðA[nobs+Xi, nobs+nfeat+1] = 0.0
+    ðA[N+Xi, N+D+1] = 0.0  # reset the change made above
 end
 LinearAlgebra.normalize!(∇)
 nothing # hide
@@ -160,26 +200,26 @@ nothing # hide
 ![](sensitivity2.svg)
 
 
-## Experiment 2: Changing the data points
+## Experiment 2: Gradient of hyperplane wrt the data point coordinates
 
-Similar to previous example, we can change labels `y` and data points `X` too.
+Similar to previous example, construct perturbations in data points coordinates `X`.
 ```julia
 # constructing perturbations
-ðA = zeros(2*nobs, nobs+nfeat+1)
-ðb = zeros(2*nobs)
-ðc = zeros(nobs+nfeat+1); # c = sum(`l`) + 0'w + 0.b
+ðA = zeros(2*N, N+D+1)
+ðb = zeros(2*N)
+ðc = zeros(N+D+1); 
 
 ∇ = Float64[]
 
 # begin differentiating
-for Xi in 1:nobs
-    ðA[nobs+Xi, nobs.+(1:nfeat+1)] = ones(3)
+for Xi in 1:N
+    ðA[N+Xi, N.+(1:D+1)] = ones(3)
     
     dx, dy, ds = backward(model, ðA, ðb, ðc)
-    dl, dw, db = dx[1:nobs], dx[nobs+1:nobs+1+nfeat], dx[nobs+1+nfeat]
+    dl, dw, db = dx[1:N], dx[N+1:N+1+D], dx[N+1+D]
     push!(∇, norm(dw)+norm(db))
     
-    ðA[nobs+Xi, nobs.+(1:nfeat+1)] = zeros(3)
+    ðA[N+Xi, N.+(1:D+1)] = zeros(3)
 end
 LinearAlgebra.normalize!(∇)
 ```

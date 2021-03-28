@@ -20,42 +20,40 @@ Random.seed!(rand(1:100))
 X = vcat(randn(N, D), randn(N,D) .+ [4.0,1.5]')
 y = append!(ones(N), -ones(N));
 
-(nobs, nfeat) = size(X)
-
 model = diff_optimizer(SCS.Optimizer) 
 
 # add variables
-l = MOI.add_variables(model, nobs)
-w = MOI.add_variables(model, nfeat)
+l = MOI.add_variables(model, N)
+w = MOI.add_variables(model, D)
 b = MOI.add_variable(model)
 
 MOI.add_constraint(
     model,
     MOI.VectorAffineFunction(
-        MOI.VectorAffineTerm.(1:nobs, MOI.ScalarAffineTerm.(1.0, l)), zeros(nobs)
+        MOI.VectorAffineTerm.(1:N, MOI.ScalarAffineTerm.(1.0, l)), zeros(N)
     ), 
-    MOI.Nonnegatives(nobs)
+    MOI.Nonnegatives(N)
 )
 
 # define the whole matrix Ax, it'll be easier then
 # refer https://discourse.julialang.org/t/solve-minimization-problem-where-constraint-is-the-system-of-linear-inequation-with-mathoptinterface-efficiently/23571/4
-Ax = Matrix{MOI.ScalarAffineTerm{Float64}}(undef, nobs, nfeat+2)
-for i in 1:nobs
+Ax = Matrix{MOI.ScalarAffineTerm{Float64}}(undef, N, D+2)
+for i in 1:N
     Ax[i, :] = MOI.ScalarAffineTerm.([1.0; y[i]*X[i,:]; y[i]], [l[i]; w; b])
 end
-terms = MOI.VectorAffineTerm.(1:nobs, Ax)
+terms = MOI.VectorAffineTerm.(1:N, Ax)
 f = MOI.VectorAffineFunction(
     vec(terms),
-    -ones(nobs)
+    -ones(N)
 )
 MOI.add_constraint(
     model,
     f,
-    MOI.Nonnegatives(nobs)
+    MOI.Nonnegatives(N)
 )
 
 objective_function = MOI.ScalarAffineFunction(
-                        MOI.ScalarAffineTerm.(ones(nobs), l),
+                        MOI.ScalarAffineTerm.(ones(N), l),
                         0.0
                     )
 MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
@@ -74,21 +72,21 @@ if should_plot
 end
 
 # constructing perturbations
-ðA = zeros(2*nobs, nobs+nfeat+1)
-ðb = zeros(2*nobs)
-ðc = zeros(nobs+nfeat+1); # c = sum(`l`) + 0'w + 0.b
+ðA = zeros(2*N, N+D+1)
+ðb = zeros(2*N)
+ðc = zeros(N+D+1); 
 
 ∇ = Float64[]
 
 # begin differentiating
-for Xi in 1:nobs
-    ðA[nobs+Xi, nobs+nfeat+1] = 1.0
+for Xi in 1:N
+    ðA[N+Xi, N+D+1] = 1.0
     
     dx, dy, ds = backward(model, ðA, ðb, ðc)
-    dl, dw, db = dx[1:nobs], dx[nobs+1:nobs+1+nfeat], dx[nobs+1+nfeat]
+    dl, dw, db = dx[1:N], dx[N+1:N+1+D], dx[N+1+D]
     push!(∇, norm(dw)+norm(db))
     
-    ðA[nobs+Xi, nobs+nfeat+1] = 0.0
+    ðA[N+Xi, N+D+1] = 0.0
 end
 normalize!(∇)
 
@@ -106,21 +104,21 @@ if should_plot
 end
 
 # constructing perturbations
-ðA = zeros(2*nobs, nobs+nfeat+1)
-ðb = zeros(2*nobs)
-ðc = zeros(nobs+nfeat+1); # c = sum(`l`) + 0'w + 0.b
+ðA = zeros(2*N, N+D+1)
+ðb = zeros(2*N)
+ðc = zeros(N+D+1); 
 
 ∇ = Float64[]
 
 # begin differentiating
-for Xi in 1:nobs
-    ðA[nobs+Xi, nobs.+(1:nfeat+1)] = ones(3)
+for Xi in 1:N
+    ðA[N+Xi, N.+(1:D+1)] = ones(3)
     
     dx, dy, ds = backward(model, ðA, ðb, ðc)
-    dl, dw, db = dx[1:nobs], dx[nobs+1:nobs+1+nfeat], dx[nobs+1+nfeat]
+    dl, dw, db = dx[1:N], dx[N+1:N+1+D], dx[N+1+D]
     push!(∇, norm(dw)+norm(db))
     
-    ðA[nobs+Xi, nobs.+(1:nfeat+1)] = zeros(3)
+    ðA[N+Xi, N.+(1:D+1)] = zeros(3)
 end
 normalize!(∇)
 
