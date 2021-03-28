@@ -123,7 +123,7 @@ Now that we've solved the SVM, we can compute the sensitivity of program variabl
 - How does a change in labels of the data points (`y=1` to `y=-1`, and vice versa) affects the position of the hyperplane? This is achieved by finding gradient of `w`, `b` with respect to `y[i]`, classification label of the ith data point (do not confuse `y[i]` with the array of dual variables.)
 - How does a change in coordinates of the data points, `X`, affects the position of the hyperplane? This is achieved by finding gradient of `w`, `b` with respect to `X[i]`, 2D coordinates of the data points.
 
-Note that the SVM program can be modelled as a conic optimization program
+Note that the SVM program can be modelled as a conic optimization program:
 
 ```math
 \begin{align*}
