@@ -229,7 +229,7 @@ We can visualize point sensitvity with respect to the separating hyperplane. Not
 p3 = Plots.scatter(
     X[:,1], X[:,2], 
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
-    markersize = ∇ * 20
+    markersize = ∇ * 20,
 )
 Plots.yaxis!(p3, (-2, 4.5))
 Plots.plot!(p3, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
