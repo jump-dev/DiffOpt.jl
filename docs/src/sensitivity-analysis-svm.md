@@ -189,7 +189,7 @@ Visualize point sensitivities with respect to separating hyperplane. Note that t
 p2 = Plots.scatter(
     X[:,1], X[:,2], 
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
-    markersize = ∇ * 20
+    markersize = ∇ * 20,
 )
 Plots.yaxis!(p2, (-2, 4.5))
 Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
