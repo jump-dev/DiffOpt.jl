@@ -6,7 +6,7 @@
 
 ## Supported objectives & constraints - scheme 1
 
-For `QPTH`/`OPTNET` backend (using `backward_quad` method), the package supports following `Function-in-Set` constraints: 
+For `QPTH`/`OPTNET` style backend, the package supports following `Function-in-Set` constraints: 
 
 |  MOI Function | MOI Set |
 |:-------|:---------------|
@@ -28,7 +28,7 @@ and the following objective types:
 
 ## Supported objectives & constraints - scheme 2
 
-For `DiffCP`/`CVXPY` backend (using `backward_conic` method), the package supports following `Function-in-Set` constraints: 
+For `DiffCP`/`CVXPY` style backend, the package supports following `Function-in-Set` constraints: 
 
 |  MOI Function | MOI Set |
 |:-------|:---------------|

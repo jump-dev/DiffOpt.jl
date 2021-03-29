@@ -57,9 +57,9 @@ julia> model = diff_optimizer(GLPK.Optimizer)
 julia> model.add_variable(x)
 julia> model.add_constraint(...)
 
-julia> backward_quad(model)  # for convex quadratic models
+julia> _backward_quad(model)  # for convex quadratic models
 
-julia> backward_quad(model)  # for convex conic models
+julia> _backward_quad(model)  # for convex conic models
 ```
 """
 function diff_optimizer(optimizer_constructor)::Optimizer
@@ -151,14 +151,99 @@ Base.@kwdef struct DiffInputCache
     dQ::Dict{Tuple{VI, VI}, Float64} = Dict{Tuple{VI, VI}, Float64}()
 end
 
-struct ForwardDiffIn{T} <: MOI.AbstractModelAttribute end
-struct ForwardDiffOut{T} <: MOI.AbstractModelAttribute end
-struct BackwardDiffIn{T} <: MOI.AbstractModelAttribute end
-struct BackwardDiffOut{T} <: MOI.AbstractModelAttribute end
+"""
+    ForwardIn{T}
 
+A MOI.AbstractModelAttribute to set input data to forward differentiation, that
+is, problem input data.
+The input data includes:
+[`LinearObjective`](@ref), [`ConstraintConstant`](@ref),
+[`ConstraintCoefficient`](@ref) and [`QuadraticObjective`](@ref).
+The latter can only be used in linearly constrained quadratic models.
+
+```julia
+MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x)
+```
+"""
+struct ForwardIn{T} <: MOI.AbstractModelAttribute end
+
+"""
+    ForwardOut{T}
+
+A MOI.AbstractModelAttribute to set input data to backward differentiation, that
+is, problem solution.
+The input data includes:
+MOI.VariablePrimal.
+
+```julia
+MOI.set(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
+```
+"""
+struct ForwardOut{T} <: MOI.AbstractModelAttribute end
+
+"""
+    BackwardIn{T}
+
+A MOI.AbstractModelAttribute to set input data to backward differentiation, that
+is, problem solution.
+The input data includes:
+MOI.VariablePrimal.
+
+```julia
+MOI.set(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x)
+```
+"""
+struct BackwardIn{T} <: MOI.AbstractModelAttribute end
+
+"""
+    BackwardOut{T}
+
+A MOI.AbstractModelAttribute to get output data to backward differentiation, that
+is, problem solution.
+The solution data includes:
+[`LinearObjective`](@ref), [`ConstraintConstant`](@ref),
+[`ConstraintCoefficient`](@ref) and [`QuadraticObjective`](@ref).
+The latter can only be used in linearly constrained quadratic models.
+
+```julia
+MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), x)
+```
+"""
+struct BackwardOut{T} <: MOI.AbstractModelAttribute end
+
+"""
+    LinearObjective
+
+An attribute to set input and get output differentials from forward and backward
+differentiation related to the linear objective coefficient associated to an
+`MOI.VariableIndex`.
+"""
 struct LinearObjective <: MOI.AbstractModelAttribute end #(var)
+
+"""
+    QuadraticObjective
+
+An attribute to set input and get output differentials from forward and backward
+differentiation related to the quadratic objective coefficient associated to a pair
+of `MOI.VariableIndex`'s.
+"""
 struct QuadraticObjective <: MOI.AbstractModelAttribute end #(var, var)
+
+"""
+    ConstraintConstant
+
+An attribute to set input and get output differentials from forward and backward
+differentiation related to the constant term associated to a `MOI.ConstraintIndex`.
+"""
 struct ConstraintConstant <: MOI.AbstractModelAttribute end #(con)
+
+"""
+    ConstraintCoefficient
+
+An attribute to set input and get output differentials from forward and backward
+differentiation related to the linear coefficient associated to a pair:
+`MOI.VariableIndex` and `MOI.ConstraintIndex`.
+"""
 struct ConstraintCoefficient <: MOI.AbstractModelAttribute end #(var, con)
 
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
@@ -187,15 +272,15 @@ end
 
 # TODO: ci accesses in index_map can be more type stable
 # TODO: vector/batched version of these methods for better performance
-function MOI.get(model::Optimizer, ::ForwardDiffOut{MOI.VariablePrimal}, vi::VI)
-    return get_dx(model, vi)
+function MOI.get(model::Optimizer, ::ForwardOut{MOI.VariablePrimal}, vi::VI)
+    return _get_dx(model, vi)
 end
-get_dx(model::Optimizer, vi) = get_dx(model.forw_grad_cache, model.gradient_cache, vi)
-function get_dx(cache::QPForwBackCache, g_cache::QPCache, vi)
+_get_dx(model::Optimizer, vi) = _get_dx(model.forw_grad_cache, model.gradient_cache, vi)
+function _get_dx(cache::QPForwBackCache, g_cache::QPCache, vi)
     i = g_cache.index_map[vi].value
     return cache.dz[i]
 end
-function get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
+function _get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     i = g_cache.index_map[vi].value
     du = f_cache.du
     dw = f_cache.dw
@@ -205,19 +290,19 @@ function get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     # need to check standard form
 end
 
-function MOI.get(model::Optimizer, ::BackwardDiffIn{MOI.VariablePrimal}, vi::VI)
+function MOI.get(model::Optimizer, ::BackwardIn{MOI.VariablePrimal}, vi::VI)
     return get(model.input_cache.dx, vi, 0.0)
 end
-function MOI.set(model::Optimizer, ::BackwardDiffIn{MOI.VariablePrimal}, vi::VI, val)
+function MOI.set(model::Optimizer, ::BackwardIn{MOI.VariablePrimal}, vi::VI, val)
     model.input_cache.dx[vi] = val
     return
 end
 
-function MOI.get(model::Optimizer, ::BackwardDiffOut{LinearObjective}, vi::VI)
-    return get_dc(model, vi)
+function MOI.get(model::Optimizer, ::BackwardOut{LinearObjective}, vi::VI)
+    return _get_dc(model, vi)
 end
-get_dc(model::Optimizer, vi) = get_dc(model.back_grad_cache, model.gradient_cache, vi)
-function get_dc(b_cache::ConicBackCache, g_cache::ConicCache, vi)
+_get_dc(model::Optimizer, vi) = _get_dc(model.back_grad_cache, model.gradient_cache, vi)
+function _get_dc(b_cache::ConicBackCache, g_cache::ConicCache, vi)
     i = g_cache.index_map[vi].value
     g = b_cache.g
     πz = b_cache.πz
@@ -225,29 +310,29 @@ function get_dc(b_cache::ConicBackCache, g_cache::ConicCache, vi)
     dQ_end_i = - g[end] * πz[i]
     return - dQ_i_end + dQ_i_end
 end
-function get_dc(b_cache::QPForwBackCache, g_cache::QPCache, vi)
+function _get_dc(b_cache::QPForwBackCache, g_cache::QPCache, vi)
     i = g_cache.index_map[vi].value
     dz = b_cache.dz
     return dz[i]
 end
 
-function MOI.get(model::Optimizer, ::ForwardDiffIn{LinearObjective}, vi::VI)
+function MOI.get(model::Optimizer, ::ForwardIn{LinearObjective}, vi::VI)
     return get(model.input_cache.dc, vi, 0.0)
 end
-function MOI.set(model::Optimizer, ::ForwardDiffIn{LinearObjective}, vi::VI, val)
+function MOI.set(model::Optimizer, ::ForwardIn{LinearObjective}, vi::VI, val)
     model.input_cache.dc[vi] = val
     return
 end
 
 function MOI.get(model::Optimizer,
-    ::BackwardDiffOut{QuadraticObjective}, vi1::VI, vi2::VI)
-    return get_dQ(model, vi1, vi2)
+    ::BackwardOut{QuadraticObjective}, vi1::VI, vi2::VI)
+    return _get_dQ(model, vi1, vi2)
 end
-get_dQ(model::Optimizer, vi1, vi2) = get_dQ(model.back_grad_cache, model.gradient_cache, vi1, vi2)
-function get_dQ(b_cache::ConicBackCache, g_cache::ConicCache, vi1, vi2)
+_get_dQ(model::Optimizer, vi1, vi2) = _get_dQ(model.back_grad_cache, model.gradient_cache, vi1, vi2)
+function _get_dQ(b_cache::ConicBackCache, g_cache::ConicCache, vi1, vi2)
     error("Quadratic function not availablein conic model differentiation")
 end
-function get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
+function _get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
     i = g_cache.index_map[vi1].value
     j = g_cache.index_map[vi2].value
     z = g_cache.var_primals
@@ -256,12 +341,12 @@ function get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
 end
 
 function MOI.get(model::Optimizer,
-    ::ForwardDiffIn{QuadraticObjective}, vi1::VI, vi2::VI)
+    ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI)
     tuple = ifelse(index(vi1) <= index(vi2), (vi1, vi2), (vi2, vi1))
     return get(model.input_cache.dQ, tuple, 0.0)
 end
 function MOI.set(model::Optimizer,
-    ::ForwardDiffIn{QuadraticObjective}, vi1::VI, vi2::VI, val)
+    ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI, val)
     tuple = ifelse(index(vi1) <= index(vi2), (vi1, vi2), (vi2, vi1))
     model.input_cache.dQ[tuple] = val
     return
@@ -269,11 +354,11 @@ end
 
 # TODO: deal with vector constraints
 function MOI.get(model::Optimizer,
-    ::BackwardDiffOut{ConstraintConstant}, ci::CI{F,S}) where {F,S}
-    return get_db(model, ci)
+    ::BackwardOut{ConstraintConstant}, ci::CI{F,S}) where {F,S}
+    return _get_db(model, ci)
 end
-get_db(model::Optimizer, ci) = get_db(model.back_grad_cache, model.gradient_cache, ci)
-function get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
+_get_db(model::Optimizer, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
+function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     cf = g_cache.conic_form
     _ci = g_cache.index_map[ci]
@@ -286,7 +371,7 @@ function get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     dQ_end_ni = - g[end] * πz[n .+ i]
     return - dQ_ni_end + dQ_end_ni
 end
-function get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
+function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
     i = g_cache.index_map[ci].value
     (x, _, _) = g_cache.xys
@@ -296,7 +381,7 @@ function get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     dQ_end_ni = - g[end] * πz[n+i]
     return - dQ_ni_end + dQ_end_ni
 end
-function get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
+function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S}
     i = g_cache.index_map[ci].value
     # dh = -Diagonal(λ) * dλ
@@ -304,7 +389,7 @@ function get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     λ = g_cache.inequality_duals
     return - λ[i] * dλ[i]
 end
-function get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
+function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S<:MOI.EqualTo}
     i = g_cache.index_map[ci].value
     dν = b_cache.dν
@@ -313,12 +398,12 @@ end
 
 # TODO: vector get for vector constraints
 function MOI.get(model::Optimizer,
-    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}
+    ::ForwardIn{ConstraintConstant}, ci::CI{F,S}
 ) where {F<:MOI.ScalarAffineFunction,S}
     return get(model.input_cache.db, ci, 0.0)
 end
 function MOI.get(model::Optimizer,
-    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}
+    ::ForwardIn{ConstraintConstant}, ci::CI{F,S}
 ) where {F<:MOI.VectorAffineFunction,S}
     val = get(model.input_cache.dbv, ci, nothing)
     if val === nothing
@@ -330,13 +415,13 @@ function MOI.get(model::Optimizer,
     end
 end
 function MOI.set(model::Optimizer,
-    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}, val::Number
+    ::ForwardIn{ConstraintConstant}, ci::CI{F,S}, val::Number
 ) where {F<:MOI.ScalarAffineFunction,S}
     model.input_cache.db[ci] = val
     return
 end
 function MOI.set(model::Optimizer,
-    ::ForwardDiffIn{ConstraintConstant}, ci::CI{F,S}, val::Vector
+    ::ForwardIn{ConstraintConstant}, ci::CI{F,S}, val::Vector
 ) where {F<:MOI.VectorAffineFunction,S}
     model.input_cache.dbv[ci] = val
     return
@@ -344,11 +429,11 @@ end
 
 # TODO: deal with vector constraints
 function MOI.get(model::Optimizer,
-    ::BackwardDiffOut{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
-    return get_dA(model, vi, ci)
+    ::BackwardOut{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
+    return _get_dA(model, vi, ci)
 end
-get_dA(model::Optimizer, vi, ci) = get_dA(model.back_grad_cache, model.gradient_cache, vi, ci)
-function get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
+_get_dA(model::Optimizer, vi, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, vi, ci)
+function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
     j = g_cache.index_map[vi].value
     i = g_cache.index_map[ci].value
@@ -360,7 +445,7 @@ function get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
     dQ_nj_i =  - g[n+j] * πz[i]
     return - dQ_i_nj + dQ_nj_i
 end
-function get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
+function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     cf = g_cache.conic_form
     _ci = g_cache.index_map[ci]
@@ -376,7 +461,7 @@ function get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
     return - dQ_i_nj .+ dQ_nj_i
 end
 # quadratic matrix indexes are split by type either == or (<=/>=)
-function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
+function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
 ) where {F, S<:MOI.EqualTo}
     j = g_cache.index_map[vi].value
     i = g_cache.index_map[ci].value
@@ -391,7 +476,7 @@ function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
     # since MOI standard is different from text book shadow prices
     # return dν[i] * z[j] + ν[i] * dz[j]
 end
-function get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
+function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
 ) where {F, S}
     j = g_cache.index_map[vi].value
     i = g_cache.index_map[ci].value
@@ -410,7 +495,7 @@ end
 
 # TODO: vector get for vector constraints
 function MOI.get(model::Optimizer,
-    ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
+    ::ForwardIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
     dict = get(model.input_cache.dA, ci, nothing)
     if dict === nothing
         return 0.0
@@ -419,7 +504,7 @@ function MOI.get(model::Optimizer,
     end
 end
 function MOI.set(model::Optimizer,
-    ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val::Number
+    ::ForwardIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val::Number
 ) where {F<:MOI.ScalarAffineFunction,S}
     dict = get(model.input_cache.dA, ci, nothing)
     if dict === nothing
@@ -430,7 +515,7 @@ function MOI.set(model::Optimizer,
     return
 end
 function MOI.set(model::Optimizer,
-    ::ForwardDiffIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val::Vector
+    ::ForwardIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val::Vector
 ) where {F<:MOI.VectorAffineFunction,S}
     dict = get(model.input_cache.dAv, ci, nothing)
     if dict === nothing
@@ -541,19 +626,19 @@ function MOI.optimize!(model::Optimizer)
 end
 
 
-const QP_SET_TYPES = Union{
+const _QP_SET_TYPES = Union{
     MOI.GreaterThan{Float64},
     MOI.LessThan{Float64},
     MOI.EqualTo{Float64},
     # MOI.Interval{Float64},
 }
 
-const QP_FUNCTION_TYPES = Union{
+const _QP_FUNCTION_TYPES = Union{
     MOI.SingleVariable,
     MOI.ScalarAffineFunction{Float64},
 }
 
-const QP_OBJECTIVE_TYPES = Union{
+const _QP_OBJECTIVE_TYPES = Union{
     MathOptInterface.ScalarAffineFunction{Float64},
     MathOptInterface.ScalarQuadraticFunction{Float64},
 }
@@ -561,39 +646,41 @@ const QP_OBJECTIVE_TYPES = Union{
 """
     backward!(model::Optimizer)
 
-Wrapper method for the backward pass. Checks the model/problem type and dispatches a call to
-[`backward_quad`](@ref) or [`backward_conic`](@ref) accordingly.
+Wrapper method for the backward pass.
+This method will consider as input a currelty solved problem and data set with
+the [`BackwardIn`](@ref) attribute.
+The output differentials can be queried with the attribute [`BackwardOut`](@ref).
 """
 function backward!(model::Optimizer)
-    if qp_supported(model.optimizer)
-        return backward_quad(model)
-    elseif !is_qp_obj(model)
-        return backward_conic(model)
+    if _qp_supported(model.optimizer)
+        return _backward_quad(model)
+    elseif !_is_qp_obj(model)
+        return _backward_conic(model)
     else
         error("Non-supported model")
     end
 end
 
 function forward!(model::Optimizer)
-    if qp_supported(model.optimizer)
-        return forward_quad(model)
-    elseif !is_qp_obj(model)
-        return forward_conic(model)
+    if _qp_supported(model.optimizer)
+        return _forward_quad(model)
+    elseif !_is_qp_obj(model)
+        return _forward_conic(model)
     else
         error("Non-supported model")
     end
 end
 
-function is_qp_obj(model)
+function _is_qp_obj(model)
     MOI.get(model.optimizer, MOI.ObjectiveFunctionType()) <: MOI.ScalarQuadraticFunction{Float64}
 end
 
-qp_supported(::Type{F}, ::Type{S}) where {F <: QP_FUNCTION_TYPES, S <: QP_SET_TYPES} = true
-qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
-function qp_supported(model)
+_qp_supported(::Type{F}, ::Type{S}) where {F <: _QP_FUNCTION_TYPES, S <: _QP_SET_TYPES} = true
+_qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
+function _qp_supported(model)
     con_types = MOI.get(model, MOI.ListOfConstraints())
     for (func, set) in con_types
-        if !qp_supported(func, set)
+        if !_qp_supported(func, set)
             return false
         end
     end
@@ -601,7 +688,7 @@ function qp_supported(model)
 end
 
 """
-    backward_quad(model::Optimizer, params::Array{String}, dl_dz::Array{Float64})
+    _backward_quad(model::Optimizer)
 
 Method to differentiate optimal solution `z` and return
 product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
@@ -609,14 +696,14 @@ the backward pass vector `dl / dz`
 
 The method computes the product of
 1. jacobian of problem solution `z*` with respect to
-    problem parameters `params` recieved as method arguments
+    problem parameters set with the [`BackwardIn`](@ref)
 2. a backward pass vector `dl / dz`, where `l` can be a loss function
 
 Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function backward_quad(model::Optimizer)
+function _backward_quad(model::Optimizer)
     z = model.primal_optimal
 
     if model.gradient_cache === nothing
@@ -661,7 +748,7 @@ function backward_quad(model::Optimizer)
     # todo, check MOI signs for dA and dG
 end
 
-function forward_quad(model::Optimizer)
+function _forward_quad(model::Optimizer)
     z = model.primal_optimal
     if model.gradient_cache === nothing
         build_quad_diff_cache!(model)
@@ -1076,15 +1163,15 @@ function _check_termination_status(model::Optimizer)
 end
 
 """
-    forward_conic(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
+    _forward_conic(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
 
 Method to compute the product of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
-This is similar to [`forward_quad`](@ref).
+This is similar to [`_forward_quad`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function forward_conic(model::Optimizer)
+function _forward_conic(model::Optimizer)
     _check_termination_status(model)
 
     if model.gradient_cache === nothing
@@ -1224,15 +1311,15 @@ function _push_terms(dAv, dAi, dAj, val::Vector, i, j)
 end
 
 """
-    backward_conic(model::Optimizer, dx::Vector{Float64}, dy::Vector{Float64}, ds::Vector{Float64})
+    _backward_conic(model::Optimizer, dx::Vector{Float64}, dy::Vector{Float64}, ds::Vector{Float64})
 
 Method to compute the product of the transpose of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dx`, `dy`, `ds`.
-This is similar to [`backward_quad`](@ref).
+This is similar to [`_backward_quad`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function backward_conic(model::Optimizer)
+function _backward_conic(model::Optimizer)
     _check_termination_status(model)
 
     if model.gradient_cache === nothing

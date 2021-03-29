@@ -23,7 +23,7 @@
 
 Inverse matrix specified on RHS of eqn(7) in https://arxiv.org/pdf/1703.00443.pdf
 
-Helper method while calling [`backward_quad`](@ref)
+Helper method while calling [`_backward_quad`](@ref)
 """
 function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
     if A === nothing || size(A)[1] == 0

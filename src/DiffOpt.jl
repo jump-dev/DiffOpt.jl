@@ -25,7 +25,7 @@ include("MOI_wrapper.jl")
 include("utils.jl")
 
 
-export diff_optimizer, Optimizer, backward, backward_quad, backward_conic
+export diff_optimizer, Optimizer, backward, _backward_quad, _backward_conic
 export is_equality  # just for reference sake
 export generate_lp, generate_qp
 
