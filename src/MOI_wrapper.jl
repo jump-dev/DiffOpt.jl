@@ -647,9 +647,10 @@ const _QP_OBJECTIVE_TYPES = Union{
     backward!(model::Optimizer)
 
 Wrapper method for the backward pass.
-This method will consider as input a currelty solved problem and data set with
-the [`BackwardIn`](@ref) attribute.
-The output differentials can be queried with the attribute [`BackwardOut`](@ref).
+This method will consider as input a currently solved problem and differentials
+with respect to the solution set with the [`BackwardIn`](@ref) attribute.
+The output problem data differentials can be queried with the
+attribute [`BackwardOut`](@ref).
 """
 function backward!(model::Optimizer)
     if _qp_supported(model.optimizer)
@@ -661,6 +662,16 @@ function backward!(model::Optimizer)
     end
 end
 
+"""
+    forward!(model::Optimizer)
+
+Wrapper method for the forward pass.
+This method will consider as input a currently solved problem and
+differentials with respect to problem data set with
+the [`ForwardIn`](@ref) attribute.
+The output solution differentials can be queried with the attribute
+[`ForwardOut`](@ref).
+"""
 function forward!(model::Optimizer)
     if _qp_supported(model.optimizer)
         return _forward_quad(model)
