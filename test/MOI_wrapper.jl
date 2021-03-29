@@ -60,8 +60,6 @@ const MOIU = MOI.Utilities
     @test x_sol ≈ [0.3, 0.7] atol=ATOL rtol=RTOL
 end
 
-
-
 @testset "Differentiating trivial QP 1" begin
     Q = [
         4.0 1.0
@@ -1192,8 +1190,6 @@ end
     simple_psd(SCS.Optimizer)
 end
 
-error("stopped here")
-
 @testset "Differentiating conic with PSD and SOC constraints" begin
     # similar to _psd1test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4054
     # find equivalent diffcp example here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_2_py.ipynb
@@ -1283,7 +1279,8 @@ error("stopped here")
 
     MOI.optimize!(model)
 
-    x = model.primal_optimal
+    _x = MOI.get(model, MOI.VariablePrimal(), x)
+    _X = MOI.get(model, MOI.VariablePrimal(), X)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
@@ -1292,13 +1289,22 @@ error("stopped here")
     # s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
     # y = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintDual(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
 
-    @test x ≈ [ 0.21725121; -0.25996907;  0.31108582;  0.21725009; -0.25996907;  0.21725121;
-                0.2544097;   0.17989425;  0.17989425] atol=ATOL rtol=RTOL
+    @test _X ≈ [0.21725121; -0.25996907;  0.31108582;  0.21725009; -0.25996907;  0.21725121
+        ] atol=ATOL rtol=RTOL
+    @test _x ≈ [0.2544097;   0.17989425;  0.17989425
+        ] atol=ATOL rtol=RTOL
+
+    # @test x ≈ [ 0.21725121; -0.25996907;  0.31108582;  0.21725009; -0.25996907;  0.21725121;
+    #             0.2544097;   0.17989425;  0.17989425] atol=ATOL rtol=RTOL
     # @test s ≈ [
     #     0.0, 0.0, 100.614,
     #     0.254408, 0.179894, 0.179894,
     #     0.217251, -0.25997, 0.31109, 0.217251, -0.25997, 0.217251,
-    # ] atol=ATOL rtol=RTOL   # TODO: it should be 100, not 100.614, its surely a residual error
+    # ] atol=ATOL rtol=RTOL
+    # TODO: it should be 100, not 100.614, its surely a residual error
+    # Joaquim: it is not an error it is sum(_x)
+    # there seemss to be an issue with this test (note the low precision)
+    #
     # @test y ≈ [
     #     0.544758, 0.321905, 0.0,
     #     0.455242, -0.321905, -0.321905,
@@ -1309,12 +1315,21 @@ error("stopped here")
     dA = spzeros(12, 9)
     db = spzeros(12)
     db[3] = 1 # c_extra
+    MOI.set(model, DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c_extra, [1.0])
     dc = spzeros(9)
 
     DiffOpt.forward!(model)
 
     # a small change in the constant in c_extra should not affect any other variable or constraint other than c_extra itself
-    @test dx ≈ zeros(9) atol=1e-2
+    for (i, vi) in enumerate(X)
+        @test 0.0 ≈ MOI.get(model,
+            DiffOpt.ForwardDiffOut{MOI.VariablePrimal}(), vi) atol=1e-2 rtol=RTOL
+    end
+    for (i, vi) in enumerate(x)
+        @test 0.0 ≈ MOI.get(model,
+            DiffOpt.ForwardDiffOut{MOI.VariablePrimal}(), vi) atol=1e-2 rtol=RTOL
+    end
+    # @test dx ≈ zeros(9) atol=1e-2
     # @test dy ≈ zeros(12) atol=0.012
     # @test [ds[1:2]; ds[4:end]] ≈ zeros(11) atol=1e-2
     # @test ds[3] ≈ 1.0 atol=1e-2   # except c_extra itself
@@ -1340,31 +1355,42 @@ end
         ),
         MOI.Nonnegatives(1)
     )
-    c2 = MOI.add_constraint(model, MOI.VectorAffineFunction(MOI.VectorAffineTerm.(1:6, MOI.ScalarAffineTerm.(1.0, x[1:6])), zeros(6)), MOI.Nonnegatives(6))
+    c2 = MOI.add_constraint(
+        model,
+        MOI.VectorAffineFunction(
+            MOI.VectorAffineTerm.(
+                1:6, MOI.ScalarAffineTerm.(1.0, x[1:6])), zeros(6)),
+            MOI.Nonnegatives(6))
     α = 0.8
     δ = 0.9
-    c3 = MOI.add_constraint(model, MOI.VectorAffineFunction(MOI.VectorAffineTerm.([fill(1, 7); fill(2, 5);     fill(3, 6)],
-                                                            MOI.ScalarAffineTerm.(
-                                                            [ δ/2,       α,   δ, δ/4, δ/8,      0.0, -1.0,
-                                                                -δ/(2*√2), -δ/4, 0,     -δ/(8*√2), 0.0,
-                                                                δ/2,     δ-α,   0,      δ/8,      δ/4, -1.0],
-                                                            [x[1:7];     x[1:3]; x[5:6]; x[1:3]; x[5:7]])),
-                                                            zeros(3)), MOI.PositiveSemidefiniteConeTriangle(2))
+    c3 = MOI.add_constraint(
+        model,
+        MOI.VectorAffineFunction(
+            MOI.VectorAffineTerm.(
+                [fill(1, 7); fill(2, 5);     fill(3, 6)],
+                MOI.ScalarAffineTerm.(
+                    [ δ/2,       α,   δ, δ/4, δ/8,      0.0, -1.0,
+                        -δ/(2*√2), -δ/4, 0,     -δ/(8*√2), 0.0,
+                        δ/2,     δ-α,   0,      δ/8,      δ/4, -1.0],
+                    [x[1:7];     x[1:3]; x[5:6]; x[1:3]; x[5:7]])),
+                zeros(3)), MOI.PositiveSemidefiniteConeTriangle(2))
     c4 = MOI.add_constraint(
         model,
         MOI.VectorAffineFunction(
-            MOI.VectorAffineTerm.(1, MOI.ScalarAffineTerm.(0.0, [x[1:3]; x[5:6]])),
+            MOI.VectorAffineTerm.(1,
+                MOI.ScalarAffineTerm.(0.0, [x[1:3]; x[5:6]])),
             [0.0]
         ),
         MOI.Zeros(1)
     )
 
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x[7])], 0.0))
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+        MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x[7])], 0.0))
     MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
 
     MOI.optimize!(model)
 
-    x = model.primal_optimal
+    _x = MOI.get(model, MOI.VariablePrimal(), x) # model.primal_optimal
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
@@ -1373,24 +1399,48 @@ end
     s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
     y = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintDual(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
 
-    @test x' ≈ [20/3. 0.0 10/3. 0.0 0.0 0.0 1.90192379] atol=ATOL rtol=RTOL
+    @test _x ≈ [20/3., 0.0, 10/3., 0.0, 0.0, 0.0, 1.90192379] atol=ATOL rtol=RTOL
     @test s ≈ [0.0, 0.0, 20/3.0,  0.0,  10/3.0,  0.0,  0.0,  0.0, 4.09807621, -2.12132,  1.09807621] atol=ATOL rtol=RTOL
     @test y ≈ [0.0, 0.19019238, 0., 0.12597667, 0., 0.14264428, 0.14264428, 0.01274047, 0.21132487, 0.408248, 0.78867513] atol=ATOL rtol=RTOL
 
-    dA = ones(11, 7)
-    db = ones(11)
-    dc = ones(7)
+    # dc = ones(7)
+    MOI.set.(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.LinearObjective}(), x, 1.0)
+    # db = ones(11)
+    MOI.set(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c1, [1.0])
+    MOI.set(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c2, ones(6))
+    MOI.set(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c3, ones(3))
+    MOI.set(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c4, ones(1))
+    # dA = ones(11, 7)
+    for xi in x
+        MOI.set(model,
+            DiffOpt.ForwardDiffIn{DiffOpt.ConstraintCoefficient}(), xi, c1, [1.0])
+        MOI.set(model,
+            DiffOpt.ForwardDiffIn{DiffOpt.ConstraintCoefficient}(), xi, c2, ones(6))
+        MOI.set(model,
+            DiffOpt.ForwardDiffIn{DiffOpt.ConstraintCoefficient}(), xi, c3, ones(3))
+        MOI.set(model,
+            DiffOpt.ForwardDiffIn{DiffOpt.ConstraintCoefficient}(), xi, c4, ones(1))
+    end
 
-    dx, dy, ds = backward(model, dA, db, dc)
+    DiffOpt.forward!(model)
 
     atol = 0.3
     rtol = 0.01
     
     # compare these with https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
     # results are not exactly as: 1. there is some residual error   2. diffcp results are SCS specific, hence scaled
-    @test dx ≈ [-39.6066, 10.8953, -14.9189, 10.9054, 10.883, 10.9118, -21.7508] atol=atol rtol=rtol
-    @test dy ≈ [0.0, -3.56905, 0.0, -0.380035, 0.0, -0.41398, -0.385321, -0.00743119, -0.644986, -0.550542, -2.36765] atol=atol rtol=rtol
-    @test ds ≈ [0.0, 0.0, -50.4973, 0.0, -25.8066, 0.0, 0.0, 0.0, -7.96528, -1.62968, -2.18925] atol=atol rtol=rtol
+    dx = [-39.6066, 10.8953, -14.9189, 10.9054, 10.883, 10.9118, -21.7508]
+    for (i, vi) in enumerate(x)
+        @test dx[i] ≈ MOI.get(model,
+            DiffOpt.ForwardDiffOut{MOI.VariablePrimal}(), vi) atol=atol rtol=rtol
+    end
+    # @test dy ≈ [0.0, -3.56905, 0.0, -0.380035, 0.0, -0.41398, -0.385321, -0.00743119, -0.644986, -0.550542, -2.36765] atol=atol rtol=rtol
+    # @test ds ≈ [0.0, 0.0, -50.4973, 0.0, -25.8066, 0.0, 0.0, 0.0, -7.96528, -1.62968, -2.18925] atol=atol rtol=rtol
 
     # TODO: future example, how to differentiate wrt a specific constraint/variable, refer QPLib article for more
     dA = zeros(11, 7)
@@ -1398,13 +1448,49 @@ end
     db = zeros(11)
     dc = zeros(7)
 
-    dx, dy, ds = backward(model, dA, db, dc)
+    # dc = zeros(7)
+    MOI.set.(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.LinearObjective}(), x, 0.0)
+    # db = zeros(11)
+    MOI.set(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c1, [0.0])
+    MOI.set(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c2, zeros(6))
+    MOI.set(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c3, zeros(3))
+    MOI.set(model,
+        DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c4, zeros(1))
+    # dA = zeros(11, 7)
+    # dA[3:8, 1:6] = Matrix{Float64}(LinearAlgebra.I, 6, 6)  # differentiating only wrt POS constraint c2
+    for (i,xi) in enumerate(x[1:6])
+        vals = zeros(6)
+        vals[i] = 1
+        MOI.set(model,
+            DiffOpt.ForwardDiffIn{DiffOpt.ConstraintCoefficient}(), xi, c2, vals)
+    end
+    for xi in x
+        MOI.set(model,
+            DiffOpt.ForwardDiffIn{DiffOpt.ConstraintCoefficient}(), xi, c1, [0.0])
+        MOI.set(model,
+            DiffOpt.ForwardDiffIn{DiffOpt.ConstraintCoefficient}(), xi, c3, zeros(3))
+        MOI.set(model,
+            DiffOpt.ForwardDiffIn{DiffOpt.ConstraintCoefficient}(), xi, c4, zeros(1))
+    end
 
-    # note that there's no change in the PSD slack values or dual optimas
-    @test dy ≈ [0.0, 0.0, 0.0, 0.125978, 0.0, 0.142644, 0.142641, 0.0127401, 0.0, 0.0, 0.0] atol=atol rtol=RTOL
-    @test ds ≈ [0.0, 0.0, -6.66672, 0.0, -3.33336, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] atol=atol rtol=RTOL
+    # dx, dy, ds = backward(model, dA, db, dc)
+    DiffOpt.forward!(model)
+
+    # for (i, vi) in enumerate(X)
+    #     @test 0.0 ≈ MOI.get(model,
+    #         DiffOpt.ForwardDiffOut{MOI.VariablePrimal}(), vi) atol=1e-2 rtol=RTOL
+    # end
+
+    # TODO add a test here, probably on duals
+
+    # # note that there's no change in the PSD slack values or dual optimas
+    # @test dy ≈ [0.0, 0.0, 0.0, 0.125978, 0.0, 0.142644, 0.142641, 0.0127401, 0.0, 0.0, 0.0] atol=atol rtol=RTOL
+    # @test ds ≈ [0.0, 0.0, -6.66672, 0.0, -3.33336, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] atol=atol rtol=RTOL
 end
-
 
 @testset "Differentiating a simple PSD" begin
     # refer _psd3test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4484
@@ -1436,7 +1522,7 @@ end
 
     MOI.optimize!(model)
 
-    x = model.primal_optimal
+    _x = MOI.get(model, MOI.VariablePrimal(), x)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
@@ -1445,7 +1531,7 @@ end
     s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
     y = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintDual(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
 
-    @test x ≈ [1.0] atol=ATOL rtol=RTOL
+    @test _x ≈ 1.0 atol=ATOL rtol=RTOL
     @test s ≈ ones(6) atol=ATOL rtol=RTOL
     @test y ≈ [1/3, -1/6, 1/3, -1/6, -1/6, 1/3]  atol=ATOL rtol=RTOL
 
@@ -1453,26 +1539,38 @@ end
     # @test s' ≈ [1.         1.41421356 1.41421356 1.         1.41421356 1.        ] atol=ATOL rtol=RTOL
     # @test y' ≈ [ 0.33333333 -0.23570226 -0.23570226  0.33333333 -0.23570226  0.33333333]  atol=ATOL rtol=RTOL
 
-    dA = zeros(6, 1)
-    db = ones(6)
-    dc = zeros(1)
+    # dA = zeros(6, 1)
+    # db = ones(6)
+    MOI.set(model, DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c, ones(6))
+    # dc = zeros(1)
 
-    dx, dy, ds = backward(model, dA, db, dc)
 
-    @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
-    @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
-    @test ds ≈ [0.5, 1.0, 0.5, 1.0, 1.0, 0.5] atol=ATOL rtol=RTOL
+    # dx, dy, ds = backward(model, dA, db, dc)
+    DiffOpt.forward!(model)
+
+    @test -0.5 ≈ MOI.get(model,
+        DiffOpt.ForwardDiffOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+
+    # @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
+    # @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
+    # @test ds ≈ [0.5, 1.0, 0.5, 1.0, 1.0, 0.5] atol=ATOL rtol=RTOL
 
     # test 2
     dA = zeros(6, 1)
     db = zeros(6)
+    MOI.set(model, DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c, zeros(6))
     dc = ones(1)
+    MOI.set(model, DiffOpt.ForwardDiffIn{DiffOpt.LinearObjective}(), x, 1.0)
 
-    dx, dy, ds = backward(model, dA, db, dc)
+    # dx, dy, ds = backward(model, dA, db, dc)
+    DiffOpt.forward!(model)
 
-    @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
-    @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
-    @test ds ≈ zeros(6) atol=ATOL rtol=RTOL
+    @test 0.0 ≈ MOI.get(model,
+        DiffOpt.ForwardDiffOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+
+    # @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
+    # @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
+    # @test ds ≈ zeros(6) atol=ATOL rtol=RTOL
 end
 
 @testset "Verifying cache after differentiating a QP" begin
@@ -1507,20 +1605,28 @@ end
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
 
     # add constraint
-    MOI.add_constraint(
+    c = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
         MOI.LessThan(h[1]),
     )
     MOI.optimize!(model)
-    
-    @test model.primal_optimal ≈ [-0.25, -0.75] atol=ATOL rtol=RTOL
+
+    x_sol = MOI.get(model, MOI.VariablePrimal(), x)
+    @test x_sol ≈ [-0.25, -0.75] atol=ATOL rtol=RTOL
+
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), x, ones(2))
+
     @test model.gradient_cache === nothing
-    grad_wrt_h = backward(model, ["h"], ones(2))[1]
-    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
-    @test model.gradient_cache !== nothing
-    grad_wrt_h = backward(model, ["h"], ones(2))[1]
-    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+    DiffOpt.backward!(model)
+
+    grad_wrt_h = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), c)
+    # grad_wrt_h = backward(model, ["h"], ones(2))[1]
+    @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
+
+    grad_wrt_h = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), c)
+    # grad_wrt_h = backward(model, ["h"], ones(2))[1]
+    @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
 
     # adding two variables invalidates the cache
     y = MOI.add_variables(model, 2)
@@ -1528,36 +1634,49 @@ end
 
     @test model.gradient_cache === nothing
     MOI.optimize!(model)
-    grad_wrt_h = backward(model, ["h"], ones(2))[1]
-    @test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
-    @test model.gradient_cache isa DiffOpt.QPCache
+
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), x, ones(2))
+    DiffOpt.backward!(model)
+
+    grad_wrt_h = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), c)
+    @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
+    # @test model.gradient_cache isa DiffOpt.QPCache
 
     # adding single variable invalidates the cache
     y0 = MOI.add_variable(model)
     @test model.gradient_cache === nothing
     MOI.add_constraint(model, MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, y0)], 0.0), MOI.EqualTo(42.0))
+
     MOI.optimize!(model)
     @test model.gradient_cache === nothing
 
-    grad_wrt_h = backward(model, ["h"], ones(3))[1]
-    @test grad_wrt_h ≈ [1.0] atol=5e-3 rtol=RTOL
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), x, ones(2))
+    DiffOpt.backward!(model)
+    # grad_wrt_h = backward(model, ["h"], ones(3))[1]
+    grad_wrt_h = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), c)
+    @test grad_wrt_h ≈ 1.0 atol=5e-3 rtol=RTOL
     @test model.gradient_cache isa DiffOpt.QPCache
 
     # adding constraint invalidates the cache
-    MOI.add_constraint(
+    c2 = MOI.add_constraint(
         model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0, 1.0], x), 0.0),
         MOI.LessThan(0.0),
     )
     @test model.gradient_cache === nothing
     MOI.optimize!(model)
-    grad_wrt_h = backward(model, ["h"], ones(3))[1]
-    @test grad_wrt_h[1] ≈ 1.0 atol=5e-3 rtol=RTOL
+
+
+    MOI.set.(model, DiffOpt.BackwardDiffIn{MOI.VariablePrimal}(), x, ones(2))
+    DiffOpt.backward!(model)
+    # grad_wrt_h = backward(model, ["h"], ones(3))[1]
+    grad_wrt_h = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), c)
+    @test grad_wrt_h ≈ 1.0 atol=5e-3 rtol=RTOL
     # second constraint inactive
-    @test grad_wrt_h[2] ≈ 0.0 atol=5e-3 rtol=RTOL
+    grad_wrt_h = MOI.get(model, DiffOpt.BackwardDiffOut{DiffOpt.ConstraintConstant}(), c2)
+    @test grad_wrt_h ≈ 0.0 atol=5e-3 rtol=RTOL
     @test model.gradient_cache isa DiffOpt.QPCache
 end
-
 
 @testset "Verifying cache on a PSD" begin
     
@@ -1582,7 +1701,7 @@ end
     MOI.optimize!(model)
     @test model.gradient_cache === nothing
 
-    x = model.primal_optimal
+    x_sol = MOI.get(model, MOI.VariablePrimal(), x)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
@@ -1591,35 +1710,51 @@ end
     s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
     y = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintDual(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
 
-    @test x ≈ [1.0] atol=ATOL rtol=RTOL
+    @test x_sol ≈ 1.0 atol=ATOL rtol=RTOL
     @test s ≈ ones(6) atol=ATOL rtol=RTOL
     @test y ≈ [1/3,  -1/6,  1/3,  -1/6,  -1/6,  1/3]  atol=ATOL rtol=RTOL
 
     dA = zeros(6, 1)
     db = ones(6)
+    MOI.set(model, DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c, ones(6))
     dc = zeros(1)
 
-    dx, dy, ds = backward_conic(model, dA, db, dc)
+    # dx, dy, ds = backward_conic(model, dA, db, dc)
+    DiffOpt.forward!(model)
 
-    @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
-    @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
-    @test ds ≈ [0.5, 1.0, 0.5, 1.0, 1.0, 0.5] atol=ATOL rtol=RTOL
+    @test -0.5 ≈ MOI.get(model,
+    DiffOpt.ForwardDiffOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+
+    # @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
+    # @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
+    # @test ds ≈ [0.5, 1.0, 0.5, 1.0, 1.0, 0.5] atol=ATOL rtol=RTOL
 
     @test model.gradient_cache isa DiffOpt.ConicCache
 
-    dx2, dy2, ds2 = backward_conic(model, dA, db, dc)
-    @test all(
-        (dx2, dy2, ds2) .≈ (dx, dy, ds)
-    )
+    DiffOpt.forward!(model)
+
+    @test -0.5 ≈ MOI.get(model,
+        DiffOpt.ForwardDiffOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+
+    # dx2, dy2, ds2 = backward_conic(model, dA, db, dc)
+    # @test all(
+    #     (dx2, dy2, ds2) .≈ (dx, dy, ds)
+    # )
 
     # test 2
     dA = zeros(6, 1)
     db = zeros(6)
+    MOI.set(model, DiffOpt.ForwardDiffIn{DiffOpt.ConstraintConstant}(), c, zeros(6))
     dc = ones(1)
+    MOI.set(model, DiffOpt.ForwardDiffIn{DiffOpt.LinearObjective}(), x, 1.0)
 
-    dx, dy, ds = backward_conic(model, dA, db, dc)
+    # dx, dy, ds = backward_conic(model, dA, db, dc)
+    DiffOpt.forward!(model)
 
-    @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
-    @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
-    @test ds ≈ zeros(6) atol=ATOL rtol=RTOL
+    @test 0.0 ≈ MOI.get(model,
+        DiffOpt.ForwardDiffOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+
+    # @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
+    # @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
+    # @test ds ≈ zeros(6) atol=ATOL rtol=RTOL
 end

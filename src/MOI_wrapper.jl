@@ -202,7 +202,7 @@ function get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     x = g_cache.xys[1]
     return - (du[i] - x[i] * dw[])
     # TODO:  check this sign, had to change to passa tests
-    # need to chec standard form
+    # need to check standard form
 end
 
 function MOI.get(model::Optimizer, ::BackwardDiffIn{MOI.VariablePrimal}, vi::VI)
@@ -594,7 +594,6 @@ function qp_supported(model)
     con_types = MOI.get(model, MOI.ListOfConstraints())
     for (func, set) in con_types
         if !qp_supported(func, set)
-            @show func, set
             return false
         end
     end
@@ -1114,9 +1113,10 @@ function forward_conic(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     _fill_conic_A(model, dAv, dAi, dAj)
-    @show dAv, dAi, dAj, lines, cols
+    # @show dAv, dAi, dAj, lines, cols
     dA = sparse(dAi, dAj, dAv, lines, cols)
-    @show dc
+    # @show dc
+    # @show db
 
     m = size(A, 1)
     n = size(A, 2)
@@ -1127,11 +1127,15 @@ function forward_conic(model::Optimizer)
     # g = dQ * Π(z/|w|) = dQ * [u, vp, 1.0]
     RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u - db ⋅ vp]
 
-    dz = if norm(RHS) <= 1e-4 # TODO: parametrize or remove
+    dz = if norm(RHS) <= 1e-400 # TODO: parametrize or remove
         RHS .= 0 # because M is square
     else
         lsqr(M, RHS)
     end
+
+    # @show M
+    # @show RHS
+    # @show dz
 
     du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
     model.forw_grad_cache = ConicForwCache(du, dv, [dw])
@@ -1142,7 +1146,16 @@ function forward_conic(model::Optimizer)
     # return -dx, -dy, -ds
 end
 
+# VI is one base
 function _fill_array(model, array, map, dict)
+    for (ci, val) in dict
+        i = map[ci].value
+        array[i] = val
+    end
+end
+
+# CI is zero based
+function _fill_array_c(model, array, map, dict)
     for (ci, val) in dict
         i = map[ci].value
         _push_terms(array, val, i)
@@ -1163,11 +1176,11 @@ function _fill_conic_b(model, db)
     conmap = model.gradient_cache.index_map.conmap
     dict_db = model.input_cache.db
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
-        _fill_array(model, db, conmap[F,S], dict_db[F,S])
+        _fill_array_c(model, db, conmap[F,S], dict_db[F,S])
     end
     dict_dbv = model.input_cache.dbv
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
-        _fill_array(model, db, conmap[F,S], dict_dbv[F,S])
+        _fill_array_c(model, db, conmap[F,S], dict_dbv[F,S])
     end
     return
 end
@@ -1187,8 +1200,7 @@ function _fill_conic_A(model, dAv, dAi, dAj)
 end
 function _fill_matrix(model, dAv, dAi, dAj, conmap, dict_dA, varmap)
     for (ci, dict) in dict_dA
-        @show ci
-        @show i = conmap[ci].value
+        i = conmap[ci].value
         for (vi, val) in dict
             j = varmap[vi].value
             _push_terms(dAv, dAi, dAj, val, i+1, j)
@@ -1198,14 +1210,14 @@ function _fill_matrix(model, dAv, dAi, dAj, conmap, dict_dA, varmap)
 end
 function _push_terms(dAv, dAi, dAj, val::Number, i, j)
     push!(dAv, val)
-    push!(dAi, i + 1)
+    push!(dAi, i)# + 1)
     push!(dAj, j)
     return
 end
 function _push_terms(dAv, dAi, dAj, val::Vector, i, j)
     for k in eachindex(val)
         push!(dAv, val[k])
-        push!(dAi, i + k)# - 1) ci is zero based
+        push!(dAi, i + k - 1) # ci is zero based
         push!(dAj, j)
     end
     return
