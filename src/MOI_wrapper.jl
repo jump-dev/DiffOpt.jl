@@ -286,7 +286,7 @@ function _get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     dw = f_cache.dw
     x = g_cache.xys[1]
     return - (du[i] - x[i] * dw[])
-    # TODO:  check this sign, had to change to passa tests
+    # TODO:  check this sign, had to change to pass tests
     # need to check standard form
 end
 
@@ -779,8 +779,10 @@ function _forward_quad(model::Optimizer)
     λ = model.gradient_cache.inequality_duals
     ν = model.gradient_cache.equality_duals
     LHS = model.gradient_cache.lhs
+    index_map = model.gradient_cache.index_map
 
     nz = nnz(Q)
+    (lines, cols) = size(Q)
     dQv = zeros(Float64, 0)
     dQi = zeros(Int, 0)
     dQj = zeros(Int, 0)
@@ -788,6 +790,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dQi, nz)
     sizehint!(dQj, nz)
     _fill_quad_Q(model, dQv, dQi, dQj, index_map)
+    dQ = sparse(dQi, dQj, dQv, lines, cols)
 
     dq = zeros(length(q))
     _fill_array(model, dq, index_map, model.input_cache.dc)
@@ -799,6 +802,7 @@ function _forward_quad(model::Optimizer)
     _fill_quad_h(model, dh)
 
     nz = nnz(A)
+    (lines, cols) = size(A)
     dAv = zeros(Float64, 0)
     dAi = zeros(Int, 0)
     dAj = zeros(Int, 0)
@@ -806,8 +810,10 @@ function _forward_quad(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     _fill_quad_A(model, dAv, dAi, dAj)
+    dA = sparse(dAi, dAj, dAv, lines, cols)
 
     nz = nnz(G)
+    (lines, cols) = size(G)
     dGv = zeros(Float64, 0)
     dGi = zeros(Int, 0)
     dGj = zeros(Int, 0)
@@ -815,6 +821,8 @@ function _forward_quad(model::Optimizer)
     sizehint!(dGi, nz)
     sizehint!(dGj, nz)
     _fill_quad_G(model, dGv, dGi, dGj)
+    dG = sparse(dGi, dGj, dGv, lines, cols)
+
 
     RHS = [
         dQ * z + dq + dG' * λ + dA' * ν
@@ -824,10 +832,11 @@ function _forward_quad(model::Optimizer)
 
     partial_grads = - LHS \ RHS
 
+    nv = length(z)
     nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
-    dz = partial_grads[1:nz]
-    dλ = partial_grads[nz+1:nz+nineq_total]
-    dν = partial_grads[nz+nineq_total+1:nz+nineq_total+neq+neq_sv]
+    dz = partial_grads[1:nv]
+    dλ = partial_grads[nv+1:nv+nineq_total]
+    dν = partial_grads[nv+nineq_total+1:nv+nineq_total+neq+neq_sv]
 
     model.forw_grad_cache = QPForwBackCache(dz, dλ, dν)
     return nothing
@@ -859,8 +868,8 @@ function _fill_quad_b(model, db)
     SA = MOI.ScalarAffineFunction{Float64}
     SV = MOI.SingleVariable
     EQ = MOI.EqualTo{Float64}
-    fill_array(model, db, conmap[SA,EQ], dict_db[SA,EQ])
-    fill_array(model, db, conmap[SV,EQ], dict_db[SV,EQ])
+    _fill_array(model, db, conmap[SA,EQ], dict_db[SA,EQ])
+    _fill_array(model, db, conmap[SV,EQ], dict_db[SV,EQ])
     return
 end
 function _fill_quad_h(model, dh)
@@ -870,10 +879,10 @@ function _fill_quad_h(model, dh)
     SV = MOI.SingleVariable
     GT = MOI.GreaterThan{Float64}
     LT = MOI.LessThan{Float64}
-    fill_array(model, dh, conmap[SA,LT], dict_db[SA,LT])
-    fill_array(model, dh, conmap[SV,LT], dict_db[SV,LT])
-    fill_array(model, dh, conmap[SA,GT], dict_db[SA,GT])
-    fill_array(model, dh, conmap[SV,GT], dict_db[SV,GT])
+    _fill_array(model, dh, conmap[SA,LT], dict_db[SA,LT])
+    _fill_array(model, dh, conmap[SV,LT], dict_db[SV,LT])
+    _fill_array(model, dh, conmap[SA,GT], dict_db[SA,GT])
+    _fill_array(model, dh, conmap[SV,GT], dict_db[SV,GT])
     return
 end
 function _fill_quad_A(model, dAv, dAi, dAj)
@@ -883,8 +892,8 @@ function _fill_quad_A(model, dAv, dAi, dAj)
     SA = MOI.ScalarAffineFunction{Float64}
     SV = MOI.SingleVariable
     EQ = MOI.EqualTo{Float64}
-    fill_array(model, dAv, dAi, dAj, conmap[SA,EQ], dict_dA[SA,EQ], varmap)
-    fill_array(model, dAv, dAi, dAj, conmap[SV,EQ], dict_dA[SV,EQ], varmap)
+    _fill_matrix(model, dAv, dAi, dAj, conmap[SA,EQ], dict_dA[SA,EQ], varmap, 0)
+    _fill_matrix(model, dAv, dAi, dAj, conmap[SV,EQ], dict_dA[SV,EQ], varmap, 0)
     return
 end
 function _fill_quad_G(model, dGv, dGi, dGj)
@@ -895,10 +904,10 @@ function _fill_quad_G(model, dGv, dGi, dGj)
     SV = MOI.SingleVariable
     GT = MOI.GreaterThan{Float64}
     LT = MOI.LessThan{Float64}
-    fill_array(model, dGv, dGi, dGj, conmap[SA,LT], dict_dG[SA,LT], varmap)
-    fill_array(model, dGv, dGi, dGj, conmap[SV,LT], dict_dG[SV,LT], varmap)
-    fill_array(model, dGv, dGi, dGj, conmap[SA,GT], dict_dG[SA,GT], varmap)
-    fill_array(model, dGv, dGi, dGj, conmap[SV,GT], dict_dG[SV,GT], varmap)
+    _fill_matrix(model, dGv, dGi, dGj, conmap[SA,LT], dict_dG[SA,LT], varmap, 0)
+    _fill_matrix(model, dGv, dGi, dGj, conmap[SV,LT], dict_dG[SV,LT], varmap, 0)
+    _fill_matrix(model, dGv, dGi, dGj, conmap[SA,GT], dict_dG[SA,GT], varmap, 0)
+    _fill_matrix(model, dGv, dGi, dGj, conmap[SV,GT], dict_dG[SV,GT], varmap, 0)
     return
 end
 
@@ -1299,12 +1308,12 @@ function _fill_conic_A(model, dAv, dAi, dAj)
     end
     return
 end
-function _fill_matrix(model, dAv, dAi, dAj, conmap, dict_dA, varmap)
+function _fill_matrix(model, dAv, dAi, dAj, conmap, dict_dA, varmap, start = 1)
     for (ci, dict) in dict_dA
         i = conmap[ci].value
         for (vi, val) in dict
             j = varmap[vi].value
-            _push_terms(dAv, dAi, dAj, val, i+1, j)
+            _push_terms(dAv, dAi, dAj, val, i+start, j)
         end
     end
     return
