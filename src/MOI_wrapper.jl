@@ -748,6 +748,9 @@ function _backward_quad(model::Optimizer)
     # todo, check MOI signs for dA and dG
 end
 
+"""
+    _forward_quad(model::Optimizer)
+"""
 function _forward_quad(model::Optimizer)
     z = model.primal_optimal
     if model.gradient_cache === nothing
@@ -1163,11 +1166,11 @@ function _check_termination_status(model::Optimizer)
 end
 
 """
-    _forward_conic(model::Optimizer, dA::Matrix{Float64}, db::Vector{Float64}, dc::Vector{Float64})
+    _forward_conic(model::Optimizer)
 
 Method to compute the product of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
-This is similar to [`_forward_quad`](@ref).
+This is similar to [`forward!`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
@@ -1315,7 +1318,7 @@ end
 
 Method to compute the product of the transpose of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dx`, `dy`, `ds`.
-This is similar to [`_backward_quad`](@ref).
+This is similar to [`backward!`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
