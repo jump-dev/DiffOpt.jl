@@ -25,6 +25,7 @@ const RTOL = 1e-4
 @testset "Examples" begin
     include(joinpath(@__DIR__, "../examples/solve-LP.jl"))
     include(joinpath(@__DIR__, "../examples/solve-QP.jl"))
+    include(joinpath(@__DIR__, "../examples/unit_example.jl"))
 end
 
 @testset "Generate random problems" begin
@@ -35,6 +36,10 @@ end
     include("MOI_wrapper.jl")
     include("qp_forward.jl")
     include("conic_backward.jl")
+end
+
+@testset "JuMP wrapper" begin
+    # include("jump.jl")
 end
 
 @testset "Solver Interface" begin

@@ -25,7 +25,7 @@ Inverse matrix specified on RHS of eqn(7) in https://arxiv.org/pdf/1703.00443.pd
 
 Helper method while calling `_backward_quad`
 """
-function create_LHS_matrix(z, λ, Q, G, h, A=nothing)
+function create_LHS_matrix(z, λ, Q, G, h, A=nothing)::AbstractMatrix{Float64}
     if A === nothing || size(A)[1] == 0
         return [Q         G' * Diagonal(λ);
                 G         Diagonal(G * z - h)]

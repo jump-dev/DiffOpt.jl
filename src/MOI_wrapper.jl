@@ -646,9 +646,10 @@ const _QP_FUNCTION_TYPES = Union{
     MOI.ScalarAffineFunction{Float64},
 }
 
-const _QP_OBJECTIVE_TYPES = Union{
-    MathOptInterface.ScalarAffineFunction{Float64},
-    MathOptInterface.ScalarQuadraticFunction{Float64},
+const QP_OBJECTIVE_TYPES = Union{
+    MOI.ScalarAffineFunction{Float64},
+    MOI.ScalarQuadraticFunction{Float64},
+    MOI.SingleVariable,
 }
 
 """
@@ -750,7 +751,12 @@ function _backward_quad(model::Optimizer)
 
     nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
     RHS = [dl_dz; zeros(neq + neq_sv + nineq_total)]
-    partial_grads = -LHS \ RHS
+
+    partial_grads = if norm(Q) ≈ 0
+        -lsqr(LHS, RHS)
+    else
+        -LHS \ RHS
+    end
 
     dz = partial_grads[1:nz]
     dλ = partial_grads[nz+1:nz+nineq_total]
@@ -838,7 +844,11 @@ function _forward_quad(model::Optimizer)
         dA * z - db
     ]
 
-    partial_grads = - LHS \ RHS
+    partial_grads = if norm(Q) ≈ 0
+        -lsqr(LHS, RHS)
+    else
+        -LHS \ RHS
+    end
 
     nv = length(z)
     nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
