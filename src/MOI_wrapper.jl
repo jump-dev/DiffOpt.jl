@@ -362,11 +362,13 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     cf = g_cache.conic_form
     _ci = g_cache.index_map[ci]
-    i = MatOI.rows(conic_form, _ci) # vector
+    i = MatOI.rows(cf, _ci) # vector
     # i = g_cache.index_map[ci].value
     (x, _, _) = g_cache.xys
     n = length(x) # columns in A
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
+    g = b_cache.g
+    πz = b_cache.πz
     dQ_ni_end = - g[n .+ i] * πz[end]
     dQ_end_ni = - g[end] * πz[n .+ i]
     return - dQ_ni_end + dQ_end_ni
@@ -377,6 +379,8 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     (x, _, _) = g_cache.xys
     n = length(x) # columns in A
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
+    g = b_cache.g
+    πz = b_cache.πz
     dQ_ni_end = - g[n+i] * πz[end]
     dQ_end_ni = - g[end] * πz[n+i]
     return - dQ_ni_end + dQ_end_ni
@@ -441,6 +445,8 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
     n = length(x) # columns in A
     m = length(y) # lines in A
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
+    g = b_cache.g
+    πz = b_cache.πz
     dQ_i_nj =  - g[i] * πz[n+j]
     dQ_nj_i =  - g[n+j] * πz[i]
     return - dQ_i_nj + dQ_nj_i
@@ -449,13 +455,15 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     cf = g_cache.conic_form
     _ci = g_cache.index_map[ci]
-    i = MatOI.rows(conic_form, _ci) # vector
+    i = MatOI.rows(cf, _ci) # vector
     j = g_cache.index_map[vi].value
     # i = g_cache.index_map[ci].value
     (x, y, _) = g_cache.xys
     n = length(x) # columns in A
     m = length(y) # lines in A
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
+    g = b_cache.g
+    πz = b_cache.πz
     dQ_i_nj =  - g[i] * πz[n+j]
     dQ_nj_i =  - g[n+j] * πz[i]
     return - dQ_i_nj .+ dQ_nj_i
