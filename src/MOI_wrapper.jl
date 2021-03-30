@@ -346,14 +346,15 @@ function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{F
 
     nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
     RHS = [dl_dz; zeros(neq + neq_sv + nineq_total)]
-    partial_grads = -LHS \ RHS
+    partial_grads = if norm(Q) ≈ 0
+        -lsqr(LHS, RHS)
+    else
+        -LHS \ RHS
+    end
     dz = partial_grads[1:nz]
 
     if nineq_total > 0
         dλ = partial_grads[nz+1:nz+nineq_total]
-    end
-    @debug begin
-        @show neq+neq_sv
     end
     @assert length(eq_con_idx) + length(eq_con_sv_idx) == neq+neq_sv
     if neq+neq_sv > 0
@@ -375,7 +376,7 @@ function backward_quad(model::Optimizer, params::Vector{String}, dl_dz::Vector{F
         elseif param == "b"
             push!(grads, -dν)
         else
-            push!(grads, [])
+            push!(grads, Float64[])
         end
     end
     return grads
