@@ -118,12 +118,12 @@ nothing # hide
 ![svg](svm_separating.svg)
 
 # Experiments
-Now that we've solved the SVM, we can compute the sensitivity of program variables -- the separating hyperplane in our case -- with respect to perturbations in problem data -- the data points -- using DiffOpt. For illustration, we've explored two questions:
+Now that we've solved the SVM, we can compute the sensitivity of optimal values -- the separating hyperplane in our case -- with respect to perturbations of the problem data -- the data points -- using DiffOpt. For illustration, we've explored two questions:
 
-- How does a change in labels of the data points (`y=1` to `y=-1`, and vice versa) affects the position of the hyperplane? This is achieved by finding gradient of `w`, `b` with respect to `y[i]`, classification label of the ith data point (do not confuse `y[i]` with the array of dual variables.)
+- How does a change in labels of the data points (`y=1` to `y=-1`, and vice versa) affect the position of the hyperplane? This is achieved by finding the gradient of `w`, `b` with respect to `y[i]`, the classification label of the ith data point.
 - How does a change in coordinates of the data points, `X`, affects the position of the hyperplane? This is achieved by finding gradient of `w`, `b` with respect to `X[i]`, 2D coordinates of the data points.
 
-Note that the SVM program can be modelled as a conic optimization program:
+Note that finding the optimal SVM can be modelled as a conic optimization problem:
 
 ```math
 \begin{align*}
