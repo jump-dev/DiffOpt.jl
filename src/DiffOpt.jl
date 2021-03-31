@@ -4,6 +4,7 @@ using Random
 using LinearAlgebra
 using SparseArrays
 using IterativeSolvers: lsqr
+using JuMP
 
 import BlockDiagonals
 
@@ -25,8 +26,7 @@ include("MOI_wrapper.jl")
 include("utils.jl")
 
 
-export diff_optimizer, Optimizer, backward, _backward_quad, _backward_conic
-export is_equality  # just for reference sake
+export diff_optimizer
 export generate_lp, generate_qp
 
 end # module

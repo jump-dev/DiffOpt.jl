@@ -151,6 +151,9 @@ Base.@kwdef struct DiffInputCache
     dQ::Dict{Tuple{VI, VI}, Float64} = Dict{Tuple{VI, VI}, Float64}()
 end
 
+abstract type AbstractDiffAttribute end
+Base.broadcastable(attribute::AbstractDiffAttribute) = Ref(attribute)
+
 """
     ForwardIn{T}
 
@@ -165,12 +168,12 @@ The latter can only be used in linearly constrained quadratic models.
 MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x)
 ```
 """
-struct ForwardIn{T} <: MOI.AbstractModelAttribute end
+struct ForwardIn{T} <: AbstractDiffAttribute end
 
 """
     ForwardOut{T}
 
-A MOI.AbstractModelAttribute to set input data to backward differentiation, that
+A AbstractDiffAttribute to set input data to backward differentiation, that
 is, problem solution.
 The input data includes:
 MOI.VariablePrimal.
@@ -179,12 +182,12 @@ MOI.VariablePrimal.
 MOI.set(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
 ```
 """
-struct ForwardOut{T} <: MOI.AbstractModelAttribute end
+struct ForwardOut{T} <: AbstractDiffAttribute end
 
 """
     BackwardIn{T}
 
-A MOI.AbstractModelAttribute to set input data to backward differentiation, that
+A AbstractDiffAttribute to set input data to backward differentiation, that
 is, problem solution.
 The input data includes:
 MOI.VariablePrimal.
@@ -193,12 +196,12 @@ MOI.VariablePrimal.
 MOI.set(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x)
 ```
 """
-struct BackwardIn{T} <: MOI.AbstractModelAttribute end
+struct BackwardIn{T} <: AbstractDiffAttribute end
 
 """
     BackwardOut{T}
 
-A MOI.AbstractModelAttribute to get output data to backward differentiation, that
+A AbstractDiffAttribute to get output data to backward differentiation, that
 is, problem solution.
 The solution data includes:
 [`LinearObjective`](@ref), [`ConstraintConstant`](@ref),
@@ -209,7 +212,9 @@ The latter can only be used in linearly constrained quadratic models.
 MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), x)
 ```
 """
-struct BackwardOut{T} <: MOI.AbstractModelAttribute end
+struct BackwardOut{T} <: AbstractDiffAttribute end
+
+abstract type AbstractDiffInnerAttribute end
 
 """
     LinearObjective
@@ -218,7 +223,7 @@ An attribute to set input and get output differentials from forward and backward
 differentiation related to the linear objective coefficient associated to an
 `MOI.VariableIndex`.
 """
-struct LinearObjective <: MOI.AbstractModelAttribute end #(var)
+struct LinearObjective <: AbstractDiffInnerAttribute end #(var)
 
 """
     QuadraticObjective
@@ -227,7 +232,7 @@ An attribute to set input and get output differentials from forward and backward
 differentiation related to the quadratic objective coefficient associated to a pair
 of `MOI.VariableIndex`'s.
 """
-struct QuadraticObjective <: MOI.AbstractModelAttribute end #(var, var)
+struct QuadraticObjective <: AbstractDiffInnerAttribute end #(var, var)
 
 """
     ConstraintConstant
@@ -235,7 +240,7 @@ struct QuadraticObjective <: MOI.AbstractModelAttribute end #(var, var)
 An attribute to set input and get output differentials from forward and backward
 differentiation related to the constant term associated to a `MOI.ConstraintIndex`.
 """
-struct ConstraintConstant <: MOI.AbstractModelAttribute end #(con)
+struct ConstraintConstant <: AbstractDiffInnerAttribute end #(con)
 
 """
     ConstraintCoefficient
@@ -244,7 +249,7 @@ An attribute to set input and get output differentials from forward and backward
 differentiation related to the linear coefficient associated to a pair:
 `MOI.VariableIndex` and `MOI.ConstraintIndex`.
 """
-struct ConstraintCoefficient <: MOI.AbstractModelAttribute end #(var, con)
+struct ConstraintCoefficient <: AbstractDiffInnerAttribute end #(var, con)
 
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT

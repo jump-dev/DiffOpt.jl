@@ -39,7 +39,7 @@ end
 end
 
 @testset "JuMP wrapper" begin
-    # include("jump.jl")
+    include("jump.jl")
 end
 
 @testset "Solver Interface" begin
