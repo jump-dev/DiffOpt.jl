@@ -31,7 +31,7 @@ function build_quad_diff_cache!(model)
     ν = MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
     append!(
         ν,
-        MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_sv_idx)
+        MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_sv_idx),
     )
 
     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
