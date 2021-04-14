@@ -281,7 +281,7 @@ end
             DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), vi, c1) atol=ATOL rtol=RTOL
     end
 
-    @show c_le = [LowerBoundRef(x), LowerBoundRef(y)]
+    c_le = [LowerBoundRef(x), LowerBoundRef(y)]
 
     dl_dh = [1e-8; 1e-8]
     for (i,ci) in enumerate(c_le)
@@ -434,15 +434,9 @@ end
         @test dl_dG[i,j] ≈ MOI.get(model,
             DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), vi, ci) atol=ATOL rtol=RTOL
     end
-
-    # obtain gradients
-    # fixes https://github.com/jump-dev/DiffOpt.jl/issues/82
-    # grads = backward(JuMP.backend(model), ["G", "h"], [1.0])
-    # @test grads[1] ≈ [0.0, 3.0] atol=ATOL rtol=RTOL
-    # @test grads[2] ≈ [0.0, -1.0] atol=ATOL rtol=RTOL
 end
 
-#=
+
 @testset "Differentiating LP; checking gradients for non-active contraints" begin
     # refered from - https://en.wikipedia.org/wiki/Simplex_algorithm#Example
 
@@ -457,22 +451,49 @@ end
     @objective(model, Min, dot([-2.0, -3.0, -4.0], v))
     (x, y, z) = v
 
-    @constraint(model, 3x+2y+z <= 10)
-    @constraint(model, 2x+5y+3z <= 15)
+    @constraint(model, c1, 3x+2y+z <= 10)
+    @constraint(model, c2, 2x+5y+3z <= 15)
     optimize!(model)
 
-    # obtain gradients
-    grads = backward(JuMP.backend(model), ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1,1,1,....]
+    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
 
-    @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
-    @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
-    @test grads[3] ≈ [0.0 0.0 0.0;
-                    0.0 0.0 -5/3;
-                    0.0 0.0 5/3;
-                    0.0 0.0 -10/3;
-                    0.0 0.0 0.0]   atol=ATOL rtol=RTOL
-    @test grads[4] ≈ [0.0; 1/3; -1/3; 2/3; 0.0]   atol=ATOL rtol=RTOL
+    DiffOpt.backward!(model)
+
+    dQ = zeros(3,3)
+    dc = zeros(3)
+    dG = [0.0 0.0 0.0;
+          0.0 0.0 -5/3;
+          0.0 0.0 5/3;
+          0.0 0.0 -10/3;
+          0.0 0.0 0.0]
+    dh = [0.0; 1/3; -1/3; 2/3; 0.0]
+
+    cb = LowerBoundRef.(v)
+    cc = [c1, c2]
+    ctrs = vcat(cc, cb)#, cc)
+
+    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.QuadraticObjective}(), iv, jv)
+        @test grad ≈ dQ[i, j] atol=ATOL rtol=RTOL
+    end
+
+    for (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
+        @test grad ≈ dc[i] atol=ATOL rtol=RTOL
+    end
+
+    for (j,jc) in enumerate(ctrs), (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dG[j,i] atol=ATOL rtol=RTOL
+    end
+
+    for (j,jc) in enumerate(ctrs)
+        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j] atol=ATOL rtol=RTOL
+    end
+
 end
+
 
 @testset "Differentiating LP with variable bounds" begin
     # max 2x + 3y + 4z
@@ -489,29 +510,54 @@ end
     @variable(model, v[1:3] ≥ 0)
     (x, y, z) = v
     @objective(model, Max, 2x + 3y + 4z)
-    @constraint(model, 3x+2y+z <= 10)
-    @constraint(model, 2x+5y+3z <= 15)
-    @constraint(model, x ≤ 3)
-    @constraint(model, 1.0 * y ≤ 2)
-    @constraint(model, z ≥ 2)
+    @constraint(model, c1, 3x+2y+z <= 10)
+    @constraint(model, c2, 2x+5y+3z <= 15)
+    @constraint(model, c3, x ≤ 3)
+    @constraint(model, c4, 1.0 * y ≤ 2)
+    @constraint(model, c5, z ≥ 2)
 
     optimize!(model)
 
-    # obtain gradients
-    grads = backward(JuMP.backend(model), ["Q", "q", "G", "h"], ones(3))  # using dl_dz=[1,1,1]
+    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
 
-    @test grads[1] ≈ zeros(3,3) atol=ATOL rtol=RTOL
-    @test grads[2] ≈ zeros(3) atol=ATOL rtol=RTOL
-    @test grads[3] ≈ [0.0 0.0 0.0
-                      0.0 0.0 -5/3
-                      0.0 0.0 0.0
-                      0.0 0.0 0.0
-                      0.0 0.0 0.0
-                      0.0 0.0 5/3
-                      0.0 0.0 -10/3
-                      0.0 0.0 0.0                      
-                      ]   atol=ATOL rtol=RTOL
-    @test grads[4] ≈ [0.0, 1/3, 0.0, 0.0, 0.0, -1/3, 2/3, 0.0] atol=ATOL rtol=RTOL
+    DiffOpt.backward!(model)
+
+    dQ = zeros(3,3)
+    dc = zeros(3)
+    dG = [0.0 0.0 0.0
+          0.0 0.0 -5/3
+          0.0 0.0 0.0
+          0.0 0.0 0.0
+          0.0 0.0 0.0
+          0.0 0.0 5/3
+          0.0 0.0 -10/3
+          0.0 0.0 0.0
+          ]
+    dh = [0.0, 1/3, 0.0, 0.0, 0.0, -1/3, 2/3, 0.0]
+
+    cb = LowerBoundRef.(v)
+    cc = [c1, c2, c3, c4, c5]
+    ctrs = vcat(cc, cb)#, cc)
+
+    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.QuadraticObjective}(), iv, jv)
+        @test grad ≈ dQ[i, j] atol=ATOL rtol=RTOL
+    end
+
+    for (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
+        @test grad ≈ dc[i] atol=ATOL rtol=RTOL
+    end
+
+    for (j,jc) in enumerate(ctrs), (i,iv) in enumerate(v)
+        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+        @test grad ≈ dG[j,i] atol=ATOL rtol=RTOL
+    end
+
+    for (j,jc) in enumerate(ctrs)
+        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
+        @test grad ≈ dh[j] atol=ATOL rtol=RTOL
+    end
 
 end
 
@@ -535,6 +581,8 @@ end
     @variable(model, y)
     @variable(model, t)
 
+    vv = [x,y,t]
+
     @objective(model, Min, x)
     @constraint(model, c1, [-1/√2 + y] in MOI.Nonnegatives(1))
     @constraint(model, c2, [1 - t] in MOI.Zeros(1))
@@ -542,7 +590,7 @@ end
 
     optimize!(model)
 
-    v = JuMP.backend(model).primal_optimal
+    v = JuMP.value.(vv)
     # slack variables
     s = collect(Iterators.flatten(JuMP.value.([c1, c2, c3])))
     y = collect(Iterators.flatten(JuMP.dual.([c1, c2, c3])))
@@ -558,7 +606,10 @@ end
     db = zeros(5)
     dc = zeros(3)
 
-    @test_broken DiffOpt.backward!(JuMP.backend(model))
+    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), vv, 1.0)
+
+    @test_broken DiffOpt.backward!(model)
+
+    # TODO add tests
 
 end
-=#
