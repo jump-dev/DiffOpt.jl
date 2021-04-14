@@ -132,7 +132,7 @@ const CACHE_BACK_TYPE = Union{
     QPForwBackCache,
     ConicBackCache,
 }
-# TODO bechmark access to these, ^^, type unstable type
+# TODO benchmark access to these, ^^, type unstable type
 # possibly add fields for all of them
 
 const MOIDD = MOI.Utilities.DoubleDicts
