@@ -35,17 +35,22 @@ MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), ob
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 # add constraint
-MOI.add_constraint(
+c = MOI.add_constraint(
     model,
     MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1, :], x), 0.0),
     MOI.LessThan(h[1]),
 )
 MOI.optimize!(model)
 
-@test model.primal_optimal ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
+@test MOI.get(model, MOI.VariablePrimal(), x) ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
+
 @test model.gradient_cache === nothing
-grad_wrt_h = backward(model, ["h"], ones(2))[1]
-@test grad_wrt_h ≈ [1.0] atol=2ATOL rtol=RTOL
+MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+DiffOpt.backward!(model)
+
+grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
+# grad_wrt_h = backward(model, ["h"], ones(2))[1]
+@test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
 @test model.gradient_cache !== nothing
 
 # adding two variables invalidates the cache
@@ -55,6 +60,12 @@ for yi in y
 end
 @test model.gradient_cache === nothing
 MOI.optimize!(model)
-grad_wrt_h = backward(model, ["h"], ones(2))[1]
-@test grad_wrt_h ≈ [1.0] atol=1e-3
+
+MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+DiffOpt.backward!(model)
+
+grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
+
+# grad_wrt_h = backward(model, ["h"], ones(2))[1]
+@test grad_wrt_h ≈ 1.0 atol=1e-3
 @test model.gradient_cache !== nothing

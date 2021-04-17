@@ -53,8 +53,14 @@ optimize!(model)
 
 diff_opt = backend(model).optimizer.model
 nv = MOI.get(diff_opt, MOI.NumberOfVariables())
-(dh, db, dq) = backward_quad(diff_opt, ["h", "b", "q"], ones(nv))
+v = MOI.VariableIndex.(collect(1:nv))#MOI.get(diff_opt, MOI.VariableIndices())
 
-@test !all(dh .≈ 0)
-@test !all(db .≈ 0)
-@test all(dq .≈ 0)
+MOI.set.(diff_opt, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(nv))
+
+DiffOpt.backward!(diff_opt)
+
+for (i,iv) in enumerate(v)
+    grad = MOI.get(diff_opt, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
+    @test grad ≈ 0.0  atol=ATOL rtol=RTOL
+end
+

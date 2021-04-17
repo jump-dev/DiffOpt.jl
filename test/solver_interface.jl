@@ -115,6 +115,7 @@ end
     MOIT.basic_constraint_tests(model, MOIT.TestConfig())
 end
 
+# TODO: re-organiza conic tests
 @testset "contconic.jl tests" begin
     model = diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)

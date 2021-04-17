@@ -154,7 +154,8 @@ cx = MOI.add_constraint(
 c1 = MOI.add_constraint(
     model, 
     MOI.VectorAffineFunction(
-        MOI.VectorAffineTerm.(1:1, MOI.ScalarAffineTerm.([1., 1., 1., 1.], [X[1], X[3], X[end], x[1]])), 
+        MOI.VectorAffineTerm.(1:1,
+            MOI.ScalarAffineTerm.([1., 1., 1., 1.], [X[1], X[3], X[end], x[1]])), 
         [-1.0]
     ), 
     MOI.Zeros(1)
@@ -163,7 +164,8 @@ c1 = MOI.add_constraint(
 c2 = MOI.add_constraint(
     model, 
     MOI.VectorAffineFunction(
-        MOI.VectorAffineTerm.(1:1, MOI.ScalarAffineTerm.([1., 2, 1, 2, 2, 1, 1, 1], [X; x[2]; x[3]])), 
+        MOI.VectorAffineTerm.(1:1,
+            MOI.ScalarAffineTerm.([1., 2, 1, 2, 2, 1, 1, 1], [X; x[2]; x[3]])), 
         [-0.5]
     ), 
     MOI.Zeros(1)
@@ -172,29 +174,52 @@ c2 = MOI.add_constraint(
 objXidx = [1:3; 5:6]
 objXcoefs = 2*ones(5)
 MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
-MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([objXcoefs; 1.0], [X[objXidx]; x[1]]), 0.0))
+    MOI.ScalarAffineFunction(
+        MOI.ScalarAffineTerm.([objXcoefs; 1.0], [X[objXidx]; x[1]]), 0.0))
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 sol = MOI.optimize!(model)
 
 # fetch solution
-x = sol.primal
-s = sol.slack
-y = sol.dual
+x_sol = MOI.get(model, MOI.VariablePrimal(), vcat(X, x))
+s_sol = MOI.get(model, MOI.ConstraintPrimal(), [cX, cx, c1, c2])
+y_sol = MOI.get(model, MOI.ConstraintDual(), [cX, cx, c1, c2])
 
-println("x -> ", round.(x; digits=3))
-println("s -> ", round.(s; digits=3))
-println("y -> ", round.(y; digits=3))
+println("x -> ", round.(x_sol; digits=3))
+println("s -> ", round.(s_sol; digits=3))
+println("y -> ", round.(y_sol; digits=3))
 
-# perturbations in the parameters
-dA = ones(11, 9)
-db = ones(11)
-dc = ones(9)
+# perturbations in all the parameters
+for xi in vcat(X, x)
+    MOI.set(model,
+        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, cX, ones(6))
+    MOI.set(model,
+        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, cx, ones(3))
+    MOI.set(model,
+        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c1, ones(1))
+    MOI.set(model,
+        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c2, ones(1))
+end
+MOI.set(model,
+    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), cX, ones(6))
+MOI.set(model,
+    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), cx, ones(3))
+MOI.set(model,
+    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c1, ones(1))
+MOI.set(model,
+    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c2, ones(1))
+for xi in vcat(X, x)
+    MOI.set(model,
+        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, 1.0)
+end
 
 # differentiate and get the gradients
-dx, dy, ds = backward_conic(model, dA, db, dc)
+DiffOpt.forward!(model)
+
+dx = MOI.get.(model,
+    DiffOpt.ForwardOut{MOI.VariablePrimal}(), vcat(X, x))
 
 println("dx -> ", round.(dx; digits=3))
-println("ds -> ", round.(ds; digits=3))
-println("dy -> ", round.(dy; digits=3))
+# println("ds -> ", round.(ds; digits=3))
+# println("dy -> ", round.(dy; digits=3))
 ```
