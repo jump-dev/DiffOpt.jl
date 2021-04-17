@@ -32,7 +32,7 @@ MOI.add_constraint(
     MOI.VectorAffineFunction(
         MOI.VectorAffineTerm.(1:N, MOI.ScalarAffineTerm.(1.0, l)), zeros(N)
     ), 
-    MOI.Nonnegatives(N)
+    MOI.Nonnegatives(N),
 )
 
 # define the whole matrix Ax, it'll be easier then
@@ -44,22 +44,22 @@ end
 terms = MOI.VectorAffineTerm.(1:N, Ax)
 f = MOI.VectorAffineFunction(
     vec(terms),
-    -ones(N)
+    -ones(N),
 )
 MOI.add_constraint(
     model,
     f,
-    MOI.Nonnegatives(N)
+    MOI.Nonnegatives(N),
 )
 
 objective_function = MOI.ScalarAffineFunction(
                         MOI.ScalarAffineTerm.(ones(N), l),
-                        0.0
+                        0.0,
                     )
 MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-MOI.optimize!(model);
+MOI.optimize!(model)
 
 loss = MOI.get(model, MOI.ObjectiveValue())
 wv = MOI.get(model, MOI.VariablePrimal(), w)
@@ -74,7 +74,7 @@ end
 # constructing perturbations
 ðA = zeros(2N, N + D + 1)
 ðb = zeros(2N)
-ðc = zeros(N + D + 1);
+ðc = zeros(N + D + 1)
 
 ∇ = Float64[]
 
@@ -97,7 +97,7 @@ if should_plot
     p2 = Plots.scatter(
         X[:,1], X[:,2], 
         color = [yi > 0 ? :red : :blue for yi in y], label = "",
-        markersize = ∇ * 20
+        markersize = ∇ * 20,
     )
     Plots.yaxis!(p2, (-2, 4.5))
     Plots.plot!(p2, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "loss = $(round(loss, digits=2))")
@@ -129,7 +129,7 @@ if should_plot
     p3 = Plots.scatter(
         X[:,1], X[:,2], 
         color = [yi > 0 ? :red : :blue for yi in y], label = "",
-        markersize = ∇ * 20
+        markersize = ∇ * 20,
     )
     Plots.yaxis!(p3, (-2, 4.5))
     Plots.plot!(p3, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "loss = $(round(loss, digits=2))")
