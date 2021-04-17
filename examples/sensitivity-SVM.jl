@@ -72,9 +72,9 @@ if should_plot
 end
 
 # constructing perturbations
-ðA = zeros(2*N, N+D+1)
-ðb = zeros(2*N)
-ðc = zeros(N+D+1); 
+ðA = zeros(2N, N + D + 1)
+ðb = zeros(2N)
+ðc = zeros(N + D + 1);
 
 ∇ = Float64[]
 
@@ -112,7 +112,7 @@ end
 
 # begin differentiating
 for Xi in 1:N
-    ðA[N+Xi, N.+(1:D+1)] = ones(3)
+    ðA[N+Xi, N .+ (1:D+1)] = ones(3)
     
     dx, dy, ds = backward(model, ðA, ðb, ðc)
     dl, dw, db = dx[1:N], dx[N+1:N+1+D], dx[N+1+D]
