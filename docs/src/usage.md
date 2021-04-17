@@ -28,9 +28,13 @@ Finally differentiate the model (primal and dual variables specifically) to obta
 \end{align*}
 ```
 
-we can use the `backward_quad` method
+we can use the `backward!` method
 ```julia
-    grads = backward_quad(model, ["Q", "q", "h"], [1.0 1.0])
+    MOI.set.(model,
+        DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    DiffOpt.backward!(model)
+    grad_obj = MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), x)
+    grad_rhs = MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
 ```
 
 2. To differentiate convex conic program
@@ -44,7 +48,10 @@ we can use the `backward_quad` method
 \end{align*}
 ```
 
-we can use the `backward_conic` method with perturbations in matrices `A`, `b`, `c`
+we can use the `forward!` method with perturbations in matrices `A`, `b`, `c`
 ```julia
-    grads = backward_conic(model, dA, db, dc)
+    MOI.set.(model,
+        DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, ones(2))
+    DiffOpt.forward!(model)
+    grad_x = MOI.get.(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
 ```
