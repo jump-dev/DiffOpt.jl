@@ -60,7 +60,7 @@ nv = length(v)
 
 MOI.set.(diff_opt, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(nv))
 
-DiffOpt.backward!(diff_opt)
+DiffOpt.backward(diff_opt)
 
 # sensitivity wrt linear objective
 for (i,iv) in enumerate(v)

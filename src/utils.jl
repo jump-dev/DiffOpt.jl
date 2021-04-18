@@ -418,16 +418,16 @@ function MOI.set(
 end
 
 # JuMP
-backward!(model::JuMP.Model) = backward!(JuMP.backend(model))
-forward!(model::JuMP.Model) = forward!(JuMP.backend(model))
+backward(model::JuMP.Model) = backward(JuMP.backend(model))
+forward(model::JuMP.Model) = forward(JuMP.backend(model))
 
 # MOIU
-backward!(model::MOI.Utilities.CachingOptimizer) = backward!(model.optimizer)
-forward!(model::MOI.Utilities.CachingOptimizer) = forward!(model.optimizer)
+backward(model::MOI.Utilities.CachingOptimizer) = backward(model.optimizer)
+forward(model::MOI.Utilities.CachingOptimizer) = forward(model.optimizer)
 
 # MOIB
-backward!(model::MOI.Bridges.AbstractBridgeOptimizer) = backward!(model.model)
-forward!(model::MOI.Bridges.AbstractBridgeOptimizer) = forward!(model.model)
+backward(model::MOI.Bridges.AbstractBridgeOptimizer) = backward(model.model)
+forward(model::MOI.Bridges.AbstractBridgeOptimizer) = forward(model.model)
 
 # bridges
 # TODO: bridging is non-trivial

@@ -1,3 +1,7 @@
+"""
+    Source code for the example given in sensitivity-ananlysis-svm.md
+"""
+
 import Random
 using Test
 import SCS
@@ -46,7 +50,7 @@ f = MOI.VectorAffineFunction(
     vec(terms),
     -ones(N),
 )
-MOI.add_constraint(
+cons = MOI.add_constraint(
     model,
     f,
     MOI.Nonnegatives(N),
@@ -71,26 +75,43 @@ if should_plot
     Plots.plot!(p, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "loss = $(round(loss, digits=2))")
 end
 
-# constructing perturbations
-ðA = zeros(2N, N + D + 1)
-ðb = zeros(2N)
-ðc = zeros(N + D + 1)
+
+## Experiment 1: Gradient of hyperplane wrt the data point labels
 
 ∇ = Float64[]
+dy = zeros(N)
 
 # begin differentiating
 for Xi in 1:N
-    ðA[N+Xi, N+D+1] = 1.0
+    dy[Xi] = 1.0  # set
     
-    dx, dy, ds = backward(model, ðA, ðb, ðc)
-    dl, dw, db = dx[1:N], dx[N+1:N+1+D], dx[N+1+D]
-    push!(∇, norm(dw)+norm(db))
+    MOI.set(
+        model,
+        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
+        b, 
+        cons, 
+        dy
+    )
     
-    ðA[N+Xi, N+D+1] = 0.0
+    DiffOpt.forward(model)
+    
+    dw = MOI.get.(
+        model,
+        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        w
+    ) 
+    db = MOI.get(
+        model,
+        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        b
+    ) 
+    push!(∇, norm(dw) + norm(db))
+    
+    dy[Xi] = 0.0  # reset the change made above
 end
 normalize!(∇)
 
-# point sensitvity wrt the separating hyperplane
+# point sensitivity wrt the separating hyperplane
 # gradients are normalized
 
 if should_plot
@@ -103,26 +124,44 @@ if should_plot
     Plots.plot!(p2, [0.0, 2.0], [-bv / wv[2], (-bv - 2wv[1])/wv[2]], label = "loss = $(round(loss, digits=2))")
 end
 
-# constructing perturbations
-ðA = zeros(2*N, N+D+1)
-ðb = zeros(2*N)
-ðc = zeros(N+D+1); 
+## Experiment 2: Gradient of hyperplane wrt the data point coordinates
 
 ∇ = Float64[]
+dX = zeros(N, D)
 
 # begin differentiating
 for Xi in 1:N
-    ðA[N+Xi, N .+ (1:D+1)] = ones(3)
+    dX[Xi, :] = ones(D)  # set
     
-    dx, dy, ds = backward(model, ðA, ðb, ðc)
-    dl, dw, db = dx[1:N], dx[N+1:N+1+D], dx[N+1+D]
-    push!(∇, norm(dw)+norm(db))
+    for i in 1:D
+        MOI.set(
+            model,
+            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
+            w[i], 
+            cons, 
+            dX[:,i]
+        )
+    end
     
-    ðA[N+Xi, N.+(1:D+1)] = zeros(3)
+    DiffOpt.forward(model)
+    
+    dw = MOI.get.(
+        model,
+        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        w
+    ) 
+    db = MOI.get(
+        model,
+        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        b
+    ) 
+    push!(∇, norm(dw) + norm(db))
+    
+    dX[Xi, :] = zeros(D)  # reset the change made ago
 end
 normalize!(∇)
 
-# point sensitvity wrt the separating hyperplane
+# point sensitivity wrt the separating hyperplane
 # gradients are normalized
 
 if should_plot

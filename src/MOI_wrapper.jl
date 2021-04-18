@@ -658,7 +658,7 @@ const QP_OBJECTIVE_TYPES = Union{
 }
 
 """
-    backward!(model::Optimizer)
+    backward(model::Optimizer)
 
 Wrapper method for the backward pass.
 This method will consider as input a currently solved problem and differentials
@@ -666,7 +666,7 @@ with respect to the solution set with the [`BackwardIn`](@ref) attribute.
 The output problem data differentials can be queried with the
 attribute [`BackwardOut`](@ref).
 """
-function backward!(model::Optimizer)
+function backward(model::Optimizer)
     if _qp_supported(model.optimizer)
         return _backward_quad(model)
     elseif !_is_qp_obj(model)
@@ -677,7 +677,7 @@ function backward!(model::Optimizer)
 end
 
 """
-    forward!(model::Optimizer)
+    forward(model::Optimizer)
 
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and
@@ -686,7 +686,7 @@ the [`ForwardIn`](@ref) attribute.
 The output solution differentials can be queried with the attribute
 [`ForwardOut`](@ref).
 """
-function forward!(model::Optimizer)
+function forward(model::Optimizer)
     if _qp_supported(model.optimizer)
         return _forward_quad(model)
     elseif !_is_qp_obj(model)
@@ -1213,7 +1213,7 @@ end
 
 Method to compute the product of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
-This is similar to [`forward!`](@ref).
+This is similar to [`forward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
@@ -1361,7 +1361,7 @@ end
 
 Method to compute the product of the transpose of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dx`, `dy`, `ds`.
-This is similar to [`backward!`](@ref).
+This is similar to [`backward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """

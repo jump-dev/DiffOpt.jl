@@ -76,7 +76,7 @@ f = MOI.VectorAffineFunction(
     vec(terms),
     -ones(N),
 )
-MOI.add_constraint(
+cons = MOI.add_constraint(
     model,
     f,
     MOI.Nonnegatives(N),
@@ -163,22 +163,36 @@ b &= [0, 0, ... 0 \text{(N times)}, l_1 - 1, l_2 -1, ... l_N -1] \\\\
 Construct perturbations in data point labels `y` without changing the data point coordinates `X`.
 
 ```@example 1
-ðA = zeros(2*N, N+D+1)
-ðb = zeros(2*N)
-ðc = zeros(N+D+1)
-
 ∇ = Float64[]
+dy = zeros(N)
 
 # begin differentiating
 for Xi in 1:N
-    # note that 
-    ðA[N+Xi, N+D+1] = 1.0
+    dy[Xi] = 1.0  # set
     
-    dx, dy, ds = backward(model, ðA, ðb, ðc)
-    dl, dw, db = dx[1:N], dx[N+1:N+1+D], dx[N+1+D]
-    push!(∇, norm(dw)+norm(db))
+    MOI.set(
+        model,
+        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
+        b, 
+        cons, 
+        dy
+    )
     
-    ðA[N+Xi, N+D+1] = 0.0  # reset the change made above
+    DiffOpt.forward(model)
+    
+    dw = MOI.get.(
+        model,
+        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        w
+    ) 
+    db = MOI.get(
+        model,
+        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        b
+    ) 
+    push!(∇, norm(dw) + norm(db))
+    
+    dy[Xi] = 0.0  # reset the change made above
 end
 LinearAlgebra.normalize!(∇)
 nothing # hide
@@ -204,27 +218,43 @@ nothing # hide
 
 Similar to previous example, construct perturbations in data points coordinates `X`.
 ```julia
-# constructing perturbations
-ðA = zeros(2*N, N+D+1)
-ðb = zeros(2*N)
-ðc = zeros(N+D+1); 
-
 ∇ = Float64[]
+dX = zeros(N, D)
 
 # begin differentiating
 for Xi in 1:N
-    ðA[N+Xi, N.+(1:D+1)] = ones(3)
+    dX[Xi, :] = ones(D)  # set
     
-    dx, dy, ds = backward(model, ðA, ðb, ðc)
-    dl, dw, db = dx[1:N], dx[N+1:N+1+D], dx[N+1+D]
-    push!(∇, norm(dw)+norm(db))
+    for i in 1:D
+        MOI.set(
+            model,
+            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
+            w[i], 
+            cons, 
+            dX[:,i]
+        )
+    end
     
-    ðA[N+Xi, N.+(1:D+1)] = zeros(3)
+    DiffOpt.forward(model)
+    
+    dw = MOI.get.(
+        model,
+        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        w
+    ) 
+    db = MOI.get(
+        model,
+        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        b
+    ) 
+    push!(∇, norm(dw) + norm(db))
+    
+    dX[Xi, :] = zeros(D)  # reset the change made ago
 end
 LinearAlgebra.normalize!(∇)
 ```
 
-We can visualize point sensitvity with respect to the separating hyperplane. Note that the gradients are normalized.
+We can visualize point sensitivity with respect to the separating hyperplane. Note that the gradients are normalized.
 ```@example 1
 p3 = Plots.scatter(
     X[:,1], X[:,2], 

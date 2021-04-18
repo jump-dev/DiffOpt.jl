@@ -214,7 +214,7 @@ for xi in vcat(X, x)
 end
 
 # differentiate and get the gradients
-DiffOpt.forward!(model)
+DiffOpt.forward(model)
 
 dx = MOI.get.(model,
     DiffOpt.ForwardOut{MOI.VariablePrimal}(), vcat(X, x))
