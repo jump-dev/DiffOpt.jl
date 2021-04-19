@@ -46,7 +46,7 @@ MOI.optimize!(model)
 
 @test model.gradient_cache === nothing
 MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
-DiffOpt.backward!(model)
+DiffOpt.backward(model)
 
 grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
 # grad_wrt_h = backward(model, ["h"], ones(2))[1]
@@ -62,7 +62,7 @@ end
 MOI.optimize!(model)
 
 MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
-DiffOpt.backward!(model)
+DiffOpt.backward(model)
 
 grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
 

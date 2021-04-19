@@ -44,7 +44,7 @@
 
     MOI.set(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), X[1], 1.0)
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     db = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
 

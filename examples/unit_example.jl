@@ -5,6 +5,9 @@ using Test
 
 # This script creates the JuMP problem for a small unit commitment instance
 
+ATOL=1e-4
+RTOL=1e-4
+
 ## Problem data
 unit_codes = [1, 2] # Generator identifiers
 load_names = ["Load1", "Load2"] # Load identifiers
@@ -28,7 +31,7 @@ model = Model(() -> diff_optimizer(Clp.Optimizer))
 # Energy balance
 @constraint(
     model,
-    [t in 1:n_periods],
+    energy_balance_cons[t in 1:n_periods],
     sum(p[g, t] for g in unit_codes) == sum(D[l][t] for l in load_names)
 )
 
@@ -52,15 +55,21 @@ model = Model(() -> diff_optimizer(Clp.Optimizer))
 optimize!(model)
 
 diff_opt = backend(model).optimizer.model
-nv = MOI.get(diff_opt, MOI.NumberOfVariables())
-v = MOI.VariableIndex.(collect(1:nv))#MOI.get(diff_opt, MOI.VariableIndices())
+v = MOI.get(model, MOI.ListOfVariableIndices())
+nv = length(v)
 
 MOI.set.(diff_opt, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(nv))
 
-DiffOpt.backward!(diff_opt)
+DiffOpt.backward(diff_opt)
 
+# sensitivity wrt linear objective
 for (i,iv) in enumerate(v)
     grad = MOI.get(diff_opt, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
     @test grad ≈ 0.0  atol=ATOL rtol=RTOL
 end
 
+# sensitivity wrt RHS of constraints
+for (idx, econs) in enumerate(energy_balance_cons)
+    grad_energy_balance = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), econs)
+    @test !≈(grad_energy_balance, 0)
+end

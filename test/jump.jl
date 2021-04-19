@@ -71,7 +71,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ctr_le[])
     @test grad ≈ 1.0  atol=ATOL rtol=RTOL
@@ -122,7 +122,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     for xi in x
         grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), xi)
@@ -197,7 +197,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), z, 1.0)
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     dl_dq = [-0.2142857;  0.21428567; -0.07142857]
     for (i, vi) in enumerate(z)
@@ -254,7 +254,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), z, [1.3, 0.5])
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     dl_dq = [-0.2; 0.2]
     for (i, vi) in enumerate(z)
@@ -327,7 +327,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     # obtain gradients
     # grads = backward(doptimizer, ["Q", "q", "G", "h", "A", "b"], ones(nz))  # using dl_dz=[1,1,1,1,1,....]
@@ -390,7 +390,7 @@ end
     # obtain gradients
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     c_le = [c1, c2]
 
@@ -419,7 +419,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     c_le = [c1, c2]
 
@@ -457,7 +457,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     dQ = zeros(3,3)
     dc = zeros(3)
@@ -520,7 +520,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
 
-    DiffOpt.backward!(model)
+    DiffOpt.backward(model)
 
     dQ = zeros(3,3)
     dc = zeros(3)
@@ -608,7 +608,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), vv, 1.0)
 
-    @test_broken DiffOpt.backward!(model)
+    @test_broken DiffOpt.backward(model)
 
     # TODO add tests
 
