@@ -28,7 +28,6 @@ import Plots
 using DiffOpt
 using JuMP
 using LinearAlgebra
-nothing # hide
 ```
 
 Construct separatable, non-trivial data points.
@@ -39,7 +38,6 @@ Random.seed!(6)
 X = vcat(randn(N, D), randn(N,D) .+ [4.0,1.5]')
 y = append!(ones(N), -ones(N))
 N = 2*N
-nothing # hide
 ```
 
 Let's define the variables.
@@ -50,14 +48,12 @@ model = Model(() -> diff_optimizer(SCS.Optimizer))
 @variable(model, l[1:N])
 @variable(model, w[1:D])
 @variable(model, b)
-nothing # hide
 ```
 
 Add the constraints.
 ```julia
 @constraint(model, y.*(X*w .+ b) + l.-1 ∈ MOI.Nonnegatives(N))
 @constraint(model, 1.0*l ∈ MOI.Nonnegatives(N))
-nothing # hide
 ```
 
 Define the linear objective function and solve the SVM model.
@@ -73,7 +69,6 @@ optimize!(model)
 loss = objective_value(model)
 wv = value.(w)
 bv = value(b)
-nothing # hide
 ```
 
 We can visualize the separating hyperplane. 
@@ -86,11 +81,10 @@ svm_y = (-bv .- wv[1] * svm_x )/wv[2]
 p = Plots.scatter(X[:,1], X[:,2], color = [yi > 0 ? :red : :blue for yi in y], label = "")
 Plots.yaxis!(p, (-2, 4.5))
 Plots.plot!(p, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
-Plots.savefig("svm_separating.svg")
-nothing # hide
+Plots.savefig("svm-separating.svg")
 ```
 
-![svg](svm_separating.svg)
+![svg](svm-separating.svg)
 
 # Experiments
 Now that we've solved the SVM, we can compute the sensitivity of optimal values -- the separating hyperplane in our case -- with respect to perturbations of the problem data -- the data points -- using DiffOpt. For illustration, we've explored two questions:
@@ -183,7 +177,6 @@ for Xi in 1:N
     dy[Xi] = 0.0  # reset the change made above
 end
 LinearAlgebra.normalize!(∇)
-nothing # hide
 ```
 
 Visualize point sensitivities with respect to separating hyperplane. Note that the gradients are normalized.
@@ -196,7 +189,6 @@ p2 = Plots.scatter(
 Plots.yaxis!(p2, (-2, 4.5))
 Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 Plots.savefig("sensitivity2.svg")
-nothing # hide
 ```
 
 ![](sensitivity2.svg)
@@ -252,7 +244,6 @@ p3 = Plots.scatter(
 Plots.yaxis!(p3, (-2, 4.5))
 Plots.plot!(p3, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 Plots.savefig(p3, "sensitivity3.svg")
-nothing # hide
 ```
 
 ![](sensitivity3.svg)
