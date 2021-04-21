@@ -3,7 +3,6 @@
 """
 
 import Random
-using Test
 import SCS
 using DiffOpt
 using LinearAlgebra
@@ -22,7 +21,8 @@ N = 50
 D = 2
 Random.seed!(rand(1:100))
 X = vcat(randn(N, D), randn(N,D) .+ [4.0,1.5]')
-y = append!(ones(N), -ones(N));
+y = append!(ones(N), -ones(N))
+N = 2*N;
 
 model = diff_optimizer(SCS.Optimizer) 
 

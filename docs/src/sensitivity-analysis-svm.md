@@ -21,89 +21,64 @@ where
 
 Import the libraries.
 
-```@example 1
+```julia
 import Random
-using Test
 import SCS
 import Plots
 using DiffOpt
+using JuMP
 using LinearAlgebra
-import MathOptInterface
-const MOI = MathOptInterface
 nothing # hide
 ```
 
 Construct separatable, non-trivial data points.
-```@example 1
+```julia
 N = 100
 D = 2
 Random.seed!(6)
 X = vcat(randn(N, D), randn(N,D) .+ [4.0,1.5]')
 y = append!(ones(N), -ones(N))
+N = 2*N
 nothing # hide
 ```
 
 Let's define the variables.
-```@example 1
-model = diff_optimizer(SCS.Optimizer) 
-MOI.set(model, MOI.Silent(), true)
+```julia
+model = Model(() -> diff_optimizer(SCS.Optimizer))
 
 # add variables
-l = MOI.add_variables(model, N)
-w = MOI.add_variables(model, D)
-b = MOI.add_variable(model)
+@variable(model, l[1:N])
+@variable(model, w[1:D])
+@variable(model, b)
 nothing # hide
 ```
 
 Add the constraints.
-```@example 1
-MOI.add_constraint(
-    model,
-    MOI.VectorAffineFunction(
-        MOI.VectorAffineTerm.(1:N, MOI.ScalarAffineTerm.(1.0, l)), zeros(N),
-    ), 
-    MOI.Nonnegatives(N),
-)
-
-# define the whole matrix Ax, it'll be easier then
-# refer https://discourse.julialang.org/t/solve-minimization-problem-where-constraint-is-the-system-of-linear-inequation-with-mathoptinterface-efficiently/23571/4
-Ax = Matrix{MOI.ScalarAffineTerm{Float64}}(undef, N, D+2)
-for i in 1:N
-    Ax[i, :] = MOI.ScalarAffineTerm.([1.0; y[i]*X[i,:]; y[i]], [l[i]; w; b])
-end
-terms = MOI.VectorAffineTerm.(1:N, Ax)
-f = MOI.VectorAffineFunction(
-    vec(terms),
-    -ones(N),
-)
-cons = MOI.add_constraint(
-    model,
-    f,
-    MOI.Nonnegatives(N),
-)
+```julia
+@constraint(model, y.*(X*w .+ b) + l.-1 ∈ MOI.Nonnegatives(N))
+@constraint(model, 1.0*l ∈ MOI.Nonnegatives(N))
 nothing # hide
 ```
 
 Define the linear objective function and solve the SVM model.
-```@example 1
-objective_function = MOI.ScalarAffineFunction(
-                        MOI.ScalarAffineTerm.(ones(N), l),
-                        0.0,
-                    )
-MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
-MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+```julia
+@objective(
+    model,
+    Min,
+    sum(l),
+)
 
-MOI.optimize!(model)
+optimize!(model)
 
-loss = MOI.get(model, MOI.ObjectiveValue())
-wv = MOI.get(model, MOI.VariablePrimal(), w)
-bv = MOI.get(model, MOI.VariablePrimal(), b)
+loss = objective_value(model)
+wv = value.(w)
+bv = value(b)
 nothing # hide
 ```
 
 We can visualize the separating hyperplane. 
 
-```@example 1
+```julia
 # build SVM points
 svm_x = [0.0, 3.0]
 svm_y = (-bv .- wv[1] * svm_x )/wv[2]
@@ -158,11 +133,24 @@ b &= [0, 0, ... 0 \text{(N times)}, l_1 - 1, l_2 -1, ... l_N -1] \\\\
 ```
 
 
+### Preprocessing
+
+Casting JuMP variables to MOI variables.
+
+```julia
+diff_opt = backend(model).optimizer.model
+
+cons = MOI.get(diff_opt, MOI.ListOfConstraintIndices{MOI.VectorAffineFunction{Float64}, MOI.Nonnegatives}())[1]
+_w = MOI.get(diff_opt, MOI.ListOfVariableIndices())[N+1:N+D]
+_b = MOI.get(diff_opt, MOI.ListOfVariableIndices())[N+D+1]
+```
+
+
 ## Experiment 1: Gradient of hyperplane wrt the data point labels
 
 Construct perturbations in data point labels `y` without changing the data point coordinates `X`.
 
-```@example 1
+```julia
 ∇ = Float64[]
 dy = zeros(N)
 
@@ -199,7 +187,7 @@ nothing # hide
 ```
 
 Visualize point sensitivities with respect to separating hyperplane. Note that the gradients are normalized.
-```@example 1
+```julia
 p2 = Plots.scatter(
     X[:,1], X[:,2], 
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
@@ -255,7 +243,7 @@ LinearAlgebra.normalize!(∇)
 ```
 
 We can visualize point sensitivity with respect to the separating hyperplane. Note that the gradients are normalized.
-```@example 1
+```julia
 p3 = Plots.scatter(
     X[:,1], X[:,2], 
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
