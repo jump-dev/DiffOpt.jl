@@ -32,12 +32,12 @@ using LinearAlgebra
 
 Construct separatable, non-trivial data points.
 ```julia
-N = 100
+N = 50
 D = 2
-Random.seed!(6)
+Random.seed!(rand(1:100))
 X = vcat(randn(N, D), randn(N,D) .+ [4.0,1.5]')
 y = append!(ones(N), -ones(N))
-N = 2*N
+N = 2*N;
 ```
 
 Let's define the variables.
@@ -47,13 +47,13 @@ model = Model(() -> diff_optimizer(SCS.Optimizer))
 # add variables
 @variable(model, l[1:N])
 @variable(model, w[1:D])
-@variable(model, b)
+@variable(model, b);
 ```
 
 Add the constraints.
 ```julia
-@constraint(model, y.*(X*w .+ b) + l.-1 ∈ MOI.Nonnegatives(N))
-@constraint(model, 1.0*l ∈ MOI.Nonnegatives(N))
+@constraint(model, cons, y.*(X*w .+ b) + l.-1 ∈ MOI.Nonnegatives(N))
+@constraint(model, 1.0*l ∈ MOI.Nonnegatives(N));
 ```
 
 Define the linear objective function and solve the SVM model.
@@ -68,7 +68,7 @@ optimize!(model)
 
 loss = objective_value(model)
 wv = value.(w)
-bv = value(b)
+bv = value(b);
 ```
 
 We can visualize the separating hyperplane. 
@@ -124,19 +124,6 @@ b &= [0, 0, ... 0 \text{(N times)}, l_1 - 1, l_2 -1, ... l_N -1] \\\\
 
 \mathcal{K} &= \text{Set of Nonnegative cones}
 \end{align*}
-```
-
-
-### Preprocessing
-
-Casting JuMP variables to MOI variables.
-
-```julia
-diff_opt = backend(model).optimizer.model
-
-cons = MOI.get(diff_opt, MOI.ListOfConstraintIndices{MOI.VectorAffineFunction{Float64}, MOI.Nonnegatives}())[1]
-_w = MOI.get(diff_opt, MOI.ListOfVariableIndices())[N+1:N+D]
-_b = MOI.get(diff_opt, MOI.ListOfVariableIndices())[N+D+1]
 ```
 
 
