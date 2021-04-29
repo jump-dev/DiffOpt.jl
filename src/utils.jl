@@ -35,6 +35,9 @@ function create_LHS_matrix(z, λ, Q, G, h, A=nothing)::AbstractMatrix{Float64}
         if n != size(G, 2)
             throw(DimensionError("Sizes of $A and $G do not match"))
         end
+        if length(λ) != m
+            throw(DimensionError("Sizes of $λ and $G do not match"))
+        end
         return [Q         G' * Diagonal(λ)       A';
                 G         Diagonal(G * z - h)    spzeros(m, p);
                 A         spzeros(p, m)          spzeros(p, p)]
