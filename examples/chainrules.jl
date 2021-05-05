@@ -4,11 +4,23 @@ using DiffOpt
 using Test
 using ChainRulesCore
 
-# This script creates the JuMP problem for a small unit commitment instance
+# This script creates the JuMP model for a small unit commitment instance
+# represented in a solution map function taking parameters as arguments and returning
+# the optimal solution as output.
+
+# The derivatives of this solution map can then be expressed in ChainRules semantics
+# and implemented using DiffOpt
 
 ATOL=1e-4
 RTOL=1e-4
 
+"""
+Solution map of the problem using parameters:
+- `load1_demand, load2_demand` for the demand of two nodes
+- `gen_costs` is the vector of generator costs
+- `noload_costs` is the vector of fixed activation costs of the generators,
+and returning the optimal output power `p`.
+"""
 function unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs; model = Model(() -> diff_optimizer(Clp.Optimizer)))
     ## Problem data
     unit_codes = [1, 2] # Generator identifiers
@@ -58,14 +70,10 @@ function unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs; mo
     return JuMP.value.(p.data)
 end
 
-unit_commitment([1.0, 1.2, 1.4, 1.6], [1.0, 1.2, 1.4, 1.6], [1000.0, 1500.0], [500.0, 1000.0])
+@show unit_commitment([1.0, 1.2, 1.4, 1.6], [1.0, 1.2, 1.4, 1.6], [1000.0, 1500.0], [500.0, 1000.0])
 
-
-load1_demand = [1.0, 1.2, 1.4, 1.6]
-load2_demand = [1.0, 1.2, 1.4, 1.6]
-gen_costs = [1000.0, 1500.0]
-noload_costs = [500.0, 1000.0]
-
+# Forward differentiation rule for the solution map of the unit commitment problem
+# taking in input perturbations on the input parameters and returning perturbations propagated to the result
 function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs), ::typeof(unit_commitment), load1_demand, load2_demand, gen_costs, noload_costs)
     model = Model(() -> diff_optimizer(Clp.Optimizer))
     pv = unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs, model=model)
@@ -87,15 +95,21 @@ function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, �
 end
 
 
+load1_demand = [1.0, 1.2, 1.4, 1.6]
+load2_demand = [1.0, 1.2, 1.4, 1.6]
+gen_costs = [1000.0, 1500.0]
+noload_costs = [500.0, 1000.0]
+
 Δload1_demand = 0 * load1_demand .+ 0.1
 Δload2_demand = 0 * load2_demand .+ 0.2
 Δgen_costs = 0 * gen_costs .+ 0.1
 Δnoload_costs = 0 * noload_costs .+ 0.4
-(pv, Δpv) = ChainRulesCore.frule((nothing, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs), unit_commitment, load1_demand, load2_demand, gen_costs, noload_costs)
+@show (pv, Δpv) = ChainRulesCore.frule((nothing, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs), unit_commitment, load1_demand, load2_demand, gen_costs, noload_costs)
 
-
+# Reverse-mode differentiation of the solution map
+# The computed pullback takes a seed for the optimal solution `̄p` and returns
+# derivatives wrt each input parameter.
 function ChainRulesCore.rrule(::typeof(unit_commitment), load1_demand, load2_demand, gen_costs, noload_costs; model = Model(() -> diff_optimizer(Clp.Optimizer)))
-    
     pv = unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs, model=model)
     function pullback_unit_commitment(pb)
         p = model[:p]
@@ -121,4 +135,4 @@ function ChainRulesCore.rrule(::typeof(unit_commitment), load1_demand, load2_dem
 end
 
 (pv, pullback_unit_commitment) = ChainRulesCore.rrule(unit_commitment, load1_demand, load2_demand, gen_costs, noload_costs; model = Model(() -> diff_optimizer(Clp.Optimizer)))
-pullback_unit_commitment(ones(size(pv)))
+@show pullback_unit_commitment(ones(size(pv)))
