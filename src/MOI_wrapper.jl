@@ -347,13 +347,13 @@ end
 
 function MOI.get(model::Optimizer,
     ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI)
-    tuple = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
-    return get(model.input_cache.dQ, tuple, 0.0)
+    idx = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
+    return get(model.input_cache.dQ, idx, 0.0)
 end
 function MOI.set(model::Optimizer,
     ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI, val)
-    tuple = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
-    model.input_cache.dQ[tuple] = val
+    idx = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
+    model.input_cache.dQ[idx] = val
     return
 end
 
