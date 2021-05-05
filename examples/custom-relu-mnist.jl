@@ -34,10 +34,10 @@ function myRelu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Op
     # model init
     N = length(y[:, 1])
     empty!(model)
-    set_optimizer_attribute(model, MOI.Silent(), true)
-    @variable(model, x[1:N] >= zero(T))
+    set_silent(model)
+    @variable(model, x[1:N] >= 0)
     
-    for i in 1:size(y)[2]
+    for i in 1:size(y, 2)
         @objective(
             model,
             Min,
@@ -72,7 +72,7 @@ function ChainRulesCore.rrule(::typeof(myRelu), y::AbstractArray{T}; model = Mod
                 DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), 
                 x, 
             )  # coeff of `x` in -2x'y
-            dy[:, i] = -2 * dy[:, i]
+            dy[:, i] .= -2 .* dy[:, i]
         end
         
         return (NO_FIELDS, dy)
@@ -99,5 +99,4 @@ Flux.train!(loss, params(m), dataset, opt, cb = throttle(evalcb, 5)); #took me ~
 
 @show accuracy(X,Y)
 @show accuracy(test_X, test_Y);
-
 
