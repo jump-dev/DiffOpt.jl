@@ -347,13 +347,13 @@ end
 
 function MOI.get(model::Optimizer,
     ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI)
-    tuple = ifelse(index(vi1) <= index(vi2), (vi1, vi2), (vi2, vi1))
-    return get(model.input_cache.dQ, tuple, 0.0)
+    idx = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
+    return get(model.input_cache.dQ, idx, 0.0)
 end
 function MOI.set(model::Optimizer,
     ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI, val)
-    tuple = ifelse(index(vi1) <= index(vi2), (vi1, vi2), (vi2, vi1))
-    model.input_cache.dQ[tuple] = val
+    idx = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
+    model.input_cache.dQ[idx] = val
     return
 end
 
@@ -871,7 +871,7 @@ function _fill_quad_Q(model, dQv, dQi, dQj, index_map)
     for ((vi1, vi2), val) in dict_dQ
         i = index_map[vi1].value
         j = index_map[vi2].value
-        for (vi, val) in dict
+        for (vi, val) in dict_dQ
             push!(dQv, val)
             push!(dQi, i)
             push!(dQj, j)
