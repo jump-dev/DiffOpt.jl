@@ -26,9 +26,11 @@ X = X[:, 1:10000]
 Y = Y[:, 1:10000];
 
 """
+    matrix_relu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer)))::AbstractMatrix{T}
+
 relu method for a Matrix
 """
-function myRelu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
+function matrix_relu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
     x̂ = zero(y)
     
     # model init
@@ -50,11 +52,11 @@ function myRelu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Op
     return x̂
 end
 
-function ChainRulesCore.rrule(::typeof(myRelu), y::AbstractArray{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
+function ChainRulesCore.rrule(::typeof(matrix_relu), y::AbstractArray{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
     
-    pv = myRelu(y, model=model) 
+    pv = matrix_relu(y, model=model) 
     
-    function pullback_myRelu(dx)
+    function pullback_matrix_relu(dx)
         x = model[:x]
         dy = zero(dx)
         
@@ -78,12 +80,12 @@ function ChainRulesCore.rrule(::typeof(myRelu), y::AbstractArray{T}; model = Mod
         
         return (NO_FIELDS, dy)
     end
-    return pv, pullback_myRelu
+    return pv, pullback_matrix_relu
 end
 
 m = Chain(
     Dense(784, 64),
-    myRelu,
+    matrix_relu,
     Dense(64, 10),
     softmax,
 )
