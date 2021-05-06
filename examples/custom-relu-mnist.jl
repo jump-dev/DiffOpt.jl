@@ -26,7 +26,7 @@ X = X[:, 1:10000]
 Y = Y[:, 1:10000];
 
 """
-    relu method for a Matrix
+relu method for a Matrix
 """
 function myRelu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
     x̂ = zero(y)
@@ -85,7 +85,7 @@ m = Chain(
     Dense(784, 64),
     myRelu,
     Dense(64, 10),
-    softmax
+    softmax,
 )
 
 loss(x, y) = crossentropy(m(x), y) 
@@ -100,4 +100,3 @@ Flux.train!(loss, params(m), dataset, opt, cb = throttle(evalcb, 5)); #took me ~
 
 @show accuracy(X,Y)
 @show accuracy(test_X, test_Y);
-
