@@ -22,8 +22,8 @@ test_Y = onehotbatch(Flux.Data.MNIST.labels(:test), 0:9)
 X = convert(Array{Float16,2}, X) 
 test_X = convert(Array{Float16,2}, test_X)
 
-X = X[:, 1:1000]
-Y = Y[:, 1:1000];
+X = X[:, 1:10000]
+Y = Y[:, 1:10000];
 
 """
     relu method for a Matrix
@@ -36,13 +36,14 @@ function myRelu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Op
     empty!(model)
     set_silent(model)
     @variable(model, x[1:N] >= 0)
+    @objective(
+        model,
+        Min,
+        x'x -2x'y[:, 1]
+    )
     
     for i in 1:size(y, 2)
-        @objective(
-            model,
-            Min,
-            x'x -2x'y[:, i]
-        )
+        set_objective_coefficient.(model, x, -2y[:, i])
         optimize!(model)
         x̂[:, i] = value.(x)
     end
