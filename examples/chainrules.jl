@@ -30,7 +30,7 @@ function unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs; mo
     Pmax = Dict(1 => fill(3.0, n_periods), 2 => fill(3.0, n_periods)) # Maximum power output (pu)
     RR = Dict(1 => 0.25, 2 => 0.25) # Ramp rates (pu/min)
     P0 = Dict(1 => 0.0, 2 => 0.0) # Initial power output (pu)
-    D = Dict("Load1" => load1_demand, "Load2" => load2_demand) # Demand
+    D = Dict("Load1" => load1_demand, "Load2" => load2_demand) # Demand (pu)
     Cp = Dict(1 => gen_costs[1], 2 => gen_costs[2]) # Generation cost coefficient ($/pu)
     Cnl = Dict(1 => noload_costs[1], 2 => noload_costs[2]) # No-load cost ($)
 
