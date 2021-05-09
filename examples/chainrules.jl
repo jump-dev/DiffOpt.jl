@@ -35,8 +35,11 @@ function unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs; mo
     Cnl = Dict(1 => noload_costs[1], 2 => noload_costs[2]) # No-load cost ($)
 
     ## Variables
+    # Note: u represents the activation of generation units.
+    # Would be binary in the typical UC problem, relaxed here to u ∈ [0,1]
+    # for a linear relaxation.
     @variable(model, 0 <= u[g in unit_codes, t in 1:n_periods] <= 1) # Commitment
-    @variable(model, p[g in unit_codes, t in 1:n_periods] >= 0) # Power output
+    @variable(model, p[g in unit_codes, t in 1:n_periods] >= 0) # Power output (pu)
     
     ## Constraints
     
@@ -75,14 +78,25 @@ end
 # Forward differentiation rule for the solution map of the unit commitment problem
 # taking in input perturbations on the input parameters and returning perturbations propagated to the result
 function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs), ::typeof(unit_commitment), load1_demand, load2_demand, gen_costs, noload_costs)
+    # creating the UC model with a DiffOpt optimizer wrapper around Clp
     model = Model(() -> diff_optimizer(Clp.Optimizer))
+    # building and solving the main model
     pv = unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs, model=model)
     energy_balance_cons = model[:energy_balance_cons]
-    MOI.set.(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), energy_balance_cons, [d1 + d2 for (d1, d2) in zip(Δload1_demand, Δload1_demand)])
+
+    # Setting some perturbation of the right-hand side of the energy balance constraints
+    # the RHS is equal to the sum of load demands at each period.
+    # the corresponding perturbation are set accordingly as the set of perturbations of the two loads
+    MOI.set.(
+        model,
+        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), energy_balance_cons,
+        [d1 + d2 for (d1, d2) in zip(Δload1_demand, Δload1_demand)],
+    )
 
     p = model[:p]
     u = model[:u]
 
+    # setting the perturbation of the linear objective
     for t in size(p, 2)
         MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), p[1,t], Δgen_costs[1])
         MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), p[2,t], Δgen_costs[2])
@@ -90,6 +104,7 @@ function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, �
         MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), u[2,t], Δnoload_costs[2])
     end
     DiffOpt.forward(JuMP.backend(model))
+    # querying the corresponding perturbation of the decision
     Δp = MOI.get.(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), p)
     return (pv, Δp.data)
 end
@@ -110,6 +125,7 @@ noload_costs = [500.0, 1000.0]
 # The computed pullback takes a seed for the optimal solution `̄p` and returns
 # derivatives wrt each input parameter.
 function ChainRulesCore.rrule(::typeof(unit_commitment), load1_demand, load2_demand, gen_costs, noload_costs; model = Model(() -> diff_optimizer(Clp.Optimizer)))
+    # solve the forward UC problem
     pv = unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs, model=model)
     function pullback_unit_commitment(pb)
         p = model[:p]
@@ -119,6 +135,7 @@ function ChainRulesCore.rrule(::typeof(unit_commitment), load1_demand, load2_dem
         MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), p, pb)
         DiffOpt.backward(JuMP.backend(model))
 
+        # computing derivative wrt linear objective costs
         dgen_costs = similar(gen_costs)
         dgen_costs[1] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), p[1,:]))
         dgen_costs[2] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), p[2,:]))
@@ -127,6 +144,7 @@ function ChainRulesCore.rrule(::typeof(unit_commitment), load1_demand, load2_dem
         dnoload_costs[1] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), u[1,:]))
         dnoload_costs[2] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), u[2,:]))
         
+        # computing derivative wrt constraint constant
         dload1_demand = MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), energy_balance_cons)
         dload2_demand = copy(dload1_demand)
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
