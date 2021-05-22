@@ -19,7 +19,15 @@ makedocs(;
             "Solving a QP" => "solve-QP.md",
             "Solving conic with PSD and SOC constraints" => "solve-conic-1.md",
             "Differentiating a simple QP by hand" => "matrix-inversion-manual.md",
-            "Sensitivity Analysis SVM" => "sensitivity-analysis-svm.md"
+            "Sensitivity Analysis" => [
+                "SVM" => "sensitivity-analysis-svm.md",
+                "Ridge Regression" => "sensitivity-analysis-ridge.md",
+            ],
+            "Hyper-parameter optimization" => "autotuning-ridge.md",
+            "Custom Neural Network Layers" => [
+                "ReLU Layer" => "custom-relu.md",
+                "SVM as a Layer" => "custom-svm.md",
+            ],
         ]
     ],
     strict = true,  # See https://github.com/JuliaOpt/JuMP.jl/issues/1576
