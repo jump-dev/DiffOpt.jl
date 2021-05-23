@@ -1,4 +1,4 @@
-```@example 6
+```julia
 using Statistics
 using DiffOpt
 using Flux
@@ -9,18 +9,16 @@ using SCS
 using CSV
 using DataFrames
 using ChainRulesCore
-nothing # hide
 ```
 
 
-```@example 6
+```julia
 labels = NaN;   # hack for the SVM
-nothing # hide
 ```
 
 # Custom SVM layer
 
-```@example 6
+```julia
 """
     SVM as a Flux layer
 """
@@ -55,12 +53,11 @@ function SVM(X::AbstractMatrix{T}; model = Model(() -> diff_optimizer(SCS.Optimi
     
     return (X'*wv .+ bv)' #prediction
 end
-nothing # hide
 ```
 
 
 
-```@example 6
+```julia
 function ChainRulesCore.rrule(::typeof(SVM), X::AbstractArray{T}; model = Model(() -> diff_optimizer(SCS.Optimizer))) where {T}
 
     predictions = SVM(X, model=model) 
@@ -76,11 +73,10 @@ function ChainRulesCore.rrule(::typeof(SVM), X::AbstractArray{T}; model = Model(
     end
     return predictions, pullback_SVM
 end
-nothing # hide
 ```
 
 
-```@example 6
+```julia
 function fetchProblem(;split_ratio::Float64)
     df = CSV.File("titanic_preprocessed.csv") |> DataFrame
 
@@ -95,24 +91,22 @@ function fetchProblem(;split_ratio::Float64)
 end
 X_train, X_test, Y_train, Y_test = fetchProblem(split_ratio=0.8)
 D = size(X_train)[1];
-nothing # hide
 ```
 
 ## Define the NN
 
 
-```@example 6
+```julia
 m = Chain(
     Dense(D, 16, relu),
     Dropout(0.5),
     SVM
 #     Dense(32, 1, σ),
 );
-nothing # hide
 ```
 
 
-```@example 6
+```julia
 loss(x, y) = logitcrossentropy(m(x), y) 
 opt = ADAM(); # popular stochastic gradient descent variant
 
@@ -125,12 +119,11 @@ end
 
 dataset = repeated((X_train,Y_train), 1) # repeat the data set, very low accuracy on the orig dataset
 evalcb = () -> @show(loss(X_train,Y_train)) # callback to show loss
-nothing # hide
 ```
 
 
 
-```@example 6
+```julia
 labels = Y_train   # needed for SVM
 for iter in 1:1
     Flux.train!(loss, params(m), dataset, opt, cb = throttle(evalcb, 5)); #took me ~5 minutes to train on CPU
@@ -140,5 +133,4 @@ end
 
 labels = Y_test   # needed for SVM
 @show accuracy(X_test, Y_test);
-nothing # hide
 ```
