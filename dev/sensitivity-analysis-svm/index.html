@@ -63,13 +63,7 @@ svm_y = (-bv .- wv[1] * svm_x )/wv[2]
 p = Plots.scatter(X[:,1], X[:,2], color = [yi &gt; 0 ? :red : :blue for yi in y], label = &quot;&quot;)
 Plots.yaxis!(p, (-2, 4.5))
 Plots.plot!(p, svm_x, svm_y, label = &quot;loss = $(round(loss, digits=2))&quot;, width=3)
-Plots.savefig(&quot;svm_separating.svg&quot;)</code></pre><pre class="documenter-example-output">qt.qpa.xcb: could not connect to display
-qt.qpa.plugin: Could not load the Qt platform plugin &quot;xcb&quot; in &quot;&quot; even though it was found.
-This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
-
-Available platform plugins are: linuxfb, minimal, offscreen, vnc, xcb.
-
-Aborted (core dumped)
+Plots.savefig(&quot;svm_separating.svg&quot;)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/BwGt2/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
@@ -135,22 +129,16 @@ LinearAlgebra.normalize!(∇)</code></pre><p>Visualize point sensitivities with 
 )
 Plots.yaxis!(p2, (-2, 4.5))
 Plots.plot!(p2, svm_x, svm_y, label = &quot;loss = $(round(loss, digits=2))&quot;, width=3)
-Plots.savefig(&quot;sensitivity2.svg&quot;)</code></pre><pre class="documenter-example-output">qt.qpa.xcb: could not connect to display
-qt.qpa.plugin: Could not load the Qt platform plugin &quot;xcb&quot; in &quot;&quot; even though it was found.
-This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
-
-Available platform plugins are: linuxfb, minimal, offscreen, vnc, xcb.
-
-Aborted (core dumped)
+Plots.savefig(&quot;sensitivity2.svg&quot;)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/BwGt2/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
 GKS: Open failed in routine OPEN_WS
 GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS
 ┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
-└ @ Plots ~/.julia/packages/Plots/lzHOt/src/utils.jl:102
+└ @ Plots ~/.julia/packages/Plots/iYDwd/src/utils.jl:108
 ┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
-└ @ Plots ~/.julia/packages/Plots/lzHOt/src/utils.jl:102</pre><p><img src="../sensitivity2.svg" alt/></p><h2 id="Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates"><a class="docs-heading-anchor" href="#Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates">Experiment 2: Gradient of hyperplane wrt the data point coordinates</a><a id="Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates-1"></a><a class="docs-heading-anchor-permalink" href="#Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates" title="Permalink"></a></h2><p>Similar to previous example, construct perturbations in data points coordinates <code>X</code>.</p><pre><code class="language-julia">∇ = Float64[]
+└ @ Plots ~/.julia/packages/Plots/iYDwd/src/utils.jl:108</pre><p><img src="../sensitivity2.svg" alt/></p><h2 id="Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates"><a class="docs-heading-anchor" href="#Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates">Experiment 2: Gradient of hyperplane wrt the data point coordinates</a><a id="Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates-1"></a><a class="docs-heading-anchor-permalink" href="#Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates" title="Permalink"></a></h2><p>Similar to previous example, construct perturbations in data points coordinates <code>X</code>.</p><pre><code class="language-julia">∇ = Float64[]
 dX = zeros(N, D)
 
 # begin differentiating
@@ -190,19 +178,13 @@ LinearAlgebra.normalize!(∇)</code></pre><p>We can visualize point sensitivity 
 )
 Plots.yaxis!(p3, (-2, 4.5))
 Plots.plot!(p3, svm_x, svm_y, label = &quot;loss = $(round(loss, digits=2))&quot;, width=3)
-Plots.savefig(p3, &quot;sensitivity3.svg&quot;)</code></pre><pre class="documenter-example-output">qt.qpa.xcb: could not connect to display
-qt.qpa.plugin: Could not load the Qt platform plugin &quot;xcb&quot; in &quot;&quot; even though it was found.
-This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
-
-Available platform plugins are: linuxfb, minimal, offscreen, vnc, xcb.
-
-Aborted (core dumped)
+Plots.savefig(p3, &quot;sensitivity3.svg&quot;)</code></pre><pre class="documenter-example-output">/home/runner/.julia/packages/GR/BwGt2/src/../deps/gr/bin/gksqt: error while loading shared libraries: libQt5Widgets.so.5: cannot open shared object file: No such file or directory
 connect: Connection refused
 GKS: can&#39;t connect to GKS socket application
 
 GKS: Open failed in routine OPEN_WS
 GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS
 ┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
-└ @ Plots ~/.julia/packages/Plots/lzHOt/src/utils.jl:102
+└ @ Plots ~/.julia/packages/Plots/iYDwd/src/utils.jl:108
 ┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
-└ @ Plots ~/.julia/packages/Plots/lzHOt/src/utils.jl:102</pre><p><img src="../sensitivity3.svg" alt/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a simple QP by hand</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 5 May 2021 21:16">Wednesday 5 May 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+└ @ Plots ~/.julia/packages/Plots/iYDwd/src/utils.jl:108</pre><p><img src="../sensitivity3.svg" alt/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a simple QP by hand</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Tuesday 1 June 2021 14:53">Tuesday 1 June 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
