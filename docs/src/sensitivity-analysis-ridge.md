@@ -26,7 +26,7 @@ using LinearAlgebra
 
 Construct a set of noisy (guassian) data points around a line.
 ```@example 2
-function createProblem(N=100)
+function create_problem(N=100)
     m = 2*abs(randn())
     b = rand()
     X = randn(N)
@@ -35,7 +35,7 @@ function createProblem(N=100)
     return X, Y
 end
 
-X, Y = createProblem();
+X, Y = create_problem();
 nothing # hide
 ```
 

@@ -15,7 +15,7 @@ if should_plot
     using Plots
 end
 
-function createProblem(N=100)
+function create_problem(N=100)
     m = 2*abs(randn())
     b = rand()
     X = randn(N)
@@ -24,7 +24,7 @@ function createProblem(N=100)
     return X, Y
 end
 
-X, Y = createProblem();
+X, Y = create_problem();
 
 function fitRidge(X,Y,alpha=0.1)
     model = Model(() -> diff_optimizer(OSQP.Optimizer))

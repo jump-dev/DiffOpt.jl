@@ -62,12 +62,12 @@ function ChainRulesCore.rrule(::typeof(SVM), X::AbstractArray{T}; model = Model(
 
     predictions = SVM(X, model=model) 
     
+    """
+        model[:w], model[:b] are the weights of this layer
+        they are not updated using backward pass
+        since they can be computed to an accurate degree using a solver
+    """
     function pullback_SVM(dX)
-        """
-            model[:w], model[:b] are the weights of this layer
-            they are not updated using backward pass
-            since they can be computed to an accurate degree using a solver
-        """
         dy = zero(dX)   # since w#
         return (NO_FIELDS, dy)
     end

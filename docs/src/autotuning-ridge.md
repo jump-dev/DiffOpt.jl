@@ -13,19 +13,19 @@ nothing # hide
 
 
 ```@example 3
+"""
+    Return the coefficient of determination R2 of the prediction.
+    best possible score is 1.0
+    it can be negative (because the model can be arbitrarily worse)
+"""
 function R2(y_true, y_pred)
-    """
-        Return the coefficient of determination R2 of the prediction.
-        best possible score is 1.0
-        it can be negative (because the model can be arbitrarily worse)
-    """
     u = sum((y_pred - y_true).^2)  # Regression sum of squares
     v = sum((y_true .- mean(y_true)).^2)  # Total sum of squares
     
     return 1-(u/v)
 end
 
-function createProblem(N, D, noise)
+function create_problem(N, D, noise)
     w = rand(D) 
     X = rand(N, D) 
     
@@ -34,11 +34,11 @@ function createProblem(N, D, noise)
     Y = X*w .+ noise*randn(N)
 
     # test train split
-    l = Int(N*0.5)
+    l = N ÷ 2
     return X[1:l, :], X[l+1:N, :], Y[1:l], Y[l+1:N]
 end
 
-X_train, X_test, Y_train, Y_test = createProblem(800, 30, 4);
+X_train, X_test, Y_train, Y_test = create_problem(800, 30, 4);
 nothing # hide
 ```
 
@@ -86,10 +86,7 @@ nothing # hide
 
 ```@example 3
 plot(log.(αs), Rs*10, label="R2 prediction score",  xaxis = ("log(α)"))
-nothing # hide
 ```
-![svg](autotuning-ridge-1.svg)
-    
 
 
 
@@ -97,7 +94,6 @@ nothing # hide
 ```@example 3
 plot(log.(αs), mse, label="MSE", xaxis = ("log(α)"))
 ```    
-![svg](autotuning-ridge-2.svg)
     
 
 
@@ -158,7 +154,6 @@ end
 
 plot(αs, ∂l_∂αs, label="∂l/∂α",  xaxis = ("α"))
 ```    
-![svg](autotuning-ridge-3.svg)
     
 
 
@@ -213,6 +208,4 @@ nothing # hide
 ```@example 3
 plot(log.(αs), mse, label="MSE", xaxis = ("α"))
 plot!(log.(ᾱ), msē, label="G.D. for α", lw = 2)
-nothing # hide
 ```
-![svg](autotuning-ridge-4.svg)
