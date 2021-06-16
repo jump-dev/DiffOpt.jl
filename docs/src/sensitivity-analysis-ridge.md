@@ -1,6 +1,6 @@
 # Sensitivity Analysis of Ridge Regression using DiffOpt.jl
 
-This notebook illustrates sensitivity analysis of data points in a [Ridge Regression](https://en.wikipedia.org/wiki/Ridge_regression) problem. The general form of the problem is given below:
+This example illustrates the sensitivity analysis of data points in a [Ridge Regression](https://en.wikipedia.org/wiki/Ridge_regression) problem. The general form of the problem is given below:
 
 ```math
 \begin{split}
