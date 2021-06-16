@@ -14,9 +14,8 @@ nothing # hide
 
 ```@example 3
 """
-    Return the coefficient of determination R2 of the prediction.
-    best possible score is 1.0
-    it can be negative (because the model can be arbitrarily worse)
+Return the coefficient of determination R2 of the prediction.
+Best possible score is 1.0, it can be negative because the model can be arbitrarily worse
 """
 function R2(y_true, y_pred)
     u = sum((y_pred - y_true).^2)  # Regression sum of squares
