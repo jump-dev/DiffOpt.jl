@@ -49,5 +49,4 @@
     db = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
 
     @test db ≈ [-1.0]  atol=ATOL rtol=RTOL
-    # TODO: unifor sign
 end

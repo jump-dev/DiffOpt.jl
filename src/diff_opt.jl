@@ -33,7 +33,6 @@ function diff_optimizer(optimizer_constructor)::Optimizer
     return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
 end
 
-# TODO: arragen this in fields
 Base.@kwdef struct QPCache
     problem_data::Tuple{
         SparseArrays.SparseMatrixCSC{Float64,Int64}, Vector{Float64}, # Q, q
@@ -102,13 +101,9 @@ const CACHE_BACK_TYPE = Union{
     QPForwBackCache,
     ConicBackCache,
 }
-# TODO benchmark access to these, ^^, type unstable type
-# possibly add fields for all of them
 
 const MOIDD = MOI.Utilities.DoubleDicts
 
-# TODO: possibly use sparse vector/MatrixCSC format for better performance
-# will need to keep indices correct
 Base.@kwdef struct DiffInputCache
     dx::Dict{VI, Float64} = Dict{VI, Float64}()# dz for QP
     # ds
@@ -251,8 +246,6 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     end
 end
 
-# TODO: ci accesses in index_map can be more type stable
-# TODO: vector/batched version of these methods for better performance
 function MOI.get(model::Optimizer, ::ForwardOut{MOI.VariablePrimal}, vi::VI)
     return _get_dx(model, vi)
 end
@@ -267,8 +260,6 @@ function _get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     dw = f_cache.dw
     x = g_cache.xys[1]
     return - (du[i] - x[i] * dw[])
-    # TODO:  check this sign, had to change to pass tests
-    # need to check standard form
 end
 
 function MOI.get(model::Optimizer, ::BackwardIn{MOI.VariablePrimal}, vi::VI)
@@ -333,7 +324,6 @@ function MOI.set(model::Optimizer,
     return
 end
 
-# TODO: deal with vector constraints
 function MOI.get(model::Optimizer,
     ::BackwardOut{ConstraintConstant}, ci::CI{F,S}) where {F,S}
     return _get_db(model, ci)
@@ -381,7 +371,6 @@ function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     return - dν[i]
 end
 
-# TODO: vector get for vector constraints
 function MOI.get(model::Optimizer,
     ::ForwardIn{ConstraintConstant}, ci::CI{F,S}
 ) where {F<:MOI.ScalarAffineFunction,S}
@@ -412,7 +401,6 @@ function MOI.set(model::Optimizer,
     return
 end
 
-# TODO: deal with vector constraints
 function MOI.get(model::Optimizer,
     ::BackwardOut{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
     return _get_dA(model, vi, ci)
@@ -482,7 +470,6 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
     # return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
 end
 
-# TODO: vector get for vector constraints
 function MOI.get(model::Optimizer,
     ::ForwardIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
     dict = get(model.input_cache.dA, ci, nothing)
