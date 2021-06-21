@@ -247,9 +247,6 @@ end
 
     z = [x, y]
 
-    # doptimizer = JuMP.backend(model).optimizer.model
-    # z = doptimizer.primal_optimal
-
     @test JuMP.value.(z) ≈ [0.25, 0.75] atol=ATOL rtol=RTOL
 
     MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), z, [1.3, 0.5])

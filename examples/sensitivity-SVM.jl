@@ -56,11 +56,11 @@ cons = MOI.add_constraint(
     MOI.Nonnegatives(N),
 )
 
-objective_function = MOI.ScalarAffineFunction(
+_objective_function = MOI.ScalarAffineFunction(
                         MOI.ScalarAffineTerm.(ones(N), l),
                         0.0,
                     )
-MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), _objective_function)
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 MOI.optimize!(model)

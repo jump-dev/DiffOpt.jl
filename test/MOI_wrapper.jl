@@ -1390,7 +1390,7 @@ end
 
     MOI.optimize!(model)
 
-    _x = MOI.get(model, MOI.VariablePrimal(), x) # model.primal_optimal
+    _x = MOI.get(model, MOI.VariablePrimal(), x)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
