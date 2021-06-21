@@ -105,7 +105,6 @@ end
 #     end
 # end
 
-# TODO: use MatOI for building the matrix
 """
     get_problem_data(model::MOI.AbstractOptimizer)
 
