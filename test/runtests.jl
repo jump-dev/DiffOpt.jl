@@ -35,7 +35,7 @@ end
 end
 
 @testset "MOI_wrapper" begin
-    include("MOI_wrapper.jl")
+    include("moi_wrapper.jl")
     include("qp_forward.jl")
     include("conic_backward.jl")
 end
