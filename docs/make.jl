@@ -30,4 +30,5 @@ makedocs(;
 
 deploydocs(
     repo   = "github.com/jump-dev/DiffOpt.jl.git",
+    push_preview = true,
 )
