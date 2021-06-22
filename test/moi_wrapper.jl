@@ -1167,8 +1167,7 @@ function simple_psd(solver)
     dA = zeros(4, 3)
     db = zeros(4)
     MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, [0.0])
-    dobj = -1.0fX[1] + 1.0fX[3]
-    MOI.set(model, DiffOpt.ForwardInObjective{typeof(dobj)}(), dobj)
+    MOI.set(model, DiffOpt.ForwardInObjective(), -1.0fX[1] + 1.0fX[3])
 
     DiffOpt.forward(model)
 
@@ -1397,9 +1396,7 @@ end
     @test y ≈ [0.0, 0.19019238, 0., 0.12597667, 0., 0.14264428, 0.14264428, 0.01274047, 0.21132487, 0.408248, 0.78867513] atol=ATOL rtol=RTOL
 
     # dc = ones(7)
-    dobj = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(7), x), 0.0)
-    MOI.set.(model,
-        DiffOpt.ForwardInObjective{typeof(dobj)}(), dobj)
+    MOI.set(model, DiffOpt.ForwardInObjective(), MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(7), x), 0.0))
     # db = ones(11)
     MOI.set(model,
         DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c1, [1.0])
@@ -1550,8 +1547,7 @@ end
     dA = zeros(6, 1)
     db = zeros(6)
     MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, zeros(6))
-    dobj = 1.0 * MOI.SingleVariable(x)
-    MOI.set(model, DiffOpt.ForwardInObjective{typeof(dobj)}(), dobj)
+    MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * MOI.SingleVariable(x))
 
     # dx, dy, ds = backward(model, dA, db, dc)
     DiffOpt.forward(model)
@@ -1736,8 +1732,7 @@ end
     dA = zeros(6, 1)
     db = zeros(6)
     MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, zeros(6))
-    dobj = 1.0 * MOI.SingleVariable(x)
-    MOI.set(model, DiffOpt.ForwardInObjective{typeof(dobj)}(), dobj)
+    MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * MOI.SingleVariable(x))
 
     # dx, dy, ds = _backward_conic(model, dA, db, dc)
     DiffOpt.forward(model)

@@ -135,7 +135,7 @@ MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x)
 struct ForwardIn{T} <: AbstractDiffAttribute end
 
 """
-    ForwardInObjective{F<:MOI.AbstractScalarFunction}
+    ForwardInObjective
 
 A `MOI.AbstractModelAttribute` to set input data to forward differentiation, that
 is, problem input data.
@@ -148,12 +148,11 @@ computinig the derivative with respect to `θ`, the following should be set:
 ```julia
 fx = MOI.SingleVariable(x)
 fy = MOI.SingleVariable(y)
-obj = 1.0 * fx + 2.0 * fy
-MOI.set(model, DiffOpt.ForwardInObjective{obj}(), obj)
+MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * fx + 2.0 * fy)
 ```
 where `x` and `y` are the relevant `MOI.VariableIndex`.
 """
-struct ForwardInObjective{F<:MOI.AbstractScalarFunction} <: MOI.AbstractModelAttribute end
+struct ForwardInObjective <: MOI.AbstractModelAttribute end
 
 """
     ForwardOut{T}
@@ -308,10 +307,10 @@ function _get_dc(b_cache::QPForwBackCache, g_cache::QPCache, vi)
     return dz[i]
 end
 
-function MOI.get(model::Optimizer, ::ForwardInObjective{F})::F where {F}
+function MOI.get(model::Optimizer, ::ForwardInObjective)
     return model.input_cache.objective
 end
-function MOI.set(model::Optimizer, ::ForwardInObjective{F}, objective::F) where {F}
+function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
     model.input_cache.objective = objective
     return
 end
