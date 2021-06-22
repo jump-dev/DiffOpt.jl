@@ -54,3 +54,5 @@ function sparse_array_representation(func::MOI.ScalarQuadraticFunction, num_vari
         func.constant,
     )
 end
+_convert(::Type{F}, ::Nothing) where {F} = zero(F)
+_convert(::Type{F}, obj) where {F} = convert(F, obj)

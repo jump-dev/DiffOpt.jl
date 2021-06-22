@@ -1,3 +1,13 @@
+function set_forward_diff_objective(model::JuMP.Model, func::MOI.AbstractScalarFunction)
+    MOI.set(model, ForwardInObjective{typeof(func)}(), func)
+    return
+end
+function set_forward_diff_objective(model::JuMP.Model, func::JuMP.AbstractJuMPScalar)
+    JuMP.check_belongs_to_model(func, model)
+    return set_forward_diff_objective(model, JuMP.moi_function(func))
+end
+
+
 # extend caching optimizer
 function MOI.set(
     m::MOI.Utilities.CachingOptimizer,

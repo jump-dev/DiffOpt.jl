@@ -1074,11 +1074,7 @@ end
     dA = zeros(5, 3)
     dA[1:3, :] .= Matrix(1.0I, 3, 3)
     db = zeros(5)
-    dc = zeros(3)
 
-    for (i, vi) in enumerate(v)
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), vi, dc[i])
-    end
     for (i, ci) in enumerate([ceq, cnon])
         MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), ci, [db[i]])
     end
@@ -1114,6 +1110,7 @@ function simple_psd(solver)
     model = diff_optimizer(solver)
     MOI.set(model, MOI.Silent(), true)
     X = MOI.add_variables(model, 3)
+    fX = MOI.SingleVariable.(X)
     vov = MOI.VectorOfVariables(X)
     cX = MOI.add_constraint(
         model,
@@ -1131,7 +1128,7 @@ function simple_psd(solver)
     )
 
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [X[1], X[end]]), 0.0))
+            1.0fX[1] + 1.0fX[end])
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     MOI.optimize!(model)
@@ -1170,12 +1167,8 @@ function simple_psd(solver)
     dA = zeros(4, 3)
     db = zeros(4)
     MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, [0.0])
-    dc = zeros(3)
-    dc[1] = -1.0
-    dc[3] = 1.0
-    for (i, vi) in enumerate(X)
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), vi, dc[i])
-    end
+    dobj = -1.0fX[1] + 1.0fX[3]
+    MOI.set(model, DiffOpt.ForwardInObjective{typeof(dobj)}(), dobj)
 
     DiffOpt.forward(model)
 
@@ -1404,8 +1397,9 @@ end
     @test y ≈ [0.0, 0.19019238, 0., 0.12597667, 0., 0.14264428, 0.14264428, 0.01274047, 0.21132487, 0.408248, 0.78867513] atol=ATOL rtol=RTOL
 
     # dc = ones(7)
+    dobj = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(7), x), 0.0)
     MOI.set.(model,
-        DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, 1.0)
+        DiffOpt.ForwardInObjective{typeof(dobj)}(), dobj)
     # db = ones(11)
     MOI.set(model,
         DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c1, [1.0])
@@ -1431,7 +1425,7 @@ end
 
     atol = 0.3
     rtol = 0.01
-    
+
     # compare these with https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
     # results are not exactly as: 1. there is some residual error   2. diffcp results are SCS specific, hence scaled
     dx = [-39.6066, 10.8953, -14.9189, 10.9054, 10.883, 10.9118, -21.7508]
@@ -1448,9 +1442,6 @@ end
     db = zeros(11)
     dc = zeros(7)
 
-    # dc = zeros(7)
-    MOI.set.(model,
-        DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, 0.0)
     # db = zeros(11)
     MOI.set(model,
         DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c1, [0.0])
@@ -1559,8 +1550,8 @@ end
     dA = zeros(6, 1)
     db = zeros(6)
     MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, zeros(6))
-    dc = ones(1)
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, 1.0)
+    dobj = 1.0 * MOI.SingleVariable(x)
+    MOI.set(model, DiffOpt.ForwardInObjective{typeof(dobj)}(), dobj)
 
     # dx, dy, ds = backward(model, dA, db, dc)
     DiffOpt.forward(model)
@@ -1679,7 +1670,7 @@ end
 end
 
 @testset "Verifying cache on a PSD" begin
-    
+
     model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
 
@@ -1745,8 +1736,8 @@ end
     dA = zeros(6, 1)
     db = zeros(6)
     MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, zeros(6))
-    dc = ones(1)
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, 1.0)
+    dobj = 1.0 * MOI.SingleVariable(x)
+    MOI.set(model, DiffOpt.ForwardInObjective{typeof(dobj)}(), dobj)
 
     # dx, dy, ds = _backward_conic(model, dA, db, dc)
     DiffOpt.forward(model)

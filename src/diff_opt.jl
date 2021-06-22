@@ -104,7 +104,7 @@ const CACHE_BACK_TYPE = Union{
 
 const MOIDD = MOI.Utilities.DoubleDicts
 
-Base.@kwdef struct DiffInputCache
+Base.@kwdef mutable struct DiffInputCache
     dx::Dict{VI, Float64} = Dict{VI, Float64}()# dz for QP
     # ds
     # dy #= [d\lambada, d\nu] for QP
@@ -112,8 +112,7 @@ Base.@kwdef struct DiffInputCache
     dAv::MOIDD.DoubleDict{Dict{VI,Vector{Float64}}} = MOIDD.DoubleDict{Dict{VI,Vector{Float64}}}() # also includes G for QPs
     db::MOIDD.DoubleDict{Float64} = MOIDD.DoubleDict{Float64}() # also includes h for QPs
     dbv::MOIDD.DoubleDict{Vector{Float64}} = MOIDD.DoubleDict{Vector{Float64}}() # also includes h for QPs
-    dc::Dict{VI, Float64} = Dict{VI, Float64}()
-    dQ::Dict{Tuple{VI, VI}, Float64} = Dict{Tuple{VI, VI}, Float64}()
+    objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
 end
 
 abstract type AbstractDiffAttribute end
@@ -134,6 +133,27 @@ MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x)
 ```
 """
 struct ForwardIn{T} <: AbstractDiffAttribute end
+
+"""
+    ForwardInObjective{F<:MOI.AbstractScalarFunction}
+
+A `MOI.AbstractModelAttribute` to set input data to forward differentiation, that
+is, problem input data.
+The possible values are any `MOI.AbstractScalarFunction`.
+A `MOI.ScalarQuadraticFunction` can only be used in linearly constrained
+quadratic models.
+
+For instance, if the objective contains `θ * (x + 2y)`, for the purpose of
+computinig the derivative with respect to `θ`, the following should be set:
+```julia
+fx = MOI.SingleVariable(x)
+fy = MOI.SingleVariable(y)
+obj = 1.0 * fx + 2.0 * fy
+MOI.set(model, DiffOpt.ForwardInObjective{obj}(), obj)
+```
+where `x` and `y` are the relevant `MOI.VariableIndex`.
+"""
+struct ForwardInObjective{F<:MOI.AbstractScalarFunction} <: MOI.AbstractModelAttribute end
 
 """
     ForwardOut{T}
@@ -288,11 +308,11 @@ function _get_dc(b_cache::QPForwBackCache, g_cache::QPCache, vi)
     return dz[i]
 end
 
-function MOI.get(model::Optimizer, ::ForwardIn{LinearObjective}, vi::VI)
-    return get(model.input_cache.dc, vi, 0.0)
+function MOI.get(model::Optimizer, ::ForwardInObjective{F})::F where {F}
+    return model.input_cache.objective
 end
-function MOI.set(model::Optimizer, ::ForwardIn{LinearObjective}, vi::VI, val)
-    model.input_cache.dc[vi] = val
+function MOI.set(model::Optimizer, ::ForwardInObjective{F}, objective::F) where {F}
+    model.input_cache.objective = objective
     return
 end
 
@@ -310,18 +330,6 @@ function _get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
     z = g_cache.var_primals
     dz = b_cache.dz
     return 0.5 * (dz[i] * z[j] + z[i] * dz[j])
-end
-
-function MOI.get(model::Optimizer,
-    ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI)
-    idx = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
-    return get(model.input_cache.dQ, idx, 0.0)
-end
-function MOI.set(model::Optimizer,
-    ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI, val)
-    idx = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
-    model.input_cache.dQ[idx] = val
-    return
 end
 
 function MOI.get(model::Optimizer,
@@ -678,19 +686,10 @@ function _forward_quad(model::Optimizer)
     LHS = model.gradient_cache.lhs
     index_map = model.gradient_cache.index_map
 
-    nz = nnz(Q)
-    (lines, cols) = size(Q)
-    dQv = zeros(Float64, 0)
-    dQi = zeros(Int, 0)
-    dQj = zeros(Int, 0)
-    sizehint!(dQv, nz)
-    sizehint!(dQi, nz)
-    sizehint!(dQj, nz)
-    _fill_quad_Q(model, dQv, dQi, dQj, index_map)
-    dQ = sparse(dQi, dQj, dQv, lines, cols)
-
-    dq = zeros(length(q))
-    _fill_array(model, dq, index_map, model.input_cache.dc)
+    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
+    sparse_array_obj = sparse_array_representation(objective_function, LinearAlgebra.checksquare(Q), index_map)
+    dQ = sparse_array_obj.quadratic_terms
+    dq = sparse_array_obj.affine_terms
 
     db = zeros(length(b))
     _fill_quad_b(model, db)
@@ -741,26 +740,6 @@ function _forward_quad(model::Optimizer)
 
     model.forw_grad_cache = QPForwBackCache(dz, dλ, dν)
     return nothing
-end
-
-function _fill_quad_Q(model, dQv, dQi, dQj, index_map)
-    dict_dQ = model.input_cache.dQ
-
-    for ((vi1, vi2), val) in dict_dQ
-        i = index_map[vi1].value
-        j = index_map[vi2].value
-        for (vi, val) in dict_dQ
-            push!(dQv, val)
-            push!(dQi, i)
-            push!(dQj, j)
-            if i != j
-                push!(dQv, val)
-                push!(dQi, j)
-                push!(dQj, i)
-            end
-        end
-    end
-    return
 end
 
 function _fill_quad_b(model, db)
@@ -941,8 +920,10 @@ function _forward_conic(model::Optimizer)
     c = model.gradient_cache.c
     index_map = model.gradient_cache.index_map
 
-    dc = zeros(length(c))
-    _fill_array(model, dc, index_map, model.input_cache.dc)
+    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
+    sparse_array_obj = sparse_array_representation(objective_function, length(c), index_map)
+    dc = sparse_array_obj.terms
+
     db = zeros(length(b))
     _fill_conic_b(model, db)
     (lines, cols) = size(A)

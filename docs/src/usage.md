@@ -50,8 +50,9 @@ we can use the `backward` method
 
 we can use the `forward` method with perturbations in matrices `A`, `b`, `c`
 ```julia
-    MOI.set.(model,
-        DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, ones(2))
-    DiffOpt.forward(model)
-    grad_x = MOI.get.(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
+dobj = ones(2)' * MOI.SingleVariable.(x)
+MOI.set.(model,
+    DiffOpt.ForwardInObjective{typeof(dobj)}(), dobj)
+DiffOpt.forward(model)
+grad_x = MOI.get.(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
 ```

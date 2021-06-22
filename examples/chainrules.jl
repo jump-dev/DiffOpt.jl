@@ -40,33 +40,33 @@ function unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs; mo
     # for a linear relaxation.
     @variable(model, 0 <= u[g in unit_codes, t in 1:n_periods] <= 1) # Commitment
     @variable(model, p[g in unit_codes, t in 1:n_periods] >= 0) # Power output (pu)
-    
+
     ## Constraints
-    
+
     # Energy balance
     @constraint(
         model,
         energy_balance_cons[t in 1:n_periods],
         sum(p[g, t] for g in unit_codes) == sum(D[l][t] for l in load_names),
     )
-    
+
     # Generation limits
     @constraint(model, [g in unit_codes, t in 1:n_periods], Pmin[g][t] * u[g, t] <= p[g, t])
     @constraint(model, [g in unit_codes, t in 1:n_periods], p[g, t] <= Pmax[g][t] * u[g, t])
-    
+
     # Ramp rates
     @constraint(model, [g in unit_codes, t in 2:n_periods], p[g, t] - p[g, t - 1] <= 60 * RR[g])
     @constraint(model, [g in unit_codes], p[g, 1] - P0[g] <= 60 * RR[g])
     @constraint(model, [g in unit_codes, t in 2:n_periods], p[g, t - 1] - p[g, t] <= 60 * RR[g])
     @constraint(model, [g in unit_codes], P0[g] - p[g, 1] <= 60 * RR[g])
-    
+
     # Objective
     @objective(
         model,
         Min,
         sum((Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for g in unit_codes, t in 1:n_periods),
     )
-    
+
     optimize!(model)
     @assert termination_status(model) == MOI.OPTIMAL
     # converting to dense matrix
@@ -97,12 +97,8 @@ function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, �
     u = model[:u]
 
     # setting the perturbation of the linear objective
-    for t in size(p, 2)
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), p[1,t], Δgen_costs[1])
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), p[2,t], Δgen_costs[2])
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), u[1,t], Δnoload_costs[1])
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), u[2,t], Δnoload_costs[2])
-    end
+    dobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
+    DiffOpt.set_forward_diff_objective(model, dobj)
     DiffOpt.forward(JuMP.backend(model))
     # querying the corresponding perturbation of the decision
     Δp = MOI.get.(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), p)
@@ -143,7 +139,7 @@ function ChainRulesCore.rrule(::typeof(unit_commitment), load1_demand, load2_dem
         dnoload_costs = similar(noload_costs)
         dnoload_costs[1] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), u[1,:]))
         dnoload_costs[2] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), u[2,:]))
-        
+
         # computing derivative wrt constraint constant
         dload1_demand = MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), energy_balance_cons)
         dload2_demand = copy(dload1_demand)
