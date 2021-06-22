@@ -271,6 +271,8 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     # works both for any objective function convertible to a ScalarQuadraticFunction.
     # So in particular SingleVariable, ScalarAffineFunction and ScalarQuadraticFunction should work.
     objective_function = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
+    # TODO Remove, this is a temporary workaround for https://github.com/jump-dev/Ipopt.jl/pull/275
+    objective_function = convert(MOI.ScalarQuadraticFunction{Float64}, objective_function)
     sparse_array_obj = sparse_array_representation(objective_function, nz, index_map)
 
     return (
