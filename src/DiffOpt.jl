@@ -53,6 +53,7 @@ const SUPPORTED_VECTOR_SETS = Union{
     MOI.PositiveSemidefiniteConeTriangle,
 }
 
+include("utils.jl")
 include("conic_diff.jl")
 include("quadratic_diff.jl")
 include("diff_opt.jl")
