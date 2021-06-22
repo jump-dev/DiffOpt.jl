@@ -138,13 +138,13 @@ struct ForwardIn{T} <: AbstractDiffAttribute end
 """
     ForwardOut{T}
 
-A AbstractDiffAttribute to set input data to backward differentiation, that
+A AbstractDiffAttribute to set output data to backward differentiation, that
 is, problem solution.
 The input data includes:
 MOI.VariablePrimal.
 
 ```julia
-MOI.set(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
+MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
 ```
 """
 struct ForwardOut{T} <: AbstractDiffAttribute end
