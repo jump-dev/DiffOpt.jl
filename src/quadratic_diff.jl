@@ -268,32 +268,14 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
 
     # handle objective
-    # works both for affine and quadratic objective functions
+    # works both for any objective function convertible to a ScalarQuadraticFunction.
+    # So in particular SingleVariable, ScalarAffineFunction and ScalarQuadraticFunction should work.
     objective_function = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
-    Q = spzeros(nz, nz)
-    q = spzeros(nz)
-
-    if objective_function isa MathOptInterface.ScalarAffineFunction{Float64}
-        for x in objective_function.terms
-            vidx = findfirst(v -> v == x.variable_index, var_list)
-            q[vidx] = x.coefficient
-        end
-    elseif objective_function isa MathOptInterface.ScalarQuadraticFunction{Float64}
-
-        var_to_id = Dict(var_list .=> 1:nz)
-
-        for quad in objective_function.quadratic_terms
-            i = var_to_id[quad.variable_index_1]
-            j = var_to_id[quad.variable_index_2]
-            Q[i,j] = quad.coefficient
-            Q[j,i] = quad.coefficient
-        end
-
-        q = MOI.coefficient.(objective_function.affine_terms)
-    end
+    sparse_array_obj = sparse_array_representation(objective_function, nz, index_map)
 
     return (
-        Q, q, G, h, A, b,
+        sparse_array_obj.quadratic_terms, sparse_array_obj.affine_terms,
+        G, h, A, b,
         nz, var_list,
         nineq_le, le_con_idx,
         nineq_ge, ge_con_idx,
