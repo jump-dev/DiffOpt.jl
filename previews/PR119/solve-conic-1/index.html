@@ -169,35 +169,22 @@ println(&quot;s -&gt; &quot;, round.(s_sol; digits=3))
 println(&quot;y -&gt; &quot;, round.(y_sol; digits=3))
 
 # perturbations in all the parameters
-for xi in vcat(X, x)
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, cX, ones(6))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, cx, ones(3))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c1, ones(1))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c2, ones(1))
-end
+fx = MOI.SingleVariable.(x)
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), cX, ones(6))
+    DiffOpt.ForwardInConstraint(), c1, MOI.Utilities.vectorize(ones(1, 9) * fx + ones(1)))
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), cx, ones(3))
+    DiffOpt.ForwardInConstraint(), c2, MOI.Utilities.vectorize(ones(6, 9) * fx + ones(6)))
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c1, ones(1))
+    DiffOpt.ForwardInConstraint(), c3, MOI.Utilities.vectorize(ones(3, 9) * fx + ones(3)))
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c2, ones(1))
-for xi in vcat(X, x)
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, 1.0)
-end
+    DiffOpt.ForwardInConstraint(), c4, MOI.Utilities.vectorize(ones(1, 9) * fx + ones(1)))
 
 # differentiate and get the gradients
 DiffOpt.forward(model)
 
 dx = MOI.get.(model,
-    DiffOpt.ForwardOut{MOI.VariablePrimal}(), vcat(X, x))
+    DiffOpt.ForwardOutVariablePrimal(), vcat(X, x))
 
 println(&quot;dx -&gt; &quot;, round.(dx; digits=3))
 # println(&quot;ds -&gt; &quot;, round.(ds; digits=3))
-# println(&quot;dy -&gt; &quot;, round.(dy; digits=3))</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../solve-QP/">« Solving a QP</a><a class="docs-footer-nextpage" href="../matrix-inversion-manual/">Differentiating a simple QP by hand »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 23 June 2021 00:04">Wednesday 23 June 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+# println(&quot;dy -&gt; &quot;, round.(dy; digits=3))</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../solve-QP/">« Solving a QP</a><a class="docs-footer-nextpage" href="../matrix-inversion-manual/">Differentiating a simple QP by hand »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 23 June 2021 18:20">Wednesday 23 June 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
