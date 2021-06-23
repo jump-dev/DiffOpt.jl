@@ -190,28 +190,15 @@ println("s -> ", round.(s_sol; digits=3))
 println("y -> ", round.(y_sol; digits=3))
 
 # perturbations in all the parameters
-for xi in vcat(X, x)
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, cX, ones(6))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, cx, ones(3))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c1, ones(1))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c2, ones(1))
-end
+fx = MOI.SingleVariable.(x)
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), cX, ones(6))
+    DiffOpt.ForwardInConstraint(), c1, MOIU.vectorize(ones(1, 9) * fx + ones(1)))
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), cx, ones(3))
+    DiffOpt.ForwardInConstraint(), c2, MOIU.vectorize(ones(6, 9) * fx + ones(6)))
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c1, ones(1))
+    DiffOpt.ForwardInConstraint(), c3, MOIU.vectorize(ones(3, 9) * fx + ones(3)))
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c2, ones(1))
-for xi in vcat(X, x)
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, 1.0)
-end
+    DiffOpt.ForwardInConstraint(), c4, MOIU.vectorize(ones(1, 9) * fx + ones(1)))
 
 # differentiate and get the gradients
 DiffOpt.forward(model)

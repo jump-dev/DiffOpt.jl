@@ -172,10 +172,9 @@ for Xi in 1:N
     
     MOI.set(
         model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
-        b, 
+        DiffOpt.ForwardInConstraint(), 
         cons, 
-        dy
+        MOIU.vectorize(dy .* b),
     )
     
     DiffOpt.forward(model)
@@ -228,10 +227,9 @@ for Xi in 1:N
     for i in 1:D
         MOI.set(
             model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
-            w[i], 
+            DiffOpt.ForwardInConstraint(), 
             cons, 
-            dX[:,i]
+            MOIU.vectorize(dX[:,i] .* w[i]),
         )
     end
     

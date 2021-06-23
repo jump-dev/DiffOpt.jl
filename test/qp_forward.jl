@@ -32,7 +32,7 @@
 
     MOI.optimize!(model)
 
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c2, 1.0)
+    MOI.set(model, DiffOpt.ForwardInConstraint(), c2, convert(MOI.ScalarAffineFunction{Float64}, 1.0))
 
     DiffOpt.forward(model)
 

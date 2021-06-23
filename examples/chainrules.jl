@@ -89,8 +89,8 @@ function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, �
     # the corresponding perturbation are set accordingly as the set of perturbations of the two loads
     MOI.set.(
         model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), energy_balance_cons,
-        [d1 + d2 for (d1, d2) in zip(Δload1_demand, Δload2_demand)],
+        DiffOpt.ForwardInConstraint(), energy_balance_cons,
+        [convert(MOI.ScalarAffineFunction{Float64}, d1 + d2) for (d1, d2) in zip(Δload1_demand, Δload2_demand)],
     )
 
     p = model[:p]
