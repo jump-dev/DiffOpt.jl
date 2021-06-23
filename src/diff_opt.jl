@@ -104,64 +104,90 @@ const CACHE_BACK_TYPE = Union{
 
 const MOIDD = MOI.Utilities.DoubleDicts
 
-Base.@kwdef struct DiffInputCache
+Base.@kwdef mutable struct DiffInputCache
     dx::Dict{VI, Float64} = Dict{VI, Float64}()# dz for QP
     # ds
-    # dy #= [d\lambada, d\nu] for QP
-    dA::MOIDD.DoubleDict{Dict{VI,Float64}} = MOIDD.DoubleDict{Dict{VI,Float64}}() # also includes G for QPs
-    dAv::MOIDD.DoubleDict{Dict{VI,Vector{Float64}}} = MOIDD.DoubleDict{Dict{VI,Vector{Float64}}}() # also includes G for QPs
-    db::MOIDD.DoubleDict{Float64} = MOIDD.DoubleDict{Float64}() # also includes h for QPs
-    dbv::MOIDD.DoubleDict{Vector{Float64}} = MOIDD.DoubleDict{Vector{Float64}}() # also includes h for QPs
-    dc::Dict{VI, Float64} = Dict{VI, Float64}()
-    dQ::Dict{Tuple{VI, VI}, Float64} = Dict{Tuple{VI, VI}, Float64}()
+    # dy #= [d\lambda, d\nu] for QP
+    # FIXME Would it be possible to have a DoubleDict where the value depends
+    #       on the function type ? Here, we need to create two dicts to have
+    #       concrete value types.
+    # `scalar_constraints` and `vector_constraints` includes `A` and `b` for CPs
+    # or `G` and `h` for QPs
+    scalar_constraints::MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}} = MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}}() # also includes G for QPs
+    vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} = MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}}() # also includes G for QPs
+    objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
 end
 
 abstract type AbstractDiffAttribute end
 Base.broadcastable(attribute::AbstractDiffAttribute) = Ref(attribute)
 
 """
-    ForwardIn{T}
+    ForwardInObjective
 
-A MOI.AbstractModelAttribute to set input data to forward differentiation, that
+A `MOI.AbstractModelAttribute` to set input data to forward differentiation, that
 is, problem input data.
-The input data includes:
-[`LinearObjective`](@ref), [`ConstraintConstant`](@ref),
-[`ConstraintCoefficient`](@ref) and [`QuadraticObjective`](@ref).
-The latter can only be used in linearly constrained quadratic models.
+The possible values are any `MOI.AbstractScalarFunction`.
+A `MOI.ScalarQuadraticFunction` can only be used in linearly constrained
+quadratic models.
 
+For instance, if the objective contains `θ * (x + 2y)`, for the purpose of
+computinig the derivative with respect to `θ`, the following should be set:
 ```julia
-MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x)
+fx = MOI.SingleVariable(x)
+fy = MOI.SingleVariable(y)
+MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * fx + 2.0 * fy)
+```
+where `x` and `y` are the relevant `MOI.VariableIndex`.
+"""
+struct ForwardInObjective <: MOI.AbstractModelAttribute end
+
+"""
+    ForwardInConstraint
+
+A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
+is, problem input data.
+
+For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y)`,
+for the purpose of computinig the derivative with respect to `θ`, the following
+should be set:
+```julia
+fx = MOI.SingleVariable(x)
+fy = MOI.SingleVariable(y)
+MOI.set(model, DiffOpt.ForwardInConstraint(), ci, 1.0 * fx + 2.0 * fy)
 ```
 """
-struct ForwardIn{T} <: AbstractDiffAttribute end
+struct ForwardInConstraint <: MOI.AbstractConstraintAttribute end
+
 
 """
-    ForwardOut{T}
+    ForwardOutVariablePrimal
 
-A AbstractDiffAttribute to set output data to backward differentiation, that
-is, problem solution.
-The input data includes:
-MOI.VariablePrimal.
+A `MOI.AbstractVariableAttribute` to get output data from forward
+differentiation, that is, problem solution.
 
+For instance, to get the tangent of the variable of index `vi` corresponding to
+the tangents given to `ForwardInObjective` and `ForwardInConstraint`, do the
+following:
 ```julia
-MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
+MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi)
 ```
 """
-struct ForwardOut{T} <: AbstractDiffAttribute end
+struct ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute end
+MOI.is_set_by_optimize(::ForwardOutVariablePrimal) = true
 
 """
-    BackwardIn{T}
+    BackwardInVariablePrimal
 
-A AbstractDiffAttribute to set input data to backward differentiation, that
-is, problem solution.
-The input data includes:
-MOI.VariablePrimal.
+A `MOI.AbstractVariableAttribute` to set input data to backward
+differentiation, that is, problem solution.
 
+For instance, to set the tangent of the variable of index `vi`, do the
+following:
 ```julia
-MOI.set(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x)
+MOI.set(model, DiffOpt.BackwardInVariablePrimal(), x)
 ```
 """
-struct BackwardIn{T} <: AbstractDiffAttribute end
+struct BackwardInVariablePrimal <: MOI.AbstractVariableAttribute end
 
 """
     BackwardOut{T}
@@ -246,7 +272,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     end
 end
 
-function MOI.get(model::Optimizer, ::ForwardOut{MOI.VariablePrimal}, vi::VI)
+function MOI.get(model::Optimizer, ::ForwardOutVariablePrimal, vi::VI)
     return _get_dx(model, vi)
 end
 _get_dx(model::Optimizer, vi) = _get_dx(model.forw_grad_cache, model.gradient_cache, vi)
@@ -262,10 +288,10 @@ function _get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     return - (du[i] - x[i] * dw[])
 end
 
-function MOI.get(model::Optimizer, ::BackwardIn{MOI.VariablePrimal}, vi::VI)
+function MOI.get(model::Optimizer, ::BackwardInVariablePrimal, vi::VI)
     return get(model.input_cache.dx, vi, 0.0)
 end
-function MOI.set(model::Optimizer, ::BackwardIn{MOI.VariablePrimal}, vi::VI, val)
+function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
     model.input_cache.dx[vi] = val
     return
 end
@@ -288,11 +314,11 @@ function _get_dc(b_cache::QPForwBackCache, g_cache::QPCache, vi)
     return dz[i]
 end
 
-function MOI.get(model::Optimizer, ::ForwardIn{LinearObjective}, vi::VI)
-    return get(model.input_cache.dc, vi, 0.0)
+function MOI.get(model::Optimizer, ::ForwardInObjective)
+    return model.input_cache.objective
 end
-function MOI.set(model::Optimizer, ::ForwardIn{LinearObjective}, vi::VI, val)
-    model.input_cache.dc[vi] = val
+function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
+    model.input_cache.objective = objective
     return
 end
 
@@ -310,18 +336,6 @@ function _get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
     z = g_cache.var_primals
     dz = b_cache.dz
     return 0.5 * (dz[i] * z[j] + z[i] * dz[j])
-end
-
-function MOI.get(model::Optimizer,
-    ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI)
-    idx = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
-    return get(model.input_cache.dQ, idx, 0.0)
-end
-function MOI.set(model::Optimizer,
-    ::ForwardIn{QuadraticObjective}, vi1::VI, vi2::VI, val)
-    idx = ifelse(vi1.value <= vi2.value, (vi1, vi2), (vi2, vi1))
-    model.input_cache.dQ[idx] = val
-    return
 end
 
 function MOI.get(model::Optimizer,
@@ -372,32 +386,36 @@ function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 end
 
 function MOI.get(model::Optimizer,
-    ::ForwardIn{ConstraintConstant}, ci::CI{F,S}
-) where {F<:MOI.ScalarAffineFunction,S}
-    return get(model.input_cache.db, ci, 0.0)
+    ::ForwardInConstraint, ci::CI{MOI.ScalarAffineFunction{T},S}
+) where {T,S}
+    return get(model.input_cache.scalar_constraints, ci, zero(MOI.ScalarAffineFunction{T}))
 end
 function MOI.get(model::Optimizer,
-    ::ForwardIn{ConstraintConstant}, ci::CI{F,S}
-) where {F<:MOI.VectorAffineFunction,S}
-    val = get(model.input_cache.dbv, ci, nothing)
-    if val === nothing
+    ::ForwardInConstraint, ci::CI{MOI.VectorAffineFunction{T},S}
+) where {T,S}
+    func = get(model.input_cache.vector_constraints, ci, nothing)
+    if func === nothing
         set = MOI.get(model, MOI.ConstraintSet(), ci)
         dim = MOI.dimension(set)
-        return zeros(dim)
+        return MOI.Utilities.zero_with_output_dimension(MOI.VectorAffineFunction{T}, dim)
     else
-        return val
+        return func
     end
 end
 function MOI.set(model::Optimizer,
-    ::ForwardIn{ConstraintConstant}, ci::CI{F,S}, val::Number
-) where {F<:MOI.ScalarAffineFunction,S}
-    model.input_cache.db[ci] = val
+    ::ForwardInConstraint,
+    ci::CI{MOI.ScalarAffineFunction{T},S},
+    func::MOI.ScalarAffineFunction{T},
+) where {T,S}
+    model.input_cache.scalar_constraints[ci] = func
     return
 end
 function MOI.set(model::Optimizer,
-    ::ForwardIn{ConstraintConstant}, ci::CI{F,S}, val::Vector
-) where {F<:MOI.VectorAffineFunction,S}
-    model.input_cache.dbv[ci] = val
+    ::ForwardInConstraint,
+    ci::CI{MOI.VectorAffineFunction{T},S},
+    func::MOI.VectorAffineFunction{T},
+) where {T,S}
+    model.input_cache.vector_constraints[ci] = func
     return
 end
 
@@ -470,38 +488,6 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
     # return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
 end
 
-function MOI.get(model::Optimizer,
-    ::ForwardIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
-    dict = get(model.input_cache.dA, ci, nothing)
-    if dict === nothing
-        return 0.0
-    else
-        return get(dict, vi, 0.0)
-    end
-end
-function MOI.set(model::Optimizer,
-    ::ForwardIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val::Number
-) where {F<:MOI.ScalarAffineFunction,S}
-    dict = get(model.input_cache.dA, ci, nothing)
-    if dict === nothing
-        model.input_cache.dA[ci] = Dict(vi => val)
-    else
-        dict[vi] = val
-    end
-    return
-end
-function MOI.set(model::Optimizer,
-    ::ForwardIn{ConstraintCoefficient}, vi::VI, ci::CI{F,S}, val::Vector
-) where {F<:MOI.VectorAffineFunction,S}
-    dict = get(model.input_cache.dAv, ci, nothing)
-    if dict === nothing
-        model.input_cache.dAv[ci] = Dict(vi => val)
-    else
-        dict[vi] = val
-    end
-    return
-end
-
 
 function MOI.optimize!(model::Optimizer)
     model.gradient_cache = nothing
@@ -540,7 +526,7 @@ const QP_OBJECTIVE_TYPES = Union{
 
 Wrapper method for the backward pass.
 This method will consider as input a currently solved problem and differentials
-with respect to the solution set with the [`BackwardIn`](@ref) attribute.
+with respect to the solution set with the [`BackwardInVariablePrimal`](@ref) attribute.
 The output problem data differentials can be queried with the
 attribute [`BackwardOut`](@ref).
 """
@@ -560,9 +546,9 @@ end
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and
 differentials with respect to problem data set with
-the [`ForwardIn`](@ref) attribute.
+the [`ForwardInObjective`](@ref) and  [`ForwardInConstraint`](@ref) attributes.
 The output solution differentials can be queried with the attribute
-[`ForwardOut`](@ref).
+[`ForwardOutVariablePrimal`](@ref).
 """
 function forward(model::Optimizer)
     if _qp_supported(model.optimizer)
@@ -599,7 +585,7 @@ the backward pass vector `dl / dz`
 
 The method computes the product of
 1. jacobian of problem solution `z*` with respect to
-    problem parameters set with the [`BackwardIn`](@ref)
+    problem parameters set with the [`BackwardInVariablePrimal`](@ref)
 2. a backward pass vector `dl / dz`, where `l` can be a loss function
 
 Note that this method *does not returns* the actual jacobians.
@@ -678,46 +664,37 @@ function _forward_quad(model::Optimizer)
     LHS = model.gradient_cache.lhs
     index_map = model.gradient_cache.index_map
 
-    nz = nnz(Q)
-    (lines, cols) = size(Q)
-    dQv = zeros(Float64, 0)
-    dQi = zeros(Int, 0)
-    dQj = zeros(Int, 0)
-    sizehint!(dQv, nz)
-    sizehint!(dQi, nz)
-    sizehint!(dQj, nz)
-    _fill_quad_Q(model, dQv, dQi, dQj, index_map)
-    dQ = sparse(dQi, dQj, dQv, lines, cols)
-
-    dq = zeros(length(q))
-    _fill_array(model, dq, index_map, model.input_cache.dc)
+    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
+    sparse_array_obj = sparse_array_representation(objective_function, LinearAlgebra.checksquare(Q), index_map)
+    dQ = sparse_array_obj.quadratic_terms
+    dq = sparse_array_obj.affine_terms
 
     db = zeros(length(b))
-    _fill_quad_b(model, db)
+    _fill(isequal(MOI.EqualTo{Float64}), model, _QPForm(), db)
 
     dh = zeros(length(h))
-    _fill_quad_h(model, dh)
+    _fill(!isequal(MOI.EqualTo{Float64}), model, _QPForm(), dh)
 
     nz = nnz(A)
     (lines, cols) = size(A)
-    dAv = zeros(Float64, 0)
     dAi = zeros(Int, 0)
     dAj = zeros(Int, 0)
-    sizehint!(dAv, nz)
+    dAv = zeros(Float64, 0)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
-    _fill_quad_A(model, dAv, dAi, dAj)
+    sizehint!(dAv, nz)
+    _fill(isequal(MOI.EqualTo{Float64}), model, _QPForm(), dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     nz = nnz(G)
     (lines, cols) = size(G)
-    dGv = zeros(Float64, 0)
     dGi = zeros(Int, 0)
     dGj = zeros(Int, 0)
-    sizehint!(dGv, nz)
+    dGv = zeros(Float64, 0)
     sizehint!(dGi, nz)
     sizehint!(dGj, nz)
-    _fill_quad_G(model, dGv, dGi, dGj)
+    sizehint!(dGv, nz)
+    _fill(!isequal(MOI.EqualTo{Float64}), model, _QPForm(), dGi, dGj, dGv)
     dG = sparse(dGi, dGj, dGv, lines, cols)
 
 
@@ -741,75 +718,6 @@ function _forward_quad(model::Optimizer)
 
     model.forw_grad_cache = QPForwBackCache(dz, dλ, dν)
     return nothing
-end
-
-function _fill_quad_Q(model, dQv, dQi, dQj, index_map)
-    dict_dQ = model.input_cache.dQ
-
-    for ((vi1, vi2), val) in dict_dQ
-        i = index_map[vi1].value
-        j = index_map[vi2].value
-        for (vi, val) in dict_dQ
-            push!(dQv, val)
-            push!(dQi, i)
-            push!(dQj, j)
-            if i != j
-                push!(dQv, val)
-                push!(dQi, j)
-                push!(dQj, i)
-            end
-        end
-    end
-    return
-end
-
-function _fill_quad_b(model, db)
-    conmap = model.gradient_cache.index_map.conmap
-    dict_db = model.input_cache.db
-    SA = MOI.ScalarAffineFunction{Float64}
-    SV = MOI.SingleVariable
-    EQ = MOI.EqualTo{Float64}
-    _fill_array(model, db, conmap[SA,EQ], dict_db[SA,EQ])
-    _fill_array(model, db, conmap[SV,EQ], dict_db[SV,EQ])
-    return
-end
-function _fill_quad_h(model, dh)
-    conmap = model.gradient_cache.index_map.conmap
-    dict_db = model.input_cache.db
-    SA = MOI.ScalarAffineFunction{Float64}
-    SV = MOI.SingleVariable
-    GT = MOI.GreaterThan{Float64}
-    LT = MOI.LessThan{Float64}
-    _fill_array(model, dh, conmap[SA,LT], dict_db[SA,LT])
-    _fill_array(model, dh, conmap[SV,LT], dict_db[SV,LT])
-    _fill_array(model, dh, conmap[SA,GT], dict_db[SA,GT])
-    _fill_array(model, dh, conmap[SV,GT], dict_db[SV,GT])
-    return
-end
-function _fill_quad_A(model, dAv, dAi, dAj)
-    conmap = model.gradient_cache.index_map.conmap
-    varmap = model.gradient_cache.index_map.varmap
-    dict_dA = model.input_cache.dA
-    SA = MOI.ScalarAffineFunction{Float64}
-    SV = MOI.SingleVariable
-    EQ = MOI.EqualTo{Float64}
-    _fill_matrix(model, dAv, dAi, dAj, conmap[SA,EQ], dict_dA[SA,EQ], varmap, 0)
-    _fill_matrix(model, dAv, dAi, dAj, conmap[SV,EQ], dict_dA[SV,EQ], varmap, 0)
-    return
-end
-function _fill_quad_G(model, dGv, dGi, dGj)
-    conmap = model.gradient_cache.index_map.conmap
-    varmap = model.gradient_cache.index_map.varmap
-    dict_dG = model.input_cache.dA
-    SA = MOI.ScalarAffineFunction{Float64}
-    SV = MOI.SingleVariable
-    GT = MOI.GreaterThan{Float64}
-    LT = MOI.LessThan{Float64}
-    _fill_matrix(model, dGv, dGi, dGj, conmap[SA,LT], dict_dG[SA,LT], varmap, 0)
-    _fill_matrix(model, dGv, dGi, dGj, conmap[SV,LT], dict_dG[SV,LT], varmap, 0)
-    _fill_matrix(model, dGv, dGi, dGj, conmap[SA,GT], dict_dG[SA,GT], varmap, 0)
-    _fill_matrix(model, dGv, dGi, dGj, conmap[SV,GT], dict_dG[SV,GT], varmap, 0)
-    return
 end
 
 
@@ -941,19 +849,21 @@ function _forward_conic(model::Optimizer)
     c = model.gradient_cache.c
     index_map = model.gradient_cache.index_map
 
-    dc = zeros(length(c))
-    _fill_array(model, dc, index_map, model.input_cache.dc)
+    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
+    sparse_array_obj = sparse_array_representation(objective_function, length(c), index_map)
+    dc = sparse_array_obj.terms
+
     db = zeros(length(b))
-    _fill_conic_b(model, db)
+    _fill(model, model.gradient_cache.conic_form, db)
     (lines, cols) = size(A)
     nz = nnz(A)
-    dAv = zeros(Float64, 0)
     dAi = zeros(Int, 0)
     dAj = zeros(Int, 0)
-    sizehint!(dAv, nz)
+    dAv = zeros(Float64, 0)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
-    _fill_conic_A(model, dAv, dAi, dAj)
+    sizehint!(dAv, nz)
+    _fill(model, model.gradient_cache.conic_form, dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
@@ -980,81 +890,48 @@ function _forward_conic(model::Optimizer)
     # return -dx, -dy, -ds
 end
 
-# VI is one base
-function _fill_array(model, array, map, dict)
-    for (ci, val) in dict
-        i = map[ci].value
-        array[i] = val
-    end
-end
+# Just a hack that will be removed once we use `MOIU.MatrixOfConstraints`
+struct _QPForm end
+MatOI.rows(::_QPForm, ci::MOI.ConstraintIndex) = ci.value
 
-# CI is zero based
-function _fill_array_c(model, array, map, dict)
-    for (ci, val) in dict
-        i = map[ci].value
-        _push_terms(array, val, i)
-    end
+function _fill(model::Optimizer, conic_form, args...)
+    _fill(S -> true, model, conic_form, args...)
 end
-function _push_terms(array, val::Number, i)
-    array[i+1] = val
-    return
-end
-function _push_terms(array, val::Vector, i)
-    for k in eachindex(val)
-        array[i + k] = val[k]
-    end
-    return
-end
-
-function _fill_conic_b(model, db)
-    conmap = model.gradient_cache.index_map.conmap
-    dict_db = model.input_cache.db
-    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
-        _fill_array_c(model, db, conmap[F,S], dict_db[F,S])
-    end
-    dict_dbv = model.input_cache.dbv
-    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
-        _fill_array_c(model, db, conmap[F,S], dict_dbv[F,S])
-    end
-    return
-end
-
-function _fill_conic_A(model, dAv, dAi, dAj)
+function _fill(filter::Function, model::Optimizer, conic_form, args...)
     conmap = model.gradient_cache.index_map.conmap
     varmap = model.gradient_cache.index_map.varmap
-    dict_dA = model.input_cache.dA
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
-        _fill_matrix(model, dAv, dAi, dAj, conmap[F,S], dict_dA[F,S], varmap)
-    end
-    dict_dAv = model.input_cache.dAv
-    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
-        _fill_matrix(model, dAv, dAi, dAj, conmap[F,S], dict_dAv[F,S], varmap)
-    end
-    return
-end
-function _fill_matrix(model, dAv, dAi, dAj, conmap, dict_dA, varmap, start = 1)
-    for (ci, dict) in dict_dA
-        i = conmap[ci].value
-        for (vi, val) in dict
-            j = varmap[vi].value
-            _push_terms(dAv, dAi, dAj, val, i+start, j)
+        filter(S) || continue
+        if F == MOI.ScalarAffineFunction{Float64}
+            _fill(args..., conic_form, conmap[F,S], varmap, model.input_cache.scalar_constraints[F,S])
+        elseif F == MOI.VectorAffineFunction{Float64}
+            _fill(args..., conic_form, conmap[F,S], varmap, model.input_cache.vector_constraints[F,S])
         end
     end
     return
 end
-function _push_terms(dAv, dAi, dAj, val::Number, i, j)
-    push!(dAv, val)
-    push!(dAi, i)# + 1)
-    push!(dAj, j)
-    return
-end
-function _push_terms(dAv, dAi, dAj, val::Vector, i, j)
-    for k in eachindex(val)
-        push!(dAv, val[k])
-        push!(dAi, i + k - 1) # ci is zero based
-        push!(dAj, j)
+
+function _fill(vector::Vector, conic_form, constraint_map, variable_map, dict)
+    for (ci, func) in dict
+        r = MatOI.rows(conic_form, constraint_map[ci])
+        vector[r] = MOI.constant(func)
     end
-    return
+end
+function _fill(I::Vector, J::Vector, V::Vector, conic_form, constraint_map, variable_map, dict)
+    for (ci, func) in dict
+        r = MatOI.rows(conic_form, constraint_map[ci])
+        for term in func.terms
+            _push_term(I, J, V, r, term, variable_map)
+        end
+    end
+end
+function _push_term(I::Vector, J::Vector, V::Vector, r::Integer, term::MOI.ScalarAffineTerm, variable_map)
+    push!(I, r)
+    push!(J, variable_map[term.variable_index].value)
+    push!(V, term.coefficient)
+end
+function _push_term(I::Vector, J::Vector, V::Vector, r::UnitRange, term::MOI.VectorAffineTerm, variable_map)
+    _push_term(I, J, V, r[term.output_index], term.scalar_term, variable_map)
 end
 
 """
