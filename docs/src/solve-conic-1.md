@@ -115,7 +115,7 @@ print(dy)
 ```
 
 ## Equivalent DiffOpt program
-```julia
+```@example 1
 using SCS
 using DiffOpt
 using MathOptInterface
@@ -185,9 +185,9 @@ x_sol = MOI.get(model, MOI.VariablePrimal(), vcat(X, x))
 s_sol = MOI.get(model, MOI.ConstraintPrimal(), [cX, cx, c1, c2])
 y_sol = MOI.get(model, MOI.ConstraintDual(), [cX, cx, c1, c2])
 
-println("x -> ", round.(x_sol; digits=3))
-println("s -> ", round.(s_sol; digits=3))
-println("y -> ", round.(y_sol; digits=3))
+@show x_sol
+@show s_sol
+@show y_sol
 
 # perturbations in all the parameters
 for xi in vcat(X, x)
@@ -219,7 +219,7 @@ DiffOpt.forward(model)
 dx = MOI.get.(model,
     DiffOpt.ForwardOut{MOI.VariablePrimal}(), vcat(X, x))
 
-println("dx -> ", round.(dx; digits=3))
-# println("ds -> ", round.(ds; digits=3))
-# println("dy -> ", round.(dy; digits=3))
+@show dx
+@show ds
+@show dy
 ```

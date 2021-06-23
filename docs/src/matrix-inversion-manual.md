@@ -120,7 +120,7 @@ gradh = tape.gradient(summed_solution, [h_tf])
 ## Finding Jacobian using MOI, Dualization.jl, LinearAlgebra.jl
 
 
-```julia
+```@example 1
 using Random
 using MathOptInterface
 using Dualization
@@ -193,11 +193,5 @@ end
 LHS = [4 1 1; 1 2 1; 1 1 0]  # of Eqn (6)
 RHS = [0; 0; 1]  # of Eqn (6)
 
-pp \ qq  # the jacobian
+LHS \ RHS  # the required jacobian
 ```
-
-
-    3-element Array{Float64,1}:
-      0.25
-      0.75
-     -1.75

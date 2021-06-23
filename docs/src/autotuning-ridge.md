@@ -6,8 +6,6 @@ using JuMP
 using Plots
 import Random
 using LinearAlgebra
-using Printf
-Base.show(io::IO, f::Float64) = @printf(io, "%1.3f", f) # to reduce float precision while printing
 nothing # hide
 ```
 

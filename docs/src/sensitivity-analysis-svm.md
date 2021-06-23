@@ -217,7 +217,7 @@ nothing # hide
 ## Experiment 2: Gradient of hyperplane wrt the data point coordinates
 
 Similar to previous example, construct perturbations in data points coordinates `X`.
-```julia
+```@example 1
 ∇ = Float64[]
 dX = zeros(N, D)
 

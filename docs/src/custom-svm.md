@@ -1,4 +1,4 @@
-```julia
+```@example 1
 using Statistics
 using DiffOpt
 using Flux
@@ -12,13 +12,13 @@ using ChainRulesCore
 ```
 
 
-```julia
+```@example 1
 labels = NaN;   # hack for the SVM
 ```
 
 # Custom SVM layer
 
-```julia
+```@example 1
 """
     SVM as a Flux layer
 """
@@ -57,7 +57,7 @@ end
 
 
 
-```julia
+```@example 1
 function ChainRulesCore.rrule(::typeof(SVM), X::AbstractArray{T}; model = Model(() -> diff_optimizer(SCS.Optimizer))) where {T}
 
     predictions = SVM(X, model=model) 
@@ -76,7 +76,7 @@ end
 ```
 
 
-```julia
+```@example 1
 function fetchProblem(;split_ratio::Float64)
     df = CSV.File("titanic_preprocessed.csv") |> DataFrame
 
@@ -96,7 +96,7 @@ D = size(X_train)[1];
 ## Define the NN
 
 
-```julia
+```@example 1
 m = Chain(
     Dense(D, 16, relu),
     Dropout(0.5),
@@ -106,7 +106,7 @@ m = Chain(
 ```
 
 
-```julia
+```@example 1
 loss(x, y) = logitcrossentropy(m(x), y) 
 opt = ADAM(); # popular stochastic gradient descent variant
 
@@ -123,7 +123,7 @@ evalcb = () -> @show(loss(X_train,Y_train)) # callback to show loss
 
 
 
-```julia
+```@example 1
 labels = Y_train   # needed for SVM
 for iter in 1:1
     Flux.train!(loss, params(m), dataset, opt, cb = throttle(evalcb, 5)); #took me ~5 minutes to train on CPU

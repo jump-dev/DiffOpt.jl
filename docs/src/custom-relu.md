@@ -1,4 +1,4 @@
-```julia
+```@example 1
 using Statistics
 using DiffOpt
 using Flux
@@ -10,7 +10,7 @@ using ChainRulesCore
 ```
 
 
-```julia
+```@example 1
 ## prepare data
 imgs = Flux.Data.MNIST.images()
 labels = Flux.Data.MNIST.labels();
@@ -35,11 +35,11 @@ Y = Y[:, 1:1000];
 ## Custom Relu
 
 
-```julia
+```@example 1
 """
-    relu method for a Matrix
+relu method for a Matrix
 """
-function myRelu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
+function matrix_relu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
     x̂ = zero(y)
     
     # model init
@@ -64,12 +64,12 @@ end
 
 
 
-```julia
-function ChainRulesCore.rrule(::typeof(myRelu), y::AbstractArray{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
+```@example 1
+function ChainRulesCore.rrule(::typeof(matrix_relu), y::AbstractArray{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
     
-    pv = myRelu(y, model=model) 
+    pv = matrix_relu(y, model=model) 
     
-    function pullback_myRelu(dx)
+    function pullback_matrix_relu(dx)
         x = model[:x]
         dy = zero(dx)
         
@@ -93,24 +93,24 @@ function ChainRulesCore.rrule(::typeof(myRelu), y::AbstractArray{T}; model = Mod
         
         return (NO_FIELDS, dy)
     end
-    return pv, pullback_myRelu
+    return pv, pullback_matrix_relu
 end
 ```
 
 ## Define the Network
 
 
-```julia
+```@example 1
 m = Chain(
     Dense(784, 64),
-    myRelu,
+    matrix_relu,
     Dense(64, 10),
     softmax
 )
 ```
 
 
-```julia
+```@example 1
 loss(x, y) = crossentropy(m(x), y) 
 opt = ADAM(); # popular stochastic gradient descent variant
 
@@ -123,7 +123,7 @@ evalcb = () -> @show(loss(X, Y)) # callback to show loss
 
 Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.
 
-```julia
+```@example 1
 Flux.train!(loss, params(m), dataset, opt, cb = throttle(evalcb, 5));
 
 @show accuracy(X,Y)
