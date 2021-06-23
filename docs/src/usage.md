@@ -53,5 +53,5 @@ we can use the `forward` method with perturbations in matrices `A`, `b`, `c`
 using LinearAlgebra # for `⋅`
 MOI.set(model, DiffOpt.ForwardInObjective(), ones(2) ⋅ MOI.SingleVariable.(x))
 DiffOpt.forward(model)
-grad_x = MOI.get.(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
+grad_x = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), x)
 ```

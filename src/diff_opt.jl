@@ -160,18 +160,20 @@ struct ForwardInConstraint <: MOI.AbstractConstraintAttribute end
 
 
 """
-    ForwardOut{T}
+    ForwardOutVariablePrimal
 
-A AbstractDiffAttribute to set output data to backward differentiation, that
-is, problem solution.
-The input data includes:
-MOI.VariablePrimal.
+A `MOI.AbstractVariableAttribute` to get output data from forward
+differentiation, that is, problem solution.
 
+For instance, to get the tangent of the variable of index `vi` corresponding to
+the tangents given to `ForwardInObjective` and `ForwardInConstraint`, do the
+following:
 ```julia
-MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), x)
+MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi)
 ```
 """
-struct ForwardOut{T} <: AbstractDiffAttribute end
+struct ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute end
+MOI.is_set_by_optimize(::ForwardOutVariablePrimal) = true
 
 """
     BackwardIn{T}
@@ -270,7 +272,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     end
 end
 
-function MOI.get(model::Optimizer, ::ForwardOut{MOI.VariablePrimal}, vi::VI)
+function MOI.get(model::Optimizer, ::ForwardOutVariablePrimal, vi::VI)
     return _get_dx(model, vi)
 end
 _get_dx(model::Optimizer, vi) = _get_dx(model.forw_grad_cache, model.gradient_cache, vi)
@@ -546,7 +548,7 @@ This method will consider as input a currently solved problem and
 differentials with respect to problem data set with
 the [`ForwardInObjective`](@ref) and  [`ForwardInConstraint`](@ref) attributes.
 The output solution differentials can be queried with the attribute
-[`ForwardOut`](@ref).
+[`ForwardOutVariablePrimal`](@ref).
 """
 function forward(model::Optimizer)
     if _qp_supported(model.optimizer)

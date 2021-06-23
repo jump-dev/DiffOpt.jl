@@ -36,6 +36,6 @@
 
     DiffOpt.forward(model)
 
-    dx = MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), v[])
+    dx = MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), v[])
     @test dx ≈ 1.0  atol=ATOL rtol=RTOL
 end

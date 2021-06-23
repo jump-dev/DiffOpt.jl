@@ -101,7 +101,7 @@ function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, �
     MOI.set(model, DiffOpt.ForwardInObjective(), Δobj)
     DiffOpt.forward(JuMP.backend(model))
     # querying the corresponding perturbation of the decision
-    Δp = MOI.get.(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), p)
+    Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)
     return (pv, Δp.data)
 end
 

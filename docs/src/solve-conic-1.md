@@ -204,7 +204,7 @@ MOI.set(model,
 DiffOpt.forward(model)
 
 dx = MOI.get.(model,
-    DiffOpt.ForwardOut{MOI.VariablePrimal}(), vcat(X, x))
+    DiffOpt.ForwardOutVariablePrimal(), vcat(X, x))
 
 println("dx -> ", round.(dx; digits=3))
 # println("ds -> ", round.(ds; digits=3))

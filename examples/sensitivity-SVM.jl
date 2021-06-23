@@ -96,12 +96,12 @@ for Xi in 1:N
 
     dw = MOI.get.(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(),
+        DiffOpt.ForwardOutVariablePrimal(),
         w
     )
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(),
+        DiffOpt.ForwardOutVariablePrimal(),
         b
     )
     push!(∇, norm(dw) + norm(db))
@@ -145,12 +145,12 @@ for Xi in 1:N
 
     dw = MOI.get.(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(),
+        DiffOpt.ForwardOutVariablePrimal(),
         w
     )
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(),
+        DiffOpt.ForwardOutVariablePrimal(),
         b
     )
     push!(∇, norm(dw) + norm(db))

@@ -1082,7 +1082,7 @@ end
 
     dx = [1.12132144; 1/√2; 1/√2]
     for (i, vi) in enumerate(v)
-        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=ATOL rtol=RTOL
+        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi) atol=ATOL rtol=RTOL
     end
     # @test dx ≈ [1.12132144; 1/√2; 1/√2] atol=ATOL rtol=RTOL
     # @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
@@ -1148,7 +1148,7 @@ function simple_psd(solver)
 
     dx = -ones(3)
     for (i, vi) in enumerate(X)
-        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=ATOL rtol=RTOL
+        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi) atol=ATOL rtol=RTOL
     end
 
     # @test dx ≈ -ones(3) atol=ATOL rtol=RTOL  # will change the value of other 2 variables
@@ -1163,7 +1163,7 @@ function simple_psd(solver)
     # @test dx ≈ [1.0, 0.0, -1.0] atol=ATOL rtol=RTOL  # note: no effect on X[2]
     dx = [1.0, 0.0, -1.0]
     for (i, vi) in enumerate(X)
-        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=ATOL rtol=RTOL
+        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi) atol=ATOL rtol=RTOL
     end
 end
 
@@ -1300,11 +1300,11 @@ end
     # a small change in the constant in c_extra should not affect any other variable or constraint other than c_extra itself
     for (i, vi) in enumerate(X)
         @test 0.0 ≈ MOI.get(model,
-            DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=1e-2 rtol=RTOL
+            DiffOpt.ForwardOutVariablePrimal(), vi) atol=1e-2 rtol=RTOL
     end
     for (i, vi) in enumerate(x)
         @test 0.0 ≈ MOI.get(model,
-            DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=1e-2 rtol=RTOL
+            DiffOpt.ForwardOutVariablePrimal(), vi) atol=1e-2 rtol=RTOL
     end
     # @test dx ≈ zeros(9) atol=1e-2
     # @test dy ≈ zeros(12) atol=0.012
@@ -1404,7 +1404,7 @@ end
     dx = [-39.6066, 10.8953, -14.9189, 10.9054, 10.883, 10.9118, -21.7508]
     for (i, vi) in enumerate(x)
         @test dx[i] ≈ MOI.get(model,
-            DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=atol rtol=rtol
+            DiffOpt.ForwardOutVariablePrimal(), vi) atol=atol rtol=rtol
     end
     # @test dy ≈ [0.0, -3.56905, 0.0, -0.380035, 0.0, -0.41398, -0.385321, -0.00743119, -0.644986, -0.550542, -2.36765] atol=atol rtol=rtol
     # @test ds ≈ [0.0, 0.0, -50.4973, 0.0, -25.8066, 0.0, 0.0, 0.0, -7.96528, -1.62968, -2.18925] atol=atol rtol=rtol
@@ -1432,7 +1432,7 @@ end
 
     # for (i, vi) in enumerate(X)
     #     @test 0.0 ≈ MOI.get(model,
-    #         DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=1e-2 rtol=RTOL
+    #         DiffOpt.ForwardOutVariablePrimal(), vi) atol=1e-2 rtol=RTOL
     # end
 
     # TODO add a test here, probably on duals
@@ -1499,7 +1499,7 @@ end
     DiffOpt.forward(model)
 
     @test -0.5 ≈ MOI.get(model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+        DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
     # @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
@@ -1515,7 +1515,7 @@ end
     DiffOpt.forward(model)
 
     @test 0.0 ≈ MOI.get(model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+        DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
     # @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
@@ -1672,7 +1672,7 @@ end
     DiffOpt.forward(model)
 
     @test -0.5 ≈ MOI.get(model,
-    DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+    DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
     # @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
@@ -1683,7 +1683,7 @@ end
     DiffOpt.forward(model)
 
     @test -0.5 ≈ MOI.get(model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+        DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # dx2, dy2, ds2 = _backward_conic(model, dA, db, dc)
     # @test all(
@@ -1698,7 +1698,7 @@ end
     DiffOpt.forward(model)
 
     @test 0.0 ≈ MOI.get(model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+        DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
     # @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
