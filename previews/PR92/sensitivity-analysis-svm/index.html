@@ -56,7 +56,7 @@ MOI.optimize!(model)
 
 loss = MOI.get(model, MOI.ObjectiveValue())
 wv = MOI.get(model, MOI.VariablePrimal(), w)
-bv = MOI.get(model, MOI.VariablePrimal(), b)</code></pre><p>We can visualize the separating hyperplane. </p><pre><code class="language-julia"># build SVM points
+bv = MOI.get(model, MOI.VariablePrimal(), b)</code></pre><p>We can visualize the separating hyperplane.</p><pre><code class="language-julia"># build SVM points
 svm_x = [0.0, 3.0]
 svm_y = (-bv .- wv[1] * svm_x )/wv[2]
 
@@ -82,16 +82,16 @@ GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in ro
 \end{align*}\]</p><p>where</p><p class="math-container">\[\begin{align*}
 c &amp;= [l_1 - 1, l_2 -1, ... l_N -1, 0, 0, ... 0 \text{(D+1 times)}] \\\\
 
-A &amp;= 
+A &amp;=
 \begin{bmatrix}
- -l_1 &amp;    0 &amp; ... &amp;    0 &amp;            0 &amp; ... &amp; 0 &amp; 0  \\ 
-    0 &amp; -l_2 &amp; ... &amp;    0 &amp;            0 &amp; ... &amp; 0 &amp; 0  \\ 
-    : &amp;    : &amp; ... &amp;    : &amp;            0 &amp; ... &amp; 0 &amp; 0  \\ 
-    0 &amp;    0 &amp; ... &amp; -l_N &amp;            0 &amp; ... &amp; 0 &amp; 0  \\ 
-    0 &amp;    0 &amp; ... &amp;    0 &amp; -y_1 X_{1,1} &amp; ... &amp; -y_1 X_{1,N} &amp; -y_1  \\ 
-    0 &amp;    0 &amp; ... &amp;    0 &amp; -y_2 X_{2,1} &amp; ... &amp; -y_1 X_{2,N} &amp; -y_2  \\ 
-    : &amp;    : &amp; ... &amp;    : &amp;           :  &amp; ... &amp;          :   &amp; :   \\ 
-    0 &amp;    0 &amp; ... &amp;    0 &amp; -y_N X_{N,1} &amp; ... &amp; -y_N X_{N,N} &amp; -y_N  \\ 
+ -l_1 &amp;    0 &amp; ... &amp;    0 &amp;            0 &amp; ... &amp; 0 &amp; 0  \\
+    0 &amp; -l_2 &amp; ... &amp;    0 &amp;            0 &amp; ... &amp; 0 &amp; 0  \\
+    : &amp;    : &amp; ... &amp;    : &amp;            0 &amp; ... &amp; 0 &amp; 0  \\
+    0 &amp;    0 &amp; ... &amp; -l_N &amp;            0 &amp; ... &amp; 0 &amp; 0  \\
+    0 &amp;    0 &amp; ... &amp;    0 &amp; -y_1 X_{1,1} &amp; ... &amp; -y_1 X_{1,N} &amp; -y_1  \\
+    0 &amp;    0 &amp; ... &amp;    0 &amp; -y_2 X_{2,1} &amp; ... &amp; -y_1 X_{2,N} &amp; -y_2  \\
+    : &amp;    : &amp; ... &amp;    : &amp;           :  &amp; ... &amp;          :   &amp; :   \\
+    0 &amp;    0 &amp; ... &amp;    0 &amp; -y_N X_{N,1} &amp; ... &amp; -y_N X_{N,N} &amp; -y_N  \\
 \end{bmatrix} \\\\
 
 b &amp;= [0, 0, ... 0 \text{(N times)}, l_1 - 1, l_2 -1, ... l_N -1] \\\\
@@ -106,22 +106,21 @@ for Xi in 1:N
 
     MOI.set(
         model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(),
-        b,
+        DiffOpt.ForwardInConstraint(),
         cons,
-        dy
+        MOI.Utilities.vectorize(dy .* MOI.SingleVariable(b)),
     )
 
     DiffOpt.forward(model)
 
     dw = MOI.get.(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(),
+        DiffOpt.ForwardOutVariablePrimal(),
         w
     )
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(),
+        DiffOpt.ForwardOutVariablePrimal(),
         b
     )
     push!(∇, norm(dw) + norm(db))
@@ -156,31 +155,30 @@ dX = zeros(N, D)
 # begin differentiating
 for Xi in 1:N
     dX[Xi, :] = ones(D)  # set
-    
+
     for i in 1:D
         MOI.set(
             model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
-            w[i], 
-            cons, 
-            dX[:,i]
+            DiffOpt.ForwardInConstraint(),
+            cons,
+            MOI.Utilities.vectorize(dX[:,i] .* w[i]),
         )
     end
-    
+
     DiffOpt.forward(model)
-    
+
     dw = MOI.get.(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         w
-    ) 
+    )
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         b
-    ) 
+    )
     push!(∇, norm(dw) + norm(db))
-    
+
     dX[Xi, :] = zeros(D)  # reset the change made ago
 end
 LinearAlgebra.normalize!(∇)</code></pre><p>We can visualize point sensitivity with respect to the separating hyperplane. Note that the gradients are normalized.</p><pre><code class="language-julia">p3 = Plots.scatter(
@@ -205,4 +203,4 @@ GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in ro
 ┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
 └ @ Plots ~/.julia/packages/Plots/FKcum/src/utils.jl:108
 ┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
-└ @ Plots ~/.julia/packages/Plots/FKcum/src/utils.jl:108</pre><p><img src="../sensitivity3.svg" alt/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a simple QP by hand</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 23 June 2021 15:25">Wednesday 23 June 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+└ @ Plots ~/.julia/packages/Plots/FKcum/src/utils.jl:108</pre><p><img src="../sensitivity3.svg" alt/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a simple QP by hand</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 23 June 2021 20:24">Wednesday 23 June 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
