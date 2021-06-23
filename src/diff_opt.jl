@@ -526,7 +526,7 @@ const QP_OBJECTIVE_TYPES = Union{
 
 Wrapper method for the backward pass.
 This method will consider as input a currently solved problem and differentials
-with respect to the solution set with the [`BackwardIn`](@ref) attribute.
+with respect to the solution set with the [`BackwardInVariablePrimal`](@ref) attribute.
 The output problem data differentials can be queried with the
 attribute [`BackwardOut`](@ref).
 """
@@ -585,7 +585,7 @@ the backward pass vector `dl / dz`
 
 The method computes the product of
 1. jacobian of problem solution `z*` with respect to
-    problem parameters set with the [`BackwardIn`](@ref)
+    problem parameters set with the [`BackwardInVariablePrimal`](@ref)
 2. a backward pass vector `dl / dz`, where `l` can be a loss function
 
 Note that this method *does not returns* the actual jacobians.
