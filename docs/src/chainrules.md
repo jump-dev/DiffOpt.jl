@@ -143,7 +143,7 @@ function ChainRulesCore.frule(
     # the corresponding perturbation are set accordingly as the set of perturbations of the two loads
     MOI.set.(
         model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), energy_balance_cons,
+        DiffOpt.ForwardInConstraint(), energy_balance_cons,
         [d1 + d2 for (d1, d2) in zip(Δload1_demand, Δload2_demand)],
     )
 
@@ -152,14 +152,14 @@ function ChainRulesCore.frule(
 
     # setting the perturbation of the linear objective
     for t in size(p, 2)
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), p[1,t], Δgen_costs[1])
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), p[2,t], Δgen_costs[2])
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), u[1,t], Δnoload_costs[1])
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), u[2,t], Δnoload_costs[2])
+        MOI.set(model, DiffOpt.ForwardInObjective(), p[1,t], Δgen_costs[1])
+        MOI.set(model, DiffOpt.ForwardInObjective(), p[2,t], Δgen_costs[2])
+        MOI.set(model, DiffOpt.ForwardInObjective(), u[1,t], Δnoload_costs[1])
+        MOI.set(model, DiffOpt.ForwardInObjective(), u[2,t], Δnoload_costs[2])
     end
     DiffOpt.forward(JuMP.backend(model))
     # querying the corresponding perturbation of the decision
-    Δp = MOI.get.(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), p)
+    Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)
     return (pv, Δp.data)
 end
 ```
@@ -206,7 +206,7 @@ function ChainRulesCore.rrule(
         u = model[:u]
         energy_balance_cons = model[:energy_balance_cons]
 
-        MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), p, pb)
+        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), p, pb)
         DiffOpt.backward(JuMP.backend(model))
 
         # computing derivative wrt linear objective costs
