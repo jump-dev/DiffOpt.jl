@@ -1,5 +1,10 @@
 # ChainRules integration
 
+In this example, we will demonstrate the integration of DiffOpt with
+[ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/stable/),
+the library allowing the definition of derivatives for functions
+that can then be used by automatic differentiation systems.
+
 ```@example 1
 using DiffOpt, Plots, JuMP
 import MathOptInterface, Clp
@@ -12,21 +17,28 @@ using ChainRulesCore
 
 ## Unit commitment problem
 
-Minimise sum of generation cost + sum of fixed cost
-Subject to:
+We will consider a unit commitment problem, finding the cost-minimizing activation
+of generation units in a power network over multiple time periods.
+The considered constraints include:
 - Demand satisfaction
 - Ramping constraints
-- Generation limits
+- Generation limits.
 
-Decisions ``(u,p)``: generator activation (binary) and production  
-Convex relaxation: ``u \in \left[0,1\right]``
+The decisions are:
+- ``u_{it} \in \{0,1\}``: activation of the ``i``-th unit at time ``t``
+- ``p_{it}``: power output of the ``i``-th unit at time ``t``.
+
+DiffOpt handles convex optimization problems only, we therefore
+relax the domain of the ``u_{it}`` variables to ``\left[0,1\right]``.
 
 ## Primal UC problem
 
 Solution map:
 
 ```@example 1
-function unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs; model = Model(Clp.Optimizer), silent=false)
+function unit_commitment(
+        load1_demand, load2_demand, gen_costs, noload_costs;
+        model = Model(Clp.Optimizer), silent=false)
     MOI.set(model, MOI.Silent(), silent)
     
     ## Problem data
