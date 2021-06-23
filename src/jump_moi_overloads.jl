@@ -1,3 +1,9 @@
+function MOI.set(model::JuMP.Model, ::ForwardInObjective, func::JuMP.AbstractJuMPScalar)
+    JuMP.check_belongs_to_model(func, model)
+    return MOI.set(model, ForwardInObjective(), JuMP.moi_function(func))
+end
+
+
 # extend caching optimizer
 function MOI.set(
     m::MOI.Utilities.CachingOptimizer,
