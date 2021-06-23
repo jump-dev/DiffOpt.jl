@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Differentiating a simple QP by hand · DiffOpt.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.039/juliamono-regular.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">DiffOpt.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../intro/">Introduction</a></li><li><a class="tocitem" href="../manual/">Manual</a></li><li><a class="tocitem" href="../usage/">Usage</a></li><li><a class="tocitem" href="../reference/">Reference</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../solve-LP/">Solving an LP</a></li><li><a class="tocitem" href="../solve-QP/">Solving a QP</a></li><li><a class="tocitem" href="../solve-conic-1/">Solving conic with PSD and SOC constraints</a></li><li class="is-active"><a class="tocitem" href>Differentiating a simple QP by hand</a><ul class="internal"><li><a class="tocitem" href="#Finding-Jacobian-using-matrix-inversion"><span>Finding Jacobian using matrix inversion</span></a></li><li><a class="tocitem" href="#Finding-Jacobian-in-CVXPYLayers"><span>Finding Jacobian in CVXPYLayers</span></a></li><li><a class="tocitem" href="#Finding-Jacobian-using-MOI,-Dualization.jl,-LinearAlgebra.jl"><span>Finding Jacobian using MOI, Dualization.jl, LinearAlgebra.jl</span></a></li></ul></li><li><a class="tocitem" href="../sensitivity-analysis-svm/">Sensitivity Analysis SVM</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Differentiating a simple QP by hand</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Differentiating a simple QP by hand</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/jump-dev/DiffOpt.jl/blob/master/docs/src/matrix-inversion-manual.md#L" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Differentiating-a-QP-wrt-a-single-variable"><a class="docs-heading-anchor" href="#Differentiating-a-QP-wrt-a-single-variable">Differentiating a QP wrt a single variable</a><a id="Differentiating-a-QP-wrt-a-single-variable-1"></a><a class="docs-heading-anchor-permalink" href="#Differentiating-a-QP-wrt-a-single-variable" title="Permalink"></a></h1><p>Consider the quadratic program</p><p class="math-container">\[\begin{split}
+\begin{array} {ll}
+\mbox{minimize} &amp; \frac{1}{2} x^T Q x + q^T x \\
+\mbox{subject to} &amp; G x \leq h, x \in \mathcal{R}^2, h \in \mathcal{R} \\
+\end{array}
+\end{split}\]</p><p>where <code>Q</code>, <code>q</code>, <code>G</code> are fixed and <code>h</code> is the single parameter.</p><p>In this example, we&#39;ll try to differentiate the QP wrt <code>h</code>, by finding its jacobian by hand (using Eqn (6) of <a href="https://arxiv.org/pdf/1703.00443.pdf">QPTH article</a>) and compare the results:</p><ul><li>In python, using CVXPYLayers - https://github.com/cvxgrp/cvxpylayers#tensorflow-2</li><li>In Julia, using LinearAlgebra, Dualization.jl and MOI</li></ul><p>Assuming </p><pre><code class="nohighlight">Q = [[4, 1], [1, 2]]
+q = [1, 1]
+G = [1, 1]</code></pre><p>and begining with a starting value of <code>h=-1</code></p><p>few values just for reference</p><table><tr><th style="text-align: right">variable</th><th style="text-align: right">optimal value</th><th style="text-align: right">note</th></tr><tr><td style="text-align: right">x*</td><td style="text-align: right">[-0.25; -0.75]</td><td style="text-align: right">Primal optimal</td></tr><tr><td style="text-align: right">𝜆∗</td><td style="text-align: right">-0.75</td><td style="text-align: right">Dual optimal</td></tr></table><h2 id="Finding-Jacobian-using-matrix-inversion"><a class="docs-heading-anchor" href="#Finding-Jacobian-using-matrix-inversion">Finding Jacobian using matrix inversion</a><a id="Finding-Jacobian-using-matrix-inversion-1"></a><a class="docs-heading-anchor-permalink" href="#Finding-Jacobian-using-matrix-inversion" title="Permalink"></a></h2><p>Lets formulate Eqn (6) of <a href="https://arxiv.org/pdf/1703.00443.pdf">QPTH article</a> for our QP. If we assume <code>h</code> as the only parameter and <code>Q</code>,<code>q</code>,<code>G</code> as fixed problem data - also note that our QP doesn&#39;t involves <code>Ax=b</code> constraint - then Eqn (6) reduces to </p><p class="math-container">\[\begin{gather}
+ \begin{bmatrix} 
+     Q &amp; g^T \\
+     \lambda^* g &amp; g z^* - h
+ \end{bmatrix}
+ \begin{bmatrix} 
+     dz \\
+     d \lambda
+ \end{bmatrix}
+ =
+  \begin{bmatrix}
+   0 \\
+   \lambda^* dh
+   \end{bmatrix}
+\end{gather}\]</p><p>Now to find the jacobians $ \frac{\partial z}{\partial h}, \frac{\partial \lambda}{\partial h}$ we substitute <code>dh = I = [1]</code> and plug in values of <code>Q</code>,<code>q</code>,<code>G</code> to get</p><p class="math-container">\[\begin{gather}
+ \begin{bmatrix} 
+     4 &amp; 1 &amp; 1 \\
+     1 &amp; 2 &amp; 1 \\
+     -0.75 &amp; -0.75 &amp; 0
+ \end{bmatrix}
+ \begin{bmatrix} 
+     \frac{\partial z_1}{\partial h} \\
+     \frac{\partial z_2}{\partial h} \\
+     \frac{\partial \lambda}{\partial h}
+ \end{bmatrix}
+ =
+  \begin{bmatrix}
+   0 \\
+   0 \\
+   -0.75
+   \end{bmatrix}
+\end{gather}\]</p><p>Upon solving using matrix inversion, the jacobian is</p><p class="math-container">\[\frac{\partial z_1}{\partial h} = 0.25, \frac{\partial z_2}{\partial h} = 0.75, \frac{\partial \lambda}{\partial h} = -1.75 \]</p><h2 id="Finding-Jacobian-in-CVXPYLayers"><a class="docs-heading-anchor" href="#Finding-Jacobian-in-CVXPYLayers">Finding Jacobian in CVXPYLayers</a><a id="Finding-Jacobian-in-CVXPYLayers-1"></a><a class="docs-heading-anchor-permalink" href="#Finding-Jacobian-in-CVXPYLayers" title="Permalink"></a></h2><pre><code class="language-python">import cvxpy as cp
+import tensorflow as tf
+from cvxpylayers.tensorflow import CvxpyLayer
+
+n, m = 2, 1
+x = cp.Variable(n)
+Q = np.array([[4, 1], [1, 2]])
+q = np.array([1, 1])
+G = np.array([1, 1])
+h = cp.Parameter(m)
+constraints = [G@x &lt;= h]
+objective = cp.Minimize(0.5*cp.quad_form(x, Q) + q.T @ x)
+problem = cp.Problem(objective, constraints)
+assert problem.is_dpp()
+
+cvxpylayer = CvxpyLayer(problem, parameters=[h], variables=[x])
+h_tf = tf.Variable([-1.0])  # set a starting value
+
+with tf.GradientTape() as tape:
+  # solve the problem, setting the values of h to h_tf
+  solution, = cvxpylayer(h_tf)
+
+  summed_solution = tf.math.reduce_sum(solution)
+  
+# note - solution is [-0.25, -0.75]
+#        summed_solution is (-0.25) + (-0.75)
+
+# cvxpylayers allows gradient of the summed solution only, with respect to h
+gradh = tape.gradient(summed_solution, [h_tf])</code></pre><h2 id="Finding-Jacobian-using-MOI,-Dualization.jl,-LinearAlgebra.jl"><a class="docs-heading-anchor" href="#Finding-Jacobian-using-MOI,-Dualization.jl,-LinearAlgebra.jl">Finding Jacobian using MOI, Dualization.jl, LinearAlgebra.jl</a><a id="Finding-Jacobian-using-MOI,-Dualization.jl,-LinearAlgebra.jl-1"></a><a class="docs-heading-anchor-permalink" href="#Finding-Jacobian-using-MOI,-Dualization.jl,-LinearAlgebra.jl" title="Permalink"></a></h2><pre><code class="language-julia">using Random
+using MathOptInterface
+using Dualization
+using OSQP
+using LinearAlgebra
+
+const MOI = MathOptInterface
+const MOIU = MathOptInterface.Utilities;
+
+n = 2 # variable dimension
+m = 1; # no of inequality constraints
+
+Q = [4. 1.;1. 2.]
+q = [1.; 1.]
+G = [1. 1.;]
+h = [-1.;]   # initial values set
+
+
+# create the optimizer
+model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
+x = MOI.add_variables(model, n);
+
+# define objective
+quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
+for i in 1:n
+    for j in i:n # indexes (i,j), (j,i) will be mirrored. specify only one kind
+        push!(quad_terms, MOI.ScalarQuadraticTerm(Q[i,j],x[i],x[j]))
+    end
+end
+
+objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x),quad_terms,0.)
+MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+# add constraint
+MOI.add_constraint(
+    model,
+    MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(G[1,:], x), 0.),
+    MOI.LessThan(h[1])
+)
+
+# solve
+MOI.optimize!(model)
+
+# sanity-check
+@assert MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]
+
+x̄ = MOI.get(model, MOI.VariablePrimal(), x)
+
+# obtaining λ*
+
+joint_object    = dualize(model)
+dual_model_like = joint_object.dual_model # this is MOI.ModelLike, not an MOI.AbstractOptimizer; can&#39;t call optimizer on it
+primal_dual_map = joint_object.primal_dual_map;
+
+# copy the dual model objective, constraints, and variables to an optimizer
+dual_model = MOI.instantiate(OSQP.Optimizer, with_bridge_type=Float64)
+MOI.copy_to(dual_model, dual_model_like)
+
+# solve dual
+MOI.optimize!(dual_model);
+
+map = primal_dual_map.primal_con_dual_var
+
+for con_index in keys(map)
+    λ = MOI.get(dual_model, MOI.VariablePrimal(), map[con_index][1])
+    println(λ)
+end
+
+LHS = [4 1 1; 1 2 1; 1 1 0]  # of Eqn (6)
+RHS = [0; 0; 1]  # of Eqn (6)
+
+pp \ qq  # the jacobian</code></pre><pre><code class="nohighlight">3-element Array{Float64,1}:
+  0.25
+  0.75
+ -1.75</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../solve-conic-1/">« Solving conic with PSD and SOC constraints</a><a class="docs-footer-nextpage" href="../sensitivity-analysis-svm/">Sensitivity Analysis SVM »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Wednesday 23 June 2021 15:25">Wednesday 23 June 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
