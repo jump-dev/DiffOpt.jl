@@ -1,6 +1,10 @@
-function MOI.set(model::JuMP.Model, ::ForwardInObjective, func::JuMP.AbstractJuMPScalar)
+function MOI.set(model::JuMP.Model, attr::ForwardInObjective, func::JuMP.AbstractJuMPScalar)
     JuMP.check_belongs_to_model(func, model)
-    return MOI.set(model, ForwardInObjective(), JuMP.moi_function(func))
+    return MOI.set(model, attr, JuMP.moi_function(func))
+end
+function MOI.get(model::JuMP.Model, attr::BackwardOutObjective)
+    func = MOI.get(JuMP.backend(model), attr)
+    return JuMP.jump_function(model, func)
 end
 
 

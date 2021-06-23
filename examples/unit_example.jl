@@ -63,10 +63,8 @@ MOI.set.(diff_opt, DiffOpt.BackwardInVariablePrimal(), v, ones(nv))
 DiffOpt.backward(diff_opt)
 
 # sensitivity wrt linear objective
-for (i,iv) in enumerate(v)
-    grad = MOI.get(diff_opt, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
-    @test grad ≈ 0.0  atol=ATOL rtol=RTOL
-end
+grad = MOI.get(diff_opt, DiffOpt.BackwardOutObjective())
+@test MOI.Utilities.isapprox_zero(grad, ATOL)
 
 # sensitivity wrt RHS of constraints
 for (idx, econs) in enumerate(energy_balance_cons)

@@ -230,16 +230,9 @@ end
 
     DiffOpt.backward(model)#, ["Q","q","G","h","A","b"], ones(3))
 
-    for iv in x, jv in x
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.QuadraticObjective}(), iv, jv)
-        @test grad ≈ 0.0  atol=ATOL rtol=RTOL
-    end
+    grad = MOI.get(model, DiffOpt.BackwardOutObjective())
+    @test MOI.Utilities.isapprox_zero(grad, ATOL)
     # @test dl_dQ ≈ zeros(3,3)  atol=ATOL rtol=RTOL
-
-    for vi in x
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), vi)
-        @test grad ≈ 0.0  atol=ATOL rtol=RTOL
-    end
     # @test dl_dq ≈ zeros(3,1) atol=ATOL rtol=RTOL
 
     for vi in x, ci in ci_ineq
@@ -325,19 +318,15 @@ end
     # grads = backward(model, ["Q","q","G","h"], ones(3))
     DiffOpt.backward(model)
 
+    fv = MOI.SingleVariable.(v)
+
     dQ = [-0.12244895  0.01530609 -0.11224488;
            0.01530609  0.09183674  0.07653058;
           -0.11224488  0.07653058 -0.06122449]
-    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.QuadraticObjective}(), iv, jv)
-        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
-    end
-
     dq = [-0.2142857;  0.21428567; -0.07142857]
-    for (i,iv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
-        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
-    end
+
+    expected = fv' * (dQ / 2.0) * fv + dq' * fv
+    @test MOI.get(model, DiffOpt.BackwardOutObjective()) ≈ expected  atol=ATOL rtol=RTOL
 
     dG = [0.05102035   0.30612245  0.255102;
           0.06122443   0.36734694  0.3061224]
@@ -415,16 +404,11 @@ end
 
     dQ = [-0.05   -0.05;
           -0.05    0.15]
-    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.QuadraticObjective}(), iv, jv)
-        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
-    end
-
     dq = [-0.2; 0.2]
-    for (i,iv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
-        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
-    end
+
+    fv = MOI.SingleVariable.(v)
+    expected = fv' * (dQ / 2.0) * fv + dq' * fv
+    @test MOI.get(model, DiffOpt.BackwardOutObjective()) ≈ expected  atol=ATOL rtol=RTOL
 
     dG = [1e-8  1e-8; 1e-8 1e-8]
     for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
@@ -521,17 +505,16 @@ end
     grads_actual = []
 
     for name in names
-        push!(grads_actual, readdlm(Base.Filesystem.abspath(Base.Filesystem.joinpath("data",name*".txt")), ' ', Float64, '\n'))
+        push!(grads_actual, readdlm(joinpath(@__DIR__, "data", name * ".txt"), ' ', Float64, '\n'))
     end
 
     dq = grads_actual[2] # = vec(grads_actual[2])
     dh = grads_actual[4] # = vec(grads_actual[4])
     db = grads_actual[6] # = vec(grads_actual[6])
 
-    for (i,iv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
-        @test grad ≈ dq[i]  atol=1e-2 rtol=1e-2
-    end
+    fv = MOI.SingleVariable.(v)
+    expected = dq ⋅ fv
+    @test MOI.get(model, DiffOpt.BackwardOutObjective()) ≈ expected  atol=ATOL rtol=RTOL
 
     for (j,jc) in enumerate(cg)
         grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
@@ -689,17 +672,8 @@ end
 
     DiffOpt.backward(model)
 
-    dQ = zeros(3,3)
-    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.QuadraticObjective}(), iv, jv)
-        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
-    end
-
-    dq = zeros(3)
-    for (i,iv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
-        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
-    end
+    grad = MOI.get(model, DiffOpt.BackwardOutObjective())
+    @test MOI.Utilities.isapprox_zero(grad, ATOL)
 
     dG = [0.0 0.0 0.0;
           0.0 0.0 -5/3;
@@ -792,17 +766,8 @@ end
 
     DiffOpt.backward(model)
 
-    dQ = zeros(3,3)
-    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.QuadraticObjective}(), iv, jv)
-        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
-    end
-
-    dq = zeros(3)
-    for (i,iv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
-        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
-    end
+    grad = MOI.get(model, DiffOpt.BackwardOutObjective())
+    @test MOI.Utilities.isapprox_zero(grad, ATOL)
 
     dG = [0.0 0.0 0.0;
           0.0 0.0 -5/3;
@@ -871,17 +836,8 @@ end
 
     DiffOpt.backward(model)
 
-    dQ = zeros(3,3)
-    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.QuadraticObjective}(), iv, jv)
-        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
-    end
-
-    dq = zeros(3)
-    for (i,iv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
-        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
-    end
+    grad = MOI.get(model, DiffOpt.BackwardOutObjective())
+    @test MOI.Utilities.isapprox_zero(grad, ATOL)
 
     dG = [0.0 0.0 0.0;
           0.0 0.0 -5/3;
@@ -992,17 +948,8 @@ end
 
     DiffOpt.backward(model)
 
-    dQ = zeros(3,3)
-    for (i,iv) in enumerate(v), (j,jv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.QuadraticObjective}(), iv, jv)
-        @test grad ≈ dQ[i, j]  atol=ATOL rtol=RTOL
-    end
-
-    dq = zeros(3)
-    for (i,iv) in enumerate(v)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), iv)
-        @test grad ≈ dq[i]  atol=ATOL rtol=RTOL
-    end
+    grad = MOI.get(model, DiffOpt.BackwardOutObjective())
+    @test MOI.Utilities.isapprox_zero(grad, ATOL)
 
     dG = [0.0 0.0 0.0;
           0.0 0.0 -5/3;

@@ -118,9 +118,6 @@ Base.@kwdef mutable struct DiffInputCache
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
 end
 
-abstract type AbstractDiffAttribute end
-Base.broadcastable(attribute::AbstractDiffAttribute) = Ref(attribute)
-
 """
     ForwardInObjective
 
@@ -180,6 +177,7 @@ MOI.is_set_by_optimize(::ForwardOutVariablePrimal) = true
 
 A `MOI.AbstractVariableAttribute` to set input data to backward
 differentiation, that is, problem solution.
+T
 
 For instance, to set the tangent of the variable of index `vi`, do the
 following:
@@ -188,6 +186,22 @@ MOI.set(model, DiffOpt.BackwardInVariablePrimal(), x)
 ```
 """
 struct BackwardInVariablePrimal <: MOI.AbstractVariableAttribute end
+
+"""
+    BackwardOutObjective
+
+A `MOI.AbstractModelAttribute` to get output data to backward differentiation,
+that is, problem input data.
+
+```julia
+MOI.get(model, DiffOpt.BackwardOutObjective)
+```
+"""
+struct BackwardOutObjective <: MOI.AbstractModelAttribute end
+MOI.is_set_by_optimize(::BackwardOutObjective) = true
+
+abstract type AbstractDiffAttribute end
+Base.broadcastable(attribute::AbstractDiffAttribute) = Ref(attribute)
 
 """
     BackwardOut{T}
@@ -296,10 +310,37 @@ function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
     return
 end
 
-function MOI.get(model::Optimizer, ::BackwardOut{LinearObjective}, vi::VI)
-    return _get_dc(model, vi)
+function MOI.get(model::Optimizer, ::BackwardOutObjective)
+    _back_obj(model.back_grad_cache, model.gradient_cache)
 end
-_get_dc(model::Optimizer, vi) = _get_dc(model.back_grad_cache, model.gradient_cache, vi)
+function _back_obj(b_cache::ConicBackCache, g_cache)
+    return _back_aff_obj(b_cache, g_cache)
+end
+function _back_obj(b_cache::QPForwBackCache, g_cache)
+    aff = _back_aff_obj(b_cache, g_cache)
+    quad = convert(MOI.ScalarQuadraticFunction{Float64}, aff)
+    for vi1 in keys(g_cache.index_map.varmap)
+        for vi2 in keys(g_cache.index_map.varmap)
+            if vi1.value <= vi2.value
+                c = _get_dQ(b_cache, g_cache, vi1, vi2)
+                if !iszero(c)
+                    push!(quad.quadratic_terms, MOI.ScalarQuadraticTerm(c, vi1, vi2))
+                end
+            end
+        end
+    end
+    return quad
+end
+function _back_aff_obj(b_cache, g_cache)
+    func = zero(MOI.ScalarAffineFunction{Float64})
+    for vi in keys(g_cache.index_map.varmap)
+        c = _get_dc(b_cache, g_cache, vi)
+        if !iszero(c)
+            push!(func.terms, MOI.ScalarAffineTerm(c, vi))
+        end
+    end
+    return func
+end
 function _get_dc(b_cache::ConicBackCache, g_cache::ConicCache, vi)
     i = g_cache.index_map[vi].value
     g = b_cache.g
@@ -313,6 +354,14 @@ function _get_dc(b_cache::QPForwBackCache, g_cache::QPCache, vi)
     dz = b_cache.dz
     return dz[i]
 end
+function _get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
+    i = g_cache.index_map[vi1].value
+    j = g_cache.index_map[vi2].value
+    z = g_cache.var_primals
+    dz = b_cache.dz
+    return 0.5 * (dz[i] * z[j] + z[i] * dz[j])
+end
+
 
 function MOI.get(model::Optimizer, ::ForwardInObjective)
     return model.input_cache.objective
@@ -320,22 +369,6 @@ end
 function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
     model.input_cache.objective = objective
     return
-end
-
-function MOI.get(model::Optimizer,
-    ::BackwardOut{QuadraticObjective}, vi1::VI, vi2::VI)
-    return _get_dQ(model, vi1, vi2)
-end
-_get_dQ(model::Optimizer, vi1, vi2) = _get_dQ(model.back_grad_cache, model.gradient_cache, vi1, vi2)
-function _get_dQ(b_cache::ConicBackCache, g_cache::ConicCache, vi1, vi2)
-    error("Quadratic function not availablein conic model differentiation")
-end
-function _get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
-    i = g_cache.index_map[vi1].value
-    j = g_cache.index_map[vi2].value
-    z = g_cache.var_primals
-    dz = b_cache.dz
-    return 0.5 * (dz[i] * z[j] + z[i] * dz[j])
 end
 
 function MOI.get(model::Optimizer,
