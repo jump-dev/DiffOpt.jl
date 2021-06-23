@@ -176,18 +176,18 @@ struct ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute end
 MOI.is_set_by_optimize(::ForwardOutVariablePrimal) = true
 
 """
-    BackwardIn{T}
+    BackwardInVariablePrimal
 
-A AbstractDiffAttribute to set input data to backward differentiation, that
-is, problem solution.
-The input data includes:
-MOI.VariablePrimal.
+A `MOI.AbstractVariableAttribute` to set input data to backward
+differentiation, that is, problem solution.
 
+For instance, to set the tangent of the variable of index `vi`, do the
+following:
 ```julia
-MOI.set(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x)
+MOI.set(model, DiffOpt.BackwardInVariablePrimal(), x)
 ```
 """
-struct BackwardIn{T} <: AbstractDiffAttribute end
+struct BackwardInVariablePrimal <: MOI.AbstractVariableAttribute end
 
 """
     BackwardOut{T}
@@ -288,10 +288,10 @@ function _get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     return - (du[i] - x[i] * dw[])
 end
 
-function MOI.get(model::Optimizer, ::BackwardIn{MOI.VariablePrimal}, vi::VI)
+function MOI.get(model::Optimizer, ::BackwardInVariablePrimal, vi::VI)
     return get(model.input_cache.dx, vi, 0.0)
 end
-function MOI.set(model::Optimizer, ::BackwardIn{MOI.VariablePrimal}, vi::VI, val)
+function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
     model.input_cache.dx[vi] = val
     return
 end

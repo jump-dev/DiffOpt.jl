@@ -128,7 +128,7 @@ function ChainRulesCore.rrule(::typeof(unit_commitment), load1_demand, load2_dem
         u = model[:u]
         energy_balance_cons = model[:energy_balance_cons]
 
-        MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), p, pb)
+        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), p, pb)
         DiffOpt.backward(JuMP.backend(model))
 
         # computing derivative wrt linear objective costs

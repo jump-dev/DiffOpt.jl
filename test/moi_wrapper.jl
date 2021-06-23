@@ -108,7 +108,7 @@ end
 
     @test x_sol ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
 
     DiffOpt.backward(model)
 
@@ -226,7 +226,7 @@ end
 
     @test z ≈ [0.0, 0.5, 0.0] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(3))
 
     DiffOpt.backward(model)#, ["Q","q","G","h","A","b"], ones(3))
 
@@ -319,7 +319,7 @@ end
 
     @test z ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(3))
 
     # obtain gradients
     # grads = backward(model, ["Q","q","G","h"], ones(3))
@@ -409,7 +409,7 @@ end
 
     v = [x, y]
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), [x, y], [1.3, 0.5])
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), [x, y], [1.3, 0.5])
 
     DiffOpt.backward(model)
 
@@ -512,7 +512,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(nz))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(nz))
 
     DiffOpt.backward(model)
 
@@ -578,7 +578,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, 1.0)
 
     DiffOpt.backward(model)
 
@@ -618,7 +618,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, 1.0)
 
     DiffOpt.backward(model)
 
@@ -685,7 +685,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(3))
 
     DiffOpt.backward(model)
 
@@ -788,7 +788,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(3))
 
     DiffOpt.backward(model)
 
@@ -867,7 +867,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(3))
 
     DiffOpt.backward(model)
 
@@ -988,7 +988,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, 1.0)
 
     DiffOpt.backward(model)
 
@@ -1564,7 +1564,7 @@ end
     x_sol = MOI.get(model, MOI.VariablePrimal(), x)
     @test x_sol ≈ [-0.25, -0.75] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
 
     @test model.gradient_cache === nothing
     DiffOpt.backward(model)
@@ -1584,7 +1584,7 @@ end
     @test model.gradient_cache === nothing
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
 
     grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
@@ -1599,7 +1599,7 @@ end
     MOI.optimize!(model)
     @test model.gradient_cache === nothing
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
     # grad_wrt_h = backward(model, ["h"], ones(3))[1]
     grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
@@ -1616,7 +1616,7 @@ end
     MOI.optimize!(model)
 
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
     # grad_wrt_h = backward(model, ["h"], ones(3))[1]
     grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
