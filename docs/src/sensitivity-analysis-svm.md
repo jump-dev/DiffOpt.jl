@@ -174,7 +174,7 @@ for Xi in 1:N
         model,
         DiffOpt.ForwardInConstraint(),
         cons,
-        MOIU.vectorize(dy .* b),
+        MOI.Utilities.vectorize(dy .* b),
     )
 
     DiffOpt.forward(model)
@@ -229,7 +229,7 @@ for Xi in 1:N
             model,
             DiffOpt.ForwardInConstraint(),
             cons,
-            MOIU.vectorize(dX[:,i] .* w[i]),
+            MOI.Utilities.vectorize(dX[:,i] .* w[i]),
         )
     end
 
