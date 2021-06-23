@@ -69,7 +69,7 @@ end
 
     # grad_wrt_h = backward(JuMP.backend(model), ["h"], ones(2))[1]
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, 1.0)
 
     DiffOpt.backward(model)
 
@@ -120,7 +120,7 @@ end
 
     @test JuMP.value.(x) ≈ [0.0, 0.5, 0.0] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, 1.0)
 
     DiffOpt.backward(model)
 
@@ -195,7 +195,7 @@ end
 
     @test JuMP.value.(z) ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), z, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), z, 1.0)
 
     DiffOpt.backward(model)
 
@@ -249,7 +249,7 @@ end
 
     @test JuMP.value.(z) ≈ [0.25, 0.75] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), z, [1.3, 0.5])
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), z, [1.3, 0.5])
 
     DiffOpt.backward(model)
 
@@ -322,7 +322,7 @@ end
 
     optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, 1.0)
 
     DiffOpt.backward(model)
 
@@ -385,7 +385,7 @@ end
     optimize!(model)
 
     # obtain gradients
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, 1.0)
 
     DiffOpt.backward(model)
 
@@ -414,7 +414,7 @@ end
 
     optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, 1.0)
 
     DiffOpt.backward(model)
 
@@ -452,7 +452,7 @@ end
     @constraint(model, c2, 2x+5y+3z <= 15)
     optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, 1.0)
 
     DiffOpt.backward(model)
 
@@ -515,7 +515,7 @@ end
 
     optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, 1.0)
 
     DiffOpt.backward(model)
 
@@ -603,7 +603,7 @@ end
     db = zeros(5)
     dc = zeros(3)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), vv, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), vv, 1.0)
 
     @test_broken DiffOpt.backward(model)
 
