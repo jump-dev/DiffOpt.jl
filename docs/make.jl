@@ -20,7 +20,7 @@ makedocs(;
             "Solving conic with PSD and SOC constraints" => "solve-conic-1.md",
             "Differentiating a simple QP by hand" => "matrix-inversion-manual.md",
             "Sensitivity Analysis SVM" => "sensitivity-analysis-svm.md",
-            "ChainRules integration" => "chainrules.md",
+            "ChainRules integration" => "chainrules_unit.md",
         ],
     ],
     strict = true,  # See https://github.com/JuliaOpt/JuMP.jl/issues/1576
