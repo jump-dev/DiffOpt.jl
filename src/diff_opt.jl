@@ -209,35 +209,16 @@ Base.broadcastable(attribute::AbstractDiffAttribute) = Ref(attribute)
 A AbstractDiffAttribute to get output data to backward differentiation, that
 is, problem solution.
 The solution data includes:
-[`LinearObjective`](@ref), [`ConstraintConstant`](@ref),
-[`ConstraintCoefficient`](@ref) and [`QuadraticObjective`](@ref).
+[`ConstraintConstant`](@ref) and [`ConstraintCoefficient`](@ref).
 The latter can only be used in linearly constrained quadratic models.
 
 ```julia
-MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), x)
+MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), x)
 ```
 """
 struct BackwardOut{T} <: AbstractDiffAttribute end
 
 abstract type AbstractDiffInnerAttribute end
-
-"""
-    LinearObjective
-
-An attribute to set input and get output differentials from forward and backward
-differentiation related to the linear objective coefficient associated to an
-`MOI.VariableIndex`.
-"""
-struct LinearObjective <: AbstractDiffInnerAttribute end #(var)
-
-"""
-    QuadraticObjective
-
-An attribute to set input and get output differentials from forward and backward
-differentiation related to the quadratic objective coefficient associated to a pair
-of `MOI.VariableIndex`'s.
-"""
-struct QuadraticObjective <: AbstractDiffInnerAttribute end #(var, var)
 
 """
     ConstraintConstant
@@ -317,19 +298,15 @@ function _back_obj(b_cache::ConicBackCache, g_cache)
     return _back_aff_obj(b_cache, g_cache)
 end
 function _back_obj(b_cache::QPForwBackCache, g_cache)
-    aff = _back_aff_obj(b_cache, g_cache)
-    quad = convert(MOI.ScalarQuadraticFunction{Float64}, aff)
-    for vi1 in keys(g_cache.index_map.varmap)
-        for vi2 in keys(g_cache.index_map.varmap)
-            if vi1.value <= vi2.value
-                c = _get_dQ(b_cache, g_cache, vi1, vi2)
-                if !iszero(c)
-                    push!(quad.quadratic_terms, MOI.ScalarQuadraticTerm(c, vi1, vi2))
-                end
-            end
-        end
-    end
-    return quad
+    return IndexMappedFunction(
+        RankOneQuadraticFunction(
+            b_cache.dz,
+            b_cache.dz,
+            g_cache.var_primals,
+            0.0,
+        ),
+        g_cache.index_map,
+    )
 end
 function _back_aff_obj(b_cache, g_cache)
     func = zero(MOI.ScalarAffineFunction{Float64})
@@ -349,19 +326,6 @@ function _get_dc(b_cache::ConicBackCache, g_cache::ConicCache, vi)
     dQ_end_i = - g[end] * πz[i]
     return - dQ_i_end + dQ_i_end
 end
-function _get_dc(b_cache::QPForwBackCache, g_cache::QPCache, vi)
-    i = g_cache.index_map[vi].value
-    dz = b_cache.dz
-    return dz[i]
-end
-function _get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
-    i = g_cache.index_map[vi1].value
-    j = g_cache.index_map[vi2].value
-    z = g_cache.var_primals
-    dz = b_cache.dz
-    return 0.5 * (dz[i] * z[j] + z[i] * dz[j])
-end
-
 
 function MOI.get(model::Optimizer, ::ForwardInObjective)
     return model.input_cache.objective
