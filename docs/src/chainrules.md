@@ -7,8 +7,8 @@ that can then be used by automatic differentiation systems.
 
 ```@example 1
 using DiffOpt, Plots, JuMP
-import MathOptInterface, Clp
-const MOI = MathOptInterface
+using LinearAlgebra
+import Clp
 ```
 
 ```@example 1
@@ -138,25 +138,22 @@ function ChainRulesCore.frule(
     pv = unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs, model=model)
     energy_balance_cons = model[:energy_balance_cons]
 
-    # Setting some perturbation of the right-hand side of the energy balance constraints
-    # the RHS is equal to the sum of load demands at each period.
-    # the corresponding perturbation are set accordingly as the set of perturbations of the two loads
+    # Setting some perturbation of the energy balance constraints
+    # Perturbations are set as MOI functions
+    Δenergy_balance = [convert(MOI.ScalarAffineFunction{Float64}, d1 + d2) for (d1, d2) in zip(Δload1_demand, Δload2_demand)]    
     MOI.set.(
         model,
         DiffOpt.ForwardInConstraint(), energy_balance_cons,
-        [d1 + d2 for (d1, d2) in zip(Δload1_demand, Δload2_demand)],
+        Δenergy_balance,
     )
 
     p = model[:p]
     u = model[:u]
 
     # setting the perturbation of the linear objective
-    for t in size(p, 2)
-        MOI.set(model, DiffOpt.ForwardInObjective(), p[1,t], Δgen_costs[1])
-        MOI.set(model, DiffOpt.ForwardInObjective(), p[2,t], Δgen_costs[2])
-        MOI.set(model, DiffOpt.ForwardInObjective(), u[1,t], Δnoload_costs[1])
-        MOI.set(model, DiffOpt.ForwardInObjective(), u[2,t], Δnoload_costs[2])
-    end
+    Δobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
+    MOI.set(model, DiffOpt.ForwardInObjective(), Δobj)
+
     DiffOpt.forward(JuMP.backend(model))
     # querying the corresponding perturbation of the decision
     Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)
@@ -231,7 +228,7 @@ end
 (pv, pullback_unit_commitment) = ChainRulesCore.rrule(
     unit_commitment,
     load1_demand, load2_demand, gen_costs, noload_costs,
-    model = Model(() -> diff_optimizer(Clp.Optimizer)),
+    optimizer=Clp.Optimizer,
     silent=true,
 )
 dpv = 0 * pv
