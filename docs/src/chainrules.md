@@ -20,7 +20,7 @@ using ChainRulesCore
 We will consider a unit commitment problem, finding the cost-minimizing activation
 of generation units in a power network over multiple time periods.
 The considered constraints include:
-- Demand satisfaction
+- Demand satisfaction of several loads
 - Ramping constraints
 - Generation limits.
 
@@ -33,7 +33,9 @@ relax the domain of the ``u_{it}`` variables to ``\left[0,1\right]``.
 
 ## Primal UC problem
 
-Solution map:
+ChainRules defines the differentiation of functions.
+The actual function that is differentiated in the context of DiffOpt is the
+solution map taking in input the problem parameters and returning the solution.
 
 ```@example 1
 function unit_commitment(
@@ -104,15 +106,28 @@ m = Model(Clp.Optimizer)
 println(m)
 ```
 
+## Perturbation of a single input parameter
+
+Let us vary the demand at the second time frame on both loads:
+
 ```@example 1
 demand_values = 0.05:0.05:3.0
-pvalues = [unit_commitment([1.0, di, 1.4, 1.6], [1.0, di, 1.4, 1.6], [1000.0, 1500.0], [500.0, 1000.0], silent=true) for di in demand_values]
+pvalues = map(demand_values) do di
+    unit_commitment(
+        [1.0, di, 1.4, 1.6], [1.0, di, 1.4, 1.6],
+        [1000.0, 1500.0], [500.0, 1000.0],
+        silent=true,
+    )
+end
 pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])]
 ```
 
+The influence of this variation of the demand is piecewise linear on the generation at different time frames:
+
 ```@example 1
-scatter(demand_values, pflat, size=(1500,1000), legendfontsize=20, markersize=20)
+scatter(demand_values, pflat)
 title!("Generation at different time frames and generators for a single variation")
+xlims!(0.0, 3.5)
 ```
 
 ## Forward Differentiation
@@ -123,7 +138,7 @@ It takes as arguments:
 2. the differentiated function
 3. the primal values of the input parameters,
 
-and returns a tuple `(primal_output, perturbations)` propagated to the result:
+and returns a tuple `(primal_output, perturbations)`, the main primal result and the perturbation propagated to this result:
 
 ```@example 1
 function ChainRulesCore.frule(
@@ -140,7 +155,10 @@ function ChainRulesCore.frule(
 
     # Setting some perturbation of the energy balance constraints
     # Perturbations are set as MOI functions
-    Δenergy_balance = [convert(MOI.ScalarAffineFunction{Float64}, d1 + d2) for (d1, d2) in zip(Δload1_demand, Δload2_demand)]    
+    Δenergy_balance = [
+        convert(MOI.ScalarAffineFunction{Float64}, d1 + d2)
+        for (d1, d2) in zip(Δload1_demand, Δload2_demand)
+    ]
     MOI.set.(
         model,
         DiffOpt.ForwardInConstraint(), energy_balance_cons,
@@ -161,12 +179,17 @@ function ChainRulesCore.frule(
 end
 ```
 
+We can now compute the perturbation of the output powers `Δpv`
+for a perturbation of the first load demand at time 2:
+
 ```@example 1
 load1_demand = [1.0, 1.0, 1.4, 1.6]
 load2_demand = [1.0, 1.0, 1.4, 1.6]
 gen_costs = [1000.0, 1500.0]
 noload_costs = [500.0, 1000.0]
 
+# all input perturbations are 0
+# except first load at time 2
 Δload1_demand = 0 * load1_demand
 Δload1_demand[2] = 1.0
 Δload2_demand = 0 * load2_demand
@@ -175,13 +198,16 @@ noload_costs = [500.0, 1000.0]
 (pv, Δpv) = ChainRulesCore.frule(
     (nothing, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs),
     unit_commitment,
-    load1_demand, load2_demand, gen_costs, noload_costs
+    load1_demand, load2_demand, gen_costs, noload_costs,
 )
 ```
 
 ```@example 1
 Δpv
 ```
+
+The result matches what we observe in the previous figure:
+the generation of the first generator at the second time frame (third element on the plot).
 
 # Reverse-mode differentiation of the solution map
 
@@ -224,6 +250,9 @@ function ChainRulesCore.rrule(
 end
 ```
 
+We can set a seed of one on the power of the first generator at the second time frame and zero for all other
+parts of the solution:
+
 ```@example 1
 (pv, pullback_unit_commitment) = ChainRulesCore.rrule(
     unit_commitment,
@@ -235,6 +264,16 @@ dpv = 0 * pv
 dpv[1,2] = 1
 dargs = pullback_unit_commitment(dpv)
 (dload1_demand, dload2_demand, dgen_costs, dnoload_costs) = dargs
-@show dload1_demand
-@show dload2_demand;
+nothing # hide
 ```
+
+The sensitivities with respect to the load demands are:
+```@example 1
+dload1_demand
+```
+
+```@example 1
+dload2_demand
+```
+
+The sensitivity of the generation is propagated to the sensitivity of both loads at the second time frame.
