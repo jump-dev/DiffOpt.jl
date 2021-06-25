@@ -461,12 +461,7 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
     dz = b_cache.dz
     ν = g_cache.equality_duals
     dν = b_cache.dν
-    # this is the previously implemented
-    return dν[i] * z[j] - ν[i] * dz[j]
-    # from the paper, teh correct solution should be this
-    # and thec correct fix is probably correcting the signs of the duals
-    # since MOI standard is different from text book shadow prices
-    # return dν[i] * z[j] + ν[i] * dz[j]
+    return dν[i] * z[j] + ν[i] * dz[j]
 end
 function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
 ) where {F, S}
@@ -702,10 +697,11 @@ function _forward_quad(model::Optimizer)
     ]
 
     partial_grads = if norm(Q) ≈ 0
-        -lsqr(LHS, RHS)
+        -lsqr(LHS', RHS)
     else
-        -LHS \ RHS
+        -_linsolve(LHS', RHS)
     end
+
 
     nv = length(z)
     nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
@@ -717,6 +713,9 @@ function _forward_quad(model::Optimizer)
     return nothing
 end
 
+_linsolve(A, b) = A \ b
+# See https://github.com/JuliaLang/julia/issues/32668
+_linsolve(A, b::SparseVector) = A \ Vector(b)
 
 
 """

@@ -345,7 +345,7 @@ end
 # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
 # Find equivalent CVXPYLayers and QPTH code here:
 #               https://github.com/AKS1996/jump-gsoc-2020/blob/master/DiffOpt_tests_2_py.ipynb
-@testset "Differentiating MOI examples 2 - non trivial backward pass vector" begin
+@testset "Differentiating MOI examples 2" begin
     # non-homogeneous quadratic objective
     #    minimize 2 x^2 + y^2 + xy + x + y
     #       s.t.  x, y >= 0
@@ -354,84 +354,120 @@ end
     model = diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
 
-    x = MOI.add_variable(model)
-    y = MOI.add_variable(model)
+    v = MOI.add_variables(model, 2)
+    fv = MOI.SingleVariable.(v)
 
-    c1 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0,1.0], [x,y]), 0.0),
-        MOI.EqualTo(1.0)
-    )
+    Q = [4 1.0
+         1 2]
+    q = [1, 1.0]
+    A = [1 1.0]
+    b = [1.0]
+    G = [-1 0.0
+         0 -1]
+    h = [0, 0.0]
 
-    ca = [c1]
-
-    vc1 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0,0.0], [x,y]), 0.0),
-        MOI.LessThan(0.0)
-    )
-    @test vc1.value ≈ x.value atol=ATOL rtol=RTOL
-
-    vc2 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([0.0,-1.0], [x,y]), 0.0),
-        MOI.LessThan(0.0)
-    )
-    @test vc2.value ≈ y.value atol=ATOL rtol=RTOL
-
-    cg = [vc1, vc2]
-
+    cle = MOI.add_constraint.(model, G * fv, MOI.LessThan.(h))
+    ceq = MOI.add_constraint.(model, A * fv, MOI.EqualTo.(b))
 
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-    obj = MOI.ScalarQuadraticFunction(
-        MOI.ScalarAffineTerm.([1.0, 1.0], [x, y]),
-        MOI.ScalarQuadraticTerm.([4.0, 2.0, 1.0], [x, y, x], [x, y, y]),
-        0.0
-    )
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj)
+    obj = fv' * (Q / 2) * fv + q ⋅ fv
+    MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
 
     MOI.optimize!(model)
 
-    z = MOI.get(model, MOI.VariablePrimal(), [x, y])
+    z = [0.25, 0.75]
+    @test MOI.get(model, MOI.VariablePrimal(), v) ≈ z atol=ATOL rtol=RTOL
 
-    @test z ≈ [0.25, 0.75] atol=ATOL rtol=RTOL
+    ν = [-2.75]
+    λ = zeros(2)
 
-    v = [x, y]
+    # The sign as reversed as https://arxiv.org/pdf/1703.00443.pdf
+    # use a different convention for the dual
+    @test MOI.get.(model, MOI.ConstraintDual(), ceq) ≈ -ν atol=ATOL rtol=RTOL
+    @test MOI.get.(model, MOI.ConstraintDual(), cle) ≈ -λ atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), [x, y], [1.3, 0.5])
-
-    DiffOpt.backward(model)
-
+    dz_back = [1.3, 0.5]
+    dλ_back = zeros(2)
+    dν_back = zeros(1)
     dQ = [-0.05   -0.05;
           -0.05    0.15]
     dq = [-0.2; 0.2]
-
-    fv = MOI.SingleVariable.(v)
-    expected = fv' * (dQ / 2.0) * fv + dq' * fv
-    @test MOI.get(model, DiffOpt.BackwardOutObjective()) ≈ expected  atol=ATOL rtol=RTOL
-
-    dG = [1e-8  1e-8; 1e-8 1e-8]
-    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
-        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
-    end
-
-    dh = [1e-8; 1e-8]
-    for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
-    end
-
+    dG = zeros(2, 2)
+    dh = zeros(2)
     dA = [0.375 -1.075]
-    for (i,iv) in enumerate(v), (j,jc) in enumerate(ca)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
-        @test grad ≈ dA[j,i]  atol=ATOL rtol=RTOL
+    db = [0.7]
+
+    ∇z_eq_back = [-0.2, 0.2]
+    ∇λ_eq_back = [0.8, -0.8/3]
+    ∇ν_eq_back = [-0.7]
+    @test Q * ∇z_eq_back + G' * (λ .* ∇λ_eq_back) + A' * ∇ν_eq_back ≈ -dz_back atol=ATOL rtol=RTOL
+    @test G * ∇z_eq_back + (G * z - h) .* ∇λ_eq_back ≈ -dλ_back atol=ATOL rtol=RTOL
+    @test A * ∇z_eq_back ≈ -dν_back atol=ATOL rtol=RTOL
+
+
+    dobj = fv' * (dQ / 2.0) * fv + dq' * fv
+    dcon = dA * fv .+ db
+
+    @testset "Non trivial backward pass vector" begin
+        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, dz_back)
+
+        DiffOpt.backward(model)
+
+        @test MOI.get(model, DiffOpt.BackwardOutObjective()) ≈ dobj  atol=ATOL rtol=RTOL
+
+        for (i,iv) in enumerate(v), (j,jc) in enumerate(cle)
+            grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+            @test grad ≈ 0.0  atol=ATOL rtol=RTOL
+        end
+
+        for (j,jc) in enumerate(cle)
+            grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
+            @test grad ≈ 0.0  atol=ATOL rtol=RTOL
+        end
+
+        for (i,iv) in enumerate(v), (j,jc) in enumerate(ceq)
+            grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
+            @test grad ≈ dA[j,i]  atol=ATOL rtol=RTOL
+        end
+
+        for (j,jc) in enumerate(ceq)
+            grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
+            @test grad ≈ db[j]  atol=ATOL rtol=RTOL
+        end
     end
 
-    db = [0.7]
-    for (j,jc) in enumerate(ca)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ db[j]  atol=ATOL rtol=RTOL
+    dz_forw = [1.4875, -0.075]
+    dλ_forw = zeros(2)
+    ∇z_eq_forw = [-1.28125, 3.25625]
+    @test dQ * z + dq + dA' * ν + dG' * λ ≈ ∇z_eq_forw atol=ATOL rtol=RTOL
+    ∇λ_eq_forw = -((G * z - h) .* dλ_forw + λ .* (G * dz_forw))
+    @test λ .* (dG * z - dh) ≈ ∇λ_eq_forw atol=ATOL rtol=RTOL
+    ∇ν_eq_forw = -(A * dz_forw)
+    @test dA * z - db ≈ ∇ν_eq_forw atol=ATOL rtol=RTOL
+
+    # As a kind of integration test, we check that the scalar product is the same whether it is don at the level of
+    # 1) (dz, dλ, dν) (dλ_back and dν_back are zero so we ignore their product (appropriate since we have not yet
+    #    implemented the getter for dν_forw))
+    dprod = dz_forw ⋅ dz_back # ignored as it is zero : + dλ_forw ⋅ dλ_back + dν_forw ⋅ dν_back
+    # 2) (∇z, ∇λ, ∇ν) which are the LHS of (6) and (7) (which are differentiation
+    #    of the gradient of the laplacian with respect to z, λ and ∇ν hence the variable names)
+    ∇prod = ∇z_eq_forw ⋅ ∇z_eq_back + ∇λ_eq_forw ⋅ ∇λ_eq_back + ∇ν_eq_forw ⋅ ∇ν_eq_back
+    # 3) the problem data (here we made it so that they are the same for the forward
+    #    and backward pass but we could have picked any other dQ, dq, ... for the forward pass
+    #    and we would still have pprod = ∇prod = dprod
+    pprod = dQ ⋅ dQ + dq ⋅ dq + dA ⋅ dA + db ⋅ db
+    @test dprod ≈ ∇prod atol=ATOL rtol=RTOL
+    @test pprod ≈ ∇prod atol=ATOL rtol=RTOL
+
+    @testset "Forward pass" begin
+        MOI.set(model, DiffOpt.ForwardInObjective(), dobj)
+        for (j,jc) in enumerate(ceq)
+            MOI.set(model, DiffOpt.ForwardInConstraint(), jc, dcon[j])
+        end
+
+        DiffOpt.forward(model)
+
+        @test MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), v) ≈ dz_forw atol=ATOL rtol=RTOL
     end
 end
 
