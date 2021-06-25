@@ -177,7 +177,6 @@ MOI.is_set_by_optimize(::ForwardOutVariablePrimal) = true
 
 A `MOI.AbstractVariableAttribute` to set input data to backward
 differentiation, that is, problem solution.
-T
 
 For instance, to set the tangent of the variable of index `vi`, do the
 following:
