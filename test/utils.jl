@@ -103,8 +103,8 @@ function qp_test(
 
     # The sign as reversed as [AK17]
     # use a different convention for the dual
-    @_test(-Float64.(MOI.get.(model, MOI.ConstraintDual(), ceq)), ν)
-    @_test(_sign(Float64.(MOI.get.(model, MOI.ConstraintDual(), cle)), true), λ)
+    @_test(convert(Vector{Float64}, -MOI.get.(model, MOI.ConstraintDual(), ceq)), ν)
+    @_test(convert(Vector{Float64}, _sign(MOI.get.(model, MOI.ConstraintDual(), cle), true)), λ)
 
     #dobjb = fv' * (dQb / 2.0) * fv + dqb' * fv
     # TODO, it should .-
@@ -126,7 +126,7 @@ function qp_test(
         @_test(spb.affine_terms, dqb)
 
         @_test(
-            Float64.(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), cle)),
+            convert(Vector{Float64}, MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), cle)),
             dhb,
         )
         @_test(
@@ -141,7 +141,7 @@ function qp_test(
             dGb,
         )
         @_test(
-            Float64.(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ceq)),
+            convert(Vector{Float64}, MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ceq)),
             dbb,
         )
         @_test(
