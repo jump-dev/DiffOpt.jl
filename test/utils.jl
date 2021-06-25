@@ -126,7 +126,7 @@ function qp_test(
         @_test(spb.affine_terms, dqb)
 
         @_test(
-            MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), cle),
+            Float64.(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), cle)),
             dhb,
         )
         @_test(
@@ -141,7 +141,7 @@ function qp_test(
             dGb,
         )
         @_test(
-            MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ceq),
+            Float64.(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ceq)),
             dbb,
         )
         @_test(

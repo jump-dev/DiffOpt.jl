@@ -42,7 +42,7 @@ function unit_commitment(
         load1_demand, load2_demand, gen_costs, noload_costs;
         model = Model(Clp.Optimizer), silent=false)
     MOI.set(model, MOI.Silent(), silent)
-    
+
     ## Problem data
     unit_codes = [1, 2] # Generator identifiers
     load_names = ["Load1", "Load2"] # Load identifiers
@@ -61,33 +61,33 @@ function unit_commitment(
     # for a linear relaxation.
     @variable(model, 0 <= u[g in unit_codes, t in 1:n_periods] <= 1) # Commitment
     @variable(model, p[g in unit_codes, t in 1:n_periods] >= 0) # Power output (pu)
-    
+
     ## Constraints
-    
+
     # Energy balance
     @constraint(
         model,
         energy_balance_cons[t in 1:n_periods],
         sum(p[g, t] for g in unit_codes) == sum(D[l][t] for l in load_names),
     )
-    
+
     # Generation limits
     @constraint(model, [g in unit_codes, t in 1:n_periods], Pmin[g][t] * u[g, t] <= p[g, t])
     @constraint(model, [g in unit_codes, t in 1:n_periods], p[g, t] <= Pmax[g][t] * u[g, t])
-    
+
     # Ramp rates
     @constraint(model, [g in unit_codes, t in 2:n_periods], p[g, t] - p[g, t - 1] <= 60 * RR[g])
     @constraint(model, [g in unit_codes], p[g, 1] - P0[g] <= 60 * RR[g])
     @constraint(model, [g in unit_codes, t in 2:n_periods], p[g, t - 1] - p[g, t] <= 60 * RR[g])
     @constraint(model, [g in unit_codes], P0[g] - p[g, 1] <= 60 * RR[g])
-    
+
     # Objective
     @objective(
         model,
         Min,
         sum((Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for g in unit_codes, t in 1:n_periods),
     )
-    
+
     optimize!(model)
     # asserting finite optimal value
     @assert termination_status(model) == MOI.OPTIMAL
@@ -232,15 +232,17 @@ function ChainRulesCore.rrule(
         MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), p, pb)
         DiffOpt.backward(JuMP.backend(model))
 
+        obj = MOI.get(model, DiffOpt.BackwardOutObjective())
+
         # computing derivative wrt linear objective costs
         dgen_costs = similar(gen_costs)
-        dgen_costs[1] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), p[1,:]))
-        dgen_costs[2] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), p[2,:]))
+        dgen_costs[1] = sum(JuMP.coefficient.(obj, p[1,:]))
+        dgen_costs[2] = sum(JuMP.coefficient.(obj, p[2,:]))
 
         dnoload_costs = similar(noload_costs)
-        dnoload_costs[1] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), u[1,:]))
-        dnoload_costs[2] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), u[2,:]))
-        
+        dnoload_costs[1] = sum(JuMP.coefficient.(obj, u[1,:]))
+        dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2,:]))
+
         # computing derivative wrt constraint constant
         dload1_demand = MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), energy_balance_cons)
         dload2_demand = copy(dload1_demand)
