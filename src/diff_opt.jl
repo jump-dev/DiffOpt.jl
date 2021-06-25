@@ -192,9 +192,30 @@ struct BackwardInVariablePrimal <: MOI.AbstractVariableAttribute end
 A `MOI.AbstractModelAttribute` to get output data to backward differentiation,
 that is, problem input data.
 
+For instance, to get the tangent of the objective function corresponding to
+the tangent given to `BackwardInVariablePrimal`, do the
+following:
 ```julia
-MOI.get(model, DiffOpt.BackwardOutObjective)
+func = MOI.get(model, DiffOpt.BackwardOutObjective)
 ```
+Then, to get the sensitivity of the linear term with variable `x`, do
+```julia
+JuMP.coefficient(func, x)
+```
+To get the sensitivity with respect to the quadratic term with variables `x`
+and `y`, do either
+```julia
+JuMP.coefficient(func, x, y)
+```
+or
+```julia
+DiffOpt.quad_sym_half(func, x, y)
+```
+
+!!! warning
+    These two lines are **not** equivalent in case `x == y`, see
+    [`quad_sym_half`](@ref) for the details on the difference between these two
+    functions.
 """
 struct BackwardOutObjective <: MOI.AbstractModelAttribute end
 MOI.is_set_by_optimize(::BackwardOutObjective) = true

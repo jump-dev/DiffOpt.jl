@@ -3,12 +3,57 @@ function MOI.set(model::JuMP.Model, attr::ForwardInObjective, func::JuMP.Abstrac
     return MOI.set(model, attr, JuMP.moi_function(func))
 end
 
+"""
+    abstract type AbstractLazyScalarFunction <: MOI.AbstractScalarFunction end
+
+Subtype of `MOI.AbstractScalarFunction` that is not a standard MOI scalar
+function but can be converted to one using [`standard_form`](@ref).
+
+The function can also be inspected lazily using `JuMP.coefficient` or
+[`quad_sym_half`](@ref).
+"""
 abstract type AbstractLazyScalarFunction <: MOI.AbstractScalarFunction end
+
+"""
+    standard_form(func::AbstractLazyScalarFunction)
+
+Converts `func` to a standard MOI scalar function.
+
+    standard_form(func::MOItoJuMP)
+
+Converts `func` to a standard JuMP scalar function.
+"""
+function standard_form end
+
+"""
+    quad_sym_half(func, vi1::MOI.VariableIndex, vi2::MOI.VariableIndex)
+
+Return `Q[i,j] = Q[j,i]` where the quadratic terms of `func` is represented
+by `x' Q x / 2` for a symmetric matrix `Q` where `x[i] = vi1` and `x[j] = vi2`.
+Note that while this is equal to `JuMP.coefficient(func, vi1, vi2)` if `vi1 != vi2`,
+in the case `vi1 == vi2`, it is rather equal to
+`2JuMP.coefficient(func, vi1, vi2)`.
+"""
+function quad_sym_half end
+
 standard_form(func::Union{MOI.SingleVariable,MOI.ScalarAffineFunction,MOI.ScalarQuadraticFunction}) = func
 function Base.isapprox(func1::AbstractLazyScalarFunction, func2::MOI.AbstractScalarFunction; kws...)
     return isapprox(standard_form(func1), standard_form(func2); kws...)
 end
 
+"""
+    struct RankOneQuadraticFunction{T, VT<:AbstractVector{T}} <: AbstractLazyScalarFunction
+        linear_coefficients::VT
+        quadratic_left_factor::VT
+        quadratic_right_factor::VT
+        constant::T
+    end
+
+Represents the function
+`(x ⋅ quadratic_left_factor) * (x ⋅ quadratic_right_factor) + x ⋅ linear_coefficients + constant`
+as an `MOI.AbstractScalarFunction` where `x[i] = MOI.VariableIndex(i)`.
+Use [`standard_form`](@ref) to convert it to a `MOI.ScalarQuadraticFunction{T}`.
+"""
 struct RankOneQuadraticFunction{T, VT<:AbstractVector{T}} <: AbstractLazyScalarFunction
     linear_coefficients::VT
     quadratic_left_factor::VT
@@ -18,7 +63,6 @@ end
 function JuMP.coefficient(func::RankOneQuadraticFunction, vi::MOI.VariableIndex)
     return func.linear_coefficients[vi.value]
 end
-# Entry of Q[i,j] = Q[j,i] in x'Qx/2
 function quad_sym_half(
     func::RankOneQuadraticFunction,
     vi1::MOI.VariableIndex,
@@ -63,6 +107,14 @@ function MOIU.isapprox_zero(func::RankOneQuadraticFunction, tol)
     return MOIU.isapprox_zero(standard_form(func), tol)
 end
 
+"""
+    struct IndexMappedFunction{F<:MOI.AbstractScalarFunction} <: AbstractLazyScalarFunction
+        func::F
+        index_map::MOIU.IndexMap
+    end
+
+Lazily represents the function `MOI.Utilities.map_indices(index_map, DiffOpt.standard_form(func))`.
+"""
 struct IndexMappedFunction{F<:MOI.AbstractScalarFunction} <: AbstractLazyScalarFunction
     func::F
     index_map::MOIU.IndexMap
@@ -85,6 +137,14 @@ function MOIU.map_indices(index_map::MOIU.IndexMap, func::AbstractLazyScalarFunc
     return IndexMappedFunction(func, index_map)
 end
 
+"""
+    struct MOItoJuMP{F<:MOI.AbstractScalarFunction} <: JuMP.AbstractJuMPScalar
+        model::JuMP.Model
+        func::F
+    end
+
+Lazily represents the function `JuMP.jump_function(model, DiffOpt.standard_form(func))`.
+"""
 struct MOItoJuMP{F<:MOI.AbstractScalarFunction} <: JuMP.AbstractJuMPScalar
     model::JuMP.Model
     func::F
