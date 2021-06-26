@@ -92,7 +92,7 @@ function ∇model(model, X_train, w, ŵ, α)
 
         MOI.set(
             model, 
-            DiffOpt.ForwardIn{DiffOpt.QuadraticObjective}(), 
+            DiffOpt.ForwardInObjective(), 
             w[i],
             w[i],
             dw[i]*α
@@ -102,7 +102,7 @@ function ∇model(model, X_train, w, ŵ, α)
 
         ∂w_∂α[i] = MOI.get(
             model,
-            DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+            DiffOpt.ForwardOutVariablePrimal(), 
             w[i]
         )
 

@@ -1,4 +1,4 @@
-```@example 3
+<!-- ```@example 3
 using DiffOpt
 using Statistics
 using OSQP
@@ -36,7 +36,6 @@ function create_problem(N, D, noise)
 end
 
 X_train, X_test, Y_train, Y_test = create_problem(800, 30, 4);
-nothing # hide
 ```
 
 
@@ -58,8 +57,8 @@ function fitRidge(X,Y,α)
 
     optimize!(model)
 
-    loss = objective_value(model)
-    return model, w, loss, value.(w)
+    custom_loss = objective_value(model)
+    return model, w, custom_loss, value.(w)
 end
 nothing # hide
 ```
@@ -109,7 +108,7 @@ function ∇model(model, X_train, w, ŵ, α)
 
         MOI.set(
             model, 
-            DiffOpt.ForwardIn{DiffOpt.QuadraticObjective}(), 
+            DiffOpt.ForwardInObjective(), 
             w[i],
             w[i],
             dw[i]*α
@@ -119,7 +118,7 @@ function ∇model(model, X_train, w, ŵ, α)
 
         ∂w_∂α[i] = MOI.get(
             model,
-            DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+            DiffOpt.ForwardOutVariablePrimal(), 
             w[i]
         )
 
@@ -205,4 +204,4 @@ nothing # hide
 ```@example 3
 plot(log.(αs), mse, label="MSE", xaxis = ("α"))
 plot!(log.(ᾱ), msē, label="G.D. for α", lw = 2)
-```
+``` -->

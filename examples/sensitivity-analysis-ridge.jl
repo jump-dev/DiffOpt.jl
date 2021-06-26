@@ -58,25 +58,35 @@ end
 # get the gradients
 ∇ = zero(X)
 for i in 1:length(X)
-    MOI.set(
-        model,
-        DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), 
-        w, 
-        -2*(Y[i] + X[i])
-    ) 
+    # MOI.set(
+    #     model,
+    #     DiffOpt.ForwardInObjective(), 
+    #     w, 
+    #     -2*(Y[i] + X[i])
+    # ) 
+    # MOI.set(
+    #     model, 
+    #     DiffOpt.ForwardInObjective(), 
+    #     w,
+    #     w,
+    #     2*X[i]
+    # )
+
     MOI.set(
         model, 
-        DiffOpt.ForwardIn{DiffOpt.QuadraticObjective}(), 
-        w,
-        w,
-        2*X[i]
+        DiffOpt.ForwardInObjective(), 
+        MOI.ScalarQuadraticFunction(
+            [MOI.ScalarAffineTerm(-2(Y[1] + X[1]), w.index)], 
+            [MOI.ScalarQuadraticTerm(2X[1], w.index, w.index)], 
+            0.0
+        )
     )
     
     DiffOpt.forward(model)
 
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(), 
         b
     )
 

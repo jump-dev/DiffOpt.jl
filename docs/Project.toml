@@ -1,5 +1,6 @@
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+Clp = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
 DiffOpt = "930fe3bc-9c6b-11ea-2d94-6184641e85e7"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"

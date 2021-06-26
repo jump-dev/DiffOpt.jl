@@ -107,7 +107,7 @@ m = Chain(
 
 
 ```@example 1
-loss(x, y) = logitcrossentropy(m(x), y) 
+custom_loss(x, y) = logitcrossentropy(m(x), y) 
 opt = ADAM(); # popular stochastic gradient descent variant
 
 classify(x::Float64) = (x>=0.5) ? 1 : 0
@@ -118,7 +118,7 @@ function accuracy(x, y_true)
 end
 
 dataset = repeated((X_train,Y_train), 1) # repeat the data set, very low accuracy on the orig dataset
-evalcb = () -> @show(loss(X_train,Y_train)) # callback to show loss
+evalcb = () -> @show(custom_loss(X_train,Y_train)) # callback to show loss
 ```
 
 
@@ -126,7 +126,7 @@ evalcb = () -> @show(loss(X_train,Y_train)) # callback to show loss
 ```@example 1
 labels = Y_train   # needed for SVM
 for iter in 1:1
-    Flux.train!(loss, params(m), dataset, opt, cb = throttle(evalcb, 5)); #took me ~5 minutes to train on CPU
+    Flux.train!(custom_loss, params(m), dataset, opt, cb = throttle(evalcb, 5)); #took me ~5 minutes to train on CPU
 end
 
 @show accuracy(X_train, Y_train)

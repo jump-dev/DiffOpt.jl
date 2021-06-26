@@ -76,7 +76,7 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::AbstractArray{T}; model 
         for i in 1:size(y)[2]
             MOI.set.(
                 model,
-                DiffOpt.BackwardIn{MOI.VariablePrimal}(), 
+                DiffOpt.BackwardInVariablePrimal(),
                 x,
                 dx[:, i]
             ) 
@@ -111,20 +111,20 @@ m = Chain(
 
 
 ```@example 1
-loss(x, y) = crossentropy(m(x), y) 
+custom_loss(x, y) = crossentropy(m(x), y) 
 opt = ADAM(); # popular stochastic gradient descent variant
 
 accuracy(x, y) = mean(onecold(m(x)) .== onecold(y)) # cute way to find average of correct guesses
 
 dataset = repeated((X,Y), 20) # repeat the data set, very low accuracy on the orig dataset
-evalcb = () -> @show(loss(X, Y)) # callback to show loss
+evalcb = () -> @show(custom_loss(X, Y)) # callback to show loss
 ```
 
 
 Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.
 
 ```@example 1
-Flux.train!(loss, params(m), dataset, opt, cb = throttle(evalcb, 5));
+Flux.train!(custom_loss, params(m), dataset, opt, cb = throttle(evalcb, 5));
 
 @show accuracy(X,Y)
 @show accuracy(test_X, test_Y);

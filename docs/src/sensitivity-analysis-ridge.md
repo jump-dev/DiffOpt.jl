@@ -1,4 +1,4 @@
-# Sensitivity Analysis of Ridge Regression using DiffOpt.jl
+<!-- # Sensitivity Analysis of Ridge Regression using DiffOpt.jl
 
 This example illustrates the sensitivity analysis of data points in a [Ridge Regression](https://en.wikipedia.org/wiki/Ridge_regression) problem. The general form of the problem is given below:
 
@@ -76,7 +76,6 @@ mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi*ŵ+b̂, ma*ŵ+b̂], color=:red, label="")
 nothing # hide
 ``` 
-![svg](sensitivity-analysis-ridge-1.svg)
     
 
 ## Differentiate
@@ -86,24 +85,20 @@ Now that we've solved the problem, we can compute the sensitivity of optimal val
 
 for i in 1:length(X)
     MOI.set(
-        model,
-        DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), 
-        w, 
-        -2*(Y[i] + X[i])
-    ) 
-    MOI.set(
         model, 
-        DiffOpt.ForwardIn{DiffOpt.QuadraticObjective}(), 
-        w,
-        w,
-        2*X[i]
+        DiffOpt.ForwardInObjective(), 
+        MOI.ScalarQuadraticFunction(
+            [MOI.ScalarAffineTerm(-2(Y[1] + X[1]), w.index)], 
+            [MOI.ScalarQuadraticTerm(2X[1], w.index, w.index)], 
+            0.0
+        )
     )
     
     DiffOpt.forward(model)
 
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(), 
         b
     )
 
@@ -124,5 +119,4 @@ p = Plots.scatter(
 mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi*ŵ+b̂, ma*ŵ+b̂], color=:red, label="")
 nothing # hide
-``` 
-![svg](sensitivity-analysis-ridge-2.svg)
+```  -->

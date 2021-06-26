@@ -54,67 +54,8 @@ X \in \mathbb{S}^n: z^T X z \geq 0, \quad \forall z \in \mathbb{R}^n
 > Refered from Mosek examples: https://docs.mosek.com/9.2/toolbox/tutorial-sdo-shared.html#example-sdo1
 
 
-## Equivalent DiffCP program to differentiate
-```python
-import numpy as np
-import cvxpy as cp
-from scipy import sparse
-import diffcp
-
-A = sparse.csc_matrix((11+1,7+1), dtype=np.float64)
-A[2 , 1]  =  1.0
-A[3 , 1]  =  -1.0
-A[9 , 1]  =  -0.45
-A[10, 1]  =  0.45
-A[11, 1]  =  -0.45
-A[2 , 2]  =  1.0
-A[4 , 2]  =  -1.0
-A[9 , 2]  =  -0.8
-A[10, 2]  =  0.318198
-A[11, 2]  =  -0.1
-A[2 , 3]  =  1.0
-A[5 , 3]  =  -1.0
-A[9 , 3]  =  -0.9
-A[2 , 4]  =  1.0
-A[6 , 4]  =  -1.0
-A[9 , 4]  =  -0.225
-A[2 , 5]  =  1.0
-A[7 , 5]  =  -1.0
-A[9 , 5]  =  -0.1125
-A[10, 5]  =  0.1125
-A[11, 5]  =  -0.1125
-A[2 , 6]  =  1.0
-A[8 , 6]  =  -1.0
-A[11, 6]  =  -0.225
-A[9 , 7]  =  1.0
-A[11, 7]  =  1.0
-
-A = A[1:, 1:]
-
-# equivalent to: https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L2575
-
-cone_dict = {
-    diffcp.POS: 7,
-    diffcp.PSD: [2],
-    diffcp.ZERO: 1
-}
-
-b = np.array([0.0, 10.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, 0.0, 0.0, 0.0])
-c = np.array([-0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -1.0])
-
-x, y, s, D, DT = diffcp.solve_and_derivative(A, b, c, cone_dict)
-print(x) # MOI.VariablePrimal
-print(s) # MOI.ConstraintPrimal
-print(y) # MOI.ConstraintDual
-
-
-dx, dy, ds = D(sparse.csc_matrix(np.ones((11,7))), np.ones(11), np.ones(7))
-print(dx)
-print(ds)
-print(dy)
-```
-
 ## Equivalent DiffOpt program
+- Instantiate the program with constraints
 ```@example 1
 using SCS
 using DiffOpt
@@ -170,6 +111,11 @@ c2 = MOI.add_constraint(
     ), 
     MOI.Zeros(1)
 )
+nothing # hide
+```
+
+- Add objective and solve
+```@example 1
 
 objXidx = [1:3; 5:6]
 objXcoefs = 2*ones(5)
@@ -188,17 +134,22 @@ y_sol = MOI.get(model, MOI.ConstraintDual(), [cX, cx, c1, c2])
 @show x_sol
 @show s_sol
 @show y_sol
+nothing # hide
+```
+
+- Now differentiate with perturbation
+```@example 1
 
 # perturbations in all the parameters
-fx = MOI.SingleVariable.(x)
+fx = MOI.SingleVariable.(vcat(X, x))
 MOI.set(model,
     DiffOpt.ForwardInConstraint(), c1, MOI.Utilities.vectorize(ones(1, 9) * fx + ones(1)))
 MOI.set(model,
-    DiffOpt.ForwardInConstraint(), c2, MOI.Utilities.vectorize(ones(6, 9) * fx + ones(6)))
+    DiffOpt.ForwardInConstraint(), cX, MOI.Utilities.vectorize(ones(6, 9) * fx + ones(6)))
 MOI.set(model,
-    DiffOpt.ForwardInConstraint(), c3, MOI.Utilities.vectorize(ones(3, 9) * fx + ones(3)))
+    DiffOpt.ForwardInConstraint(), cx, MOI.Utilities.vectorize(ones(3, 9) * fx + ones(3)))
 MOI.set(model,
-    DiffOpt.ForwardInConstraint(), c4, MOI.Utilities.vectorize(ones(1, 9) * fx + ones(1)))
+    DiffOpt.ForwardInConstraint(), c2, MOI.Utilities.vectorize(ones(1, 9) * fx + ones(1)))
 
 # differentiate and get the gradients
 DiffOpt.forward(model)
@@ -207,6 +158,5 @@ dx = MOI.get.(model,
     DiffOpt.ForwardOutVariablePrimal(), vcat(X, x))
 
 @show dx
-@show ds
-@show dy
+nothing # hide
 ```
