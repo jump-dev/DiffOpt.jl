@@ -6,7 +6,7 @@ makedocs(;
     clean = true,
     format=Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
-        mathengine = Documenter.MathJax()
+        mathengine = Documenter.MathJax(),
     ),
     pages=[
         "Home" => "index.md",
@@ -29,11 +29,12 @@ makedocs(;
         ]
     ],
     strict = true,  # See https://github.com/JuliaOpt/JuMP.jl/issues/1576
-    repo="https://github.com/jump-dev/DiffOpt.jl/blob/{commit}{path}#L{line}",
+    repo="https://github.com/jump-dev/DiffOpt.jl",
     sitename="DiffOpt.jl",
-    authors="JuMP Community"
+    authors="JuMP Community",
 )
 
 deploydocs(
     repo   = "github.com/jump-dev/DiffOpt.jl.git",
+    push_preview = true,
 )

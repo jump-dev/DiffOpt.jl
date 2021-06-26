@@ -24,7 +24,7 @@ Random.seed!(rand(1:100))
 X = vcat(randn(N, D), randn(N,D) .+ [4.0,1.5]')
 y = append!(ones(N), -ones(N));
 
-model = diff_optimizer(SCS.Optimizer) 
+model = diff_optimizer(SCS.Optimizer)
 
 # add variables
 l = MOI.add_variables(model, N)
@@ -35,7 +35,7 @@ MOI.add_constraint(
     model,
     MOI.VectorAffineFunction(
         MOI.VectorAffineTerm.(1:N, MOI.ScalarAffineTerm.(1.0, l)), zeros(N)
-    ), 
+    ),
     MOI.Nonnegatives(N),
 )
 
@@ -56,11 +56,11 @@ cons = MOI.add_constraint(
     MOI.Nonnegatives(N),
 )
 
-objective_function = MOI.ScalarAffineFunction(
+_objective_function = MOI.ScalarAffineFunction(
                         MOI.ScalarAffineTerm.(ones(N), l),
                         0.0,
                     )
-MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), _objective_function)
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 MOI.optimize!(model)
@@ -84,29 +84,28 @@ dy = zeros(N)
 # begin differentiating
 for Xi in 1:N
     dy[Xi] = 1.0  # set
-    
+
     MOI.set(
         model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
-        b, 
-        cons, 
-        dy
+        DiffOpt.ForwardInConstraint(),
+        cons,
+        MOIU.vectorize(dy .* MOI.SingleVariable(b)),
     )
-    
+
     DiffOpt.forward(model)
-    
+
     dw = MOI.get.(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         w
-    ) 
+    )
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         b
-    ) 
+    )
     push!(∇, norm(dw) + norm(db))
-    
+
     dy[Xi] = 0.0  # reset the change made above
 end
 normalize!(∇)
@@ -116,7 +115,7 @@ normalize!(∇)
 
 if should_plot
     p2 = Plots.scatter(
-        X[:,1], X[:,2], 
+        X[:,1], X[:,2],
         color = [yi > 0 ? :red : :blue for yi in y], label = "",
         markersize = ∇ * 20,
     )
@@ -132,31 +131,30 @@ dX = zeros(N, D)
 # begin differentiating
 for Xi in 1:N
     dX[Xi, :] = ones(D)  # set
-    
+
     for i in 1:D
         MOI.set(
             model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
-            w[i], 
-            cons, 
-            dX[:,i]
+            DiffOpt.ForwardInConstraint(),
+            cons,
+            MOIU.vectorize(dX[:,i] .* MOI.SingleVariable(w[i])),
         )
     end
-    
+
     DiffOpt.forward(model)
-    
+
     dw = MOI.get.(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         w
-    ) 
+    )
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         b
-    ) 
+    )
     push!(∇, norm(dw) + norm(db))
-    
+
     dX[Xi, :] = zeros(D)  # reset the change made ago
 end
 normalize!(∇)
@@ -166,7 +164,7 @@ normalize!(∇)
 
 if should_plot
     p3 = Plots.scatter(
-        X[:,1], X[:,2], 
+        X[:,1], X[:,2],
         color = [yi > 0 ? :red : :blue for yi in y], label = "",
         markersize = ∇ * 20,
     )

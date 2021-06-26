@@ -42,12 +42,11 @@
 
     @test x ≈ ones(3) atol=ATOL rtol=RTOL
 
-    MOI.set(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), X[1], 1.0)
+    MOI.set(model, DiffOpt.BackwardInVariablePrimal(), X[1], 1.0)
 
     DiffOpt.backward(model)
 
     db = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
 
     @test db ≈ [-1.0]  atol=ATOL rtol=RTOL
-    # TODO: unifor sign
 end

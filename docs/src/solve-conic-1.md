@@ -190,34 +190,21 @@ y_sol = MOI.get(model, MOI.ConstraintDual(), [cX, cx, c1, c2])
 @show y_sol
 
 # perturbations in all the parameters
-for xi in vcat(X, x)
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, cX, ones(6))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, cx, ones(3))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c1, ones(1))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c2, ones(1))
-end
+fx = MOI.SingleVariable.(x)
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), cX, ones(6))
+    DiffOpt.ForwardInConstraint(), c1, MOI.Utilities.vectorize(ones(1, 9) * fx + ones(1)))
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), cx, ones(3))
+    DiffOpt.ForwardInConstraint(), c2, MOI.Utilities.vectorize(ones(6, 9) * fx + ones(6)))
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c1, ones(1))
+    DiffOpt.ForwardInConstraint(), c3, MOI.Utilities.vectorize(ones(3, 9) * fx + ones(3)))
 MOI.set(model,
-    DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c2, ones(1))
-for xi in vcat(X, x)
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, 1.0)
-end
+    DiffOpt.ForwardInConstraint(), c4, MOI.Utilities.vectorize(ones(1, 9) * fx + ones(1)))
 
 # differentiate and get the gradients
 DiffOpt.forward(model)
 
 dx = MOI.get.(model,
-    DiffOpt.ForwardOut{MOI.VariablePrimal}(), vcat(X, x))
+    DiffOpt.ForwardOutVariablePrimal(), vcat(X, x))
 
 @show dx
 @show ds

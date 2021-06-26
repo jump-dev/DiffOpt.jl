@@ -1,6 +1,8 @@
 function build_conic_diff_cache!(model)
     # For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 
+
+    vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
     # fetch matrices from MatrixOptInterface
     cone_types = unique!([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
     # We use `MatOI.OneBasedIndexing` as it is the same indexing as used by `SparseMatrixCSC`
@@ -23,9 +25,15 @@ function build_conic_diff_cache!(model)
     # specifically there's an extra preprocessing step for `PositiveSemidefiniteConeTriangle` constraint for SCS/Mosek
 
     # get x,y,s
-    x = model.primal_optimal
-    s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, Flattened{Float64}())
-    y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci), model.optimizer, conic_form, index_map, Flattened{Float64}())
+    x = zeros(length(vis_src))
+    for vi in vis_src
+        i = index_map[vi].value
+        x[i] = MOI.get(model, MOI.VariablePrimal(), vi)
+    end
+    s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci),
+        model.optimizer, conic_form, index_map, Flattened{Float64}())
+    y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci),
+        model.optimizer, conic_form, index_map, Flattened{Float64}())
 
     # pre-compute quantities for the derivative
     m = A.m

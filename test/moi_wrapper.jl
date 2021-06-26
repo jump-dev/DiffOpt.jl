@@ -4,6 +4,9 @@ using MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 
+const VAF = MOI.VectorAffineFunction{Float64}
+_vaf(c::Vector{Float64}) = VAF(MOI.ScalarAffineTerm{Float64}[], c)
+
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
     Q = [
@@ -105,7 +108,7 @@ end
 
     @test x_sol ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
 
     DiffOpt.backward(model)
 
@@ -223,7 +226,7 @@ end
 
     @test z ≈ [0.0, 0.5, 0.0] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(3))
 
     DiffOpt.backward(model)#, ["Q","q","G","h","A","b"], ones(3))
 
@@ -316,7 +319,7 @@ end
 
     @test z ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(3))
 
     # obtain gradients
     # grads = backward(model, ["Q","q","G","h"], ones(3))
@@ -406,7 +409,7 @@ end
 
     v = [x, y]
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), [x, y], [1.3, 0.5])
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), [x, y], [1.3, 0.5])
 
     DiffOpt.backward(model)
 
@@ -509,7 +512,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(nz))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(nz))
 
     DiffOpt.backward(model)
 
@@ -575,7 +578,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, 1.0)
 
     DiffOpt.backward(model)
 
@@ -615,7 +618,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, 1.0)
 
     DiffOpt.backward(model)
 
@@ -682,7 +685,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(3))
 
     DiffOpt.backward(model)
 
@@ -785,7 +788,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(3))
 
     DiffOpt.backward(model)
 
@@ -864,7 +867,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(3))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(3))
 
     DiffOpt.backward(model)
 
@@ -985,7 +988,7 @@ end
 
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, 1.0)
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, 1.0)
 
     DiffOpt.backward(model)
 
@@ -1071,27 +1074,15 @@ end
     @test s ≈ [0.0, 0.0, 1.0, -1/√2, 1/√2] atol=ATOL rtol=RTOL
     @test y ≈ [√2, 1.0, √2, 1.0, -1.0] atol=ATOL rtol=RTOL
 
-    dA = zeros(5, 3)
-    dA[1:3, :] .= Matrix(1.0I, 3, 3)
-    db = zeros(5)
-    dc = zeros(3)
-
-    for (i, vi) in enumerate(v)
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), vi, dc[i])
-    end
-    for (i, ci) in enumerate([ceq, cnon])
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), ci, [db[i]])
-    end
-    for (i, ci) in enumerate([ceq, cnon]), (j, vi) in enumerate(v)
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), vi, ci, [dA[i,j]])
-    end
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), t, csoc, [1.0, 0.0, 0.0])
+    MOI.set(model, DiffOpt.ForwardInConstraint(), ceq, MOIU.vectorize([1.0 * MOI.SingleVariable(x)]))
+    MOI.set(model, DiffOpt.ForwardInConstraint(), cnon, MOIU.vectorize([1.0 * MOI.SingleVariable(v[2])]))
+    MOI.set(model, DiffOpt.ForwardInConstraint(), csoc, MOIU.operate(vcat, Float64, 1.0 * MOI.SingleVariable(t), 0.0, 0.0))
 
     DiffOpt.forward(model)
 
     dx = [1.12132144; 1/√2; 1/√2]
     for (i, vi) in enumerate(v)
-        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=ATOL rtol=RTOL
+        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi) atol=ATOL rtol=RTOL
     end
     # @test dx ≈ [1.12132144; 1/√2; 1/√2] atol=ATOL rtol=RTOL
     # @test ds ≈ [0.0; 0.0; -2.92893438e-01;  1.12132144e+00; 7.07106999e-01]  atol=ATOL rtol=RTOL
@@ -1114,10 +1105,11 @@ function simple_psd(solver)
     model = diff_optimizer(solver)
     MOI.set(model, MOI.Silent(), true)
     X = MOI.add_variables(model, 3)
+    fX = MOI.SingleVariable.(X)
     vov = MOI.VectorOfVariables(X)
     cX = MOI.add_constraint(
         model,
-        MOI.VectorAffineFunction{Float64}(vov),
+        VAF(vov),
         MOI.PositiveSemidefiniteConeTriangle(2)
     )
 
@@ -1131,7 +1123,7 @@ function simple_psd(solver)
     )
 
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [X[1], X[end]]), 0.0))
+            1.0fX[1] + 1.0fX[end])
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     MOI.optimize!(model)
@@ -1150,39 +1142,28 @@ function simple_psd(solver)
     # @test y ≈ [2.0, 1.0, -1.0, 1.0]  atol=ATOL rtol=RTOL
 
     # test1: changing the constant in `c`, i.e. changing value of X[2]
-    dA = zeros(4, 3)
-    db = zeros(4)
-    db[1] = 1.0
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, [db[1]])
-    dc = zeros(3)
+    MOI.set(model, DiffOpt.ForwardInConstraint(), c, _vaf([1.0]))
 
     DiffOpt.forward(model)
 
     dx = -ones(3)
     for (i, vi) in enumerate(X)
-        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=ATOL rtol=RTOL
+        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi) atol=ATOL rtol=RTOL
     end
 
     # @test dx ≈ -ones(3) atol=ATOL rtol=RTOL  # will change the value of other 2 variables
     # @test ds[2:4] ≈ -ones(3)  atol=ATOL rtol=RTOL  # will affect PSD constraint too
 
     # test2: changing X[1], X[3] but keeping the objective (their sum) same
-    dA = zeros(4, 3)
-    db = zeros(4)
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, [0.0])
-    dc = zeros(3)
-    dc[1] = -1.0
-    dc[3] = 1.0
-    for (i, vi) in enumerate(X)
-        MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), vi, dc[i])
-    end
+    MOI.set(model, DiffOpt.ForwardInConstraint(), c, MOIU.zero_with_output_dimension(MOI.VectorAffineFunction{Float64}, 1))
+    MOI.set(model, DiffOpt.ForwardInObjective(), -1.0fX[1] + 1.0fX[3])
 
     DiffOpt.forward(model)
 
     # @test dx ≈ [1.0, 0.0, -1.0] atol=ATOL rtol=RTOL  # note: no effect on X[2]
     dx = [1.0, 0.0, -1.0]
     for (i, vi) in enumerate(X)
-        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=ATOL rtol=RTOL
+        @test dx[i] ≈ MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi) atol=ATOL rtol=RTOL
     end
 end
 
@@ -1237,10 +1218,10 @@ end
 
     vov = MOI.VectorOfVariables(X)
     cX = MOI.add_constraint(model,
-        MOI.VectorAffineFunction{Float64}(vov),
+        VAF(vov),
         MOI.PositiveSemidefiniteConeTriangle(3))
     cx = MOI.add_constraint(model,
-        MOI.VectorAffineFunction{Float64}(MOI.VectorOfVariables(x)),
+        VAF(MOI.VectorOfVariables(x)),
         MOI.SecondOrderCone(3))
 
     c1 = MOI.add_constraint(
@@ -1312,22 +1293,18 @@ end
     # ]  atol=ATOL rtol=RTOL
 
     # test c_extra
-    dA = spzeros(12, 9)
-    db = spzeros(12)
-    db[3] = 1 # c_extra
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c_extra, [1.0])
-    dc = spzeros(9)
+    MOI.set(model, DiffOpt.ForwardInConstraint(), c_extra, _vaf([1.0]))
 
     DiffOpt.forward(model)
 
     # a small change in the constant in c_extra should not affect any other variable or constraint other than c_extra itself
     for (i, vi) in enumerate(X)
         @test 0.0 ≈ MOI.get(model,
-            DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=1e-2 rtol=RTOL
+            DiffOpt.ForwardOutVariablePrimal(), vi) atol=1e-2 rtol=RTOL
     end
     for (i, vi) in enumerate(x)
         @test 0.0 ≈ MOI.get(model,
-            DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=1e-2 rtol=RTOL
+            DiffOpt.ForwardOutVariablePrimal(), vi) atol=1e-2 rtol=RTOL
     end
     # @test dx ≈ zeros(9) atol=1e-2
     # @test dy ≈ zeros(12) atol=0.012
@@ -1390,7 +1367,7 @@ end
 
     MOI.optimize!(model)
 
-    _x = MOI.get(model, MOI.VariablePrimal(), x) # model.primal_optimal
+    _x = MOI.get(model, MOI.VariablePrimal(), x)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
@@ -1404,40 +1381,30 @@ end
     @test y ≈ [0.0, 0.19019238, 0., 0.12597667, 0., 0.14264428, 0.14264428, 0.01274047, 0.21132487, 0.408248, 0.78867513] atol=ATOL rtol=RTOL
 
     # dc = ones(7)
-    MOI.set.(model,
-        DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, 1.0)
+    MOI.set(model, DiffOpt.ForwardInObjective(), MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(7), x), 0.0))
     # db = ones(11)
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c1, [1.0])
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c2, ones(6))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c3, ones(3))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c4, ones(1))
+    fx = MOI.SingleVariable.(x)
     # dA = ones(11, 7)
-    for xi in x
-        MOI.set(model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c1, [1.0])
-        MOI.set(model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c2, ones(6))
-        MOI.set(model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c3, ones(3))
-        MOI.set(model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c4, ones(1))
-    end
+    MOI.set(model,
+        DiffOpt.ForwardInConstraint(), c1, MOIU.vectorize(ones(1, 7) * fx + ones(1)))
+    MOI.set(model,
+        DiffOpt.ForwardInConstraint(), c2, MOIU.vectorize(ones(6, 7) * fx + ones(6)))
+    MOI.set(model,
+        DiffOpt.ForwardInConstraint(), c3, MOIU.vectorize(ones(3, 7) * fx + ones(3)))
+    MOI.set(model,
+        DiffOpt.ForwardInConstraint(), c4, MOIU.vectorize(ones(1, 7) * fx + ones(1)))
 
     DiffOpt.forward(model)
 
     atol = 0.3
     rtol = 0.01
-    
+
     # compare these with https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
     # results are not exactly as: 1. there is some residual error   2. diffcp results are SCS specific, hence scaled
     dx = [-39.6066, 10.8953, -14.9189, 10.9054, 10.883, 10.9118, -21.7508]
     for (i, vi) in enumerate(x)
         @test dx[i] ≈ MOI.get(model,
-            DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=atol rtol=rtol
+            DiffOpt.ForwardOutVariablePrimal(), vi) atol=atol rtol=rtol
     end
     # @test dy ≈ [0.0, -3.56905, 0.0, -0.380035, 0.0, -0.41398, -0.385321, -0.00743119, -0.644986, -0.550542, -2.36765] atol=atol rtol=rtol
     # @test ds ≈ [0.0, 0.0, -50.4973, 0.0, -25.8066, 0.0, 0.0, 0.0, -7.96528, -1.62968, -2.18925] atol=atol rtol=rtol
@@ -1448,41 +1415,24 @@ end
     db = zeros(11)
     dc = zeros(7)
 
-    # dc = zeros(7)
-    MOI.set.(model,
-        DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, 0.0)
     # db = zeros(11)
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c1, [0.0])
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c2, zeros(6))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c3, zeros(3))
-    MOI.set(model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c4, zeros(1))
     # dA = zeros(11, 7)
     # dA[3:8, 1:6] = Matrix{Float64}(LinearAlgebra.I, 6, 6)  # differentiating only wrt POS constraint c2
-    for (i,xi) in enumerate(x[1:6])
-        vals = zeros(6)
-        vals[i] = 1
-        MOI.set(model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c2, vals)
-    end
-    for xi in x
-        MOI.set(model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c1, [0.0])
-        MOI.set(model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c3, zeros(3))
-        MOI.set(model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), xi, c4, zeros(1))
-    end
+    MOI.set(model,
+        DiffOpt.ForwardInConstraint(), c1, MOIU.zero_with_output_dimension(VAF, 1))
+    MOI.set(model,
+        DiffOpt.ForwardInConstraint(), c2, MOIU.vectorize(ones(6) .* fx[1:6]))
+    MOI.set(model,
+        DiffOpt.ForwardInConstraint(), c3, MOIU.zero_with_output_dimension(VAF, 3))
+    MOI.set(model,
+        DiffOpt.ForwardInConstraint(), c4, MOIU.zero_with_output_dimension(VAF, 1))
 
     # dx, dy, ds = backward(model, dA, db, dc)
     DiffOpt.forward(model)
 
     # for (i, vi) in enumerate(X)
     #     @test 0.0 ≈ MOI.get(model,
-    #         DiffOpt.ForwardOut{MOI.VariablePrimal}(), vi) atol=1e-2 rtol=RTOL
+    #         DiffOpt.ForwardOutVariablePrimal(), vi) atol=1e-2 rtol=RTOL
     # end
 
     # TODO add a test here, probably on duals
@@ -1541,7 +1491,7 @@ end
 
     # dA = zeros(6, 1)
     # db = ones(6)
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, ones(6))
+    MOI.set(model, DiffOpt.ForwardInConstraint(), c, _vaf(ones(6)))
     # dc = zeros(1)
 
 
@@ -1549,7 +1499,7 @@ end
     DiffOpt.forward(model)
 
     @test -0.5 ≈ MOI.get(model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+        DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
     # @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
@@ -1558,15 +1508,14 @@ end
     # test 2
     dA = zeros(6, 1)
     db = zeros(6)
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, zeros(6))
-    dc = ones(1)
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, 1.0)
+    MOI.set(model, DiffOpt.ForwardInConstraint(), c, MOIU.zero_with_output_dimension(VAF, 6))
+    MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * MOI.SingleVariable(x))
 
     # dx, dy, ds = backward(model, dA, db, dc)
     DiffOpt.forward(model)
 
     @test 0.0 ≈ MOI.get(model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+        DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
     # @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL
@@ -1615,7 +1564,7 @@ end
     x_sol = MOI.get(model, MOI.VariablePrimal(), x)
     @test x_sol ≈ [-0.25, -0.75] atol=ATOL rtol=RTOL
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
 
     @test model.gradient_cache === nothing
     DiffOpt.backward(model)
@@ -1635,7 +1584,7 @@ end
     @test model.gradient_cache === nothing
     MOI.optimize!(model)
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
 
     grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
@@ -1650,7 +1599,7 @@ end
     MOI.optimize!(model)
     @test model.gradient_cache === nothing
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
     # grad_wrt_h = backward(model, ["h"], ones(3))[1]
     grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
@@ -1667,7 +1616,7 @@ end
     MOI.optimize!(model)
 
 
-    MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
     # grad_wrt_h = backward(model, ["h"], ones(3))[1]
     grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
@@ -1679,7 +1628,7 @@ end
 end
 
 @testset "Verifying cache on a PSD" begin
-    
+
     model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
 
@@ -1716,14 +1665,14 @@ end
 
     dA = zeros(6, 1)
     db = ones(6)
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, ones(6))
+    MOI.set(model, DiffOpt.ForwardInConstraint(), c, _vaf(ones(6)))
     dc = zeros(1)
 
     # dx, dy, ds = _backward_conic(model, dA, db, dc)
     DiffOpt.forward(model)
 
     @test -0.5 ≈ MOI.get(model,
-    DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+    DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # @test dx ≈ [-0.5] atol=ATOL rtol=RTOL
     # @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
@@ -1734,7 +1683,7 @@ end
     DiffOpt.forward(model)
 
     @test -0.5 ≈ MOI.get(model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+        DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # dx2, dy2, ds2 = _backward_conic(model, dA, db, dc)
     # @test all(
@@ -1742,17 +1691,14 @@ end
     # )
 
     # test 2
-    dA = zeros(6, 1)
-    db = zeros(6)
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c, zeros(6))
-    dc = ones(1)
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.LinearObjective}(), x, 1.0)
+    MOI.set(model, DiffOpt.ForwardInConstraint(), c, _vaf(zeros(6)))
+    MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * MOI.SingleVariable(x))
 
     # dx, dy, ds = _backward_conic(model, dA, db, dc)
     DiffOpt.forward(model)
 
     @test 0.0 ≈ MOI.get(model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), x) atol=1e-2 rtol=RTOL
+        DiffOpt.ForwardOutVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # @test dx ≈ zeros(1) atol=ATOL rtol=RTOL
     # @test dy ≈ [0.333333, -0.333333, 0.333333, -0.333333, -0.333333, 0.333333] atol=ATOL rtol=RTOL

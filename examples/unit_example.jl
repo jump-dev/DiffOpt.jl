@@ -58,7 +58,7 @@ diff_opt = backend(model).optimizer.model
 v = MOI.get(model, MOI.ListOfVariableIndices())
 nv = length(v)
 
-MOI.set.(diff_opt, DiffOpt.BackwardIn{MOI.VariablePrimal}(), v, ones(nv))
+MOI.set.(diff_opt, DiffOpt.BackwardInVariablePrimal(), v, ones(nv))
 
 DiffOpt.backward(diff_opt)
 
