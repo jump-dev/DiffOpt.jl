@@ -41,39 +41,79 @@ function Base.isapprox(func1::AbstractLazyScalarFunction, func2::MOI.AbstractSca
     return isapprox(standard_form(func1), standard_form(func2); kws...)
 end
 
+struct SymmetrizedRankOneMatrix{T,VT<:AbstractVector{T}} <: AbstractMatrix{T}
+    left::VT
+    right::VT
+end
+function Base.getindex(m::SymmetrizedRankOneMatrix, i, j)
+    # TODO might  need to do some `conj` here once we want to support `Complex`
+    return (m.left[i] * m.right[j] + m.left[j] * m.right[i]) / 2
+end
+function Base.size(m::SymmetrizedRankOneMatrix)
+    n = length(m.left)
+    return (n, n)
+end
+
+# In the future, we could replace by https://github.com/jump-dev/MathOptInterface.jl/pull/1238
 """
-    struct RankOneQuadraticFunction{T, VT<:AbstractVector{T}} <: AbstractLazyScalarFunction
-        linear_coefficients::VT
-        quadratic_left_factor::VT
-        quadratic_right_factor::VT
+    struct VectorScalarAffineFunction{T, VT} <: MOI.AbstractScalarFunction
+        terms::VT
         constant::T
     end
 
-Represents the function
-`(x ⋅ quadratic_left_factor) * (x ⋅ quadratic_right_factor) + x ⋅ linear_coefficients + constant`
+Represents the function `x ⋅ terms + constant`
 as an `MOI.AbstractScalarFunction` where `x[i] = MOI.VariableIndex(i)`.
-Use [`standard_form`](@ref) to convert it to a `MOI.ScalarQuadraticFunction{T}`.
+Use [`standard_form`](@ref) to convert it to a `MOI.ScalarAffineFunction{T}`.
 """
-struct RankOneQuadraticFunction{T, VT<:AbstractVector{T}} <: AbstractLazyScalarFunction
-    linear_coefficients::VT
-    quadratic_left_factor::VT
-    quadratic_right_factor::VT
+struct VectorScalarAffineFunction{T, VT} <: MOI.AbstractScalarFunction
+    terms::VT
     constant::T
 end
-function JuMP.coefficient(func::RankOneQuadraticFunction, vi::MOI.VariableIndex)
-    return func.linear_coefficients[vi.value]
+function JuMP.coefficient(func::VectorScalarAffineFunction, vi::MOI.VariableIndex)
+    return func.terms[vi.value]
+end
+function Base.convert(::Type{MOI.ScalarAffineFunction{T}}, func::VectorScalarAffineFunction) where {T}
+    n = length(func.terms)
+    return MOI.ScalarAffineFunction{T}(
+        # TODO we should do better if the vector is a `SparseVector`, I think
+        #      I have some code working for both vector types in Polyhedra.jl
+        MOI.ScalarAffineTerm{T}[
+            MOI.ScalarAffineTerm{T}(func.terms[i], VI(i))
+            for i in eachindex(func.terms) if !iszero(func.terms[i])
+        ],
+        func.constant,
+    )
+end
+function standard_form(func::VectorScalarAffineFunction{T}) where {T}
+    return convert(MOI.ScalarAffineFunction{T}, func)
+end
+
+"""
+    struct MatrixScalarQuadraticFunction{T, VT, MT} <: MOI.AbstractScalarFunction
+        affine::VectorScalarAffineFunction{T,VT}
+        terms::MT
+    end
+
+Represents the function `x' * terms * x / 2 + affine` as an
+`MOI.AbstractScalarFunction` where `x[i] = MOI.VariableIndex(i)`.
+Use [`standard_form`](@ref) to convert it to a `MOI.ScalarQuadraticFunction{T}`.
+"""
+struct MatrixScalarQuadraticFunction{T, VT, MT} <: MOI.AbstractScalarFunction
+    affine::VectorScalarAffineFunction{T,VT}
+    terms::MT
+end
+function JuMP.coefficient(func::MatrixScalarQuadraticFunction, vi::MOI.VariableIndex)
+    return JuMP.coefficient(func.affine, vi)
 end
 function quad_sym_half(
-    func::RankOneQuadraticFunction,
+    func::MatrixScalarQuadraticFunction,
     vi1::MOI.VariableIndex,
     vi2::MOI.VariableIndex,
 )
-    i = vi1.value
-    j = vi2.value
-    return (func.quadratic_left_factor[i] * func.quadratic_right_factor[j] + func.quadratic_left_factor[j] * func.quadratic_right_factor[i]) / 2
+    return func.terms[vi1.value, vi2.value]
 end
 function JuMP.coefficient(
-    func::RankOneQuadraticFunction,
+    func::MatrixScalarQuadraticFunction,
     vi1::MOI.VariableIndex,
     vi2::MOI.VariableIndex,
 )
@@ -84,26 +124,22 @@ function JuMP.coefficient(
         return coef
     end
 end
-function Base.convert(::Type{MOI.ScalarQuadraticFunction{T}}, func::RankOneQuadraticFunction) where {T}
-    n = length(func.linear_coefficients)
-    return MOI.ScalarQuadraticFunction{T}(
-        # TODO we should do better if the vector is a `SparseVector`, I think
-        #      I have some code working for both vector types in Polyhedra.jl
-        MOI.ScalarAffineTerm{T}[
-            MOI.ScalarAffineTerm{T}(func.linear_coefficients[i], VI(i))
-            for i in 1:n if !iszero(func.linear_coefficients[i])
-        ],
-        MOI.ScalarQuadraticTerm{T}[
-            MOI.ScalarQuadraticTerm{T}(quad_sym_half(func, VI(i), VI(j)), VI(i), VI(j))
-            for j in 1:n for i in 1:j if !iszero(quad_sym_half(func, VI(i), VI(j)))
-        ],
-        func.constant,
-    )
+function Base.convert(::Type{MOI.ScalarQuadraticFunction{T}}, func::MatrixScalarQuadraticFunction) where {T}
+    n = length(func.affine.terms)
+    aff = convert(MOI.ScalarAffineFunction{T}, func.affine)
+    quad = MOI.ScalarQuadraticTerm{T}[
+        MOI.ScalarQuadraticTerm{T}(quad_sym_half(func, VI(i), VI(j)), VI(i), VI(j))
+        for j in 1:n for i in 1:j if !iszero(quad_sym_half(func, VI(i), VI(j)))
+    ]
+    return MOI.ScalarQuadraticFunction{T}(aff.terms, quad, aff.constant)
 end
-function standard_form(func::RankOneQuadraticFunction{T}) where {T}
+function standard_form(func::MatrixScalarQuadraticFunction{T}) where {T}
     return convert(MOI.ScalarQuadraticFunction{T}, func)
 end
-function MOIU.isapprox_zero(func::RankOneQuadraticFunction, tol)
+
+# Only used for testing at the moment so performance is not critical so
+# converting to standard form is ok
+function MOIU.isapprox_zero(func::Union{VectorScalarAffineFunction,MatrixScalarQuadraticFunction}, tol)
     return MOIU.isapprox_zero(standard_form(func), tol)
 end
 

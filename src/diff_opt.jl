@@ -312,39 +312,32 @@ function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
 end
 
 function MOI.get(model::Optimizer, ::BackwardOutObjective)
-    _back_obj(model.back_grad_cache, model.gradient_cache)
-end
-function _back_obj(b_cache::ConicBackCache, g_cache)
-    return _back_aff_obj(b_cache, g_cache)
-end
-function _back_obj(b_cache::QPForwBackCache, g_cache)
     return IndexMappedFunction(
-        RankOneQuadraticFunction(
-            b_cache.dz,
-            b_cache.dz,
-            g_cache.var_primals,
-            0.0,
-        ),
-        g_cache.index_map,
+        _back_obj(model.back_grad_cache, model.gradient_cache),
+        model.gradient_cache.index_map,
     )
 end
-function _back_aff_obj(b_cache, g_cache)
-    func = zero(MOI.ScalarAffineFunction{Float64})
-    for vi in keys(g_cache.index_map.varmap)
-        c = _get_dc(b_cache, g_cache, vi)
-        if !iszero(c)
-            push!(func.terms, MOI.ScalarAffineTerm(c, vi))
-        end
-    end
-    return func
-end
-function _get_dc(b_cache::ConicBackCache, g_cache::ConicCache, vi)
+function _back_obj(b_cache::ConicBackCache, g_cache::ConicCache)
     i = g_cache.index_map[vi].value
     g = b_cache.g
     πz = b_cache.πz
-    dQ_i_end = - g[i] * πz[end]
-    dQ_end_i = - g[end] * πz[i]
-    return - dQ_i_end + dQ_i_end
+    dc = LazyArrays.Applied(
+        -,
+        LazyArrays.Applied(*, πz[end], g),
+        LazyArrays.Applied(*, g[end], πz),
+    )
+    return VectorScalarAffineFunction(dc, 0.0)
+end
+function _back_obj(b_cache::QPForwBackCache, g_cache::QPCache)
+    ∇z = b_cache.dz
+    z = g_cache.var_primals
+    # `∇z * z' + z * ∇z'` doesn't work, see
+    # https://github.com/JuliaArrays/LazyArrays.jl/issues/178
+    dQ = LazyArrays.@~ (∇z .* z' + z .* ∇z') / 2.0
+    return MatrixScalarQuadraticFunction(
+        VectorScalarAffineFunction(b_cache.dz, 0.0),
+        dQ,
+    )
 end
 
 function MOI.get(model::Optimizer, ::ForwardInObjective)
