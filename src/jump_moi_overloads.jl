@@ -41,19 +41,6 @@ function Base.isapprox(func1::AbstractLazyScalarFunction, func2::MOI.AbstractSca
     return isapprox(standard_form(func1), standard_form(func2); kws...)
 end
 
-struct SymmetrizedRankOneMatrix{T,VT<:AbstractVector{T}} <: AbstractMatrix{T}
-    left::VT
-    right::VT
-end
-function Base.getindex(m::SymmetrizedRankOneMatrix, i, j)
-    # TODO might  need to do some `conj` here once we want to support `Complex`
-    return (m.left[i] * m.right[j] + m.left[j] * m.right[i]) / 2
-end
-function Base.size(m::SymmetrizedRankOneMatrix)
-    n = length(m.left)
-    return (n, n)
-end
-
 # In the future, we could replace by https://github.com/jump-dev/MathOptInterface.jl/pull/1238
 """
     struct VectorScalarAffineFunction{T, VT} <: MOI.AbstractScalarFunction
