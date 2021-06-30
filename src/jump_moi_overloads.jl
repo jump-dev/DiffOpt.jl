@@ -43,10 +43,7 @@ end
 
 # In the future, we could replace by https://github.com/jump-dev/MathOptInterface.jl/pull/1238
 """
-    struct VectorScalarAffineFunction{T, VT} <: MOI.AbstractScalarFunction
-        terms::VT
-        constant::T
-    end
+    VectorScalarAffineFunction{T, VT} <: MOI.AbstractScalarFunction
 
 Represents the function `x ⋅ terms + constant`
 as an `MOI.AbstractScalarFunction` where `x[i] = MOI.VariableIndex(i)`.
@@ -131,10 +128,7 @@ function MOIU.isapprox_zero(func::Union{VectorScalarAffineFunction,MatrixScalarQ
 end
 
 """
-    struct IndexMappedFunction{F<:MOI.AbstractScalarFunction} <: AbstractLazyScalarFunction
-        func::F
-        index_map::MOIU.IndexMap
-    end
+    IndexMappedFunction{F<:MOI.AbstractScalarFunction} <: AbstractLazyScalarFunction
 
 Lazily represents the function `MOI.Utilities.map_indices(index_map, DiffOpt.standard_form(func))`.
 """
@@ -161,10 +155,7 @@ function MOIU.map_indices(index_map::MOIU.IndexMap, func::AbstractLazyScalarFunc
 end
 
 """
-    struct MOItoJuMP{F<:MOI.AbstractScalarFunction} <: JuMP.AbstractJuMPScalar
-        model::JuMP.Model
-        func::F
-    end
+    MOItoJuMP{F<:MOI.AbstractScalarFunction} <: JuMP.AbstractJuMPScalar
 
 Lazily represents the function `JuMP.jump_function(model, DiffOpt.standard_form(func))`.
 """

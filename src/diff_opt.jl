@@ -119,7 +119,7 @@ Base.@kwdef mutable struct DiffInputCache
 end
 
 """
-    ForwardInObjective
+    ForwardInObjective <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to set input data to forward differentiation, that
 is, problem input data.
@@ -139,7 +139,7 @@ where `x` and `y` are the relevant `MOI.VariableIndex`.
 struct ForwardInObjective <: MOI.AbstractModelAttribute end
 
 """
-    ForwardInConstraint
+    ForwardInConstraint <: MOI.AbstractConstraintAttribute
 
 A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
 is, problem input data.
@@ -157,7 +157,7 @@ struct ForwardInConstraint <: MOI.AbstractConstraintAttribute end
 
 
 """
-    ForwardOutVariablePrimal
+    ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute
 
 A `MOI.AbstractVariableAttribute` to get output data from forward
 differentiation, that is, problem solution.
@@ -173,7 +173,7 @@ struct ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute end
 MOI.is_set_by_optimize(::ForwardOutVariablePrimal) = true
 
 """
-    BackwardInVariablePrimal
+    BackwardInVariablePrimal <: MOI.AbstractVariableAttribute
 
 A `MOI.AbstractVariableAttribute` to set input data to backward
 differentiation, that is, problem solution.
@@ -187,7 +187,7 @@ MOI.set(model, DiffOpt.BackwardInVariablePrimal(), x)
 struct BackwardInVariablePrimal <: MOI.AbstractVariableAttribute end
 
 """
-    BackwardOutObjective
+    BackwardOutObjective <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to get output data to backward differentiation,
 that is, problem input data.
