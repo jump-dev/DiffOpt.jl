@@ -28,10 +28,18 @@ function build_quad_diff_cache!(model)
         λ,
         MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_sv_idx),
     )
-    ν = MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
+    # We want to stay consistent with the variable `ν` defined in (3) of
+    # Left hand side of eq. (6) in https://arxiv.org/pdf/1703.00443.pdf
+    # However, in eq. (6), they put it in the lagrangian as
+    # `+ ν ⋅ (Az - b)`
+    # while in MOI, we put it as
+    # `- ν ⋅ (Az - b)`
+    # so the we should reverse the sign if we want to use the same equations
+    # as in the paper.
+    ν = -MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
     append!(
         ν,
-        MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_sv_idx),
+        -MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_sv_idx),
     )
 
     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
