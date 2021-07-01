@@ -118,11 +118,8 @@ Base.@kwdef mutable struct DiffInputCache
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
 end
 
-abstract type AbstractDiffAttribute end
-Base.broadcastable(attribute::AbstractDiffAttribute) = Ref(attribute)
-
 """
-    ForwardInObjective
+    ForwardInObjective <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to set input data to forward differentiation, that
 is, problem input data.
@@ -142,7 +139,7 @@ where `x` and `y` are the relevant `MOI.VariableIndex`.
 struct ForwardInObjective <: MOI.AbstractModelAttribute end
 
 """
-    ForwardInConstraint
+    ForwardInConstraint <: MOI.AbstractConstraintAttribute
 
 A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
 is, problem input data.
@@ -160,7 +157,7 @@ struct ForwardInConstraint <: MOI.AbstractConstraintAttribute end
 
 
 """
-    ForwardOutVariablePrimal
+    ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute
 
 A `MOI.AbstractVariableAttribute` to get output data from forward
 differentiation, that is, problem solution.
@@ -176,7 +173,7 @@ struct ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute end
 MOI.is_set_by_optimize(::ForwardOutVariablePrimal) = true
 
 """
-    BackwardInVariablePrimal
+    BackwardInVariablePrimal <: MOI.AbstractVariableAttribute
 
 A `MOI.AbstractVariableAttribute` to set input data to backward
 differentiation, that is, problem solution.
@@ -190,40 +187,58 @@ MOI.set(model, DiffOpt.BackwardInVariablePrimal(), x)
 struct BackwardInVariablePrimal <: MOI.AbstractVariableAttribute end
 
 """
+    BackwardOutObjective <: MOI.AbstractModelAttribute
+
+A `MOI.AbstractModelAttribute` to get output data to backward differentiation,
+that is, problem input data.
+
+For instance, to get the tangent of the objective function corresponding to
+the tangent given to `BackwardInVariablePrimal`, do the
+following:
+```julia
+func = MOI.get(model, DiffOpt.BackwardOutObjective)
+```
+Then, to get the sensitivity of the linear term with variable `x`, do
+```julia
+JuMP.coefficient(func, x)
+```
+To get the sensitivity with respect to the quadratic term with variables `x`
+and `y`, do either
+```julia
+JuMP.coefficient(func, x, y)
+```
+or
+```julia
+DiffOpt.quad_sym_half(func, x, y)
+```
+
+!!! warning
+    These two lines are **not** equivalent in case `x == y`, see
+    [`quad_sym_half`](@ref) for the details on the difference between these two
+    functions.
+"""
+struct BackwardOutObjective <: MOI.AbstractModelAttribute end
+MOI.is_set_by_optimize(::BackwardOutObjective) = true
+
+abstract type AbstractDiffAttribute end
+Base.broadcastable(attribute::AbstractDiffAttribute) = Ref(attribute)
+
+"""
     BackwardOut{T}
 
 A AbstractDiffAttribute to get output data to backward differentiation, that
 is, problem solution.
 The solution data includes:
-[`LinearObjective`](@ref), [`ConstraintConstant`](@ref),
-[`ConstraintCoefficient`](@ref) and [`QuadraticObjective`](@ref).
+[`ConstraintConstant`](@ref) and [`ConstraintCoefficient`](@ref).
 The latter can only be used in linearly constrained quadratic models.
 
 ```julia
-MOI.get(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), x)
+MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), x)
 ```
 """
 struct BackwardOut{T} <: AbstractDiffAttribute end
 
 abstract type AbstractDiffInnerAttribute end
-
-"""
-    LinearObjective
-
-An attribute to set input and get output differentials from forward and backward
-differentiation related to the linear objective coefficient associated to an
-`MOI.VariableIndex`.
-"""
-struct LinearObjective <: AbstractDiffInnerAttribute end #(var)
-
-"""
-    QuadraticObjective
-
-An attribute to set input and get output differentials from forward and backward
-differentiation related to the quadratic objective coefficient associated to a pair
-of `MOI.VariableIndex`'s.
-"""
-struct QuadraticObjective <: AbstractDiffInnerAttribute end #(var, var)
 
 """
     ConstraintConstant
@@ -296,22 +311,33 @@ function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
     return
 end
 
-function MOI.get(model::Optimizer, ::BackwardOut{LinearObjective}, vi::VI)
-    return _get_dc(model, vi)
+function MOI.get(model::Optimizer, ::BackwardOutObjective)
+    return IndexMappedFunction(
+        _back_obj(model.back_grad_cache, model.gradient_cache),
+        model.gradient_cache.index_map,
+    )
 end
-_get_dc(model::Optimizer, vi) = _get_dc(model.back_grad_cache, model.gradient_cache, vi)
-function _get_dc(b_cache::ConicBackCache, g_cache::ConicCache, vi)
+function _back_obj(b_cache::ConicBackCache, g_cache::ConicCache)
     i = g_cache.index_map[vi].value
     g = b_cache.g
     πz = b_cache.πz
-    dQ_i_end = - g[i] * πz[end]
-    dQ_end_i = - g[end] * πz[i]
-    return - dQ_i_end + dQ_i_end
+    dc = LazyArrays.Applied(
+        -,
+        LazyArrays.Applied(*, πz[end], g),
+        LazyArrays.Applied(*, g[end], πz),
+    )
+    return VectorScalarAffineFunction(dc, 0.0)
 end
-function _get_dc(b_cache::QPForwBackCache, g_cache::QPCache, vi)
-    i = g_cache.index_map[vi].value
-    dz = b_cache.dz
-    return dz[i]
+function _back_obj(b_cache::QPForwBackCache, g_cache::QPCache)
+    ∇z = b_cache.dz
+    z = g_cache.var_primals
+    # `∇z * z' + z * ∇z'` doesn't work, see
+    # https://github.com/JuliaArrays/LazyArrays.jl/issues/178
+    dQ = LazyArrays.@~ (∇z .* z' + z .* ∇z') / 2.0
+    return MatrixScalarQuadraticFunction(
+        VectorScalarAffineFunction(b_cache.dz, 0.0),
+        dQ,
+    )
 end
 
 function MOI.get(model::Optimizer, ::ForwardInObjective)
@@ -320,22 +346,6 @@ end
 function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
     model.input_cache.objective = objective
     return
-end
-
-function MOI.get(model::Optimizer,
-    ::BackwardOut{QuadraticObjective}, vi1::VI, vi2::VI)
-    return _get_dQ(model, vi1, vi2)
-end
-_get_dQ(model::Optimizer, vi1, vi2) = _get_dQ(model.back_grad_cache, model.gradient_cache, vi1, vi2)
-function _get_dQ(b_cache::ConicBackCache, g_cache::ConicCache, vi1, vi2)
-    error("Quadratic function not availablein conic model differentiation")
-end
-function _get_dQ(b_cache::QPForwBackCache, g_cache::QPCache, vi1, vi2)
-    i = g_cache.index_map[vi1].value
-    j = g_cache.index_map[vi2].value
-    z = g_cache.var_primals
-    dz = b_cache.dz
-    return 0.5 * (dz[i] * z[j] + z[i] * dz[j])
 end
 
 function MOI.get(model::Optimizer,
@@ -464,12 +474,7 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
     dz = b_cache.dz
     ν = g_cache.equality_duals
     dν = b_cache.dν
-    # this is the previously implemented
-    return dν[i] * z[j] - ν[i] * dz[j]
-    # from the paper, teh correct solution should be this
-    # and thec correct fix is probably correcting the signs of the duals
-    # since MOI standard is different from text book shadow prices
-    # return dν[i] * z[j] + ν[i] * dz[j]
+    return dν[i] * z[j] + ν[i] * dz[j]
 end
 function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
 ) where {F, S}
@@ -705,10 +710,11 @@ function _forward_quad(model::Optimizer)
     ]
 
     partial_grads = if norm(Q) ≈ 0
-        -lsqr(LHS, RHS)
+        -lsqr(LHS', RHS)
     else
-        -LHS \ RHS
+        -_linsolve(LHS', RHS)
     end
+
 
     nv = length(z)
     nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
@@ -720,6 +726,9 @@ function _forward_quad(model::Optimizer)
     return nothing
 end
 
+_linsolve(A, b) = A \ b
+# See https://github.com/JuliaLang/julia/issues/32668
+_linsolve(A, b::SparseVector) = A \ Vector(b)
 
 
 """

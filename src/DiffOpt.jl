@@ -6,6 +6,7 @@ using SparseArrays
 using IterativeSolvers: lsqr
 using JuMP
 
+import LazyArrays
 import BlockDiagonals
 
 using MathOptInterface

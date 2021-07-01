@@ -131,14 +131,16 @@ function ChainRulesCore.rrule(::typeof(unit_commitment), load1_demand, load2_dem
         MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), p, pb)
         DiffOpt.backward(JuMP.backend(model))
 
+        obj = MOI.get(model, DiffOpt.BackwardOutObjective())
+
         # computing derivative wrt linear objective costs
         dgen_costs = similar(gen_costs)
-        dgen_costs[1] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), p[1,:]))
-        dgen_costs[2] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), p[2,:]))
+        dgen_costs[1] = sum(JuMP.coefficient.(obj, p[1,:]))
+        dgen_costs[2] = sum(JuMP.coefficient.(obj, p[2,:]))
 
         dnoload_costs = similar(noload_costs)
-        dnoload_costs[1] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), u[1,:]))
-        dnoload_costs[2] = sum(MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), u[2,:]))
+        dnoload_costs[1] = sum(JuMP.coefficient.(obj, u[1,:]))
+        dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2,:]))
 
         # computing derivative wrt constraint constant
         dload1_demand = MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), energy_balance_cons)
