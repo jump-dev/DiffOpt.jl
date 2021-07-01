@@ -128,7 +128,7 @@ A `MOI.ScalarQuadraticFunction` can only be used in linearly constrained
 quadratic models.
 
 For instance, if the objective contains `θ * (x + 2y)`, for the purpose of
-computinig the derivative with respect to `θ`, the following should be set:
+computing the derivative with respect to `θ`, the following should be set:
 ```julia
 fx = MOI.SingleVariable(x)
 fy = MOI.SingleVariable(y)
@@ -145,7 +145,7 @@ A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation
 is, problem input data.
 
 For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y)`,
-for the purpose of computinig the derivative with respect to `θ`, the following
+for the purpose of computing the derivative with respect to `θ`, the following
 should be set:
 ```julia
 fx = MOI.SingleVariable(x)

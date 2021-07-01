@@ -2,18 +2,19 @@
 
 Create a differentiable model from [existing optimizers](https://www.juliaopt.org/JuMP.jl/stable/installation/)
 ```julia
-    using DiffOpt
-    using SCS
-    
-    model = diff_optimizer(SCS.Optimizer)
+using DiffOpt
+using SCS
+using JuMP
+
+model = diff_optimizer(SCS.Optimizer)
 ```
 
 Update and solve the model 
 ```julia
-    x = MOI.add_variables(model, 2)
-    c = MOI.add_constraint(model, ...)
-    
-    MOI.optimize!(model)
+x = MOI.add_variables(model, 2)
+c = MOI.add_constraint(model, ...)
+
+MOI.optimize!(model)
 ```
 
 Finally differentiate the model (primal and dual variables specifically) to obtain product of jacobians with respect to problem parameters and a backward pass vector. Currently `DiffOpt` supports two backends for differentiating a model:

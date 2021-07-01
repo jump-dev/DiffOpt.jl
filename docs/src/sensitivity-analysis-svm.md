@@ -37,9 +37,9 @@ Construct separatable, non-trivial data points.
 ```@example 1
 N = 100
 D = 2
-Random.seed!(6)
-X = vcat(randn(N, D), randn(N,D) .+ [4.0,1.5]')
-y = append!(ones(N), -ones(N))
+Random.seed!(rand(1:100))
+X = vcat(randn(N÷2, D), randn(N÷2,D) .+ [4.0,1.5]')
+y = append!(ones(N÷2), -ones(N÷2))
 nothing # hide
 ```
 
@@ -111,11 +111,8 @@ svm_y = (-bv .- wv[1] * svm_x )/wv[2]
 p = Plots.scatter(X[:,1], X[:,2], color = [yi > 0 ? :red : :blue for yi in y], label = "")
 Plots.yaxis!(p, (-2, 4.5))
 Plots.plot!(p, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
-Plots.savefig("svm_separating.svg")
-nothing # hide
 ```
 
-![svg](svm_separating.svg)
 
 # Experiments
 Now that we've solved the SVM, we can compute the sensitivity of optimal values -- the separating hyperplane in our case -- with respect to perturbations of the problem data -- the data points -- using DiffOpt. For illustration, we've explored two questions:
@@ -206,17 +203,13 @@ p2 = Plots.scatter(
 )
 Plots.yaxis!(p2, (-2, 4.5))
 Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
-Plots.savefig("sensitivity2.svg")
-nothing # hide
 ```
-
-![](sensitivity2.svg)
 
 
 ## Experiment 2: Gradient of hyperplane wrt the data point coordinates
 
 Similar to previous example, construct perturbations in data points coordinates `X`.
-```julia
+```@example 1
 ∇ = Float64[]
 dX = zeros(N, D)
 
@@ -229,7 +222,7 @@ for Xi in 1:N
             model,
             DiffOpt.ForwardInConstraint(),
             cons,
-            MOI.Utilities.vectorize(dX[:,i] .* w[i]),
+            MOI.Utilities.vectorize(dX[:,i] .* MOI.SingleVariable(w[i])),
         )
     end
 
@@ -261,8 +254,4 @@ p3 = Plots.scatter(
 )
 Plots.yaxis!(p3, (-2, 4.5))
 Plots.plot!(p3, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
-Plots.savefig(p3, "sensitivity3.svg")
-nothing # hide
 ```
-
-![](sensitivity3.svg)
