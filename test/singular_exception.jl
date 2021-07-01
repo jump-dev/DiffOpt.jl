@@ -45,7 +45,7 @@ MOI.optimize!(model)
 @test MOI.get(model, MOI.VariablePrimal(), x) ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
 
 @test model.gradient_cache === nothing
-MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
 DiffOpt.backward(model)
 
 grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
@@ -61,7 +61,7 @@ end
 @test model.gradient_cache === nothing
 MOI.optimize!(model)
 
-MOI.set.(model, DiffOpt.BackwardIn{MOI.VariablePrimal}(), x, ones(2))
+MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
 DiffOpt.backward(model)
 
 grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)

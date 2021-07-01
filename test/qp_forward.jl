@@ -3,39 +3,21 @@
     # min  x
     # s.t. x >= 0
     #      x >= 3
-
-    model = diff_optimizer(Clp.Optimizer)
-    MOI.set(model, MOI.Silent(), true)
-
-    v = MOI.add_variables(model, 1)
-
-    # define objective
-    objective_function = MOI.ScalarAffineFunction(
-        MOI.ScalarAffineTerm.([1.0], v), 0.0)
-    MOI.set(model,
-        MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
-        objective_function)
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-
-    # set constraints
-    c1 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], v), 0.),
-        MOI.LessThan(0.0)
+    qp_test_with_solutions(
+        Clp.Optimizer,
+        q = [1.0],
+        G = -ones(2, 1),
+        h = [0.0, -3.0],
+        dzb = -ones(1),
+        dhf = [0.0, 1.0],
+        # Expected solutions
+        z = [3.0],
+        λ = [0.0, 1.0],
+        dzf = -ones(1),
+        dλb = zeros(2),
+        dhb = [0.0, 1.0],
+        ∇zb = zeros(1),
+        ∇λb = [0.0, -1.0],
+        dλf = zeros(2),
     )
-    c2 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([-1.0], v), 0.),
-        MOI.LessThan(-3.0)
-    )
-    cg = [c1, c2]
-
-    MOI.optimize!(model)
-
-    MOI.set(model, DiffOpt.ForwardIn{DiffOpt.ConstraintConstant}(), c2, 1.0)
-
-    DiffOpt.forward(model)
-
-    dx = MOI.get(model, DiffOpt.ForwardOut{MOI.VariablePrimal}(), v[])
-    @test dx ≈ 1.0  atol=ATOL rtol=RTOL
 end

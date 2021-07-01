@@ -41,8 +41,9 @@ N = 2*N;
 ```
 
 Let's define the variables.
-```julia
+```@example 1
 model = Model(() -> diff_optimizer(SCS.Optimizer))
+MOI.set(model, MOI.Silent(), true)
 
 # add variables
 @variable(model, l[1:N])
@@ -51,13 +52,13 @@ model = Model(() -> diff_optimizer(SCS.Optimizer))
 ```
 
 Add the constraints.
-```julia
+```@example 1
 @constraint(model, cons, y.*(X*w .+ b) + l.-1 ∈ MOI.Nonnegatives(N))
 @constraint(model, 1.0*l ∈ MOI.Nonnegatives(N));
 ```
 
 Define the linear objective function and solve the SVM model.
-```julia
+```@example 1
 @objective(
     model,
     Min,
@@ -71,9 +72,9 @@ wv = value.(w)
 bv = value(b);
 ```
 
-We can visualize the separating hyperplane. 
+We can visualize the separating hyperplane.
 
-```julia
+```@example 1
 # build SVM points
 svm_x = [0.0, 3.0]
 svm_y = (-bv .- wv[1] * svm_x )/wv[2]
@@ -81,10 +82,8 @@ svm_y = (-bv .- wv[1] * svm_x )/wv[2]
 p = Plots.scatter(X[:,1], X[:,2], color = [yi > 0 ? :red : :blue for yi in y], label = "")
 Plots.yaxis!(p, (-2, 4.5))
 Plots.plot!(p, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
-Plots.savefig("svm-separating.svg")
+p
 ```
-
-![svg](svm-separating.svg)
 
 # Experiments
 Now that we've solved the SVM, we can compute the sensitivity of optimal values -- the separating hyperplane in our case -- with respect to perturbations of the problem data -- the data points -- using DiffOpt. For illustration, we've explored two questions:
@@ -108,16 +107,16 @@ where
 \begin{align*}
 c &= [l_1 - 1, l_2 -1, ... l_N -1, 0, 0, ... 0 \text{(D+1 times)}] \\\\
 
-A &= 
+A &=
 \begin{bmatrix}
- -l_1 &    0 & ... &    0 &            0 & ... & 0 & 0  \\ 
-    0 & -l_2 & ... &    0 &            0 & ... & 0 & 0  \\ 
-    : &    : & ... &    : &            0 & ... & 0 & 0  \\ 
-    0 &    0 & ... & -l_N &            0 & ... & 0 & 0  \\ 
-    0 &    0 & ... &    0 & -y_1 X_{1,1} & ... & -y_1 X_{1,N} & -y_1  \\ 
-    0 &    0 & ... &    0 & -y_2 X_{2,1} & ... & -y_1 X_{2,N} & -y_2  \\ 
-    : &    : & ... &    : &           :  & ... &          :   & :   \\ 
-    0 &    0 & ... &    0 & -y_N X_{N,1} & ... & -y_N X_{N,N} & -y_N  \\ 
+ -l_1 &    0 & ... &    0 &            0 & ... & 0 & 0  \\
+    0 & -l_2 & ... &    0 &            0 & ... & 0 & 0  \\
+    : &    : & ... &    : &            0 & ... & 0 & 0  \\
+    0 &    0 & ... & -l_N &            0 & ... & 0 & 0  \\
+    0 &    0 & ... &    0 & -y_1 X_{1,1} & ... & -y_1 X_{1,N} & -y_1  \\
+    0 &    0 & ... &    0 & -y_2 X_{2,1} & ... & -y_1 X_{2,N} & -y_2  \\
+    : &    : & ... &    : &           :  & ... &          :   & :   \\
+    0 &    0 & ... &    0 & -y_N X_{N,1} & ... & -y_N X_{N,N} & -y_N  \\
 \end{bmatrix} \\\\
 
 b &= [0, 0, ... 0 \text{(N times)}, l_1 - 1, l_2 -1, ... l_N -1] \\\\
@@ -131,106 +130,99 @@ b &= [0, 0, ... 0 \text{(N times)}, l_1 - 1, l_2 -1, ... l_N -1] \\\\
 
 Construct perturbations in data point labels `y` without changing the data point coordinates `X`.
 
-```julia
+```@example 1
 ∇ = Float64[]
 dy = zeros(N)
 
 # begin differentiating
 for Xi in 1:N
     dy[Xi] = 1.0  # set
-    
+
     MOI.set(
         model,
-        DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
-        b, 
-        cons, 
-        dy
+        DiffOpt.ForwardInConstraint(),
+        cons,
+        MOI.Utilities.vectorize(dy .* MOI.SingleVariable(b)),
     )
-    
+
     DiffOpt.forward(model)
-    
+
     dw = MOI.get.(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         w
-    ) 
+    )
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         b
-    ) 
+    )
     push!(∇, norm(dw) + norm(db))
-    
+
     dy[Xi] = 0.0  # reset the change made above
 end
 LinearAlgebra.normalize!(∇)
 ```
 
 Visualize point sensitivities with respect to separating hyperplane. Note that the gradients are normalized.
-```julia
+```@example 1
 p2 = Plots.scatter(
-    X[:,1], X[:,2], 
+    X[:,1], X[:,2],
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
     markersize = ∇ * 20,
 )
 Plots.yaxis!(p2, (-2, 4.5))
 Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
-Plots.savefig("sensitivity2.svg")
+p2
 ```
-
-![](sensitivity2.svg)
-
 
 ## Experiment 2: Gradient of hyperplane wrt the data point coordinates
 
 Similar to previous example, construct perturbations in data points coordinates `X`.
-```julia
+```@example 1
 ∇ = Float64[]
 dX = zeros(N, D)
 
 # begin differentiating
 for Xi in 1:N
     dX[Xi, :] = ones(D)  # set
-    
+
     for i in 1:D
         MOI.set(
             model,
-            DiffOpt.ForwardIn{DiffOpt.ConstraintCoefficient}(), 
-            w[i], 
-            cons, 
-            dX[:,i]
+            DiffOpt.ForwardInConstraint(),
+            cons,
+            MOI.Utilities.vectorize(dX[:,i] .* w[i]),
         )
     end
-    
+
     DiffOpt.forward(model)
-    
+
     dw = MOI.get.(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         w
-    ) 
+    )
     db = MOI.get(
         model,
-        DiffOpt.ForwardOut{MOI.VariablePrimal}(), 
+        DiffOpt.ForwardOutVariablePrimal(),
         b
-    ) 
+    )
     push!(∇, norm(dw) + norm(db))
-    
+
     dX[Xi, :] = zeros(D)  # reset the change made ago
 end
 LinearAlgebra.normalize!(∇)
 ```
 
 We can visualize point sensitivity with respect to the separating hyperplane. Note that the gradients are normalized.
-```julia
+```@example 1
 p3 = Plots.scatter(
-    X[:,1], X[:,2], 
+    X[:,1], X[:,2],
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
     markersize = ∇ * 20,
 )
 Plots.yaxis!(p3, (-2, 4.5))
 Plots.plot!(p3, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
-Plots.savefig(p3, "sensitivity3.svg")
+p3
 ```
-
-![](sensitivity3.svg)
