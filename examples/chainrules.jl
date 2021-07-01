@@ -90,7 +90,7 @@ function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, �
     MOI.set.(
         model,
         DiffOpt.ForwardInConstraint(), energy_balance_cons,
-        [convert(MOI.ScalarAffineFunction{Float64}, d1 + d2) for (d1, d2) in zip(Δload1_demand, Δload2_demand)],
+        AffExpr[d1 + d2 for (d1, d2) in zip(Δload1_demand, Δload2_demand)],
     )
 
     p = model[:p]
@@ -143,7 +143,7 @@ function ChainRulesCore.rrule(::typeof(unit_commitment), load1_demand, load2_dem
         dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2,:]))
 
         # computing derivative wrt constraint constant
-        dload1_demand = MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), energy_balance_cons)
+        dload1_demand = JuMP.constant.(MOI.get.(model, DiffOpt.BackwardOutConstraint(), energy_balance_cons))
         dload2_demand = copy(dload1_demand)
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
     end

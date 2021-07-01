@@ -145,7 +145,7 @@ A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation
 is, problem input data.
 
 For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y)`,
-for the purpose of computinig the derivative with respect to `θ`, the following
+for the purpose of computing the derivative with respect to `θ`, the following
 should be set:
 ```julia
 fx = MOI.SingleVariable(x)
@@ -220,42 +220,21 @@ DiffOpt.quad_sym_half(func, x, y)
 struct BackwardOutObjective <: MOI.AbstractModelAttribute end
 MOI.is_set_by_optimize(::BackwardOutObjective) = true
 
-abstract type AbstractDiffAttribute end
-Base.broadcastable(attribute::AbstractDiffAttribute) = Ref(attribute)
-
 """
-    BackwardOut{T}
+    BackwardOutConstraint
 
-A AbstractDiffAttribute to get output data to backward differentiation, that
-is, problem solution.
-The solution data includes:
-[`ConstraintConstant`](@ref) and [`ConstraintCoefficient`](@ref).
-The latter can only be used in linearly constrained quadratic models.
+An `MOI.AbstractConstraintAttribute` to get output data to backward differentiation, that
+is, problem input data.
 
+For instance, if the following returns `x + 2y`, it means that the tangent
+has coordinate `1` for the coefficient of `x` and coordinate `2` for the
+coefficient of `y`.
 ```julia
-MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), x)
+MOI.get(model, DiffOpt.BackwardOutConstraint(), ci)
 ```
 """
-struct BackwardOut{T} <: AbstractDiffAttribute end
-
-abstract type AbstractDiffInnerAttribute end
-
-"""
-    ConstraintConstant
-
-An attribute to set input and get output differentials from forward and backward
-differentiation related to the constant term associated to a `MOI.ConstraintIndex`.
-"""
-struct ConstraintConstant <: AbstractDiffInnerAttribute end #(con)
-
-"""
-    ConstraintCoefficient
-
-An attribute to set input and get output differentials from forward and backward
-differentiation related to the linear coefficient associated to a pair:
-`MOI.VariableIndex` and `MOI.ConstraintIndex`.
-"""
-struct ConstraintCoefficient <: AbstractDiffInnerAttribute end #(var, con)
+struct BackwardOutConstraint <: MOI.AbstractConstraintAttribute end
+MOI.is_set_by_optimize(::BackwardOutConstraint) = true
 
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
@@ -318,13 +297,12 @@ function MOI.get(model::Optimizer, ::BackwardOutObjective)
     )
 end
 function _back_obj(b_cache::ConicBackCache, g_cache::ConicCache)
-    i = g_cache.index_map[vi].value
     g = b_cache.g
     πz = b_cache.πz
-    dc = LazyArrays.Applied(
+    dc = LazyArrays.ApplyArray(
         -,
-        LazyArrays.Applied(*, πz[end], g),
-        LazyArrays.Applied(*, g[end], πz),
+        LazyArrays.@~(πz[end] .* g),
+        LazyArrays.@~(g[end] .* πz),
     )
     return VectorScalarAffineFunction(dc, 0.0)
 end
@@ -348,9 +326,13 @@ function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
     return
 end
 
-function MOI.get(model::Optimizer,
-    ::BackwardOut{ConstraintConstant}, ci::CI{F,S}) where {F,S}
-    return _get_db(model, ci)
+_lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
+_lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
+function MOI.get(model::Optimizer, ::BackwardOutConstraint, ci::CI)
+    return IndexMappedFunction(
+        _lazy_affine(_get_dA(model, ci), _get_db(model, ci)),
+        model.gradient_cache.index_map,
+    )
 end
 _get_db(model::Optimizer, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
@@ -364,9 +346,12 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
     g = b_cache.g
     πz = b_cache.πz
-    dQ_ni_end = - g[n .+ i] * πz[end]
-    dQ_end_ni = - g[end] * πz[n .+ i]
-    return - dQ_ni_end + dQ_end_ni
+    I = n .+ i
+    return LazyArrays.ApplyArray(
+        -,
+        LazyArrays.@~(πz[end] .* view(g, I)),
+        LazyArrays.@~(g[end] .* view(πz, I)),
+    )
 end
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
@@ -380,8 +365,7 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     dQ_end_ni = - g[end] * πz[n+i]
     return - dQ_ni_end + dQ_end_ni
 end
-function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
-) where {F,S}
+function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI)
     i = g_cache.index_map[ci].value
     # dh = -Diagonal(λ) * dλ
     dλ = b_cache.dλ
@@ -429,12 +413,8 @@ function MOI.set(model::Optimizer,
     return
 end
 
-function MOI.get(model::Optimizer,
-    ::BackwardOut{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
-    return _get_dA(model, vi, ci)
-end
-_get_dA(model::Optimizer, vi, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, vi, ci)
-function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
+_get_dA(model::Optimizer, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, ci)
+function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
     j = g_cache.index_map[vi].value
     i = g_cache.index_map[ci].value
@@ -444,16 +424,18 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
     g = b_cache.g
     πz = b_cache.πz
-    dQ_i_nj =  - g[i] * πz[n+j]
-    dQ_nj_i =  - g[n+j] * πz[i]
-    return - dQ_i_nj + dQ_nj_i
+    I = n .+ (1:n)
+    return LazyArrays.ApplyArray(
+        -,
+        LazyArrays.@~(g[i] .* view(πz, I)),
+        LazyArrays.@~(πz[i] .* view(g, I)),
+    )
 end
-function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
+function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     cf = g_cache.conic_form
     _ci = g_cache.index_map[ci]
     i = MatOI.rows(cf, _ci) # vector
-    j = g_cache.index_map[vi].value
     # i = g_cache.index_map[ci].value
     (x, y, _) = g_cache.xys
     n = length(x) # columns in A
@@ -461,36 +443,34 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
     g = b_cache.g
     πz = b_cache.πz
-    dQ_i_nj =  - g[i] * πz[n+j]
-    dQ_nj_i =  - g[n+j] * πz[i]
-    return - dQ_i_nj .+ dQ_nj_i
+    I = n .+ (1:n)
+    return LazyArrays.ApplyArray(
+        -,
+        LazyArrays.@~(g[i] .* view(πz, I)),
+        LazyArrays.@~(πz[i] .* view(g, I)),
+    )
 end
 # quadratic matrix indexes are split by type either == or (<=/>=)
-function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
+function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F, S<:MOI.EqualTo}
-    j = g_cache.index_map[vi].value
     i = g_cache.index_map[ci].value
     z = g_cache.var_primals
     dz = b_cache.dz
     ν = g_cache.equality_duals
     dν = b_cache.dν
-    return dν[i] * z[j] + ν[i] * dz[j]
+    return LazyArrays.ApplyArray(
+        +,
+        LazyArrays.@~(dν[i] .* z),
+        LazyArrays.@~(ν[i] .* dz),
+    )
 end
-function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
-) where {F, S}
-    j = g_cache.index_map[vi].value
+function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI)
     i = g_cache.index_map[ci].value
     z = g_cache.var_primals
     dz = b_cache.dz
     λ = g_cache.inequality_duals
     dλ = b_cache.dλ
-    # this is the previously implemented
-    # return Diagonal(λ) * dλ * z' - λ * dz')
-    return λ[i] * (dλ[i] * z[j]) - λ[i] * dz[j]
-    # from the paper, the correct solution should be this
-    # and the correct fix is probably correcting the signs of the duals
-    # since MOI standard is different from text book shadow prices
-    # return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
+    return λ[i] * (dλ[i] * z + λ[i] * dz)
 end
 
 

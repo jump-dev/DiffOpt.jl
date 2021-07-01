@@ -68,6 +68,6 @@ grad = MOI.get(diff_opt, DiffOpt.BackwardOutObjective())
 
 # sensitivity wrt RHS of constraints
 for (idx, econs) in enumerate(energy_balance_cons)
-    grad_energy_balance = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), econs)
+    grad_energy_balance = JuMP.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), econs))
     @test !≈(grad_energy_balance, 0)
 end
