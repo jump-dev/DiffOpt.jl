@@ -34,7 +34,7 @@ MOI.set.(model,
     DiffOpt.BackwardInVariablePrimal(), x, ones(2))
 DiffOpt.backward(model)
 grad_obj = MOI.get(model, DiffOpt.BackwardOutObjective())
-grad_rhs = MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
+grad_con = MOI.get.(model, DiffOpt.BackwardOutConstraint(), c)
 ```
 
 2. To differentiate convex conic program

@@ -326,6 +326,13 @@ function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
     return
 end
 
+# Workaround for Julia v1.0
+@static if VERSION < v"1.6"
+    _view(x, I) = x[I]
+else
+    _view(x, I) = view(x, I)
+end
+
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
 function MOI.get(model::Optimizer, ::BackwardOutConstraint, ci::CI)
@@ -349,8 +356,8 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     I = n .+ i
     return LazyArrays.ApplyArray(
         -,
-        LazyArrays.@~(πz[end] .* view(g, I)),
-        LazyArrays.@~(g[end] .* view(πz, I)),
+        LazyArrays.@~(πz[end] .* _view(g, I)),
+        LazyArrays.@~(g[end] .* _view(πz, I)),
     )
 end
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
@@ -427,8 +434,8 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     I = n .+ (1:n)
     return LazyArrays.ApplyArray(
         -,
-        LazyArrays.@~(g[i] .* view(πz, I)),
-        LazyArrays.@~(πz[i] .* view(g, I)),
+        LazyArrays.@~(g[i] .* _view(πz, I)),
+        LazyArrays.@~(πz[i] .* _view(g, I)),
     )
 end
 function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
@@ -446,8 +453,8 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     I = n .+ (1:n)
     return LazyArrays.ApplyArray(
         -,
-        LazyArrays.@~(g[i] .* view(πz, I)),
-        LazyArrays.@~(πz[i] .* view(g, I)),
+        LazyArrays.@~(g[i] .* _view(πz, I)),
+        LazyArrays.@~(πz[i] .* _view(g, I)),
     )
 end
 # quadratic matrix indexes are split by type either == or (<=/>=)
