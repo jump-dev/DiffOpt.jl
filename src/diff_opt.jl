@@ -290,6 +290,29 @@ function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
     return
 end
 
+function lazy_combination(op::F, α, a, β, b) where {F<:Function}
+    return LazyArrays.ApplyArray(
+        op,
+        LazyArrays.@~(α .* a),
+        LazyArrays.@~(β .* b),
+    )
+end
+# Workaround for Julia v1.0
+@static if VERSION < v"1.6"
+    _view(x, I) = x[I]
+else
+    _view(x, I) = view(x, I)
+end
+function lazy_combination(op::F, α, a, β, b, I::UnitRange) where {F<:Function}
+    return lazy_combination(op, α, _view(a, I), β, _view(b, I))
+end
+function lazy_combination(op::F, a, b, i::Integer, args::Vararg{Any,N}) where {F<:Function,N}
+    return lazy_combination(op, a[i], b, b[i], a, args...)
+end
+function lazy_combination(op::F, a, b, i::UnitRange, I::UnitRange) where {F<:Function}
+    return lazy_combination(op, _view(a, i), b, _view(b, i), a, I)
+end
+
 function MOI.get(model::Optimizer, ::BackwardOutObjective)
     return IndexMappedFunction(
         _back_obj(model.back_grad_cache, model.gradient_cache),
@@ -299,11 +322,7 @@ end
 function _back_obj(b_cache::ConicBackCache, g_cache::ConicCache)
     g = b_cache.g
     πz = b_cache.πz
-    dc = LazyArrays.ApplyArray(
-        -,
-        LazyArrays.@~(πz[end] .* g),
-        LazyArrays.@~(g[end] .* πz),
-    )
+    dc = lazy_combination(-, πz, g, length(g))
     return VectorScalarAffineFunction(dc, 0.0)
 end
 function _back_obj(b_cache::QPForwBackCache, g_cache::QPCache)
@@ -326,13 +345,6 @@ function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
     return
 end
 
-# Workaround for Julia v1.0
-@static if VERSION < v"1.6"
-    _view(x, I) = x[I]
-else
-    _view(x, I) = view(x, I)
-end
-
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
 function MOI.get(model::Optimizer, ::BackwardOutConstraint, ci::CI)
@@ -353,12 +365,7 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
     g = b_cache.g
     πz = b_cache.πz
-    I = n .+ i
-    return LazyArrays.ApplyArray(
-        -,
-        LazyArrays.@~(πz[end] .* _view(g, I)),
-        LazyArrays.@~(g[end] .* _view(πz, I)),
-    )
+    return lazy_combination(-, πz, g, length(g), n .+ i)
 end
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
@@ -431,12 +438,7 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
     g = b_cache.g
     πz = b_cache.πz
-    I = n .+ (1:n)
-    return LazyArrays.ApplyArray(
-        -,
-        LazyArrays.@~(g[i] .* _view(πz, I)),
-        LazyArrays.@~(πz[i] .* _view(g, I)),
-    )
+    return lazy_combination(-, g, πz, i, n .+ (1:n))
 end
 function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
@@ -450,12 +452,7 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
     g = b_cache.g
     πz = b_cache.πz
-    I = n .+ (1:n)
-    return LazyArrays.ApplyArray(
-        -,
-        LazyArrays.@~(g[i] .* _view(πz, I)),
-        LazyArrays.@~(πz[i] .* _view(g, I)),
-    )
+    return lazy_combination(-, g, πz, i, n .+ (1:n))
 end
 # quadratic matrix indexes are split by type either == or (<=/>=)
 function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
@@ -465,11 +462,7 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     dz = b_cache.dz
     ν = g_cache.equality_duals
     dν = b_cache.dν
-    return LazyArrays.ApplyArray(
-        +,
-        LazyArrays.@~(dν[i] .* z),
-        LazyArrays.@~(ν[i] .* dz),
-    )
+    return lazy_combination(+, dν[i], z, ν[i], dz)
 end
 function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI)
     i = g_cache.index_map[ci].value
