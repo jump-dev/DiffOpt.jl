@@ -470,7 +470,7 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI)
     dz = b_cache.dz
     λ = g_cache.inequality_duals
     dλ = b_cache.dλ
-    return λ[i] * (dλ[i] * z + λ[i] * dz)
+    return lazy_combination(+, λ[i] * dλ[i], z, λ[i] * λ[i], dz)
 end
 
 
@@ -513,7 +513,7 @@ Wrapper method for the backward pass.
 This method will consider as input a currently solved problem and differentials
 with respect to the solution set with the [`BackwardInVariablePrimal`](@ref) attribute.
 The output problem data differentials can be queried with the
-attribute [`BackwardOut`](@ref).
+attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
 function backward(model::Optimizer)
     if _qp_supported(model.optimizer)
