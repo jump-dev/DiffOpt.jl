@@ -105,7 +105,7 @@ m = Chain(
     Dense(784, 64),
     matrix_relu,
     Dense(64, 10),
-    softmax
+    softmax,
 )
 ```
 
