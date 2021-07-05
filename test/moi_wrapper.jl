@@ -112,7 +112,7 @@ end
 
     DiffOpt.backward(model)
 
-    grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ci)
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), ci))
 
     @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
 end
@@ -235,29 +235,25 @@ end
     # @test dl_dQ ≈ zeros(3,3)  atol=ATOL rtol=RTOL
     # @test dl_dq ≈ zeros(3,1) atol=ATOL rtol=RTOL
 
-    for vi in x, ci in ci_ineq
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), vi, ci)
-        @test grad ≈ 0.0  atol=ATOL rtol=RTOL
+    for ci in ci_ineq
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), ci)
+        @test MOI.constant(grad) ≈ 0.0  atol=ATOL rtol=RTOL
+        for vi in x
+            @test JuMP.coefficient(grad, vi) ≈ 0.0  atol=ATOL rtol=RTOL
+        end
     end
     # @test dl_dG ≈ zeros(6,3) atol=ATOL rtol=RTOL
-
-    for ci in ci_ineq
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ci)
-        @test grad ≈ 0.0  atol=ATOL rtol=RTOL
-    end
     # @test dl_dh ≈ zeros(6,1) atol=ATOL rtol=RTOL
 
-    sol = [0.0 -0.5 0.0]
-    c = 0
-    for vi in x, ci in ci_eq
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), vi, ci)
-        c += 1
-        @test grad ≈ sol[c]  atol=ATOL rtol=RTOL
+    dA = [0.0 -0.5 0.0]
+    for ci in ci_eq
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), ci)
+        @test MOI.constant(grad) ≈ 1.0  atol=ATOL rtol=RTOL
+        for (i, vi) in enumerate(x)
+            @test JuMP.coefficient(grad, vi) ≈ dA[i]  atol=ATOL rtol=RTOL
+        end
     end
     # @test dl_dA ≈ [0.0 -0.5 0.0] atol=ATOL rtol=RTOL
-
-    grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ci_eq[1])
-    @test grad ≈ 1.0 atol=ATOL rtol=RTOL
     # @test dl_db ≈ [1.0] atol=ATOL rtol=RTOL
 end
 
@@ -271,75 +267,44 @@ end
     #     x +  y      >= 1 (c2)
     #     x, y, z \in R
 
-    model = diff_optimizer(OSQP.Optimizer)
-    MOI.set(model, MOI.Silent(), true)
-    v = MOI.add_variables(model, 3)
-    @test MOI.get(model, MOI.NumberOfVariables()) == 3
+    Q = [
+        2.0 1.0 0.0
+        1.0 2.0 1.0
+        0.0 1.0 2.0
+    ]
+    q = zeros(3)
+    G = [
+        -1.0 -2.0 -3.0
+        -1.0 -1.0 0.0
+    ]
+    h = [-4.0, -1.0]
 
-    c1 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(
-            MOI.ScalarAffineTerm.([-1.0, -2.0, -3.0], v),
-            0.0),
-        MOI.LessThan(-4.0)
-    )
-    c2 = MOI.add_constraint(
-        model,
-        MOI.ScalarAffineFunction(
-            MOI.ScalarAffineTerm.([-1.0, -1.0, 0.0], v),
-            0.0),
-        MOI.LessThan(-1.0)
-    )
-    c = [c1, c2]
-
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-    @test MOI.get(model, MOI.ObjectiveSense()) == MOI.MIN_SENSE
-
-    obj = MOI.ScalarQuadraticFunction(
-        MOI.ScalarAffineTerm{Float64}[],
-        MOI.ScalarQuadraticTerm.(
-            [2.0, 1.0, 2.0, 1.0, 2.0],
-            v[[1, 1, 2, 2, 3]],
-            v[[1, 2, 2, 3, 3]]
-        ),
-        0.0,
-    )
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), obj)
-
-    MOI.optimize!(model)
-
-    z = MOI.get(model, MOI.VariablePrimal(), v)
-
-    @test z ≈ [4/7, 3/7, 6/7] atol=ATOL rtol=RTOL
-
-    MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, ones(3))
-
-    # obtain gradients
-    # grads = backward(model, ["Q","q","G","h"], ones(3))
-    DiffOpt.backward(model)
-
-    fv = MOI.SingleVariable.(v)
-
-    dQ = [-0.12244895  0.01530609 -0.11224488;
-           0.01530609  0.09183674  0.07653058;
+    dQ = [-0.12244895  0.01530609 -0.11224488
+           0.01530609  0.09183674  0.07653058
           -0.11224488  0.07653058 -0.06122449]
-    dq = [-0.2142857;  0.21428567; -0.07142857]
+    dq = [-0.2142857,  0.21428567, -0.07142857]
 
-    expected = fv' * (dQ / 2.0) * fv + dq' * fv
-    @test MOI.get(model, DiffOpt.BackwardOutObjective()) ≈ expected  atol=ATOL rtol=RTOL
-
-    dG = [0.05102035   0.30612245  0.255102;
-          0.06122443   0.36734694  0.3061224]
-    for (i,iv) in enumerate(v), (j,jc) in enumerate(c)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
-        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
-    end
-
+    dG = [0.09476022 0.26239144 0.26968323
+          0.08743854 0.34111495 0.31484575]
     dh = [-0.35714284; -0.4285714]
-    for (j,jc) in enumerate(c)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
-    end
+
+    qp_test_with_solutions(
+        OSQP.Optimizer;
+        Q = Q,
+        q = q,
+        G = G,
+        h = h,
+        dzb = ones(3),
+        dQf = dQ,
+        dqf = dq,
+        dGf = dG,
+        dhf = dh,
+        # Expected solutions
+        dQb = dQ,
+        dqb = dq,
+        dGb = dG,
+        dhb = dh,
+    )
 end
 
 # refered from https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contquadratic.jl#L3
@@ -486,13 +451,13 @@ end
     @test MOI.get(model, DiffOpt.BackwardOutObjective()) ≈ expected  atol=ATOL rtol=RTOL
 
     for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ dh[j]  atol=1e-2 rtol=1e-2
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
+        @test MOI.constant(grad) ≈ dh[j]  atol=1e-2 rtol=1e-2
     end
 
     for (j,jc) in enumerate(ca)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ db[j]  atol=1e-2 rtol=1e-2
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
+        @test MOI.constant(grad) ≈ db[j]  atol=1e-2 rtol=1e-2
     end
 end
 
@@ -535,15 +500,11 @@ end
     DiffOpt.backward(model)
 
     dG = [0.0, 3.0]
-    for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), v[1], jc)
-        @test grad ≈ dG[j]  atol=ATOL rtol=RTOL
-    end
-
     dh = [0.0, -1.0]
     for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
+        @test MOI.constant(grad) ≈ dh[j]  atol=ATOL rtol=RTOL
+        @test JuMP.coefficient(grad, v[1]) ≈ dG[j]  atol=ATOL rtol=RTOL
     end
 end
 
@@ -575,15 +536,11 @@ end
     DiffOpt.backward(model)
 
     dG = [3.0]
-    for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), v[1], jc)
-        @test grad ≈ dG[j]  atol=ATOL rtol=RTOL
-    end
-
     dh = [-1.0]
     for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
+        @test MOI.constant(grad) ≈ dh[j]  atol=ATOL rtol=RTOL
+        @test JuMP.coefficient(grad, v[1]) ≈ dG[j]  atol=ATOL rtol=RTOL
     end
 end
 
@@ -649,15 +606,13 @@ end
           0.0 0.0 5/3;
           0.0 0.0 -10/3;
           0.0 0.0 0.0]
-    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
-        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
-    end
-
     dh = [0.0; 1/3; -1/3; 2/3; 0.0]
     for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
+        @test MOI.constant(grad) ≈ dh[j]  atol=ATOL rtol=RTOL
+        for (i,iv) in enumerate(v)
+            @test JuMP.coefficient(grad, iv) ≈ dG[j,i]  atol=ATOL rtol=RTOL
+        end
     end
 end
 
@@ -746,15 +701,13 @@ end
           0.0 0.0 0.0
           0.0 0.0 0.0
           0.0 0.0 0.0]
-    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
-        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
-    end
-
     dh = [0.0, 1/3, -1/3, 2/3, 0.0, 0.0, 0.0, 0.0]
     for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
+        @test MOI.constant(grad) ≈ dh[j]  atol=ATOL rtol=RTOL
+        for (i,iv) in enumerate(v)
+            @test JuMP.coefficient(grad, iv) ≈ dG[j,i]  atol=ATOL rtol=RTOL
+        end
     end
 end
 
@@ -812,27 +765,23 @@ end
           0.0 0.0 -5/3;
           0.0 0.0 -10/3;
           0.0 0.0 0.0]
-    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
-        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
-    end
-
     dh = [0.0, 1/3, 2/3, 0.0]
     for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
+        @test MOI.constant(grad) ≈ dh[j]  atol=ATOL rtol=RTOL
+        for (i,iv) in enumerate(v)
+            @test JuMP.coefficient(grad, iv) ≈ dG[j,i]  atol=ATOL rtol=RTOL
+        end
     end
 
     dA = zeros(1, 3) .+ [0.0 0.0 -5/3]
-    for (i,iv) in enumerate(v), (j,jc) in enumerate(ca)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
-        @test grad ≈ dA[j,i]  atol=ATOL rtol=RTOL
-    end
-
     db = [1/3]
     for (j,jc) in enumerate(ca)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ db[j]  atol=ATOL rtol=RTOL
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
+        @test MOI.constant(grad) ≈ db[j]  atol=ATOL rtol=RTOL
+        for (i,iv) in enumerate(v)
+            @test JuMP.coefficient(grad, iv) ≈ dA[j,i]  atol=ATOL rtol=RTOL
+        end
     end
 end
 
@@ -929,15 +878,13 @@ end
           0.0 0.0 0.0
           0.0 0.0 0.0
           0.0 0.0 0.0]
-    for (i,iv) in enumerate(v), (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), iv, jc)
-        @test grad ≈ dG[j,i]  atol=ATOL rtol=RTOL
-    end
-
     dh = [0.0, 1/3, -1/3, 2/3, 0.0, 0.0, 0.0, 0.0, 0.0]
     for (j,jc) in enumerate(cg)
-        grad = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), jc)
-        @test grad ≈ dh[j]  atol=ATOL rtol=RTOL
+        grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
+        @test MOI.constant(grad) ≈ dh[j]  atol=ATOL rtol=RTOL
+        for (i,iv) in enumerate(v)
+            @test JuMP.coefficient(grad, iv) ≈ dG[j,i]  atol=ATOL rtol=RTOL
+        end
     end
 end
 
@@ -1485,11 +1432,7 @@ end
     @test model.gradient_cache === nothing
     DiffOpt.backward(model)
 
-    grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
-    # grad_wrt_h = backward(model, ["h"], ones(2))[1]
-    @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
-
-    grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
     # grad_wrt_h = backward(model, ["h"], ones(2))[1]
     @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
 
@@ -1503,7 +1446,7 @@ end
     MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
 
-    grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
     @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
     # @test model.gradient_cache isa DiffOpt.QPCache
 
@@ -1518,7 +1461,7 @@ end
     MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
     # grad_wrt_h = backward(model, ["h"], ones(3))[1]
-    grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
     @test grad_wrt_h ≈ 1.0 atol=5e-3 rtol=RTOL
     @test model.gradient_cache isa DiffOpt.QPCache
 
@@ -1535,10 +1478,10 @@ end
     MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
     # grad_wrt_h = backward(model, ["h"], ones(3))[1]
-    grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
     @test grad_wrt_h ≈ 1.0 atol=5e-3 rtol=RTOL
     # second constraint inactive
-    grad_wrt_h = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c2)
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c2))
     @test grad_wrt_h ≈ 0.0 atol=5e-3 rtol=RTOL
     @test model.gradient_cache isa DiffOpt.QPCache
 end

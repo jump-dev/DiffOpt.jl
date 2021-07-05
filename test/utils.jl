@@ -125,36 +125,12 @@ function qp_test(
         @_test(spb.quadratic_terms, dQb)
         @_test(spb.affine_terms, dqb)
 
-        @_test(
-            convert(Vector{Float64}, MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), cle)),
-            dhb,
-        )
-        @_test(
-            Float64[
-                MOI.get(
-                    model,
-                    DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(),
-                    vi,
-                    ci,
-                ) for ci in cle, vi in v
-            ],
-            dGb,
-        )
-        @_test(
-            convert(Vector{Float64}, MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ceq)),
-            dbb,
-        )
-        @_test(
-            Float64[
-                MOI.get(
-                    model,
-                    DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(),
-                    vi,
-                    ci,
-                ) for ci in ceq, vi in v
-            ],
-            dAb,
-        )
+        funcs = MOI.get.(model, DiffOpt.BackwardOutConstraint(), cle)
+        @_test(convert(Vector{Float64}, MOI.constant.(funcs)), dhb)
+        @_test(Float64[JuMP.coefficient(funcs[i], vi) for i in eachindex(cle), vi in v], dGb)
+        funcs = MOI.get.(model, DiffOpt.BackwardOutConstraint(), ceq)
+        @_test(convert(Vector{Float64}, MOI.constant.(funcs)), dbb)
+        @_test(Float64[JuMP.coefficient(funcs[i], vi) for i in eachindex(ceq), vi in v], dAb)
     end
 
     # Test against [AK17, eq. (8)]

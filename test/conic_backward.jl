@@ -46,7 +46,7 @@
 
     DiffOpt.backward(model)
 
-    db = MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), c)
+    db = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
 
     @test db ≈ [-1.0]  atol=ATOL rtol=RTOL
 end
