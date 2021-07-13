@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Sensitivity Analysis SVM · DiffOpt.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.039/juliamono-regular.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">DiffOpt.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../intro/">Introduction</a></li><li><a class="tocitem" href="../manual/">Manual</a></li><li><a class="tocitem" href="../usage/">Usage</a></li><li><a class="tocitem" href="../reference/">Reference</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../solve-LP/">Solving an LP</a></li><li><a class="tocitem" href="../solve-QP/">Solving a QP</a></li><li><a class="tocitem" href="../solve-conic-1/">Solving conic with PSD and SOC constraints</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a simple QP by hand</a></li><li class="is-active"><a class="tocitem" href>Sensitivity Analysis SVM</a><ul class="internal"><li><a class="tocitem" href="#Define-and-solve-the-SVM"><span>Define and solve the SVM</span></a></li><li class="toplevel"><a class="tocitem" href="#Experiments"><span>Experiments</span></a></li><li><a class="tocitem" href="#Experiment-1:-Gradient-of-hyperplane-wrt-the-data-point-labels"><span>Experiment 1: Gradient of hyperplane wrt the data point labels</span></a></li><li><a class="tocitem" href="#Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates"><span>Experiment 2: Gradient of hyperplane wrt the data point coordinates</span></a></li></ul></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Sensitivity Analysis SVM</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Sensitivity Analysis SVM</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Sensitivity-Analysis-of-SVM-using-DiffOpt.jl"><a class="docs-heading-anchor" href="#Sensitivity-Analysis-of-SVM-using-DiffOpt.jl">Sensitivity Analysis of SVM using DiffOpt.jl</a><a id="Sensitivity-Analysis-of-SVM-using-DiffOpt.jl-1"></a><a class="docs-heading-anchor-permalink" href="#Sensitivity-Analysis-of-SVM-using-DiffOpt.jl" title="Permalink"></a></h1><p>This notebook illustrates sensitivity analysis of data points in an <a href="https://en.wikipedia.org/wiki/Support-vector_machine">Support Vector Machine</a> (inspired from <a href="http://github.com/matbesancon">@matbesancon</a>&#39;s <a href="http://github.com/matbesancon/SimpleSVMs.jl">SimpleSVMs</a>.)</p><p>For reference, Section 10.1 of https://online.stat.psu.edu/stat508/book/export/html/792 gives an intuitive explanation of what does it means to have a sensitive hyperplane or data point. The general form of the SVM training problem is given below (without regularization):</p><p class="math-container">\[\begin{split}
+\begin{array} {ll}
+\mbox{minimize} &amp; \sum_{i=1}^{N} \xi_{i} \\
+\mbox{s.t.} &amp; \xi_{i} \ge 0 \quad i=1..N  \\
+            &amp; y_{i} (w^T X_{i} + b) \ge 1 - \xi[i]\\
+\end{array}
+\end{split}\]</p><p>where</p><ul><li><code>X</code>, <code>y</code> are the <code>N</code> data points</li><li><code>ξ</code> is the soft-margin loss.</li></ul><h2 id="Define-and-solve-the-SVM"><a class="docs-heading-anchor" href="#Define-and-solve-the-SVM">Define and solve the SVM</a><a id="Define-and-solve-the-SVM-1"></a><a class="docs-heading-anchor-permalink" href="#Define-and-solve-the-SVM" title="Permalink"></a></h2><p>Import the libraries.</p><pre><code class="language-julia">import Random
+using Test
+import SCS
+import Plots
+using DiffOpt
+using LinearAlgebra
+import MathOptInterface
+const MOI = MathOptInterface</code></pre><p>Construct separatable, non-trivial data points.</p><pre><code class="language-julia">N = 100
+D = 2
+Random.seed!(6)
+X = vcat(randn(N, D), randn(N,D) .+ [4.0,1.5]&#39;)
+y = append!(ones(N), -ones(N))</code></pre><p>Let&#39;s define the variables.</p><pre><code class="language-julia">model = diff_optimizer(SCS.Optimizer)
+MOI.set(model, MOI.Silent(), true)
+
+# add variables
+l = MOI.add_variables(model, N)
+w = MOI.add_variables(model, D)
+b = MOI.add_variable(model)</code></pre><p>Add the constraints.</p><pre><code class="language-julia">MOI.add_constraint(
+    model,
+    MOI.VectorAffineFunction(
+        MOI.VectorAffineTerm.(1:N, MOI.ScalarAffineTerm.(1.0, l)), zeros(N),
+    ),
+    MOI.Nonnegatives(N),
+)
+
+# define the whole matrix Ax, it&#39;ll be easier then
+# refer https://discourse.julialang.org/t/solve-minimization-problem-where-constraint-is-the-system-of-linear-inequation-with-mathoptinterface-efficiently/23571/4
+Ax = Matrix{MOI.ScalarAffineTerm{Float64}}(undef, N, D+2)
+for i in 1:N
+    Ax[i, :] = MOI.ScalarAffineTerm.([1.0; y[i]*X[i,:]; y[i]], [l[i]; w; b])
+end
+terms = MOI.VectorAffineTerm.(1:N, Ax)
+f = MOI.VectorAffineFunction(
+    vec(terms),
+    -ones(N),
+)
+cons = MOI.add_constraint(
+    model,
+    f,
+    MOI.Nonnegatives(N),
+)</code></pre><p>Define the linear objective function and solve the SVM model.</p><pre><code class="language-julia">objective_function = MOI.ScalarAffineFunction(
+                        MOI.ScalarAffineTerm.(ones(N), l),
+                        0.0,
+                    )
+MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+
+MOI.optimize!(model)
+
+loss = MOI.get(model, MOI.ObjectiveValue())
+wv = MOI.get(model, MOI.VariablePrimal(), w)
+bv = MOI.get(model, MOI.VariablePrimal(), b)</code></pre><p>We can visualize the separating hyperplane.</p><pre><code class="language-julia"># build SVM points
+svm_x = [0.0, 3.0]
+svm_y = (-bv .- wv[1] * svm_x )/wv[2]
+
+p = Plots.scatter(X[:,1], X[:,2], color = [yi &gt; 0 ? :red : :blue for yi in y], label = &quot;&quot;)
+Plots.yaxis!(p, (-2, 4.5))
+Plots.plot!(p, svm_x, svm_y, label = &quot;loss = $(round(loss, digits=2))&quot;, width=3)
+Plots.savefig(&quot;svm_separating.svg&quot;)</code></pre><pre class="documenter-example-output">qt.qpa.xcb: could not connect to display
+qt.qpa.plugin: Could not load the Qt platform plugin &quot;xcb&quot; in &quot;&quot; even though it was found.
+This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+
+Available platform plugins are: linuxfb, minimal, offscreen, vnc, xcb.
+
+Aborted (core dumped)
+connect: Connection refused
+GKS: can&#39;t connect to GKS socket application
+
+GKS: Open failed in routine OPEN_WS
+GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS</pre><p><img src="../svm_separating.svg" alt="svg"/></p><h1 id="Experiments"><a class="docs-heading-anchor" href="#Experiments">Experiments</a><a id="Experiments-1"></a><a class="docs-heading-anchor-permalink" href="#Experiments" title="Permalink"></a></h1><p>Now that we&#39;ve solved the SVM, we can compute the sensitivity of optimal values – the separating hyperplane in our case – with respect to perturbations of the problem data – the data points – using DiffOpt. For illustration, we&#39;ve explored two questions:</p><ul><li>How does a change in labels of the data points (<code>y=1</code> to <code>y=-1</code>, and vice versa) affect the position of the hyperplane? This is achieved by finding the gradient of <code>w</code>, <code>b</code> with respect to <code>y[i]</code>, the classification label of the ith data point.</li><li>How does a change in coordinates of the data points, <code>X</code>, affects the position of the hyperplane? This is achieved by finding gradient of <code>w</code>, <code>b</code> with respect to <code>X[i]</code>, 2D coordinates of the data points.</li></ul><p>Note that finding the optimal SVM can be modelled as a conic optimization problem:</p><p class="math-container">\[\begin{align*}
+&amp; \min_{x \in \mathbb{R}^n} &amp; c^T x \\
+&amp; \text{s.t.}               &amp; A x + s = b  \\
+&amp;                           &amp; b \in \mathbb{R}^m  \\
+&amp;                           &amp; s \in \mathcal{K}
+\end{align*}\]</p><p>where</p><p class="math-container">\[\begin{align*}
+c &amp;= [l_1 - 1, l_2 -1, ... l_N -1, 0, 0, ... 0 \text{(D+1 times)}] \\\\
+
+A &amp;=
+\begin{bmatrix}
+ -l_1 &amp;    0 &amp; ... &amp;    0 &amp;            0 &amp; ... &amp; 0 &amp; 0  \\
+    0 &amp; -l_2 &amp; ... &amp;    0 &amp;            0 &amp; ... &amp; 0 &amp; 0  \\
+    : &amp;    : &amp; ... &amp;    : &amp;            0 &amp; ... &amp; 0 &amp; 0  \\
+    0 &amp;    0 &amp; ... &amp; -l_N &amp;            0 &amp; ... &amp; 0 &amp; 0  \\
+    0 &amp;    0 &amp; ... &amp;    0 &amp; -y_1 X_{1,1} &amp; ... &amp; -y_1 X_{1,N} &amp; -y_1  \\
+    0 &amp;    0 &amp; ... &amp;    0 &amp; -y_2 X_{2,1} &amp; ... &amp; -y_1 X_{2,N} &amp; -y_2  \\
+    : &amp;    : &amp; ... &amp;    : &amp;           :  &amp; ... &amp;          :   &amp; :   \\
+    0 &amp;    0 &amp; ... &amp;    0 &amp; -y_N X_{N,1} &amp; ... &amp; -y_N X_{N,N} &amp; -y_N  \\
+\end{bmatrix} \\\\
+
+b &amp;= [0, 0, ... 0 \text{(N times)}, l_1 - 1, l_2 -1, ... l_N -1] \\\\
+
+\mathcal{K} &amp;= \text{Set of Nonnegative cones}
+\end{align*}\]</p><h2 id="Experiment-1:-Gradient-of-hyperplane-wrt-the-data-point-labels"><a class="docs-heading-anchor" href="#Experiment-1:-Gradient-of-hyperplane-wrt-the-data-point-labels">Experiment 1: Gradient of hyperplane wrt the data point labels</a><a id="Experiment-1:-Gradient-of-hyperplane-wrt-the-data-point-labels-1"></a><a class="docs-heading-anchor-permalink" href="#Experiment-1:-Gradient-of-hyperplane-wrt-the-data-point-labels" title="Permalink"></a></h2><p>Construct perturbations in data point labels <code>y</code> without changing the data point coordinates <code>X</code>.</p><pre><code class="language-julia">∇ = Float64[]
+dy = zeros(N)
+
+# begin differentiating
+for Xi in 1:N
+    dy[Xi] = 1.0  # set
+
+    MOI.set(
+        model,
+        DiffOpt.ForwardInConstraint(),
+        cons,
+        MOI.Utilities.vectorize(dy .* MOI.SingleVariable(b)),
+    )
+
+    DiffOpt.forward(model)
+
+    dw = MOI.get.(
+        model,
+        DiffOpt.ForwardOutVariablePrimal(),
+        w
+    )
+    db = MOI.get(
+        model,
+        DiffOpt.ForwardOutVariablePrimal(),
+        b
+    )
+    push!(∇, norm(dw) + norm(db))
+
+    dy[Xi] = 0.0  # reset the change made above
+end
+LinearAlgebra.normalize!(∇)</code></pre><p>Visualize point sensitivities with respect to separating hyperplane. Note that the gradients are normalized.</p><pre><code class="language-julia">p2 = Plots.scatter(
+    X[:,1], X[:,2],
+    color = [yi &gt; 0 ? :red : :blue for yi in y], label = &quot;&quot;,
+    markersize = ∇ * 20,
+)
+Plots.yaxis!(p2, (-2, 4.5))
+Plots.plot!(p2, svm_x, svm_y, label = &quot;loss = $(round(loss, digits=2))&quot;, width=3)
+Plots.savefig(&quot;sensitivity2.svg&quot;)</code></pre><pre class="documenter-example-output">qt.qpa.xcb: could not connect to display
+qt.qpa.plugin: Could not load the Qt platform plugin &quot;xcb&quot; in &quot;&quot; even though it was found.
+This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+
+Available platform plugins are: linuxfb, minimal, offscreen, vnc, xcb.
+
+Aborted (core dumped)
+connect: Connection refused
+GKS: can&#39;t connect to GKS socket application
+
+GKS: Open failed in routine OPEN_WS
+GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS
+┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
+└ @ Plots ~/.julia/packages/Plots/ldLtW/src/utils.jl:124
+┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
+└ @ Plots ~/.julia/packages/Plots/ldLtW/src/utils.jl:124</pre><p><img src="../sensitivity2.svg" alt/></p><h2 id="Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates"><a class="docs-heading-anchor" href="#Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates">Experiment 2: Gradient of hyperplane wrt the data point coordinates</a><a id="Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates-1"></a><a class="docs-heading-anchor-permalink" href="#Experiment-2:-Gradient-of-hyperplane-wrt-the-data-point-coordinates" title="Permalink"></a></h2><p>Similar to previous example, construct perturbations in data points coordinates <code>X</code>.</p><pre><code class="language-julia">∇ = Float64[]
+dX = zeros(N, D)
+
+# begin differentiating
+for Xi in 1:N
+    dX[Xi, :] = ones(D)  # set
+
+    for i in 1:D
+        MOI.set(
+            model,
+            DiffOpt.ForwardInConstraint(),
+            cons,
+            MOI.Utilities.vectorize(dX[:,i] .* w[i]),
+        )
+    end
+
+    DiffOpt.forward(model)
+
+    dw = MOI.get.(
+        model,
+        DiffOpt.ForwardOutVariablePrimal(),
+        w
+    )
+    db = MOI.get(
+        model,
+        DiffOpt.ForwardOutVariablePrimal(),
+        b
+    )
+    push!(∇, norm(dw) + norm(db))
+
+    dX[Xi, :] = zeros(D)  # reset the change made ago
+end
+LinearAlgebra.normalize!(∇)</code></pre><p>We can visualize point sensitivity with respect to the separating hyperplane. Note that the gradients are normalized.</p><pre><code class="language-julia">p3 = Plots.scatter(
+    X[:,1], X[:,2],
+    color = [yi &gt; 0 ? :red : :blue for yi in y], label = &quot;&quot;,
+    markersize = ∇ * 20,
+)
+Plots.yaxis!(p3, (-2, 4.5))
+Plots.plot!(p3, svm_x, svm_y, label = &quot;loss = $(round(loss, digits=2))&quot;, width=3)
+Plots.savefig(p3, &quot;sensitivity3.svg&quot;)</code></pre><pre class="documenter-example-output">qt.qpa.xcb: could not connect to display
+qt.qpa.plugin: Could not load the Qt platform plugin &quot;xcb&quot; in &quot;&quot; even though it was found.
+This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+
+Available platform plugins are: linuxfb, minimal, offscreen, vnc, xcb.
+
+Aborted (core dumped)
+connect: Connection refused
+GKS: can&#39;t connect to GKS socket application
+
+GKS: Open failed in routine OPEN_WS
+GKS: GKS not in proper state. GKS must be either in the state WSOP or WSAC in routine ACTIVATE_WS
+┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
+└ @ Plots ~/.julia/packages/Plots/ldLtW/src/utils.jl:124
+┌ Warning: Indices Base.OneTo(100) of attribute `markersize` does not match data indices 1:200.
+└ @ Plots ~/.julia/packages/Plots/ldLtW/src/utils.jl:124</pre><p><img src="../sensitivity3.svg" alt/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a simple QP by hand</a><a class="docs-footer-nextpage" href="../chainrules_unit/">ChainRules integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.3 on <span class="colophon-date" title="Tuesday 13 July 2021 00:38">Tuesday 13 July 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
