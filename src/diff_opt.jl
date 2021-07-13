@@ -379,12 +379,17 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     dQ_end_ni = - g[end] * πz[n+i]
     return - dQ_ni_end + dQ_end_ni
 end
-function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI)
+_neg_if_lt(x, ::Type{<:MOI.LessThan}) = -x
+_neg_if_lt(x, ::Type{<:MOI.GreaterThan}) = x
+_neg_if_gt(x, ::Type{<:MOI.LessThan}) = x
+_neg_if_gt(x, ::Type{<:MOI.GreaterThan}) = -x
+function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
+) where {F,S}
     i = g_cache.index_map[ci].value
     # dh = -Diagonal(λ) * dλ
     dλ = b_cache.dλ
     λ = g_cache.inequality_duals
-    return - λ[i] * dλ[i]
+    return _neg_if_lt(λ[i] * dλ[i], S)
 end
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S<:MOI.EqualTo}
@@ -464,13 +469,15 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     dν = b_cache.dν
     return lazy_combination(+, dν[i], z, ν[i], dz)
 end
-function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI)
+function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
+) where {F,S}
     i = g_cache.index_map[ci].value
     z = g_cache.var_primals
     dz = b_cache.dz
     λ = g_cache.inequality_duals
     dλ = b_cache.dλ
-    return lazy_combination(+, λ[i] * dλ[i], z, λ[i] * λ[i], dz)
+    l = _neg_if_gt(λ[i], S)
+    return lazy_combination(+, l * dλ[i], z, l * λ[i], dz)
 end
 
 
@@ -655,10 +662,10 @@ function _forward_quad(model::Optimizer)
     dq = sparse_array_obj.affine_terms
 
     db = zeros(length(b))
-    _fill(isequal(MOI.EqualTo{Float64}), model, _QPForm(), db)
+    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), db)
 
     dh = zeros(length(h))
-    _fill(!isequal(MOI.EqualTo{Float64}), model, _QPForm(), dh)
+    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dh)
 
     nz = nnz(A)
     (lines, cols) = size(A)
@@ -668,7 +675,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(isequal(MOI.EqualTo{Float64}), model, _QPForm(), dAi, dAj, dAv)
+    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     nz = nnz(G)
@@ -679,7 +686,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dGi, nz)
     sizehint!(dGj, nz)
     sizehint!(dGv, nz)
-    _fill(!isequal(MOI.EqualTo{Float64}), model, _QPForm(), dGi, dGj, dGv)
+    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dGi, dGj, dGv)
     dG = sparse(dGi, dGj, dGv, lines, cols)
 
 
@@ -843,7 +850,7 @@ function _forward_conic(model::Optimizer)
     dc = sparse_array_obj.terms
 
     db = zeros(length(b))
-    _fill(model, model.gradient_cache.conic_form, db)
+    _fill(S -> false, model, model.gradient_cache.conic_form, db)
     (lines, cols) = size(A)
     nz = nnz(A)
     dAi = zeros(Int, 0)
@@ -852,7 +859,7 @@ function _forward_conic(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(model, model.gradient_cache.conic_form, dAi, dAj, dAv)
+    _fill(S -> false, model, model.gradient_cache.conic_form, dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
@@ -883,44 +890,44 @@ end
 struct _QPForm end
 MatOI.rows(::_QPForm, ci::MOI.ConstraintIndex) = ci.value
 
-function _fill(model::Optimizer, conic_form, args...)
-    _fill(S -> true, model, conic_form, args...)
+function _fill(neg::Function, model::Optimizer, conic_form, args...)
+    _fill(S -> true, neg, model, conic_form, args...)
 end
-function _fill(filter::Function, model::Optimizer, conic_form, args...)
+function _fill(filter::Function, neg::Function, model::Optimizer, conic_form, args...)
     conmap = model.gradient_cache.index_map.conmap
     varmap = model.gradient_cache.index_map.varmap
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
         filter(S) || continue
         if F == MOI.ScalarAffineFunction{Float64}
-            _fill(args..., conic_form, conmap[F,S], varmap, model.input_cache.scalar_constraints[F,S])
+            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.scalar_constraints[F,S])
         elseif F == MOI.VectorAffineFunction{Float64}
-            _fill(args..., conic_form, conmap[F,S], varmap, model.input_cache.vector_constraints[F,S])
+            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.vector_constraints[F,S])
         end
     end
     return
 end
 
-function _fill(vector::Vector, conic_form, constraint_map, variable_map, dict)
+function _fill(vector::Vector, neg::Bool, conic_form, constraint_map, variable_map, dict)
     for (ci, func) in dict
         r = MatOI.rows(conic_form, constraint_map[ci])
-        vector[r] = MOI.constant(func)
+        vector[r] = neg ? -MOI.constant(func) : MOI.constant(func)
     end
 end
-function _fill(I::Vector, J::Vector, V::Vector, conic_form, constraint_map, variable_map, dict)
+function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, conic_form, constraint_map, variable_map, dict)
     for (ci, func) in dict
         r = MatOI.rows(conic_form, constraint_map[ci])
         for term in func.terms
-            _push_term(I, J, V, r, term, variable_map)
+            _push_term(I, J, V, neg, r, term, variable_map)
         end
     end
 end
-function _push_term(I::Vector, J::Vector, V::Vector, r::Integer, term::MOI.ScalarAffineTerm, variable_map)
+function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::Integer, term::MOI.ScalarAffineTerm, variable_map)
     push!(I, r)
     push!(J, variable_map[term.variable_index].value)
-    push!(V, term.coefficient)
+    push!(V, neg ? -term.coefficient : term.coefficient)
 end
-function _push_term(I::Vector, J::Vector, V::Vector, r::UnitRange, term::MOI.VectorAffineTerm, variable_map)
-    _push_term(I, J, V, r[term.output_index], term.scalar_term, variable_map)
+function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, term::MOI.VectorAffineTerm, variable_map)
+    _push_term(I, J, V, neg, r[term.output_index], term.scalar_term, variable_map)
 end
 
 """
