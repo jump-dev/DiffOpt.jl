@@ -121,11 +121,10 @@ function qp_test(
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     if iszero(Q)
         obj = q ⋅ fv
-        MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
     else
         obj = fv' * (Q / 2) * fv + q ⋅ fv
-        MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
     end
+    MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
 
     MOI.optimize!(model)
 
@@ -175,8 +174,8 @@ function qp_test(
             # FIXME should multiply by -1
             funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), clb))
         end
-        @_test(convert(Vector{Float64}, MOI.constant.(funcs)), dhb)
-        @_test(Float64[JuMP.coefficient(funcs[i], vi) for i in eachindex(funcs), vi in v], dGb)
+        @_test(convert(Vector{Float64}, _sign(MOI.constant.(funcs), false)), dhb)
+        @_test(Float64[_sign(JuMP.coefficient(funcs[i], vi), false) for i in eachindex(funcs), vi in v], dGb)
 
         funcs = MOI.get.(model, DiffOpt.BackwardOutConstraint(), ceq)
         if !iszero(nfix)
@@ -218,7 +217,7 @@ function qp_test(
             func = dlef[j]
             canonicalize && MOI.Utilities.canonicalize!(func)
             if set_zero || !MOI.iszero(dlef[j])
-                MOI.set(model, DiffOpt.ForwardInConstraint(), jc, func)
+                MOI.set(model, DiffOpt.ForwardInConstraint(), jc, _sign(func, false))
             end
         end
         for (j, jc) in enumerate(ceq)

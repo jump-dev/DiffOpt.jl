@@ -194,12 +194,12 @@ end
     expected = dl_dq' * z + z' * (dl_dQ / 2.0) * z
     @test moi_function(MOI.get(model, DiffOpt.BackwardOutObjective())) ≈ moi_function(expected)  atol=ATOL rtol=RTOL
 
-    dh = [-0.35714284; -0.4285714]
+    dh = [0.35714284; 0.4285714]
     # This ws already broken
     # @test_broken dl_dG ≈ [0.05102035   0.30612245  0.255102;
     #                0.06122443   0.36734694  0.3061224] atol=ATOL rtol=RTOL
-    dG = [0.05102035   0.30612245  0.255102;
-          0.06122443   0.36734694  0.3061224]
+    dG = -[0.05102035   0.30612245  0.255102;
+           0.06122443   0.36734694  0.3061224]
     for (j,jc) in enumerate([c1, c2])
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
         @test JuMP.constant(grad) ≈ dh[j] atol=ATOL rtol=RTOL
@@ -359,8 +359,8 @@ end
 
     c_le = [c1, c2]
 
-    dh = [0.0, -1.0]
-    dG = [0.0, 3.0]
+    dh = [0.0, 1.0]
+    dG = [0.0, -3.0]
     for (j,jc) in enumerate(c_le)
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
         @test JuMP.constant(grad) ≈ dh[j] atol=ATOL rtol=RTOL
@@ -387,8 +387,8 @@ end
 
     c_le = [c1, c2]
 
-    dh = [0.0, -1.0]
-    dG = [0.0, 3.0]
+    dh = [0.0, 1.0]
+    dG = [0.0, -3.0]
     for (j,jc) in enumerate(c_le)
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
         @test JuMP.constant(grad) ≈ dh[j] atol=ATOL rtol=RTOL
@@ -425,10 +425,10 @@ end
     dc = zeros(3)
     dG = [0.0 0.0 0.0;
           0.0 0.0 -5/3;
-          0.0 0.0 5/3;
-          0.0 0.0 -10/3;
+          0.0 0.0 -5/3;
+          0.0 0.0 10/3;
           0.0 0.0 0.0]
-    dh = [0.0; 1/3; -1/3; 2/3; 0.0]
+    dh = [0.0; 1/3; 1/3; -2/3; 0.0]
 
     cb = LowerBoundRef.(v)
     cc = [c1, c2]
@@ -482,11 +482,11 @@ end
           0.0 0.0 0.0
           0.0 0.0 0.0
           0.0 0.0 0.0
-          0.0 0.0 5/3
-          0.0 0.0 -10/3
+          0.0 0.0 -5/3
+          0.0 0.0 10/3
           0.0 0.0 0.0
           ]
-    dh = [0.0, 1/3, 0.0, 0.0, 0.0, -1/3, 2/3, 0.0]
+    dh = [0.0, 1/3, 0.0, 0.0, 0.0, 1/3, -2/3, 0.0]
 
     cb = LowerBoundRef.(v)
     cc = [c1, c2, c3, c4, c5]
