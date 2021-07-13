@@ -93,9 +93,11 @@ function ∇model(model, X_train, w, ŵ, α)
         MOI.set(
             model, 
             DiffOpt.ForwardInObjective(), 
-            w[i],
-            w[i],
-            dw[i]*α
+            MOI.ScalarQuadraticFunction(
+                [MOI.ScalarAffineTerm(0.0, w[i].index)], 
+                [MOI.ScalarQuadraticTerm(dw[i]*α, w[i].index, w[i].index)], 
+                0.0
+            )
         )
 
         DiffOpt.forward(model)  # find grad
