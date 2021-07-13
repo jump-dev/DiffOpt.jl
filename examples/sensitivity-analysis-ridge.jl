@@ -76,8 +76,8 @@ for i in 1:length(X)
         model, 
         DiffOpt.ForwardInObjective(), 
         MOI.ScalarQuadraticFunction(
-            [MOI.ScalarAffineTerm(-2(Y[1] + X[1]), w.index)], 
-            [MOI.ScalarQuadraticTerm(2X[1], w.index, w.index)], 
+            [MOI.ScalarAffineTerm(-2(Y[i] + X[i]), w.index)], 
+            [MOI.ScalarQuadraticTerm(2X[i], w.index, w.index)], 
             0.0
         )
     )
