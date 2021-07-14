@@ -18,6 +18,7 @@ using ChainRulesCore
 
 ```@example 1
 labels = NaN;   # hack for the SVM
+nothing # hide
 ```
 
 ```@example 1
@@ -55,6 +56,7 @@ function SVM(X::AbstractMatrix{T}; model = Model(() -> diff_optimizer(SCS.Optimi
     
     return (X'*wv .+ bv)' #prediction
 end
+nothing # hide
 ```
 
 
@@ -92,7 +94,8 @@ function fetchProblem(;split_ratio::Float64)
     return X[:, 1:l], X[:, l+1:N], Y[1:l]', Y[l+1:N]'
 end
 X_train, X_test, Y_train, Y_test = fetchProblem(split_ratio=0.8)
-D = size(X_train)[1];
+D = size(X_train)[1]
+nothing # hide
 ```
 
 ## Define the NN
@@ -103,8 +106,8 @@ m = Chain(
     Dense(D, 16, relu),
     Dropout(0.5),
     SVM
-#     Dense(32, 1, σ),
-);
+)
+nothing # hide
 ```
 
 
@@ -121,6 +124,7 @@ end
 
 dataset = repeated((X_train,Y_train), 1) # repeat the data set, very low accuracy on the orig dataset
 evalcb = () -> @show(custom_loss(X_train,Y_train)) # callback to show loss
+nothing # hide
 ```
 
 
@@ -134,5 +138,6 @@ end
 @show accuracy(X_train, Y_train)
 
 labels = Y_test   # needed for SVM
-@show accuracy(X_test, Y_test);
+@show accuracy(X_test, Y_test)
+nothing # hide
 ```

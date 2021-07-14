@@ -32,7 +32,8 @@ X = convert(Array{Float16,2}, X)
 test_X = convert(Array{Float16,2}, test_X)
 
 X = X[:, 1:1000]
-Y = Y[:, 1:1000];
+Y = Y[:, 1:1000]
+nothing # hide
 ```
 
 
@@ -41,7 +42,7 @@ Y = Y[:, 1:1000];
 relu method for a Matrix
 """
 function matrix_relu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
-    x̂ = zero(y)
+    _x = zero(y)
     
     # model init
     N = length(y[:, 1])
@@ -56,10 +57,11 @@ function matrix_relu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OS
             x'x -2x'y[:, i]
         )
         optimize!(model)
-        x̂[:, i] = value.(x)
+        _x[:, i] = value.(x)
     end
-    return x̂
+    return _x
 end
+nothing # hide
 ```
 
 
@@ -107,6 +109,7 @@ m = Chain(
     Dense(64, 10),
     softmax,
 )
+nothing # hide
 ```
 
 
@@ -118,6 +121,7 @@ accuracy(x, y) = mean(onecold(m(x)) .== onecold(y)) # cute way to find average o
 
 dataset = repeated((X,Y), 20) # repeat the data set, very low accuracy on the orig dataset
 evalcb = () -> @show(custom_loss(X, Y)) # callback to show loss
+nothing # hide
 ```
 
 
@@ -127,5 +131,6 @@ Although our custom implementation takes time, it is able to reach similar accur
 Flux.train!(custom_loss, params(m), dataset, opt, cb = throttle(evalcb, 5));
 
 @show accuracy(X,Y)
-@show accuracy(test_X, test_Y);
+@show accuracy(test_X, test_Y)
+nothing # hide
 ```
