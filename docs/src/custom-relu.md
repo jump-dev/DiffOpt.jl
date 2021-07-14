@@ -42,7 +42,7 @@ nothing # hide
 relu method for a Matrix
 """
 function matrix_relu(y::AbstractMatrix{T}; model = Model(() -> diff_optimizer(OSQP.Optimizer))) where {T}
-    _x = zero(y)
+    _x = zeros(T, size(y))
     
     # model init
     N = length(y[:, 1])
@@ -74,7 +74,7 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::AbstractArray{T}; model 
     
     function pullback_matrix_relu(dx)
         x = model[:x]
-        dy = zero(dx)
+        dy = zeros(T, size(dx))
         
         for i in 1:size(y)[2]
             MOI.set.(

@@ -76,7 +76,7 @@ function ChainRulesCore.rrule(::typeof(SVM), X::AbstractArray{T}; model = Model(
         since they can be computed to an accurate degree using a solver
     """
     function pullback_SVM(dX)
-        dy = zero(dX)   # since w#
+        dy = zeros(T, size(dX))   # since w#
         return (NO_FIELDS, dy)
     end
     return predictions, pullback_SVM
