@@ -220,42 +220,21 @@ DiffOpt.quad_sym_half(func, x, y)
 struct BackwardOutObjective <: MOI.AbstractModelAttribute end
 MOI.is_set_by_optimize(::BackwardOutObjective) = true
 
-abstract type AbstractDiffAttribute end
-Base.broadcastable(attribute::AbstractDiffAttribute) = Ref(attribute)
-
 """
-    BackwardOut{T}
+    BackwardOutConstraint
 
-A AbstractDiffAttribute to get output data to backward differentiation, that
-is, problem solution.
-The solution data includes:
-[`ConstraintConstant`](@ref) and [`ConstraintCoefficient`](@ref).
-The latter can only be used in linearly constrained quadratic models.
+An `MOI.AbstractConstraintAttribute` to get output data to backward differentiation, that
+is, problem input data.
 
+For instance, if the following returns `x + 2y`, it means that the tangent
+has coordinate `1` for the coefficient of `x` and coordinate `2` for the
+coefficient of `y`.
 ```julia
-MOI.get(model, DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(), x)
+MOI.get(model, DiffOpt.BackwardOutConstraint(), ci)
 ```
 """
-struct BackwardOut{T} <: AbstractDiffAttribute end
-
-abstract type AbstractDiffInnerAttribute end
-
-"""
-    ConstraintConstant
-
-An attribute to set input and get output differentials from forward and backward
-differentiation related to the constant term associated to a `MOI.ConstraintIndex`.
-"""
-struct ConstraintConstant <: AbstractDiffInnerAttribute end #(con)
-
-"""
-    ConstraintCoefficient
-
-An attribute to set input and get output differentials from forward and backward
-differentiation related to the linear coefficient associated to a pair:
-`MOI.VariableIndex` and `MOI.ConstraintIndex`.
-"""
-struct ConstraintCoefficient <: AbstractDiffInnerAttribute end #(var, con)
+struct BackwardOutConstraint <: MOI.AbstractConstraintAttribute end
+MOI.is_set_by_optimize(::BackwardOutConstraint) = true
 
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
@@ -311,6 +290,29 @@ function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
     return
 end
 
+function lazy_combination(op::F, α, a, β, b) where {F<:Function}
+    return LazyArrays.ApplyArray(
+        op,
+        LazyArrays.@~(α .* a),
+        LazyArrays.@~(β .* b),
+    )
+end
+# Workaround for Julia v1.0
+@static if VERSION < v"1.6"
+    _view(x, I) = x[I]
+else
+    _view(x, I) = view(x, I)
+end
+function lazy_combination(op::F, α, a, β, b, I::UnitRange) where {F<:Function}
+    return lazy_combination(op, α, _view(a, I), β, _view(b, I))
+end
+function lazy_combination(op::F, a, b, i::Integer, args::Vararg{Any,N}) where {F<:Function,N}
+    return lazy_combination(op, a[i], b, b[i], a, args...)
+end
+function lazy_combination(op::F, a, b, i::UnitRange, I::UnitRange) where {F<:Function}
+    return lazy_combination(op, _view(a, i), b, _view(b, i), a, I)
+end
+
 function MOI.get(model::Optimizer, ::BackwardOutObjective)
     return IndexMappedFunction(
         _back_obj(model.back_grad_cache, model.gradient_cache),
@@ -318,14 +320,9 @@ function MOI.get(model::Optimizer, ::BackwardOutObjective)
     )
 end
 function _back_obj(b_cache::ConicBackCache, g_cache::ConicCache)
-    i = g_cache.index_map[vi].value
     g = b_cache.g
     πz = b_cache.πz
-    dc = LazyArrays.Applied(
-        -,
-        LazyArrays.Applied(*, πz[end], g),
-        LazyArrays.Applied(*, g[end], πz),
-    )
+    dc = lazy_combination(-, πz, g, length(g))
     return VectorScalarAffineFunction(dc, 0.0)
 end
 function _back_obj(b_cache::QPForwBackCache, g_cache::QPCache)
@@ -348,9 +345,13 @@ function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
     return
 end
 
-function MOI.get(model::Optimizer,
-    ::BackwardOut{ConstraintConstant}, ci::CI{F,S}) where {F,S}
-    return _get_db(model, ci)
+_lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
+_lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
+function MOI.get(model::Optimizer, ::BackwardOutConstraint, ci::CI)
+    return IndexMappedFunction(
+        _lazy_affine(_get_dA(model, ci), _get_db(model, ci)),
+        model.gradient_cache.index_map,
+    )
 end
 _get_db(model::Optimizer, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
@@ -364,9 +365,7 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
     g = b_cache.g
     πz = b_cache.πz
-    dQ_ni_end = - g[n .+ i] * πz[end]
-    dQ_end_ni = - g[end] * πz[n .+ i]
-    return - dQ_ni_end + dQ_end_ni
+    return lazy_combination(-, πz, g, length(g), n .+ i)
 end
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
@@ -380,13 +379,17 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     dQ_end_ni = - g[end] * πz[n+i]
     return - dQ_ni_end + dQ_end_ni
 end
+_neg_if_lt(x, ::Type{<:MOI.LessThan}) = -x
+_neg_if_lt(x, ::Type{<:MOI.GreaterThan}) = x
+_neg_if_gt(x, ::Type{<:MOI.LessThan}) = x
+_neg_if_gt(x, ::Type{<:MOI.GreaterThan}) = -x
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S}
     i = g_cache.index_map[ci].value
     # dh = -Diagonal(λ) * dλ
     dλ = b_cache.dλ
     λ = g_cache.inequality_duals
-    return - λ[i] * dλ[i]
+    return _neg_if_lt(λ[i] * dλ[i], S)
 end
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S<:MOI.EqualTo}
@@ -429,12 +432,8 @@ function MOI.set(model::Optimizer,
     return
 end
 
-function MOI.get(model::Optimizer,
-    ::BackwardOut{ConstraintCoefficient}, vi::VI, ci::CI{F,S}) where {F,S}
-    return _get_dA(model, vi, ci)
-end
-_get_dA(model::Optimizer, vi, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, vi, ci)
-function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
+_get_dA(model::Optimizer, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, ci)
+function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
     j = g_cache.index_map[vi].value
     i = g_cache.index_map[ci].value
@@ -444,16 +443,13 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
     g = b_cache.g
     πz = b_cache.πz
-    dQ_i_nj =  - g[i] * πz[n+j]
-    dQ_nj_i =  - g[n+j] * πz[i]
-    return - dQ_i_nj + dQ_nj_i
+    return lazy_combination(-, g, πz, i, n .+ (1:n))
 end
-function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
+function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     cf = g_cache.conic_form
     _ci = g_cache.index_map[ci]
     i = MatOI.rows(cf, _ci) # vector
-    j = g_cache.index_map[vi].value
     # i = g_cache.index_map[ci].value
     (x, y, _) = g_cache.xys
     n = length(x) # columns in A
@@ -461,36 +457,27 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, vi, ci::CI{F,S}
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
     g = b_cache.g
     πz = b_cache.πz
-    dQ_i_nj =  - g[i] * πz[n+j]
-    dQ_nj_i =  - g[n+j] * πz[i]
-    return - dQ_i_nj .+ dQ_nj_i
+    return lazy_combination(-, g, πz, i, n .+ (1:n))
 end
 # quadratic matrix indexes are split by type either == or (<=/>=)
-function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
+function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F, S<:MOI.EqualTo}
-    j = g_cache.index_map[vi].value
     i = g_cache.index_map[ci].value
     z = g_cache.var_primals
     dz = b_cache.dz
     ν = g_cache.equality_duals
     dν = b_cache.dν
-    return dν[i] * z[j] + ν[i] * dz[j]
+    return lazy_combination(+, dν[i], z, ν[i], dz)
 end
-function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, vi, ci::CI{F,S}
-) where {F, S}
-    j = g_cache.index_map[vi].value
+function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
+) where {F,S}
     i = g_cache.index_map[ci].value
     z = g_cache.var_primals
     dz = b_cache.dz
     λ = g_cache.inequality_duals
     dλ = b_cache.dλ
-    # this is the previously implemented
-    # return Diagonal(λ) * dλ * z' - λ * dz')
-    return λ[i] * (dλ[i] * z[j]) - λ[i] * dz[j]
-    # from the paper, the correct solution should be this
-    # and the correct fix is probably correcting the signs of the duals
-    # since MOI standard is different from text book shadow prices
-    # return λ[i] * (dλ[i] * z[j] + λ[i] * dz[j])
+    l = _neg_if_gt(λ[i], S)
+    return lazy_combination(+, l * dλ[i], z, l * λ[i], dz)
 end
 
 
@@ -533,7 +520,7 @@ Wrapper method for the backward pass.
 This method will consider as input a currently solved problem and differentials
 with respect to the solution set with the [`BackwardInVariablePrimal`](@ref) attribute.
 The output problem data differentials can be queried with the
-attribute [`BackwardOut`](@ref).
+attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
 function backward(model::Optimizer)
     if _qp_supported(model.optimizer)
@@ -675,10 +662,10 @@ function _forward_quad(model::Optimizer)
     dq = sparse_array_obj.affine_terms
 
     db = zeros(length(b))
-    _fill(isequal(MOI.EqualTo{Float64}), model, _QPForm(), db)
+    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), db)
 
     dh = zeros(length(h))
-    _fill(!isequal(MOI.EqualTo{Float64}), model, _QPForm(), dh)
+    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dh)
 
     nz = nnz(A)
     (lines, cols) = size(A)
@@ -688,7 +675,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(isequal(MOI.EqualTo{Float64}), model, _QPForm(), dAi, dAj, dAv)
+    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     nz = nnz(G)
@@ -699,7 +686,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dGi, nz)
     sizehint!(dGj, nz)
     sizehint!(dGv, nz)
-    _fill(!isequal(MOI.EqualTo{Float64}), model, _QPForm(), dGi, dGj, dGv)
+    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dGi, dGj, dGv)
     dG = sparse(dGi, dGj, dGv, lines, cols)
 
 
@@ -863,7 +850,7 @@ function _forward_conic(model::Optimizer)
     dc = sparse_array_obj.terms
 
     db = zeros(length(b))
-    _fill(model, model.gradient_cache.conic_form, db)
+    _fill(S -> false, model, model.gradient_cache.conic_form, db)
     (lines, cols) = size(A)
     nz = nnz(A)
     dAi = zeros(Int, 0)
@@ -872,7 +859,7 @@ function _forward_conic(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(model, model.gradient_cache.conic_form, dAi, dAj, dAv)
+    _fill(S -> false, model, model.gradient_cache.conic_form, dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
@@ -903,44 +890,44 @@ end
 struct _QPForm end
 MatOI.rows(::_QPForm, ci::MOI.ConstraintIndex) = ci.value
 
-function _fill(model::Optimizer, conic_form, args...)
-    _fill(S -> true, model, conic_form, args...)
+function _fill(neg::Function, model::Optimizer, conic_form, args...)
+    _fill(S -> true, neg, model, conic_form, args...)
 end
-function _fill(filter::Function, model::Optimizer, conic_form, args...)
+function _fill(filter::Function, neg::Function, model::Optimizer, conic_form, args...)
     conmap = model.gradient_cache.index_map.conmap
     varmap = model.gradient_cache.index_map.varmap
     for (F, S) in MOI.get(model, MOI.ListOfConstraints())
         filter(S) || continue
         if F == MOI.ScalarAffineFunction{Float64}
-            _fill(args..., conic_form, conmap[F,S], varmap, model.input_cache.scalar_constraints[F,S])
+            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.scalar_constraints[F,S])
         elseif F == MOI.VectorAffineFunction{Float64}
-            _fill(args..., conic_form, conmap[F,S], varmap, model.input_cache.vector_constraints[F,S])
+            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.vector_constraints[F,S])
         end
     end
     return
 end
 
-function _fill(vector::Vector, conic_form, constraint_map, variable_map, dict)
+function _fill(vector::Vector, neg::Bool, conic_form, constraint_map, variable_map, dict)
     for (ci, func) in dict
         r = MatOI.rows(conic_form, constraint_map[ci])
-        vector[r] = MOI.constant(func)
+        vector[r] = neg ? -MOI.constant(func) : MOI.constant(func)
     end
 end
-function _fill(I::Vector, J::Vector, V::Vector, conic_form, constraint_map, variable_map, dict)
+function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, conic_form, constraint_map, variable_map, dict)
     for (ci, func) in dict
         r = MatOI.rows(conic_form, constraint_map[ci])
         for term in func.terms
-            _push_term(I, J, V, r, term, variable_map)
+            _push_term(I, J, V, neg, r, term, variable_map)
         end
     end
 end
-function _push_term(I::Vector, J::Vector, V::Vector, r::Integer, term::MOI.ScalarAffineTerm, variable_map)
+function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::Integer, term::MOI.ScalarAffineTerm, variable_map)
     push!(I, r)
     push!(J, variable_map[term.variable_index].value)
-    push!(V, term.coefficient)
+    push!(V, neg ? -term.coefficient : term.coefficient)
 end
-function _push_term(I::Vector, J::Vector, V::Vector, r::UnitRange, term::MOI.VectorAffineTerm, variable_map)
-    _push_term(I, J, V, r[term.output_index], term.scalar_term, variable_map)
+function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, term::MOI.VectorAffineTerm, variable_map)
+    _push_term(I, J, V, neg, r[term.output_index], term.scalar_term, variable_map)
 end
 
 """

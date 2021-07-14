@@ -3,6 +3,22 @@ function MOI.set(model::JuMP.Model, attr::ForwardInObjective, func::JuMP.Abstrac
     return MOI.set(model, attr, JuMP.moi_function(func))
 end
 
+function MOI.set(model::JuMP.Model, attr::ForwardInConstraint, con_ref::JuMP.ConstraintRef, func::JuMP.AbstractJuMPScalar)
+    JuMP.check_belongs_to_model(func, model)
+    return MOI.set(model, attr, con_ref, JuMP.moi_function(func))
+end
+
+function MOI.get(model::JuMP.Model, attr::BackwardOutObjective)
+    func = MOI.get(JuMP.backend(model), attr)
+    return JuMP.jump_function(model, func)
+end
+
+function MOI.get(model::JuMP.Model, attr::BackwardOutConstraint, con_ref::JuMP.ConstraintRef)
+    check_belongs_to_model(con_ref, model)
+    moi_func = MOI.get(JuMP.backend(model), attr, JuMP.index(con_ref))
+    return JuMP.jump_function(model, moi_func)
+end
+
 """
     abstract type AbstractLazyScalarFunction <: MOI.AbstractScalarFunction end
 
@@ -53,11 +69,11 @@ struct VectorScalarAffineFunction{T, VT} <: MOI.AbstractScalarFunction
     terms::VT
     constant::T
 end
+MOI.constant(func::VectorScalarAffineFunction) = func.constant
 function JuMP.coefficient(func::VectorScalarAffineFunction, vi::MOI.VariableIndex)
     return func.terms[vi.value]
 end
 function Base.convert(::Type{MOI.ScalarAffineFunction{T}}, func::VectorScalarAffineFunction) where {T}
-    n = length(func.terms)
     return MOI.ScalarAffineFunction{T}(
         # TODO we should do better if the vector is a `SparseVector`, I think
         #      I have some code working for both vector types in Polyhedra.jl
@@ -86,6 +102,7 @@ struct MatrixScalarQuadraticFunction{T, VT, MT} <: MOI.AbstractScalarFunction
     affine::VectorScalarAffineFunction{T,VT}
     terms::MT
 end
+MOI.constant(func::MatrixScalarQuadraticFunction) = MOI.constant(func.affine)
 function JuMP.coefficient(func::MatrixScalarQuadraticFunction, vi::MOI.VariableIndex)
     return JuMP.coefficient(func.affine, vi)
 end
@@ -121,6 +138,32 @@ function standard_form(func::MatrixScalarQuadraticFunction{T}) where {T}
     return convert(MOI.ScalarQuadraticFunction{T}, func)
 end
 
+"""
+    MatrixVectorAffineFunction{T, VT} <: MOI.AbstractVectorFunction
+
+Represents the function `terms * x + constant`
+as an `MOI.AbstractVectorFunction` where `x[i] = MOI.VariableIndex(i)`.
+Use [`standard_form`](@ref) to convert it to a `MOI.VectorAffineFunction{T}`.
+"""
+struct MatrixVectorAffineFunction{AT, VT} <: MOI.AbstractVectorFunction
+    terms::AT
+    constants::VT
+end
+MOI.constant(func::MatrixVectorAffineFunction) = func.constants
+function Base.convert(::Type{MOI.VectorAffineFunction{T}}, func::MatrixVectorAffineFunction) where {T}
+    return MOI.VectorAffineFunction{T}(
+        MOI.VectorAffineTerm{T}[
+            # TODO we should do better if the matrix is a `SparseMatrixCSC`
+            MOI.VectorAffineTerm(i, MOI.ScalarAffineTerm{T}(func.terms[i, j], VI(j)))
+            for i in 1:size(func.terms, 1) for j in 1:size(func.terms, 2) if !iszero(func.terms[i, j])
+        ],
+        func.constants,
+    )
+end
+function standard_form(func::MatrixVectorAffineFunction{T}) where {T}
+    return convert(MOI.VectorAffineFunction{T}, func)
+end
+
 # Only used for testing at the moment so performance is not critical so
 # converting to standard form is ok
 function MOIU.isapprox_zero(func::Union{VectorScalarAffineFunction,MatrixScalarQuadraticFunction}, tol)
@@ -128,14 +171,15 @@ function MOIU.isapprox_zero(func::Union{VectorScalarAffineFunction,MatrixScalarQ
 end
 
 """
-    IndexMappedFunction{F<:MOI.AbstractScalarFunction} <: AbstractLazyScalarFunction
+    IndexMappedFunction{F<:MOI.AbstractFunction} <: AbstractLazyScalarFunction
 
 Lazily represents the function `MOI.Utilities.map_indices(index_map, DiffOpt.standard_form(func))`.
 """
-struct IndexMappedFunction{F<:MOI.AbstractScalarFunction} <: AbstractLazyScalarFunction
+struct IndexMappedFunction{F<:MOI.AbstractFunction} <: AbstractLazyScalarFunction
     func::F
     index_map::MOIU.IndexMap
 end
+MOI.constant(func::IndexMappedFunction) = MOI.constant(func.func)
 function JuMP.coefficient(func::IndexMappedFunction, vi::MOI.VariableIndex)
     return JuMP.coefficient(func.func, func.index_map[vi])
 end
@@ -164,6 +208,7 @@ struct MOItoJuMP{F<:MOI.AbstractScalarFunction} <: JuMP.AbstractJuMPScalar
     func::F
 end
 Base.broadcastable(func::MOItoJuMP) = Ref(func)
+JuMP.constant(func::MOItoJuMP) = MOI.constant(func.func)
 function JuMP.coefficient(func::MOItoJuMP, var_ref::JuMP.VariableRef)
     check_belongs_to_model(var_ref, func.model)
     return JuMP.coefficient(func.func, JuMP.index(var_ref))
@@ -193,151 +238,6 @@ function JuMP.function_string(mode, func::MOItoJuMP)
     return JuMP.function_string(mode, standard_form(func))
 end
 
-function MOI.get(model::JuMP.Model, attr::BackwardOutObjective)
-    func = MOI.get(JuMP.backend(model), attr)
-    return JuMP.jump_function(model, func)
-end
-
-
-# extend caching optimizer
-function MOI.set(
-    m::MOI.Utilities.CachingOptimizer,
-    attr::AbstractDiffAttribute,
-    index::MOI.Index,
-    value,
-)
-    if m.state == MOI.Utilities.ATTACHED_OPTIMIZER
-        optimizer_index = m.model_to_optimizer_map[index]
-        optimizer_value = MOI.Utilities.map_indices(m.model_to_optimizer_map, value)
-        # if m.mode == AUTOMATIC
-        #     try
-        #         MOI.set(m.optimizer, attr,
-        #             optimizer_index, optimizer_value)
-        #     catch err
-        #         if err isa MOI.NotAllowedError
-        #             reset_optimizer(m)
-        #         else
-        #             rethrow(err)
-        #         end
-        #     end
-        # else
-            MOI.set(m.optimizer, attr,
-                optimizer_index, optimizer_value)
-        # end
-    else
-        error("Cannot set AbstractDiffAttribute $(attr) is the state is different from ATTACHED_OPTIMIZER")
-    end
-    # return MOI.set(m.model_cache, attr, index, value)
-end
-function MOI.set(
-    m::MOI.Utilities.CachingOptimizer,
-    attr::AbstractDiffAttribute,
-    index::MOI.Index,
-    index2::MOI.Index,
-    value,
-)
-    if m.state == MOI.Utilities.ATTACHED_OPTIMIZER
-        optimizer_index = m.model_to_optimizer_map[index]
-        optimizer_index2 = m.model_to_optimizer_map[index2]
-        optimizer_value = MOI.Utilities.map_indices(m.model_to_optimizer_map, value)
-        # if m.mode == AUTOMATIC
-        #     try
-        #         MOI.set(m.optimizer, attr,
-        #             optimizer_index, optimizer_index2, optimizer_value)
-        #     catch err
-        #         if err isa MOI.NotAllowedError
-        #             MOI.Utilities.reset_optimizer(m)
-        #         else
-        #             rethrow(err)
-        #         end
-        #     end
-        # else
-            MOI.set(m.optimizer, attr,
-                optimizer_index, optimizer_index2, optimizer_value)
-        # end
-    else
-        error("Cannot set AbstractDiffAttribute $(attr) is the state is different from ATTACHED_OPTIMIZER")
-    end
-    # return MOI.set(m.model_cache, attr, index, index2, value)
-end
-
-function MOI.get(
-    model::MOI.Utilities.CachingOptimizer,
-    attr::AbstractDiffAttribute,
-    index::MOI.Index,
-)
-    if MOI.Utilities.state(model) == MOI.Utilities.NO_OPTIMIZER
-        error(
-            "Cannot query $(attr) from caching optimizer because no " *
-            "optimizer is attached.",
-        )
-    end
-    return MOI.Utilities.map_indices(
-        model.optimizer_to_model_map,
-        MOI.get(model.optimizer, attr, model.model_to_optimizer_map[index]),
-    )
-end
-function MOI.get(
-    model::MOI.Utilities.CachingOptimizer,
-    attr::AbstractDiffAttribute,
-    index::MOI.Index,
-    index2::MOI.Index,
-)
-    if MOI.Utilities.state(model) == MOI.Utilities.NO_OPTIMIZER
-        error(
-            "Cannot query $(attr) from caching optimizer because no " *
-            "optimizer is attached.",
-        )
-    end
-    return MOI.Utilities.map_indices(
-        model.optimizer_to_model_map,
-        MOI.get(model.optimizer, attr,
-            model.model_to_optimizer_map[index],
-            model.model_to_optimizer_map[index2]),
-    )
-end
-
-
-function MOI.get(
-    model::JuMP.Model,
-    attr::AbstractDiffAttribute,
-    v::Union{JuMP.VariableRef,JuMP.ConstraintRef},
-)
-    JuMP.check_belongs_to_model(v, model)
-    return MOI.get(JuMP.backend(model), attr, JuMP.index(v))
-end
-function MOI.get(
-    model::JuMP.Model,
-    attr::AbstractDiffAttribute,
-    i1::JuMP.VariableRef,
-    i2::Union{JuMP.VariableRef,JuMP.ConstraintRef},
-)
-    JuMP.check_belongs_to_model(i1, model)
-    JuMP.check_belongs_to_model(i2, model)
-    return MOI.get(JuMP.backend(model), attr, JuMP.index(i1), JuMP.index(i2))
-end
-
-function MOI.set(
-    model::JuMP.Model,
-    attr::AbstractDiffAttribute,
-    v::Union{JuMP.VariableRef,JuMP.ConstraintRef},
-    value,
-)
-    JuMP.check_belongs_to_model(v, model)
-    return MOI.set(JuMP.backend(model), attr, JuMP.index(v), value)
-end
-function MOI.set(
-    model::JuMP.Model,
-    attr::AbstractDiffAttribute,
-    i1::JuMP.VariableRef,
-    i2::Union{JuMP.VariableRef,JuMP.ConstraintRef},
-    value,
-)
-    JuMP.check_belongs_to_model(i1, model)
-    JuMP.check_belongs_to_model(i2, model)
-    return MOI.set(JuMP.backend(model), attr, JuMP.index(i1), JuMP.index(i2), value)
-end
-
 # JuMP
 backward(model::JuMP.Model) = backward(JuMP.backend(model))
 forward(model::JuMP.Model) = forward(JuMP.backend(model))
@@ -349,49 +249,3 @@ forward(model::MOI.Utilities.CachingOptimizer) = forward(model.optimizer)
 # MOIB
 backward(model::MOI.Bridges.AbstractBridgeOptimizer) = backward(model.model)
 forward(model::MOI.Bridges.AbstractBridgeOptimizer) = forward(model.model)
-
-# bridges
-# TODO: bridging is non-trivial
-# there might be transformations that we are ignoring
-# we should at least check for bridge and block if they are used
-function MOI.get(
-    b::MOI.Bridges.AbstractBridgeOptimizer,
-    attr::AbstractDiffAttribute,
-    index::MOI.Index,
-)
-    # if is_bridged(b, index)
-    #     value = call_in_context(
-    #         b,
-    #         index,
-    #         bridge -> MOI.get(b, attr, bridge, _index(b, index)...),
-    #     )
-    # else
-    value = MOI.get(b.model, attr, index)
-    # end
-    # return unbridged_function(b, value)
-end
-function MOI.get(
-    b::MOI.Bridges.AbstractBridgeOptimizer,
-    attr::AbstractDiffAttribute,
-    index::MOI.Index,
-    index2::MOI.Index,
-)
-    value = MOI.get(b.model, attr, index, index2)
-end
-function MOI.set(
-    b::MOI.Bridges.AbstractBridgeOptimizer,
-    attr::AbstractDiffAttribute,
-    index::MOI.Index,
-    value,
-)
-    MOI.set(b.model, attr, index, value)
-end
-function MOI.set(
-    b::MOI.Bridges.AbstractBridgeOptimizer,
-    attr::AbstractDiffAttribute,
-    index::MOI.Index,
-    index2::MOI.Index,
-    value,
-)
-    MOI.set(b.model, attr, index, index2, value)
-end

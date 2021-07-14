@@ -244,7 +244,7 @@ function ChainRulesCore.rrule(
         dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2,:]))
 
         # computing derivative wrt constraint constant
-        dload1_demand = MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), energy_balance_cons)
+        dload1_demand = JuMP.constant.(MOI.get.(model, DiffOpt.BackwardOutConstraint(), energy_balance_cons))
         dload2_demand = copy(dload1_demand)
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
     end

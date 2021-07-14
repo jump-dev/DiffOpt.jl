@@ -1,4 +1,4 @@
-using LinearAlgebra, Test
+using LinearAlgebra, SparseArrays, Test
 
 const ATOL = 1e-4
 const RTOL = 1e-4
@@ -11,11 +11,13 @@ const MOI = MathOptInterface
 macro _test(computed, expected::Symbol)
     exp = esc(expected)
     com = esc(computed)
+    ato = esc(:atol)
+    rto = esc(:rtol)
     return :(
         if $exp === nothing
-            $exp = $com
+            @test ($exp = $com) isa Any
         else
-            @test $com ≈ $exp atol = ATOL rtol = RTOL
+            @test $com ≈ $exp atol = $ato rtol = $rto
         end
     )
 end
@@ -40,39 +42,51 @@ function qp_test(
     Q = zeros(n, n),
     dQf = zeros(n, n),
     dQb = nothing,
+    fix_indices = Int[],
+    fix_values = Float64[],
+    nfix = length(fix_values),
+    ub_indices = Int[],
+    ub_values = Float64[],
+    nub = length(ub_values),
+    lb_indices = Int[],
+    lb_values = Float64[],
+    nlb = length(lb_values),
     h = zeros(0),
     nle = length(h),
-    dhf = zeros(nle),
+    dhf = zeros(nle + nub + nlb),
     dhb = nothing,
     G = zeros(0, n),
-    dGf = zeros(nle, n),
+    dGf = zeros(nle + nub + nlb, n),
     dGb = nothing,
     b = zeros(0),
     neq = length(b),
-    dbf = zeros(neq),
+    dbf = zeros(neq + nfix),
     dbb = nothing,
     A = zeros(0, n),
-    dAf = zeros(neq, n),
+    dAf = zeros(neq + nfix, n),
     dAb = nothing,
     z = nothing,
     dzf = nothing,
     ∇zf = nothing,
     ∇zb = nothing,
     λ = nothing,
-    dλf = zeros(nle),
-    dλb = zeros(nle),
+    dλf = zeros(nle + nub + nlb),
+    dλb = zeros(nle + nub + nlb),
     ∇λf = nothing,
     ∇λb = nothing,
     ν = nothing,
     dνf = nothing,
-    dνb = zeros(neq),
+    dνb = zeros(neq + nfix),
     ∇νf = nothing,
     ∇νb = nothing,
+    atol = ATOL,
+    rtol = RTOL,
 )
     n = length(q)
     @assert n == LinearAlgebra.checksquare(Q)
     @assert n == size(A, 2)
     @assert n == size(G, 2)
+    @assert length(fix_values) == length(fix_indices)
     model = diff_optimizer(solver)
     MOI.set(model, MOI.Silent(), true)
 
@@ -86,16 +100,31 @@ function qp_test(
     else
         cle = MOI.add_constraint.(model, -G * fv, MOI.GreaterThan.(-h))
     end
+    if !iszero(nub)
+        cub = MOI.add_constraint.(model, fv[ub_indices], MOI.LessThan.(ub_values))
+        G = vcat(G, sparse(1:nub, ub_indices, ones(nub), nub, n))
+        h = vcat(h, ub_values)
+    end
+    if !iszero(nlb)
+        clb = MOI.add_constraint.(model, fv[lb_indices], MOI.GreaterThan.(lb_values))
+        G = vcat(G, sparse(1:nlb, lb_indices, -ones(nlb), nlb, n))
+        h = vcat(h, -lb_values)
+    end
+
     ceq = MOI.add_constraint.(model, A * fv, MOI.EqualTo.(b))
+    if !iszero(nfix)
+        cfix = MOI.add_constraint.(model, fv[fix_indices], MOI.EqualTo.(fix_values))
+        A = vcat(A, sparse(1:nfix, fix_indices, ones(nfix), nfix, n))
+        b = vcat(b, fix_values)
+    end
 
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     if iszero(Q)
         obj = q ⋅ fv
-        MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
     else
         obj = fv' * (Q / 2) * fv + q ⋅ fv
-        MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
     end
+    MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
 
     MOI.optimize!(model)
 
@@ -103,8 +132,19 @@ function qp_test(
 
     # The sign as reversed as [AK17]
     # use a different convention for the dual
-    @_test(convert(Vector{Float64}, -MOI.get.(model, MOI.ConstraintDual(), ceq)), ν)
-    @_test(convert(Vector{Float64}, _sign(MOI.get.(model, MOI.ConstraintDual(), cle), true)), λ)
+    _ν = -MOI.get.(model, MOI.ConstraintDual(), ceq)
+    if !iszero(nfix)
+        _ν = vcat(_ν, -MOI.get.(model, MOI.ConstraintDual(), cfix))
+    end
+    @_test(convert(Vector{Float64}, _ν), ν)
+    _λ = _sign(MOI.get.(model, MOI.ConstraintDual(), cle), true)
+    if !iszero(nub)
+        _λ = vcat(_λ, -MOI.get.(model, MOI.ConstraintDual(), cub))
+    end
+    if !iszero(nlb)
+        _λ = vcat(_λ, MOI.get.(model, MOI.ConstraintDual(), clb))
+    end
+    @_test(convert(Vector{Float64}, _λ), λ)
 
     #dobjb = fv' * (dQb / 2.0) * fv + dqb' * fv
     # TODO, it should .-
@@ -125,36 +165,24 @@ function qp_test(
         @_test(spb.quadratic_terms, dQb)
         @_test(spb.affine_terms, dqb)
 
-        @_test(
-            convert(Vector{Float64}, MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), cle)),
-            dhb,
-        )
-        @_test(
-            Float64[
-                MOI.get(
-                    model,
-                    DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(),
-                    vi,
-                    ci,
-                ) for ci in cle, vi in v
-            ],
-            dGb,
-        )
-        @_test(
-            convert(Vector{Float64}, MOI.get.(model, DiffOpt.BackwardOut{DiffOpt.ConstraintConstant}(), ceq)),
-            dbb,
-        )
-        @_test(
-            Float64[
-                MOI.get(
-                    model,
-                    DiffOpt.BackwardOut{DiffOpt.ConstraintCoefficient}(),
-                    vi,
-                    ci,
-                ) for ci in ceq, vi in v
-            ],
-            dAb,
-        )
+        # FIXME should multiply by -1 if lt is false
+        funcs = MOI.get.(model, DiffOpt.BackwardOutConstraint(), cle)
+        if !iszero(nub)
+            funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), cub))
+        end
+        if !iszero(nlb)
+            # FIXME should multiply by -1
+            funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), clb))
+        end
+        @_test(convert(Vector{Float64}, _sign(MOI.constant.(funcs), false)), dhb)
+        @_test(Float64[_sign(JuMP.coefficient(funcs[i], vi), false) for i in eachindex(funcs), vi in v], dGb)
+
+        funcs = MOI.get.(model, DiffOpt.BackwardOutConstraint(), ceq)
+        if !iszero(nfix)
+            funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), cfix))
+        end
+        @_test(convert(Vector{Float64}, MOI.constant.(funcs)), dbb)
+        @_test(Float64[JuMP.coefficient(funcs[i], vi) for i in eachindex(funcs), vi in v], dAb)
     end
 
     # Test against [AK17, eq. (8)]
@@ -189,14 +217,24 @@ function qp_test(
             func = dlef[j]
             canonicalize && MOI.Utilities.canonicalize!(func)
             if set_zero || !MOI.iszero(dlef[j])
-                MOI.set(model, DiffOpt.ForwardInConstraint(), jc, func)
+                MOI.set(model, DiffOpt.ForwardInConstraint(), jc, _sign(func, false))
             end
         end
         for (j, jc) in enumerate(ceq)
             func = deqf[j]
             canonicalize && MOI.Utilities.canonicalize!(func)
-            if set_zero || !MOI.iszero(deqf[j])
+            if set_zero || !MOI.iszero(func)
                 MOI.set(model, DiffOpt.ForwardInConstraint(), jc, func)
+            end
+        end
+        if !iszero(nfix)
+            for (j, jc) in enumerate(cfix)
+                func = deqf[length(ceq)+j]
+                canonicalize && MOI.Utilities.canonicalize!(func)
+                if set_zero || !MOI.iszero(func)
+                    # TODO FIXME should work if we drop support for SingleVariable and we let the Functionize bridge do the work
+                    @test_throws MOI.UnsupportedAttribute MOI.set(model, DiffOpt.ForwardInConstraint(), jc, func)
+                end
             end
         end
 
@@ -249,16 +287,25 @@ function qp_test_with_solutions(solver;
     dqf = zeros(n),
     Q = zeros(n, n),
     dQf = zeros(n, n),
+    fix_indices = Int[],
+    fix_values = Float64[],
+    nfix = length(fix_values),
+    ub_indices = Int[],
+    ub_values = Float64[],
+    nub = length(ub_values),
+    lb_indices = Int[],
+    lb_values = Float64[],
+    nlb = length(lb_values),
     h = zeros(0),
     nle = length(h),
-    dhf = zeros(nle),
+    dhf = zeros(nle + nub + nlb),
     G = zeros(0, n),
-    dGf = zeros(nle, n),
+    dGf = zeros(nle + nub + nlb, n),
     b = zeros(0),
     neq = length(b),
-    dbf = zeros(neq),
+    dbf = zeros(neq + nfix),
     A = zeros(0, n),
-    dAf = zeros(neq, n),
+    dAf = zeros(neq + nfix, n),
     kws...
 )
     @testset "Without known solutions" begin
@@ -276,6 +323,12 @@ function qp_test_with_solutions(solver;
             dbf = dbf,
             A = A,
             dAf = dAf,
+            fix_indices = fix_indices,
+            fix_values = fix_values,
+            ub_indices = ub_indices,
+            ub_values = ub_values,
+            lb_indices = lb_indices,
+            lb_values = lb_values,
         )
     end
     @testset "With known solutions" begin
@@ -293,7 +346,13 @@ function qp_test_with_solutions(solver;
             dbf = dbf,
             A = A,
             dAf = dAf,
-            kws...
+            fix_indices = fix_indices,
+            fix_values = fix_values,
+            ub_indices = ub_indices,
+            ub_values = ub_values,
+            lb_indices = lb_indices,
+            lb_values = lb_values,
+            kws...,
         )
     end
 end
