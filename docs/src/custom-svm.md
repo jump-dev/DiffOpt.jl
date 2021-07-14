@@ -1,3 +1,7 @@
+# Custom SVM layer
+
+This example demonstrates implementing an SVM using DiffOpt. This SVM is used as a layer in a neural network trained to predict survivors on the [Kaggle Titanic Dataset](https://www.kaggle.com/c/titanic).
+
 ```@example 1
 using Statistics
 using DiffOpt
@@ -15,8 +19,6 @@ using ChainRulesCore
 ```@example 1
 labels = NaN;   # hack for the SVM
 ```
-
-# Custom SVM layer
 
 ```@example 1
 """

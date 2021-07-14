@@ -1,6 +1,6 @@
 # DiffOpt.jl
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://jump.dev/DiffOpt.jl/stable)
+<!-- [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://jump.dev/DiffOpt.jl/stable) -->
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jump.dev/DiffOpt.jl/dev)
 [![Build Status](https://github.com/jump-dev/DiffOpt.jl/workflows/CI/badge.svg?branch=master)](https://github.com/jump-dev/DiffOpt.jl/actions?query=workflow%3ACI)
 [![Coverage](https://codecov.io/gh/jump-dev/DiffOpt.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jump-dev/DiffOpt.jl)
@@ -65,7 +65,8 @@ then one can compute gradients by providing perturbations
 grads = backward(diff, dA, db, dc)
 ```
 
+<!-- 
 ## Note
 
 - This is a [NumFOCUS Google Summer of Code (2020) project](https://summerofcode.withgoogle.com/organizations/4727917315096576/?sp-page=2#5232064888045568)
-- Benchmarking with CVXPY or QPTH: Refer relevant examples as in [test/MOI_wrapper.jl](https://github.com/jump-dev/DiffOpt.jl/blob/master/test/MOI_wrapper.jl#L130)
+- Benchmarking with CVXPY or QPTH: Refer relevant examples as in [test/MOI_wrapper.jl](https://github.com/jump-dev/DiffOpt.jl/blob/master/test/MOI_wrapper.jl#L130) -->

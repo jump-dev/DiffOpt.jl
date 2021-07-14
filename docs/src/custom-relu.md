@@ -1,3 +1,8 @@
+# Custom ReLU layer
+
+We demonstrate how DiffOpt can be used to generate a simple neural network unit - the ReLU layer. A nueral network is created using Flux.jl which is trained on the MNIST dataset.
+
+
 ```@example 1
 using Statistics
 using DiffOpt
@@ -29,10 +34,6 @@ test_X = convert(Array{Float16,2}, test_X)
 X = X[:, 1:1000]
 Y = Y[:, 1:1000];
 ```
-
-
-
-## Custom Relu
 
 
 ```@example 1
@@ -83,11 +84,10 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::AbstractArray{T}; model 
 
             DiffOpt.backward(model)  # find grad
 
-            dy[:, i] = MOI.get.(
-                model,
-                DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), 
-                x, 
-            )  # coeff of `x` in -2x'y
+            # fetch the objective expression
+            obj_exp = MOI.get(model, DiffOpt.BackwardOutObjective())
+            
+            dy[:, i] = JuMP.coefficient.(obj_exp, x)  # coeff of `x` in -2x'y
             dy[:, i] = -2 * dy[:, i]
         end
         

@@ -1,4 +1,21 @@
-<!-- ```@example 3
+# Auto-tuning Hyperparameters
+
+This example shows how to learn the hyperparameters in Ridge Regression using a gradient descent routine.  Let the problem be modelled as
+
+```math
+\begin{equation}
+\min_{w} \quad \frac{1}{2n} \sum_{i=1}^{n} (y_{i} - w^T x_{i})^2 + \alpha \| w \|_2^2
+\end{equation}
+```
+
+where 
+- `x`, `y` are the data points
+- `w` constitutes weights of the regressing line
+- `α` is the only hyperparameter - regularization constant
+
+
+
+```@example 3
 using DiffOpt
 using Statistics
 using OSQP
@@ -109,9 +126,11 @@ function ∇model(model, X_train, w, ŵ, α)
         MOI.set(
             model, 
             DiffOpt.ForwardInObjective(), 
-            w[i],
-            w[i],
-            dw[i]*α
+            MOI.ScalarQuadraticFunction(
+                [MOI.ScalarAffineTerm(0.0, w[i].index)], 
+                [MOI.ScalarQuadraticTerm(dw[i]*α, w[i].index, w[i].index)], 
+                0.0
+            )
         )
 
         DiffOpt.forward(model)  # find grad
@@ -204,4 +223,4 @@ nothing # hide
 ```@example 3
 plot(log.(αs), mse, label="MSE", xaxis = ("α"))
 plot!(log.(ᾱ), msē, label="G.D. for α", lw = 2)
-``` -->
+```

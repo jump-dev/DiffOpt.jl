@@ -1,4 +1,4 @@
-<!-- # Sensitivity Analysis of Ridge Regression using DiffOpt.jl
+# Sensitivity Analysis of Ridge Regression using DiffOpt.jl
 
 This example illustrates the sensitivity analysis of data points in a [Ridge Regression](https://en.wikipedia.org/wiki/Ridge_regression) problem. The general form of the problem is given below:
 
@@ -119,4 +119,4 @@ p = Plots.scatter(
 mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi*ŵ+b̂, ma*ŵ+b̂], color=:red, label="")
 nothing # hide
-```  -->
+``` 
