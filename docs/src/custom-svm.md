@@ -13,6 +13,10 @@ using SCS
 using CSV
 using DataFrames
 using ChainRulesCore
+using HTTP
+
+const DATA_URL = "https://raw.githubusercontent.com/be-apt/jump-gsoc-2020/master/titanic_preprocessed.csv"
+nothing # hide
 ```
 
 
@@ -82,7 +86,7 @@ end
 
 ```@example 1
 function fetchProblem(;split_ratio::Float64)
-    df = CSV.File("titanic_preprocessed.csv") |> DataFrame
+    df = CSV.File(HTTP.get(DATA_URL).body) |> DataFrame
 
     Y = df[:, 2]
     X = df[!, 3:12]

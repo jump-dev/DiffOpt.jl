@@ -12,7 +12,9 @@ using SCS
 using CSV
 using DataFrames
 using ChainRulesCore
+using HTTP
 
+const DATA_URL = "https://raw.githubusercontent.com/be-apt/jump-gsoc-2020/master/titanic_preprocessed.csv"
 labels = NaN;   # hack for the SVM
 
 """
@@ -67,7 +69,7 @@ function ChainRulesCore.rrule(::typeof(SVM), X::AbstractArray{T}; model = Model(
 end
 
 function fetchProblem(;split_ratio::Float64)
-    df = CSV.File("titanic_preprocessed.csv") |> DataFrame
+    df = CSV.File(HTTP.get(DATA_URL).body) |> DataFrame
 
     Y = df[:, 2]
     X = df[!, 3:12]

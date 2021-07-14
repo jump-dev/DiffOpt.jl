@@ -23,7 +23,6 @@ Import the libraries.
 
 ```@example 1
 import Random
-using Test
 import SCS
 import Plots
 using DiffOpt
