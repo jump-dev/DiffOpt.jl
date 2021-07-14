@@ -146,6 +146,7 @@ function descent(α, max_iters=25)
     mse = Float64[]
     
     iter=0
+    κ = 0.01
     while curr_mse-10 < prev_mse && iter < max_iters
         iter += 1
         model, w, _, ŵ = fitRidge(X_train, Y_train, α)
@@ -153,7 +154,7 @@ function descent(α, max_iters=25)
         #update
         ∂α = ∇model(model, X_train, w, ŵ, α)
         
-        α += 0.01*∂α  # make it grow real slow
+        α += κ*∂α  # update step
         
         push!(α_s, α)
         
