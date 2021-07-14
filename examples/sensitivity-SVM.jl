@@ -10,6 +10,7 @@ using LinearAlgebra
 using MathOptInterface
 
 const MOI = MathOptInterface;
+const MOIU = MOI.Utilities;
 
 # optional Plot to integrate in tests
 # set ENV["SVM_PLOT"] = "1" to build plots

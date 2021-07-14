@@ -3,6 +3,7 @@ using Clp
 using DiffOpt
 using Test
 using ChainRulesCore
+using LinearAlgebra
 
 # This script creates the JuMP model for a small unit commitment instance
 # represented in a solution map function taking parameters as arguments and returning

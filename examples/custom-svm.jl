@@ -109,6 +109,4 @@ end
 @show accuracy(X_train, Y_train)
 
 labels = Y_test   # needed for SVM
-@show accuracy(X_test, Y_test);
-
-
+@show accuracy(X_test, Y_test)

@@ -71,11 +71,10 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::AbstractArray{T}; model 
 
             DiffOpt.backward(model)  # find grad
 
-            dy[:, i] = MOI.get.(
-                model,
-                DiffOpt.BackwardOut{DiffOpt.LinearObjective}(), 
-                x, 
-            )  # coeff of `x` in -2x'y
+             # fetch the objective expression
+            obj_exp = MOI.get(model, DiffOpt.BackwardOutObjective())
+            
+            dy[:, i] = JuMP.coefficient.(obj_exp, x)  # coeff of `x` in -2x'y
             dy[:, i] = -2 * dy[:, i]
         end
         
