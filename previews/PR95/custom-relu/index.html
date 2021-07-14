@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>ReLU Layer · DiffOpt.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.039/juliamono-regular.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">DiffOpt.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../intro/">Introduction</a></li><li><a class="tocitem" href="../manual/">Manual</a></li><li><a class="tocitem" href="../usage/">Usage</a></li><li><a class="tocitem" href="../reference/">Reference</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../solve-conic-1/">Solving conic with PSD and SOC constraints</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a simple QP by hand</a></li><li><input class="collapse-toggle" id="menuitem-6-3" type="checkbox"/><label class="tocitem" for="menuitem-6-3"><span class="docs-label">Sensitivity Analysis</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../sensitivity-analysis-svm/">SVM</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge/">Ridge Regression</a></li></ul></li><li><a class="tocitem" href="../autotuning-ridge/">Hyper-parameter optimization</a></li><li><input class="collapse-toggle" id="menuitem-6-5" type="checkbox" checked/><label class="tocitem" for="menuitem-6-5"><span class="docs-label">Custom Neural Network Layers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li class="is-active"><a class="tocitem" href>ReLU Layer</a><ul class="internal"><li><a class="tocitem" href="#Define-the-Network"><span>Define the Network</span></a></li></ul></li><li><a class="tocitem" href="../custom-svm/">SVM as a Layer</a></li></ul></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li><a class="is-disabled">Custom Neural Network Layers</a></li><li class="is-active"><a href>ReLU Layer</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>ReLU Layer</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Custom-ReLU-layer"><a class="docs-heading-anchor" href="#Custom-ReLU-layer">Custom ReLU layer</a><a id="Custom-ReLU-layer-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-ReLU-layer" title="Permalink"></a></h1><p>We demonstrate how DiffOpt can be used to generate a simple neural network unit - the ReLU layer. A nueral network is created using Flux.jl which is trained on the MNIST dataset.</p><pre><code class="language-julia">using Statistics
+using DiffOpt
+using Flux
+using Flux: onehotbatch, onecold, crossentropy, throttle
+using Base.Iterators: repeated
+using OSQP
+using JuMP
+using ChainRulesCore</code></pre><pre><code class="language-julia">## prepare data
+imgs = Flux.Data.MNIST.images()
+labels = Flux.Data.MNIST.labels();
+
+# Preprocessing
+X = hcat(float.(reshape.(imgs, :))...) #stack all the images
+Y = onehotbatch(labels, 0:9); # just a common way to encode categorical variables
+
+test_X = hcat(float.(reshape.(Flux.Data.MNIST.images(:test), :))...)
+test_Y = onehotbatch(Flux.Data.MNIST.labels(:test), 0:9)
+
+# float64 to float16, to save memory
+X = convert(Array{Float16,2}, X)
+test_X = convert(Array{Float16,2}, test_X)
+
+X = X[:, 1:1000]
+Y = Y[:, 1:1000]</code></pre><pre class="documenter-example-output">┌ Warning: Flux&#39;s datasets are deprecated, please use the package MLDatasets.jl
+└ @ Flux.Data ~/.julia/packages/Flux/0c9kI/src/data/Data.jl:17
+[ Info: Downloading MNIST dataset
+[ Info: Downloading MNIST dataset
+[ Info: Downloading MNIST dataset
+[ Info: Downloading MNIST dataset
+┌ Warning: Flux&#39;s datasets are deprecated, please use the package MLDatasets.jl
+└ @ Flux.Data ~/.julia/packages/Flux/0c9kI/src/data/Data.jl:17
+┌ Warning: Flux&#39;s datasets are deprecated, please use the package MLDatasets.jl
+└ @ Flux.Data ~/.julia/packages/Flux/0c9kI/src/data/Data.jl:17
+┌ Warning: Flux&#39;s datasets are deprecated, please use the package MLDatasets.jl
+└ @ Flux.Data ~/.julia/packages/Flux/0c9kI/src/data/Data.jl:17</pre><pre><code class="language-julia">&quot;&quot;&quot;
+relu method for a Matrix
+&quot;&quot;&quot;
+function matrix_relu(y::AbstractMatrix{T}; model = Model(() -&gt; diff_optimizer(OSQP.Optimizer))) where {T}
+    _x = zero(y)
+
+    # model init
+    N = length(y[:, 1])
+    empty!(model)
+    set_optimizer_attribute(model, MOI.Silent(), true)
+    @variable(model, x[1:N] &gt;= zero(T))
+
+    for i in 1:size(y)[2]
+        @objective(
+            model,
+            Min,
+            x&#39;x -2x&#39;y[:, i]
+        )
+        optimize!(model)
+        _x[:, i] = value.(x)
+    end
+    return _x
+end</code></pre><pre><code class="language-julia">function ChainRulesCore.rrule(::typeof(matrix_relu), y::AbstractArray{T}; model = Model(() -&gt; diff_optimizer(OSQP.Optimizer))) where {T}
+
+    pv = matrix_relu(y, model=model)
+
+    function pullback_matrix_relu(dx)
+        x = model[:x]
+        dy = zero(dx)
+
+        for i in 1:size(y)[2]
+            MOI.set.(
+                model,
+                DiffOpt.BackwardInVariablePrimal(),
+                x,
+                dx[:, i]
+            )
+
+            DiffOpt.backward(model)  # find grad
+
+            # fetch the objective expression
+            obj_exp = MOI.get(model, DiffOpt.BackwardOutObjective())
+
+            dy[:, i] = JuMP.coefficient.(obj_exp, x)  # coeff of `x` in -2x&#39;y
+            dy[:, i] = -2 * dy[:, i]
+        end
+
+        return (NO_FIELDS, dy)
+    end
+    return pv, pullback_matrix_relu
+end</code></pre><h2 id="Define-the-Network"><a class="docs-heading-anchor" href="#Define-the-Network">Define the Network</a><a id="Define-the-Network-1"></a><a class="docs-heading-anchor-permalink" href="#Define-the-Network" title="Permalink"></a></h2><pre><code class="language-julia">m = Chain(
+    Dense(784, 64),
+    matrix_relu,
+    Dense(64, 10),
+    softmax,
+)</code></pre><pre><code class="language-julia">custom_loss(x, y) = crossentropy(m(x), y)
+opt = ADAM(); # popular stochastic gradient descent variant
+
+accuracy(x, y) = mean(onecold(m(x)) .== onecold(y)) # cute way to find average of correct guesses
+
+dataset = repeated((X,Y), 20) # repeat the data set, very low accuracy on the orig dataset
+evalcb = () -&gt; @show(custom_loss(X, Y)) # callback to show loss</code></pre><p>Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.</p><pre><code class="language-julia">Flux.train!(custom_loss, params(m), dataset, opt, cb = throttle(evalcb, 5));
+
+@show accuracy(X,Y)
+@show accuracy(test_X, test_Y)</code></pre><pre class="documenter-example-output">custom_loss(X, Y) = 2.3237963f0
+custom_loss(X, Y) = 2.2435482f0
+custom_loss(X, Y) = 2.1748924f0
+custom_loss(X, Y) = 2.1073472f0
+accuracy(X, Y) = 0.341
+accuracy(test_X, test_Y) = 0.2932</pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../autotuning-ridge/">« Hyper-parameter optimization</a><a class="docs-footer-nextpage" href="../custom-svm/">SVM as a Layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.3 on <span class="colophon-date" title="Wednesday 14 July 2021 17:30">Wednesday 14 July 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

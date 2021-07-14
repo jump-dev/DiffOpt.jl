@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>SVM as a Layer · DiffOpt.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.039/juliamono-regular.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">DiffOpt.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../intro/">Introduction</a></li><li><a class="tocitem" href="../manual/">Manual</a></li><li><a class="tocitem" href="../usage/">Usage</a></li><li><a class="tocitem" href="../reference/">Reference</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../solve-conic-1/">Solving conic with PSD and SOC constraints</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a simple QP by hand</a></li><li><input class="collapse-toggle" id="menuitem-6-3" type="checkbox"/><label class="tocitem" for="menuitem-6-3"><span class="docs-label">Sensitivity Analysis</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../sensitivity-analysis-svm/">SVM</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge/">Ridge Regression</a></li></ul></li><li><a class="tocitem" href="../autotuning-ridge/">Hyper-parameter optimization</a></li><li><input class="collapse-toggle" id="menuitem-6-5" type="checkbox" checked/><label class="tocitem" for="menuitem-6-5"><span class="docs-label">Custom Neural Network Layers</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../custom-relu/">ReLU Layer</a></li><li class="is-active"><a class="tocitem" href>SVM as a Layer</a><ul class="internal"><li><a class="tocitem" href="#Define-the-NN"><span>Define the NN</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li><a class="is-disabled">Custom Neural Network Layers</a></li><li class="is-active"><a href>SVM as a Layer</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>SVM as a Layer</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Custom-SVM-layer"><a class="docs-heading-anchor" href="#Custom-SVM-layer">Custom SVM layer</a><a id="Custom-SVM-layer-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-SVM-layer" title="Permalink"></a></h1><p>This example demonstrates implementing an SVM using DiffOpt. This SVM is used as a layer in a neural network trained to predict survivors on the <a href="https://www.kaggle.com/c/titanic">Kaggle Titanic Dataset</a>.</p><pre><code class="language-julia">using Statistics
+using DiffOpt
+using Flux
+using Flux: onecold, binarycrossentropy, throttle, logitcrossentropy, crossentropy
+using Base.Iterators: repeated
+using JuMP
+using SCS
+using CSV
+using DataFrames
+using ChainRulesCore
+using HTTP
+
+const DATA_URL = &quot;https://raw.githubusercontent.com/be-apt/jump-gsoc-2020/master/titanic_preprocessed.csv&quot;</code></pre><pre><code class="language-julia">labels = NaN;   # hack for the SVM</code></pre><pre><code class="language-julia">&quot;&quot;&quot;
+    SVM as a Flux layer
+&quot;&quot;&quot;
+function SVM(X::AbstractMatrix{T}; model = Model(() -&gt; diff_optimizer(SCS.Optimizer))) where {T}
+    D, N = size(X)
+
+    Y = vec([y &gt;= 0.5 ? 1 : -1 for y in labels]&#39;)
+    # scale class from 0,1 to -1,1. required for SVM
+
+    # model init
+    empty!(model)
+    set_optimizer_attribute(model, MOI.Silent(), true)
+
+    # add variables
+    @variable(model, l[1:N])
+    @variable(model, w[1:D])
+    @variable(model, b)
+
+    @constraint(model, cons, Y.*(X&#39;*w .+ b) + l.-1 ∈ MOI.Nonnegatives(N))
+    @constraint(model, 1.0*l ∈ MOI.Nonnegatives(N));
+
+    @objective(
+        model,
+        Min,
+        sum(l),
+    )
+
+    optimize!(model)
+
+    wv = value.(w)
+    bv = value(b)
+
+    return (X&#39;*wv .+ bv)&#39; #prediction
+end</code></pre><pre><code class="language-julia">function ChainRulesCore.rrule(::typeof(SVM), X::AbstractArray{T}; model = Model(() -&gt; diff_optimizer(SCS.Optimizer))) where {T}
+
+    predictions = SVM(X, model=model)
+
+    &quot;&quot;&quot;
+        model[:w], model[:b] are the weights of this layer
+        they are not updated using backward pass
+        since they can be computed to an accurate degree using a solver
+    &quot;&quot;&quot;
+    function pullback_SVM(dX)
+        dy = zero(dX)   # since w#
+        return (NO_FIELDS, dy)
+    end
+    return predictions, pullback_SVM
+end</code></pre><pre><code class="language-julia">function fetchProblem(;split_ratio::Float64)
+    df = CSV.File(HTTP.get(DATA_URL).body) |&gt; DataFrame
+
+    Y = df[:, 2]
+    X = df[!, 3:12]
+    X = Matrix(X)&#39;
+
+    D, N = size(X)
+
+    l = Int(floor(length(Y)*split_ratio))
+    return X[:, 1:l], X[:, l+1:N], Y[1:l]&#39;, Y[l+1:N]&#39;
+end
+X_train, X_test, Y_train, Y_test = fetchProblem(split_ratio=0.8)
+D = size(X_train)[1]</code></pre><h2 id="Define-the-NN"><a class="docs-heading-anchor" href="#Define-the-NN">Define the NN</a><a id="Define-the-NN-1"></a><a class="docs-heading-anchor-permalink" href="#Define-the-NN" title="Permalink"></a></h2><pre><code class="language-julia">m = Chain(
+    Dense(D, 16, relu),
+    Dropout(0.5),
+    SVM
+)</code></pre><pre><code class="language-julia">custom_loss(x, y) = logitcrossentropy(m(x), y)
+opt = ADAM(); # popular stochastic gradient descent variant
+
+classify(x::Float64) = (x&gt;=0.5) ? 1 : 0
+
+function accuracy(x, y_true)
+    y_pred = classify.(m(x))
+    return sum(y_true .≈ y_pred) / length(y_true)
+end
+
+dataset = repeated((X_train,Y_train), 1) # repeat the data set, very low accuracy on the orig dataset
+evalcb = () -&gt; @show(custom_loss(X_train,Y_train)) # callback to show loss</code></pre><pre><code class="language-julia">labels = Y_train   # needed for SVM
+for iter in 1:1
+    Flux.train!(custom_loss, params(m), dataset, opt, cb = throttle(evalcb, 5)); #took me ~5 minutes to train on CPU
+end
+
+@show accuracy(X_train, Y_train)
+
+labels = Y_test   # needed for SVM
+@show accuracy(X_test, Y_test)</code></pre><pre class="documenter-example-output">┌ Warning: problem status: ALMOST_OPTIMAL
+└ @ DiffOpt ~/work/DiffOpt.jl/DiffOpt.jl/src/diff_opt.jl:490
+custom_loss(X_train, Y_train) = 0.0
+accuracy(X_train, Y_train) = 0.7803163444639719
+accuracy(X_test, Y_test) = 0.9020979020979021</pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../custom-relu/">« ReLU Layer</a><a class="docs-footer-nextpage" href="../chainrules_unit/">ChainRules integration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.3 on <span class="colophon-date" title="Wednesday 14 July 2021 17:30">Wednesday 14 July 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
