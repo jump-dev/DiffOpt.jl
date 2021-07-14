@@ -1049,7 +1049,7 @@ end
 
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
     # grad_wrt_h = backward(model, ["h"], ones(2))[1]
-    @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
+    @test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
 
     # adding two variables invalidates the cache
     y = MOI.add_variables(model, 2)
@@ -1062,7 +1062,7 @@ end
     DiffOpt.backward(model)
 
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
-    @test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
+    @test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
     # @test model.gradient_cache isa DiffOpt.QPCache
 
     # adding single variable invalidates the cache
@@ -1077,7 +1077,7 @@ end
     DiffOpt.backward(model)
     # grad_wrt_h = backward(model, ["h"], ones(3))[1]
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
-    @test grad_wrt_h ≈ 1.0 atol=5e-3 rtol=RTOL
+    @test grad_wrt_h ≈ -1.0 atol=5e-3 rtol=RTOL
     @test model.gradient_cache isa DiffOpt.QPCache
 
     # adding constraint invalidates the cache
@@ -1094,7 +1094,7 @@ end
     DiffOpt.backward(model)
     # grad_wrt_h = backward(model, ["h"], ones(3))[1]
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
-    @test grad_wrt_h ≈ 1.0 atol=5e-3 rtol=RTOL
+    @test grad_wrt_h ≈ -1.0 atol=5e-3 rtol=RTOL
     # second constraint inactive
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c2))
     @test grad_wrt_h ≈ 0.0 atol=5e-3 rtol=RTOL

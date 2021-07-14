@@ -144,14 +144,16 @@ struct ForwardInObjective <: MOI.AbstractModelAttribute end
 A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
 is, problem input data.
 
-For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y)`,
+For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y) <= 5θ`,
 for the purpose of computing the derivative with respect to `θ`, the following
 should be set:
 ```julia
 fx = MOI.SingleVariable(x)
 fy = MOI.SingleVariable(y)
-MOI.set(model, DiffOpt.ForwardInConstraint(), ci, 1.0 * fx + 2.0 * fy)
+MOI.set(model, DiffOpt.ForwardInConstraint(), ci, 1.0 * fx + 2.0 * fy - 5.0)
 ```
+Note that we use `-5` as the `ForwardInConstraint` sets the tangent of the
+ConstraintFunction so we consider the expression `θ * (x + 2y - 5)`.
 """
 struct ForwardInConstraint <: MOI.AbstractConstraintAttribute end
 
@@ -226,9 +228,11 @@ MOI.is_set_by_optimize(::BackwardOutObjective) = true
 An `MOI.AbstractConstraintAttribute` to get output data to backward differentiation, that
 is, problem input data.
 
-For instance, if the following returns `x + 2y`, it means that the tangent
-has coordinate `1` for the coefficient of `x` and coordinate `2` for the
-coefficient of `y`.
+For instance, if the following returns `x + 2y + 5`, it means that the tangent
+has coordinate `1` for the coefficient of `x`, coordinate `2` for the
+coefficient of `y` and `5` for the function constant.
+If the constraint is of the form `func == constant` or `func <= constant`,
+the tangent for the constant on the right-hand side is `-5`.
 ```julia
 MOI.get(model, DiffOpt.BackwardOutConstraint(), ci)
 ```
@@ -379,8 +383,6 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     dQ_end_ni = - g[end] * πz[n+i]
     return - dQ_ni_end + dQ_end_ni
 end
-_neg_if_lt(x, ::Type{<:MOI.LessThan}) = -x
-_neg_if_lt(x, ::Type{<:MOI.GreaterThan}) = x
 _neg_if_gt(x, ::Type{<:MOI.LessThan}) = x
 _neg_if_gt(x, ::Type{<:MOI.GreaterThan}) = -x
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
@@ -389,13 +391,13 @@ function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     # dh = -Diagonal(λ) * dλ
     dλ = b_cache.dλ
     λ = g_cache.inequality_duals
-    return _neg_if_lt(λ[i] * dλ[i], S)
+    return _neg_if_gt(λ[i] * dλ[i], S)
 end
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S<:MOI.EqualTo}
     i = g_cache.index_map[ci].value
     dν = b_cache.dν
-    return - dν[i]
+    return dν[i]
 end
 
 function MOI.get(model::Optimizer,
@@ -661,11 +663,14 @@ function _forward_quad(model::Optimizer)
     dQ = sparse_array_obj.quadratic_terms
     dq = sparse_array_obj.affine_terms
 
+    # The user sets the constraint function in the sense `func`-in-`set` while
+    # `db` and `dh` corresponds to the tangents of the set constants. Therefore,
+    # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
+    # multiply by `-1` to transform it to `LessThan` so it cancels out.
     db = zeros(length(b))
-    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), db)
-
+    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model, _QPForm(), db)
     dh = zeros(length(h))
-    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dh)
+    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dh)
 
     nz = nnz(A)
     (lines, cols) = size(A)

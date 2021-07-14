@@ -174,14 +174,14 @@ function qp_test(
             # FIXME should multiply by -1
             funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), clb))
         end
-        @_test(convert(Vector{Float64}, _sign(MOI.constant.(funcs), false)), dhb)
+        @_test(convert(Vector{Float64}, _sign(MOI.constant.(funcs), true)), dhb)
         @_test(Float64[_sign(JuMP.coefficient(funcs[i], vi), false) for i in eachindex(funcs), vi in v], dGb)
 
         funcs = MOI.get.(model, DiffOpt.BackwardOutConstraint(), ceq)
         if !iszero(nfix)
             funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), cfix))
         end
-        @_test(convert(Vector{Float64}, MOI.constant.(funcs)), dbb)
+        @_test(convert(Vector{Float64}, -MOI.constant.(funcs)), dbb)
         @_test(Float64[JuMP.coefficient(funcs[i], vi) for i in eachindex(funcs), vi in v], dAb)
     end
 
@@ -207,9 +207,8 @@ function qp_test(
     @_test(-A * ∇zb, dνb)
 
     dobjf = fv' * (dQf / 2.0) * fv + dqf' * fv
-    # TODO, it should .-
-    dlef = dGf * fv .+ dhf
-    deqf = dAf * fv .+ dbf
+    dlef = dGf * fv .- dhf
+    deqf = dAf * fv .- dbf
 
     @testset "Forward pass" begin
         MOI.set(model, DiffOpt.ForwardInObjective(), dobjf)
