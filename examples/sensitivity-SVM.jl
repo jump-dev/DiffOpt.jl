@@ -21,7 +21,7 @@ end
 
 N = 100
 D = 2
-Random.seed!(rand(1:100))
+Random.seed!(62)
 X = vcat(randn(N÷2, D), randn(N÷2,D) .+ [4.0,1.5]')
 y = append!(ones(N÷2), -ones(N÷2));
 
