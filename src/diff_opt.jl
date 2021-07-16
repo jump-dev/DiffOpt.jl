@@ -249,7 +249,7 @@ different program class:
 2) Conic Program (CP): linear objective and conic constraints.
 
 `AUTOMATIC` which means that the class will be automatically selected given the
-problem data: if any constraint is conic, QP is used and CP is used otherwise.
+problem data: if any constraint is conic, CP is used and QP is used otherwise.
 See [`ProgramClass`](@ref).
 """
 @enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
