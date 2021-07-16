@@ -324,7 +324,7 @@ struct ProgramClassUsed <: MOI.AbstractOptimizerAttribute end
 
 function MOI.get(model::Optimizer, ::ProgramClassUsed)
     if model.program_class == AUTOMATIC
-        if _qp_supported(model)
+        if _qp_supported(model.optimizer)
             return QUADRATIC
         else
             return CONIC

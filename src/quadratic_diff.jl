@@ -127,7 +127,7 @@ const _QP_FUNCTION_TYPES = Union{
 
 _qp_supported(::Type{F}, ::Type{S}) where {F <: _QP_FUNCTION_TYPES, S <: _QP_SET_TYPES} = true
 _qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
-function _qp_supported(model::Optimizer)
+function _qp_supported(model::MOI.AbstractOptimizer)
     return all(FS -> _qp_supported(FS...), MOI.get(model, MOI.ListOfConstraints()))
 end
 
