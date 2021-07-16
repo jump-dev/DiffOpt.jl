@@ -113,12 +113,35 @@ end
 #     end
 # end
 
+const _QP_SET_TYPES = Union{
+    MOI.GreaterThan{Float64},
+    MOI.LessThan{Float64},
+    MOI.EqualTo{Float64},
+    # MOI.Interval{Float64},
+}
+
+const _QP_FUNCTION_TYPES = Union{
+    MOI.SingleVariable,
+    MOI.ScalarAffineFunction{Float64},
+}
+
+_qp_supported(::Type{F}, ::Type{S}) where {F <: _QP_FUNCTION_TYPES, S <: _QP_SET_TYPES} = true
+_qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
+function _qp_supported(model::Optimizer)
+    return all(FS -> _qp_supported(FS...), MOI.get(model, MOI.ListOfConstraints()))
+end
+
 """
     get_problem_data(model::MOI.AbstractOptimizer)
 
 Return problem parameters as matrices along with other program info such as number of constraints, variables, etc
 """
 function get_problem_data(model::MOI.AbstractOptimizer)
+    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
+        if !_qp_supported(F, S)
+            throw(MOI.UnsupportedConstraint{F,S}("DiffOpt does not support this constraint type for its Quadratic Programming differentiation. Maybe try the Conic Programming differentiation ? For this, do `MOI.set(model, DiffOpt.ProgramClass(), DiffOpt.CONIC)`."))
+        end
+    end
     var_list = MOI.get(model, MOI.ListOfVariableIndices())
     nz = length(var_list)
 
@@ -139,7 +162,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
                         MOI.ListOfConstraintIndices{
                             MOI.ScalarAffineFunction{Float64},
                             MOI.GreaterThan{Float64},
-                        }())           
+                        }())
     nineq_le = length(le_con_idx)
     nineq_ge = length(ge_con_idx)
     le_con_sv_idx = MOI.get(
@@ -183,7 +206,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
             CI{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}(ineq_cont)
     end
     for i in 1:nineq_ge
-        # note: ax >= b needs to be converted in Gx <= h form 
+        # note: ax >= b needs to be converted in Gx <= h form
         con = ge_con_idx[i]
 
         func = MOI.get(model, MOI.ConstraintFunction(), con)
@@ -213,7 +236,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
             CI{MOI.SingleVariable, MOI.LessThan{Float64}}(ineq_cont)
     end
     for i in eachindex(ge_con_sv_idx)
-        # note: x >= b needs to be converted in Gx <= h form 
+        # note: x >= b needs to be converted in Gx <= h form
         con = ge_con_sv_idx[i]
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)

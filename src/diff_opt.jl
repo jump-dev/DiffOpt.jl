@@ -240,8 +240,24 @@ MOI.get(model, DiffOpt.BackwardOutConstraint(), ci)
 struct BackwardOutConstraint <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::BackwardOutConstraint) = true
 
+"""
+    @enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
+
+Program class used by DiffOpt. DiffOpt implements differentiation of two
+different program class:
+1) Quadratic Program (QP): quadratic objective and linear constraints and
+2) Conic Program (CP): linear objective and conic constraints.
+
+`AUTOMATIC` which means that the class will be automatically selected given the
+problem data: if any constraint is conic, QP is used and CP is used otherwise.
+See [`ProgramClass`](@ref).
+"""
+@enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
+
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
+
+    program_class::ProgramClassCode
 
     # storage for problem data in matrix form
     # includes maps from matrix indices to problem data held in `optimizer`
@@ -259,14 +275,62 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     # sensitivity input cache using MOI like sparse format
     input_cache::DiffInputCache
 
-    function Optimizer(optimizer_constructor::OT) where {OT <: MOI.ModelLike}
+    function Optimizer(optimizer::OT) where {OT <: MOI.ModelLike}
         new{OT}(
-            optimizer_constructor,
+            optimizer,
+            AUTOMATIC,
             nothing,
             nothing,
             nothing,
             DiffInputCache(),
         )
+    end
+end
+
+"""
+    ProgramClass <: MOI.AbstractOptimizerAttribute
+
+Determines which program class to used from [`ProgramClassCode`](@ref). The
+default is `AUTOMATIC`.
+
+One important advantage of setting the class explicitly is that it will allow
+necessary bridges to be used. If the class is `AUTOMATIC` then
+`DiffOpt.Optimizer` will report that it supports both objective and constraints
+of the QP and CP classes. For instance, it will reports that is supports both
+quadratic objective and conic constraints. However, at the differentiation
+stage, we won't be able to differentiate since QP does not support conic
+constraints and CP does not support quadratic objective. On the other hand, if
+the `ProgramClass` is set to `CONIC` then `DiffOpt.Optimizer` will report that
+it does not support quadratic objective hence it will be bridged to second-order
+cone constraints and we will be able to use CP to differentiate.
+"""
+struct ProgramClass <: MOI.AbstractOptimizerAttribute end
+
+MOI.supports(::Optimizer, ::ProgramClass) = true
+MOI.get(model::Optimizer, ::ProgramClass) = model.program_class
+function MOI.set(model::Optimizer, ::ProgramClass, class::ProgramClassCode)
+    model.program_class = class
+end
+
+
+"""
+    ProgramClassUsed <: MOI.AbstractOptimizerAttribute
+
+Program class actually used, same as [`ProgramClass`](@ref) except that it does
+not return `AUTOMATIC` but the class automatically chosen instead. This attribute
+is read-only, it cannot be set, set [`ProgramClass`](@ref) instead.
+"""
+struct ProgramClassUsed <: MOI.AbstractOptimizerAttribute end
+
+function MOI.get(model::Optimizer, ::ProgramClassUsed)
+    if model.program_class == AUTOMATIC
+        if _qp_supported(model)
+            return QUADRATIC
+        else
+            return CONIC
+        end
+    else
+        return model.program_class
     end
 end
 
@@ -496,25 +560,6 @@ function MOI.optimize!(model::Optimizer)
     return
 end
 
-
-const _QP_SET_TYPES = Union{
-    MOI.GreaterThan{Float64},
-    MOI.LessThan{Float64},
-    MOI.EqualTo{Float64},
-    # MOI.Interval{Float64},
-}
-
-const _QP_FUNCTION_TYPES = Union{
-    MOI.SingleVariable,
-    MOI.ScalarAffineFunction{Float64},
-}
-
-const QP_OBJECTIVE_TYPES = Union{
-    MOI.ScalarAffineFunction{Float64},
-    MOI.ScalarQuadraticFunction{Float64},
-    MOI.SingleVariable,
-}
-
 """
     backward(model::Optimizer)
 
@@ -525,12 +570,10 @@ The output problem data differentials can be queried with the
 attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
 function backward(model::Optimizer)
-    if _qp_supported(model.optimizer)
+    if MOI.get(model, ProgramClassUsed()) == QUADRATIC
         return _backward_quad(model)
-    elseif !_is_qp_obj(model)
-        return _backward_conic(model)
     else
-        error("Non-supported model")
+        return _backward_conic(model)
     end
 end
 
@@ -545,29 +588,11 @@ The output solution differentials can be queried with the attribute
 [`ForwardOutVariablePrimal`](@ref).
 """
 function forward(model::Optimizer)
-    if _qp_supported(model.optimizer)
+    if MOI.get(model, ProgramClassUsed()) == QUADRATIC
         return _forward_quad(model)
-    elseif !_is_qp_obj(model)
-        return _forward_conic(model)
     else
-        error("Non-supported model")
+        return _forward_conic(model)
     end
-end
-
-function _is_qp_obj(model)
-    MOI.get(model.optimizer, MOI.ObjectiveFunctionType()) <: MOI.ScalarQuadraticFunction{Float64}
-end
-
-_qp_supported(::Type{F}, ::Type{S}) where {F <: _QP_FUNCTION_TYPES, S <: _QP_SET_TYPES} = true
-_qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
-function _qp_supported(model)
-    con_types = MOI.get(model, MOI.ListOfConstraints())
-    for (func, set) in con_types
-        if !_qp_supported(func, set)
-            return false
-        end
-    end
-    return true
 end
 
 """
