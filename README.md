@@ -6,7 +6,7 @@
 [![Join the slack chat at https://app.slack.com/client/T68168MUP/C01409JFBMY](https://img.shields.io/badge/chat-on%20slack-blue.svg)](https://app.slack.com/client/T68168MUP/C01409JFBMY)
 
 DiffOpt is a package for differentiating convex optimization programs with respect to the program parameters. It currently supports linear and quadratic programs. Refer to [the  documentation](https://jump.dev/DiffOpt.jl/dev) for examples. Powered by [JuMP.jl](https://jump.dev/DiffOpt.jl/dev), DiffOpt allows creating a differentiable optimization model from many
-[existing optimizers](https://www.juliaopt.org/JuMP.jl/stable/installation/).
+[existing optimizers](https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers).
 
 
 ## Installation
@@ -89,3 +89,8 @@ then one can compute gradients by providing perturbations
 ```julia
 grads = backward(diff, dA, db, dc)
 ``` -->
+
+
+## Note
+
+- DiffOpt began as a [NumFOCUS sponsored Google Summer of Code (2020) project](https://summerofcode.withgoogle.com/organizations/4727917315096576/?sp-page=2#5232064888045568)
