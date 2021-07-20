@@ -26,7 +26,6 @@ const RTOL = 1e-4
     include(joinpath(@__DIR__, "../examples/solve-LP.jl"))
     include(joinpath(@__DIR__, "../examples/solve-QP.jl"))
     include(joinpath(@__DIR__, "../examples/unit_example.jl"))
-    include(joinpath(@__DIR__, "../examples/sensitivity-SVM.jl"))
     include(joinpath(@__DIR__, "../examples/chainrules.jl"))
 end
 
