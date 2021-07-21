@@ -1,46 +1,71 @@
 # DiffOpt.jl
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://jump.dev/DiffOpt.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jump.dev/DiffOpt.jl/dev)
 [![Build Status](https://github.com/jump-dev/DiffOpt.jl/workflows/CI/badge.svg?branch=master)](https://github.com/jump-dev/DiffOpt.jl/actions?query=workflow%3ACI)
 [![Coverage](https://codecov.io/gh/jump-dev/DiffOpt.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jump-dev/DiffOpt.jl)
 
-Differentiating convex optimization program (`JuMP.jl` or `MathOptInterface.jl` models) with respect to program parameters. Currently supports LPs, QPs.
+
+DiffOpt is a package for differentiating convex optimization programs with respect to the program parameters. It currently supports linear, quadratic and conic programs. Refer to [the  documentation](https://jump.dev/DiffOpt.jl/dev) for examples. Powered by [JuMP.jl](https://jump.dev/DiffOpt.jl/dev), DiffOpt allows creating a differentiable optimization model from many
+[existing optimizers](https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers).
+
 
 ## Installation
-DiffOpt can be installed through the Julia package manager:
+DiffOpt can be installed via the Julia package manager:
 
 ```
 (v1.3) pkg> add https://github.com/jump-dev/DiffOpt.jl
 ```
 
-## Usage
+## Example
 
-Create a differentiable model from
-[existing optimizers](https://www.juliaopt.org/JuMP.jl/stable/installation/):
-
+1. Create a model using the wrapper.
 ```julia
-using DiffOpt
-using GLPK
-using MathOptInterface
-const MOI = MathOptInterface
+using JuMP, DiffOpt, Clp
 
-diff = diff_optimizer(GLPK.Optimizer)
+model = JuMP.Model(() -> diff_optimizer(Clp.Optimizer))
 ```
 
-Update and solve the model:
+2. Define your model and solve it a single line.
 ```julia
-x = MOI.add_variables(diff, 2)
-c = MOI.add_constraint(diff, ...)
+@variable(model, x)
+@constraint(
+  model, 
+  cons, 
+  x >= 3,
+)
+@objective(
+  model, 
+  Min, 
+  2x,
+)
 
-MOI.optimize!(diff)
+optimize!(model) # solve
 ```
 
-Finally, differentiate the model (primal and dual variables specifically) to
-obtain product of jacobians with respect to problem parameters and a backward
-pass vector.
+3. Choose the problem parameters to differentiate with and set their perturbations.
+```julia
+MOI.set.(  # set pertubations / gradient inputs
+    model, 
+    DiffOpt.BackwardInVariablePrimal(), 
+    x, 
+    1.0,
+)
+```
 
-Currently, DiffOpt supports two backends. If the optimization problem is of quadratic form i.e.
+4. Differentiate the model (primal, dual variables specifically) and fetch the gradients
+```julia
+DiffOpt.backward(model) # differentiate
+
+grad_exp = MOI.get(   # -3x+1
+    model, 
+    DiffOpt.BackwardOutConstraint(), 
+    cons
+)
+JuMP.constant(grad_exp)  # 1
+JuMP.coefficient(grad_exp, x)  # -3
+```
+
+<!-- Currently, DiffOpt supports two backends. If the optimization problem is of quadratic form i.e.
 ```
 minimize_z z^T Q z / 2 + q^T z
 subject to: Az = b,
@@ -63,9 +88,9 @@ where
 then one can compute gradients by providing perturbations
 ```julia
 grads = backward(diff, dA, db, dc)
-```
+``` -->
+
 
 ## Note
 
-- This is a [NumFOCUS Google Summer of Code (2020) project](https://summerofcode.withgoogle.com/organizations/4727917315096576/?sp-page=2#5232064888045568)
-- Benchmarking with CVXPY or QPTH: Refer relevant examples as in [test/MOI_wrapper.jl](https://github.com/jump-dev/DiffOpt.jl/blob/master/test/MOI_wrapper.jl#L130)
+- DiffOpt began as a [NumFOCUS sponsored Google Summer of Code (2020) project](https://summerofcode.withgoogle.com/organizations/4727917315096576/?sp-page=2#5232064888045568)
