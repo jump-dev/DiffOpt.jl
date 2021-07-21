@@ -35,8 +35,8 @@ import Random, Plots
 N = 100
 D = 2
 Random.seed!(62)
-X = vcat(randn(N÷2, D), randn(N÷2,D) .+ [4.0,1.5]')
-y = append!(ones(N÷2), -ones(N÷2));
+X = vcat(randn(N ÷ 2, D), randn(N ÷ 2, D) .+ [4.0, 1.5]')
+y = append!(ones(N ÷ 2), -ones(N ÷ 2));
 
 
 # Let's define the model
@@ -53,12 +53,12 @@ model = Model(() -> diff_optimizer(SCS.Optimizer))
 
 @constraint(
     model, 
-    1.0*l ∈ MOI.Nonnegatives(N),
+    1.0 * l ∈ MOI.Nonnegatives(N),
 )
 @constraint(
     model, 
     cons, 
-    y.*(X*w .+ b) + l.-1 ∈ MOI.Nonnegatives(N),
+    y .* (X * w .+ b) + l .- 1 ∈ MOI.Nonnegatives(N),
 );
 
 
