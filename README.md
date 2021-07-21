@@ -3,9 +3,9 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jump.dev/DiffOpt.jl/dev)
 [![Build Status](https://github.com/jump-dev/DiffOpt.jl/workflows/CI/badge.svg?branch=master)](https://github.com/jump-dev/DiffOpt.jl/actions?query=workflow%3ACI)
 [![Coverage](https://codecov.io/gh/jump-dev/DiffOpt.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jump-dev/DiffOpt.jl)
-[![Join the slack chat at https://app.slack.com/client/T68168MUP/C01409JFBMY](https://img.shields.io/badge/chat-on%20slack-blue.svg)](https://app.slack.com/client/T68168MUP/C01409JFBMY)
 
-DiffOpt is a package for differentiating convex optimization programs with respect to the program parameters. It currently supports linear and quadratic programs. Refer to [the  documentation](https://jump.dev/DiffOpt.jl/dev) for examples. Powered by [JuMP.jl](https://jump.dev/DiffOpt.jl/dev), DiffOpt allows creating a differentiable optimization model from many
+
+DiffOpt is a package for differentiating convex optimization programs with respect to the program parameters. It currently supports linear, quadratic and conic programs. Refer to [the  documentation](https://jump.dev/DiffOpt.jl/dev) for examples. Powered by [JuMP.jl](https://jump.dev/DiffOpt.jl/dev), DiffOpt allows creating a differentiable optimization model from many
 [existing optimizers](https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers).
 
 
