@@ -4,9 +4,9 @@
 #md # [![](https://img.shields.io/badge/show-nbviewer-579ACA.svg)](@__NBVIEWER_ROOT_URL__/generated/sensitivity-analysis-svm.ipynb)
 
 
-# This notebook illustrates sensitivity analysis of data points in an [Support Vector Machine](https://en.wikipedia.org/wiki/Support-vector_machine) (inspired from [@matbesancon](http://github.com/matbesancon)'s [SimpleSVMs](http://github.com/matbesancon/SimpleSVMs.jl).)
+# This notebook illustrates sensitivity analysis of data points in a [Support Vector Machine](https://en.wikipedia.org/wiki/Support-vector_machine) (inspired from [@matbesancon](http://github.com/matbesancon)'s [SimpleSVMs](http://github.com/matbesancon/SimpleSVMs.jl).)
 
-# For reference, Section 10.1 of https://online.stat.psu.edu/stat508/book/export/html/792 gives an intuitive explanation of what does it means to have a sensitive hyperplane or data point. The general form of the SVM training problem is given below (without regularization):
+# For reference, Section 10.1 of https://online.stat.psu.edu/stat508/book/export/html/792 gives an intuitive explanation of what it means to have a sensitive hyperplane or data point. The general form of the SVM training problem is given below (without regularization):
 
 # ```math
 # \begin{split}
@@ -26,13 +26,8 @@
 # Import the libraries.
 
 
-import Random
-import SCS
-import Plots
-using DiffOpt
-using LinearAlgebra
-import MathOptInterface
-const MOI = MathOptInterface;
+using SCS, DiffOpt, LinearAlgebra, JuMP
+import Random, Plots
 
 
 # Construct separatable, non-trivial data points.
@@ -44,69 +39,52 @@ X = vcat(randn(N÷2, D), randn(N÷2,D) .+ [4.0,1.5]')
 y = append!(ones(N÷2), -ones(N÷2));
 
 
-# Let's define the variables.
+# Let's define the model
 
-model = diff_optimizer(SCS.Optimizer)
-MOI.set(model, MOI.Silent(), true);
+model = Model(() -> diff_optimizer(SCS.Optimizer))
 
 # Add the variables
-l = MOI.add_variables(model, N)
-w = MOI.add_variables(model, D)
-b = MOI.add_variable(model);
+
+@variable(model, l[1:N])
+@variable(model, w[1:D])
+@variable(model, b);
 
 # Add the constraints.
 
-MOI.add_constraint(
-    model,
-    MOI.VectorAffineFunction(
-        MOI.VectorAffineTerm.(1:N, MOI.ScalarAffineTerm.(1.0, l)), zeros(N),
-    ),
-    MOI.Nonnegatives(N),
+@constraint(
+    model, 
+    1.0*l ∈ MOI.Nonnegatives(N),
 )
-
-Ax = Matrix{MOI.ScalarAffineTerm{Float64}}(undef, N, D+2)
-for i in 1:N
-    Ax[i, :] = MOI.ScalarAffineTerm.([1.0; y[i]*X[i,:]; y[i]], [l[i]; w; b])
-end
-terms = MOI.VectorAffineTerm.(1:N, Ax)
-f = MOI.VectorAffineFunction(
-    vec(terms),
-    -ones(N),
-)
-cons = MOI.add_constraint(
-    model,
-    f,
-    MOI.Nonnegatives(N),
+@constraint(
+    model, 
+    cons, 
+    y.*(X*w .+ b) + l.-1 ∈ MOI.Nonnegatives(N),
 );
 
 
-# Define the linear objective function
+# Define the objective and solve
 
-objective_function = MOI.ScalarAffineFunction(
-                        MOI.ScalarAffineTerm.(ones(N), l),
-                        0.0,
-                    )
-MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
-MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE);
+@objective(
+    model,
+    Min,
+    sum(l),
+)
 
-
-# Solve the SVM model
-
-MOI.optimize!(model)
-
-loss = MOI.get(model, MOI.ObjectiveValue())
-wv = MOI.get(model, MOI.VariablePrimal(), w)
-bv = MOI.get(model, MOI.VariablePrimal(), b);
+optimize!(model) # solve
 
 
 # We can visualize the separating hyperplane.
+
+loss = objective_value(model)
+wv = value.(w)
+bv = value(b)
 
 svm_x = [0.0, 3.0]
 svm_y = (-bv .- wv[1] * svm_x )/wv[2]
 
 p = Plots.scatter(X[:,1], X[:,2], color = [yi > 0 ? :red : :blue for yi in y], label = "")
 Plots.yaxis!(p, (-2, 4.5))
-Plots.plot!(p, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3);
+Plots.plot!(p, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 
 
 # # Experiments
@@ -185,7 +163,7 @@ for Xi in 1:N
 
     dy[Xi] = 0.0  # reset the change made above
 end
-LinearAlgebra.normalize!(∇);
+normalize!(∇);
 
 
 # Visualize point sensitivities with respect to separating hyperplane. Note that the gradients are normalized.
@@ -196,7 +174,7 @@ p2 = Plots.scatter(
     markersize = ∇ * 20,
 )
 Plots.yaxis!(p2, (-2, 4.5))
-Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3);
+Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 
 
 # ## Experiment 2: Gradient of hyperplane wrt the data point coordinates
@@ -235,7 +213,7 @@ for Xi in 1:N
 
     dX[Xi, :] = zeros(D)  # reset the change made ago
 end
-LinearAlgebra.normalize!(∇);
+normalize!(∇);
 
 # We can visualize point sensitivity with respect to the separating hyperplane. Note that the gradients are normalized.
 
@@ -245,4 +223,4 @@ p3 = Plots.scatter(
     markersize = ∇ * 20,
 )
 Plots.yaxis!(p3, (-2, 4.5))
-Plots.plot!(p3, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3);
+Plots.plot!(p3, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
