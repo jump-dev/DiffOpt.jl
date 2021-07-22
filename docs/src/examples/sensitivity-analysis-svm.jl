@@ -30,7 +30,7 @@ using SCS, DiffOpt, LinearAlgebra, JuMP
 import Random, Plots
 
 
-# Construct separatable, non-trivial data points.
+# Construct separable, non-trivial data points.
 
 N = 100
 D = 2
@@ -39,7 +39,7 @@ X = vcat(randn(N ÷ 2, D), randn(N ÷ 2, D) .+ [4.0, 1.5]')
 y = append!(ones(N ÷ 2), -ones(N ÷ 2));
 
 
-# Let's define the model
+# Let's initialize a special model that can understand sensitivities
 
 model = Model(() -> diff_optimizer(SCS.Optimizer))
 
