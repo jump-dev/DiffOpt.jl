@@ -49,6 +49,8 @@ jobs:
   docs:
     name: Documentation
     runs-on: ubuntu-latest
+    env:
+      GKS_WSTYPE: 100
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
