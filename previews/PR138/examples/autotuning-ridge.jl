@@ -54,7 +54,7 @@ X_train, X_test, Y_train, Y_test = create_problem(800, 30, 4);
 
 # Define a helper function for regression
 
-function fitRidge(X,Y,α)
+function fit_ridge(X, Y, α)
     model = Model(() -> diff_optimizer(OSQP.Optimizer))
 
     N, D = size(X)
@@ -81,7 +81,7 @@ Rs = Float64[]
 mse = Float64[]
 
 for α in αs
-    _, _, _, w_train = fitRidge(X_train, Y_train, α) 
+    _, _, _, w_train = fit_ridge(X_train, Y_train, α)
     Y_pred = X_test*w_train
     push!(Rs, R2(Y_test, Y_pred))
     push!(mse, sum((Y_pred - Y_test).^2))
@@ -135,7 +135,7 @@ end
 N, D = size(X_train)
 
 for α in αs
-    model, w, _, ŵ = fitRidge(X_train, Y_train, α)
+    model, w, _, ŵ = fit_ridge(X_train, Y_train, α)
 
     ∂l_∂w = [2*α*ŵ[i] - sum(X_train[:,i].*(Y_train - X_train*ŵ))/N for i in 1:D]
     @assert norm(∂l_∂w) < 1e-1  # testing optimality
@@ -165,9 +165,9 @@ function descent(α, max_iters=25)
     mse = Float64[]
     
     iter=0
-    while curr_mse-10 < prev_mse && iter < max_iters
+    while curr_mse - 10 < prev_mse && iter < max_iters
         iter += 1
-        model, w, _, ŵ = fitRidge(X_train, Y_train, α)
+        model, w, _, ŵ = fit_ridge(X_train, Y_train, α)
         
         ∂α = ∇model(model, X_train, w, ŵ, α) # fetch the gradient
         
