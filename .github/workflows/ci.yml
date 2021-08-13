@@ -51,6 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GKS_WSTYPE: 100
+      GKSwstype: nul
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
