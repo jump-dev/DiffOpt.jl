@@ -15,7 +15,7 @@
 # where 
 # - `x`, `y` are the data points
 # - `w` constitutes weights of the regressing line
-# - `α` is the only hyperparameter - regularization constant
+# - `α` is the only hyperparameter acting on regularization
 
 using DiffOpt
 using Statistics
