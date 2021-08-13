@@ -279,3 +279,5 @@ dload2_demand
 ```
 
 The sensitivity of the generation is propagated to the sensitivity of both loads at the second time frame.
+
+This example integrating ChainRules was designed with support from [Invenia Technical Computing](https://www.invenia.ca/).
