@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Solving an LP · DiffOpt.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.039/juliamono-regular.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">DiffOpt.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../intro/">Introduction</a></li><li><a class="tocitem" href="../manual/">Manual</a></li><li><a class="tocitem" href="../usage/">Usage</a></li><li><a class="tocitem" href="../reference/">Reference</a></li><li><span class="tocitem">Examples</span><ul><li class="is-active"><a class="tocitem" href>Solving an LP</a><ul class="internal"><li><a class="tocitem" href="#create-a-non-trivial-LP-problem"><span>create a non-trivial LP problem</span></a></li><li><a class="tocitem" href="#find-and-solve-dual-problem"><span>find and solve dual problem</span></a></li><li><a class="tocitem" href="#derive-and-verify-KKT-conditions"><span>derive and verify KKT conditions</span></a></li></ul></li><li><a class="tocitem" href="../solve-QP/">Solving a QP</a></li><li><a class="tocitem" href="../solve-conic-1/">Solving conic with PSD and SOC constraints</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a simple QP by hand</a></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration</a></li></ul></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../examples/sensitivity-analysis-svm/">Sensitivity Analysis of SVM</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Solving an LP</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Solving an LP</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Solving-LP-primal"><a class="docs-heading-anchor" href="#Solving-LP-primal">Solving LP primal</a><a id="Solving-LP-primal-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-LP-primal" title="Permalink"></a></h1><pre><code class="language-julia hljs">using Random
+using GLPK
+using MathOptInterface
+using Dualization
+
+const MOI  = MathOptInterface
+const MOIU = MathOptInterface.Utilities;</code></pre><pre><code class="language-julia hljs">D = 10  # variable dimension
+N = 20; # no of inequality constraints</code></pre><h2 id="create-a-non-trivial-LP-problem"><a class="docs-heading-anchor" href="#create-a-non-trivial-LP-problem">create a non-trivial LP problem</a><a id="create-a-non-trivial-LP-problem-1"></a><a class="docs-heading-anchor-permalink" href="#create-a-non-trivial-LP-problem" title="Permalink"></a></h2><p class="math-container">\[\text{min } c^Tx\]</p><p class="math-container">\[\text{s.t. } Ax \leq b\]</p><pre><code class="nohighlight hljs">$$x \geq 0, x \in R^D$$</code></pre><pre><code class="language-julia hljs">s = rand(N)
+s = 2*s.-1
+λ = max.(-s, 0)
+s = max.(s, 0)
+x̂ = rand(D)
+A = rand(N, D)
+b = A*x̂ .+ s
+c = -A&#39;*λ;</code></pre><pre><code class="language-julia hljs"># can feed dual problem to optimizer like this:
+# model = MOI.instantiate(dual_optimizer(GLPK.Optimizer), with_bridge_type=Float64)
+
+model = GLPK.Optimizer()
+x = MOI.add_variables(model, D)
+
+# define objective
+objective_function = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(c, x), 0.0)
+MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), objective_function)
+MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)</code></pre><pre><code class="language-julia hljs"># will be useful later
+constraint_indices = []
+
+# set constraints
+for i in 1:N
+    push!(constraint_indices, MOI.add_constraint(model,MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.),MOI.LessThan(b[i])))
+end
+
+for i in 1:D
+    push!(constraint_indices, MOI.add_constraint(model,MOI.SingleVariable(x[i]),MOI.GreaterThan(0.)))
+end</code></pre><pre><code class="language-julia hljs">MOI.optimize!(model)</code></pre><pre><code class="language-julia hljs">@assert MOI.get(model, MOI.TerminationStatus()) in [MOI.LOCALLY_SOLVED, MOI.OPTIMAL]</code></pre><pre><code class="language-julia hljs">x̄ = MOI.get(model, MOI.VariablePrimal(), x);  # solution</code></pre><pre><code class="language-julia hljs">@assert abs(c&#39;x̄ - c&#39;x̂) &lt;= 1e-8   # sanity check</code></pre><h2 id="find-and-solve-dual-problem"><a class="docs-heading-anchor" href="#find-and-solve-dual-problem">find and solve dual problem</a><a id="find-and-solve-dual-problem-1"></a><a class="docs-heading-anchor-permalink" href="#find-and-solve-dual-problem" title="Permalink"></a></h2><table><tr><th style="text-align: right">primal</th><th style="text-align: right">dual</th></tr><tr><td style="text-align: right"><span>$\text{min } c^Tx$</span></td><td style="text-align: right"><span>$\text{max } b^Ty$</span></td></tr><tr><td style="text-align: right"><span>$\text{s.t. } Ax \leq b$</span></td><td style="text-align: right"><span>$\text{s.t. } A^Ty \geq c$</span></td></tr><tr><td style="text-align: right"><span>$x \geq 0$</span></td><td style="text-align: right"><span>$y \leq 0$</span></td></tr></table><ul><li>Each primal variable becomes a dual constraint</li><li>Each primal constraint becomes a dual variable</li></ul><pre><code class="language-julia hljs">joint_object    = dualize(model)
+dual_model_like = joint_object.dual_model # this is MOI.ModelLike, not an MOI.AbstractOptimizer; can&#39;t call optimizer on it
+primal_dual_map = joint_object.primal_dual_map;</code></pre><pre><code class="language-julia hljs"># copy the dual model objective, constraints, and variables to an optimizer
+dual_model = GLPK.Optimizer()
+MOI.copy_to(dual_model, dual_model_like)
+
+# solve dual
+MOI.optimize!(dual_model);</code></pre><pre><code class="language-julia hljs"># NOTE: You can obtain components of the dual model individually by -
+# dual_objective = dual_model_like.objective  # b&#39;y
+# dual_variable_indices = [primal_dual_map.primal_con_dual_var[x][1] for x in constraint_indices]
+# dual_constraint_indices = [primal_dual_map.primal_var_dual_con[i] for i in x];
+
+# ŷ = MOI.get(dm, MOI.VariablePrimal(), dual_variable_indices)</code></pre><pre><code class="language-julia hljs"># check if strong duality holds
+@assert abs(MOI.get(model, MOI.ObjectiveValue()) - MOI.get(dual_model, MOI.ObjectiveValue())) &lt;= 1e-8</code></pre><h2 id="derive-and-verify-KKT-conditions"><a class="docs-heading-anchor" href="#derive-and-verify-KKT-conditions">derive and verify KKT conditions</a><a id="derive-and-verify-KKT-conditions-1"></a><a class="docs-heading-anchor-permalink" href="#derive-and-verify-KKT-conditions" title="Permalink"></a></h2><p><strong>complimentary slackness</strong>: <span>$\mu_{i}(A\bar x -b)_i=0,\quad \mu_{j+N} \bar x_j =0 \qquad \text{ where } i=1..N, j = 1..D$</span></p><pre><code class="language-julia hljs">is_less_than(set::S) where {S&lt;:MOI.AbstractSet} = false
+is_less_than(set::MOI.LessThan{T}) where T = true
+
+map = primal_dual_map.primal_con_dual_var
+for con_index in keys(map)
+    con_value = MOI.get(model, MOI.ConstraintPrimal(), con_index)
+    set = MOI.get(model, MOI.ConstraintSet(), con_index)
+    μ         = MOI.get(dual_model, MOI.VariablePrimal(), map[con_index][1])
+    
+    if is_less_than(set)
+        # μ[i]*(Ax - b)[i] = 0
+        @assert μ*(con_value - set.upper) &lt; 1e-10
+    else
+        # μ[j]*x[j] = 0
+        @assert μ*(con_value - set.lower) &lt; 1e-10
+    end
+end</code></pre><pre><code class="language-julia hljs"></code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../reference/">« Reference</a><a class="docs-footer-nextpage" href="../solve-QP/">Solving a QP »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.5 on <span class="colophon-date" title="Friday 13 August 2021 11:56">Friday 13 August 2021</span>. Using Julia version 1.6.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
