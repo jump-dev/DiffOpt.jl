@@ -50,7 +50,7 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     env:
-      GKS_WSTYPE: 100
+      # Fix for Plots with GR backend, see https://github.com/jheinen/GR.jl/issues/422
       GKSwstype: nul
     steps:
       - uses: actions/checkout@v2
