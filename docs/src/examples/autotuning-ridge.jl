@@ -3,7 +3,7 @@
 #md # [![](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](@__REPO_ROOT_URL__/examples/autotuning-ridge.jl)
 #md # [![](https://img.shields.io/badge/show-nbviewer-579ACA.svg)](@__NBVIEWER_ROOT_URL__/generated/autotuning-ridge.ipynb)
 
-# This example shows how to learn the hyperparameters in Ridge Regression using a gradient descent routine.  
+# This example shows how to learn a hyperparameter in Ridge Regression using a gradient descent routine.
 # Let the problem be modelled as
 
 # ```math
@@ -53,6 +53,8 @@ function create_problem(N, D, noise)
     return X[1:l, :], X[l+1:N, :], y[1:l], y[l+1:N]
 end
 
+Random.seed!(42)
+
 X_train, X_test, y_train, y_test = create_problem(800, 30, 4);
 
 
@@ -69,7 +71,7 @@ function fit_ridge(X, y, α)
     @objective(
         model,
         Min,
-        dot(y - X*w, y - X*w)/(2N) + α * dot(w, w),
+        dot(X*w - y, X * w - y)/(2N) + α * dot(w, w),
     )
 
     optimize!(model)
@@ -84,7 +86,7 @@ end
 
 # Solve the problem for several values of α
 
-αs = [0.0, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2, 5e-2, 7e-2, 2e-1, 3e-1, .5, .7, 1.0]
+αs = [0.0, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2, 5e-2, 7e-2, 2e-1, 3e-1, 0.5, 0.7, 1.0]
 Rs = Float64[]
 mse = Float64[]
 
@@ -103,15 +105,14 @@ plot(log.(αs), 10 * Rs, label="R2 prediction score",  xaxis = ("log(α)"))
 
 plot(log.(αs), mse, label="MSE", xaxis = ("log(α)"))
 
-# Define the gradient of the model with respect to the parameter α
-
+# Define the derivative of the model with respect to the parameter α
 function ∇model(model, X_train, w, ŵ, α)
     N, D = size(X_train)
     dw = zeros(D)
     ∂w_∂α = zeros(D)
 
     for i in 1:D
-        dw[i] = 1.0 #set
+        dw[i] = 1 #set
 
         MOI.set(
             model, 
@@ -119,7 +120,7 @@ function ∇model(model, X_train, w, ŵ, α)
             MOI.ScalarQuadraticFunction(
                 [MOI.ScalarAffineTerm(0.0, w[i].index)], 
                 [MOI.ScalarQuadraticTerm(dw[i]*α, w[i].index, w[i].index)], 
-                0.0
+                0.0,
             )
         )
 
@@ -128,12 +129,12 @@ function ∇model(model, X_train, w, ŵ, α)
         ∂w_∂α[i] = MOI.get(
             model,
             DiffOpt.ForwardOutVariablePrimal(), 
-            w[i]
+            w[i],
         )
 
-        dw[i] = 0.0 #unset
+        dw[i] = 0 #unset
     end
-    return sqrt(ŵ'ŵ) + 2α*(ŵ'∂w_∂α) - sum((X_train*∂w_∂α).*(Y_train - X_train*ŵ))/(2N)
+    return dot(X_train * ∂w_∂α, X_train * ŵ - y_train) / N
 end
 
 
@@ -168,37 +169,30 @@ do gradient descent on alpha
 until the MSE keeps on decreasing
 """
 function descent(α, max_iters=25)
-    prev_mse = 1e7
-    curr_mse = 1e6
-    
     α_s = Float64[]
     mse = Float64[]
-    
     iter=0
-    while curr_mse - 10 < prev_mse && iter < max_iters
+    ∂α = 10
+    while abs(∂α) > 0.001 && iter < max_iters
         iter += 1
         model, w, _, ŵ = fit_ridge(X_train, y_train, α)
         
         ∂α = ∇model(model, X_train, w, ŵ, α) # fetch the gradient
-        
-        α += 0.01*∂α  # update by a fixed amount
-        
+        α -= 0.03 * ∂α  # update by a fixed amount
         push!(α_s, α)
-        
-        y_pred = X_test*ŵ
-
-        prev_mse = curr_mse
-        curr_mse = sum((y_pred - y_test).^2) 
-        
-        push!(mse, curr_mse)
+        y_pred = X_test * ŵ
+        mse_i = sum((y_pred - y_test).^2) 
+        @show ∂α
+        @show mse_i
+        @show α
+        push!(mse, mse_i)
     end
-    
     return α_s, mse
 end
 
-ᾱ, msē = descent(1.0);
+ᾱ, msē = descent(1.0, 500);
 
 # Visualize gradient descent and convergence 
 
-plot(log.(αs), mse, label="MSE", xaxis = ("α"))
-plot!(log.(ᾱ), msē, label="G.D. for α", lw = 2)
+plot((αs), mse, label="MSE", xaxis = ("α"), legend=:topleft)
+plot!((ᾱ), msē, label="G.D. for α", lw = 2)
