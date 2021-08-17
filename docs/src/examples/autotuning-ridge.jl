@@ -31,8 +31,7 @@ using LinearAlgebra
 """
     R2(y_true, y_pred)
 
-Return the coefficient of determination R2 of the prediction.
-Best possible score is 1.0, it can be negative because the model can be arbitrarily worse
+Return the coefficient of determination R2 of the prediction in `[0,1]`.
 """
 function R2(y_true, y_pred)
     u = norm(y_pred - y_true)^2  # Regression sum of squares
@@ -48,7 +47,7 @@ function create_problem(N, D, noise)
 
     # if noise=0, then there is no need of regularization and
     # alpha=0 will give the best R2 score
-    y = X * w .+ noise*randn(N)
+    y = X * w .+ noise * randn(N)
 
     l = N ÷ 2  # test train split
     return X[1:l, :], X[l+1:N, :], y[1:l], y[l+1:N]
@@ -114,12 +113,8 @@ function ∇model(model, X_train, w, ŵ, α)
     for i in 1:D
         MOI.set(
             model, 
-            DiffOpt.ForwardInObjective(), 
-            MOI.ScalarQuadraticFunction(
-                MOI.ScalarAffineTerm{Float64}[], 
-                [MOI.ScalarQuadraticTerm(dα, w[i].index, w[i].index)], 
-                0.0,
-            ),
+            DiffOpt.ForwardInObjective(),
+            dα * w[i] * w[i],
         )
 
         DiffOpt.forward(model)  # find grad
