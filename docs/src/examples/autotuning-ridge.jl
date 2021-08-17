@@ -143,7 +143,7 @@ for α in αs
     model, w, _, ŵ = fit_ridge(X_train, y_train, α)
 
     ∂l_∂w = [2*α*ŵ[i] - sum(X_train[:,i] .* (y_train - X_train*ŵ))/N for i in 1:D]
-    @assert norm(∂l_∂w) < 1e-1  # testing optimality wrt regularized model
+    @assert norm(∂l_∂w) < 1e-3  # testing optimality wrt regularized model
     
     push!(
         ∂l_∂αs, 
@@ -158,13 +158,13 @@ plot(αs, ∂l_∂αs, label="∂l/∂α",  xaxis = ("α"))
 # Define helper function for Gradient Descent
 
 """
-    descent(α, max_iters=25)
+    descent(α, max_iters=100)
 
 start from initial value of regularization constant
 do gradient descent on alpha
 until the MSE keeps on decreasing
 """
-function descent(α, max_iters=25)
+function descent(α, max_iters=100)
     α_s = Float64[]
     mse = Float64[]
     iter=0
