@@ -15,7 +15,9 @@
 # where 
 # - `x`, `y` are the data points
 # - `w` constitutes weights of the regressing line
-# - `α` is the only hyperparameter acting on regularization
+# - `α` is the only hyperparameter acting on regularization.
+
+# We will try to minimize the (non-regularized) mean square error over `α` values.
 
 using DiffOpt
 using Statistics
@@ -33,17 +35,16 @@ Return the coefficient of determination R2 of the prediction.
 Best possible score is 1.0, it can be negative because the model can be arbitrarily worse
 """
 function R2(y_true, y_pred)
-    u = sum((y_pred - y_true).^2)  # Regression sum of squares
-    v = sum((y_true .- mean(y_true)).^2)  # Total sum of squares
-    
-    return 1-(u/v)
+    u = norm(y_pred - y_true)^2  # Regression sum of squares
+    v = norm(y_true .- mean(y_true))^2  # Total sum of squares
+    return 1 - u/v
 end
 
 # Create a non-trivial, noisy regression dataset
 
 function create_problem(N, D, noise)
-    w = rand(D) 
-    X = rand(N, D) 
+    w = rand(D)
+    X = rand(N, D)
 
     # if noise=0, then there is no need of regularization and
     # alpha=0 will give the best R2 score
@@ -94,7 +95,7 @@ for α in αs
     _, _, _, w_train = fit_ridge(X_train, y_train, α)
     y_pred = X_test * w_train
     push!(Rs, R2(y_test, y_pred))
-    push!(mse, sum((y_pred - y_test).^2))
+    push!(mse, norm(y_pred - y_test)^2)
 end
 
 # Visualize the R2 correlation metric
@@ -108,20 +109,17 @@ plot(log.(αs), mse, label="MSE", xaxis = ("log(α)"))
 # Define the derivative of the model with respect to the parameter α
 function ∇model(model, X_train, w, ŵ, α)
     N, D = size(X_train)
-    dw = zeros(D)
     ∂w_∂α = zeros(D)
-
+    dα = 1.0
     for i in 1:D
-        dw[i] = 1 #set
-
         MOI.set(
             model, 
             DiffOpt.ForwardInObjective(), 
             MOI.ScalarQuadraticFunction(
                 [MOI.ScalarAffineTerm(0.0, w[i].index)], 
-                [MOI.ScalarQuadraticTerm(dw[i]*α, w[i].index, w[i].index)], 
+                [MOI.ScalarQuadraticTerm(dα, w[i].index, w[i].index)], 
                 0.0,
-            )
+            ),
         )
 
         DiffOpt.forward(model)  # find grad
@@ -131,8 +129,6 @@ function ∇model(model, X_train, w, ŵ, α)
             DiffOpt.ForwardOutVariablePrimal(), 
             w[i],
         )
-
-        dw[i] = 0 #unset
     end
     return dot(X_train * ∂w_∂α, X_train * ŵ - y_train) / N
 end
@@ -147,7 +143,7 @@ for α in αs
     model, w, _, ŵ = fit_ridge(X_train, y_train, α)
 
     ∂l_∂w = [2*α*ŵ[i] - sum(X_train[:,i] .* (y_train - X_train*ŵ))/N for i in 1:D]
-    @assert norm(∂l_∂w) < 1e-1  # testing optimality
+    @assert norm(∂l_∂w) < 1e-1  # testing optimality wrt regularized model
     
     push!(
         ∂l_∂αs, 
