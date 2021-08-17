@@ -116,7 +116,7 @@ function ∇model(model, X_train, w, ŵ, α)
             model, 
             DiffOpt.ForwardInObjective(), 
             MOI.ScalarQuadraticFunction(
-                [MOI.ScalarAffineTerm(0.0, w[i].index)], 
+                MOI.ScalarAffineTerm{Float64}[], 
                 [MOI.ScalarQuadraticTerm(dα, w[i].index, w[i].index)], 
                 0.0,
             ),
