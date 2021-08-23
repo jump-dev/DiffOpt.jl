@@ -42,12 +42,12 @@ end
 # Create a non-trivial, noisy regression dataset
 
 function create_problem(N, D, noise)
-    w = rand(D)
-    X = rand(N, D)
+    w = 10 * randn(D)
+    X = 10 * randn(N, D)
 
     # if noise=0, then there is no need of regularization and
     # alpha=0 will give the best R2 score
-    y = X * w .+ noise * randn(N)
+    y = X * w + noise * randn(N)
 
     l = N ÷ 2  # test train split
     return X[1:l, :], X[l+1:N, :], y[1:l], y[l+1:N]
@@ -55,7 +55,7 @@ end
 
 Random.seed!(42)
 
-X_train, X_test, y_train, y_test = create_problem(800, 30, 4);
+X_train, X_test, y_train, y_test = create_problem(1000, 100, 50);
 
 
 # Define a helper function for regression
@@ -65,13 +65,13 @@ function fit_ridge(X, y, α)
 
     N, D = size(X)
     
-    @variable(model, w[1:D] >= -10)
+    @variable(model, w[1:D])
     set_optimizer_attribute(model, MOI.Silent(), true)
     
     @objective(
         model,
         Min,
-        dot(X*w - y, X * w - y)/(2N) + α * dot(w, w),
+        dot(X*w - y, X * w - y) + α * dot(w, w),
     )
 
     optimize!(model)
@@ -86,10 +86,9 @@ end
 
 # Solve the problem for several values of α
 
-αs = [0.0, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2, 5e-2, 7e-2, 2e-1, 3e-1, 0.5, 0.7, 1.0]
+αs = 0.0:0.0001:0.001
 Rs = Float64[]
 mse = Float64[]
-
 for α in αs
     _, _, _, w_train = fit_ridge(X_train, y_train, α)
     y_pred = X_test * w_train
@@ -99,22 +98,22 @@ end
 
 # Visualize the R2 correlation metric
 
-plot(log.(αs), 10 * Rs, label="R2 prediction score",  xaxis = ("log(α)"))
+plot(αs, Rs, label="R2 prediction score",  xaxis = ("α"))
 
 # Visualize the Mean Score Error metric
 
-plot(log.(αs), mse, label="MSE", xaxis = ("log(α)"))
+plot(αs, mse, label="MSE", xaxis = "α")
 
-# Define the derivative of the model with respect to the parameter α
-function ∇model(model, X_train, w, ŵ, α)
-    N, D = size(X_train)
+# Define the derivative of the test loss with respect to the parameter α
+function ∇model(model, X_test, y_test, w, ŵ)
+    N, D = size(X_test)
     ∂w_∂α = zeros(D)
     dα = 1.0
     for i in 1:D
         MOI.set(
             model, 
             DiffOpt.ForwardInObjective(),
-            dα * w[i] * w[i],
+            dα * w[i]^2,
         )
 
         DiffOpt.forward(model)  # find grad
@@ -125,28 +124,44 @@ function ∇model(model, X_train, w, ŵ, α)
             w[i],
         )
     end
-    return dot(X_train * ∂w_∂α, X_train * ŵ - y_train) / N
+    return dot(X_test * ∂w_∂α, X_test * ŵ - y_test) / N
 end
 
 
 # Plot the gradient ∂l/∂α
 
-∂l_∂αs = Float64[]
+∂l_∂αs_train = Float64[]
+∂l_∂αs_test = Float64[]
+ltrain = Float64[]
+ltest = Float64[]
 N, D = size(X_train)
 
 for α in αs
     model, w, _, ŵ = fit_ridge(X_train, y_train, α)
+    ∂l_∂w = [2α * ŵ[i] - sum(X_train[:,i] .* (y_train - X_train*ŵ))/N for i in 1:D]
+    # testing optimality wrt regularized model
+    @show norm(∂l_∂w)
+    @assert norm(∂l_∂w) < 5e-2
 
-    ∂l_∂w = [2*α*ŵ[i] - sum(X_train[:,i] .* (y_train - X_train*ŵ))/N for i in 1:D]
-    @assert norm(∂l_∂w) < 1e-3  # testing optimality wrt regularized model
-    
     push!(
-        ∂l_∂αs, 
-        ∇model(model, X_train, w, ŵ, α)
+        ∂l_∂αs_test,
+        ∇model(model, X_test, y_test, w, ŵ),
+    )
+    push!(
+        ∂l_∂αs_train,
+        ∇model(model, X_train, y_train, w, ŵ),
+    )
+    push!(
+        ltrain,
+        dot(X_train * ŵ - y_train, X_train * ŵ - y_train)/(2 * length(y_train)),
+    )
+    push!(
+        ltest,
+        dot(X_test * ŵ - y_test, X_test * ŵ - y_test)/(2 * length(y_test)),
     )
 end
 
-plot(αs, ∂l_∂αs, label="∂l/∂α",  xaxis = ("α"))
+plot(αs, ∂l_∂αs_train, label="∂l/∂α",  xaxis = ("α"), title="Training")
 
 
 
@@ -162,13 +177,12 @@ until the MSE keeps on decreasing
 function descent(α, max_iters=100)
     α_s = Float64[]
     mse = Float64[]
-    iter=0
+    iter = 0
     ∂α = 10
     while abs(∂α) > 0.001 && iter < max_iters
         iter += 1
         model, w, _, ŵ = fit_ridge(X_train, y_train, α)
-        
-        ∂α = ∇model(model, X_train, w, ŵ, α) # fetch the gradient
+        ∂α = ∇model(model, X_test, y_test, w, ŵ, α) # fetch the gradient
         α -= 0.03 * ∂α  # update by a fixed amount
         push!(α_s, α)
         y_pred = X_test * ŵ
@@ -185,5 +199,5 @@ end
 
 # Visualize gradient descent and convergence 
 
-plot((αs), mse, label="MSE", xaxis = ("α"), legend=:topleft)
+plot(αs, mse, label="MSE", xaxis = ("α"), legend=:topleft)
 plot!((ᾱ), msē, label="G.D. for α", lw = 2)
