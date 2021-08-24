@@ -55,7 +55,7 @@ end
 
 Random.seed!(42)
 
-X_train, X_test, y_train, y_test = create_problem(1000, 100, 50);
+X_train, X_test, y_train, y_test = create_problem(1000, 200, 50);
 
 
 # Define a helper function for regression
