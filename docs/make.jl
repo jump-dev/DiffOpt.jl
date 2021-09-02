@@ -58,7 +58,7 @@ makedocs(;
             "Solving a QP" => "solve-QP.md",
             "Solving conic with PSD and SOC constraints" => "solve-conic-1.md",
             "Differentiating a simple QP by hand" => "matrix-inversion-manual.md",
-            "ChainRules integration" => "chainrules_unit.md",
+            "ChainRules integration (Relaxed Unit Commitment)" => "chainrules_unit.md",
         ],
         "Tutorials" => [
             joinpath("examples", f) for f in readdir(_EXAMPLE_DIR) if endswith(f, ".md")
