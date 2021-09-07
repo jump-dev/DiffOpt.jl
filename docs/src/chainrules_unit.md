@@ -1,4 +1,4 @@
-# ChainRules integration
+# ChainRules integration demo: Relaxed Unit Commitment
 
 In this example, we will demonstrate the integration of DiffOpt with
 [ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/stable/),
