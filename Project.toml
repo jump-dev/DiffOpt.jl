@@ -21,7 +21,7 @@ BlockDiagonals = "0.1"
 IterativeSolvers = "0.8, 0.9"
 JuMP = "0.21"
 LazyArrays = "0.16, 0.21"
-MathOptInterface = "0.9"
+MathOptInterface = "0.9, 0.10"
 MathOptSetDistances = "0.1"
 julia = "1"
 
