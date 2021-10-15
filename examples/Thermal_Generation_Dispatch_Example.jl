@@ -9,10 +9,10 @@
 # ```math
 # \begin{split}
 # \begin{array} {ll}
-# \mbox{minimize} & \sum_{i=1}^{N} c_{i} g_{i} + c_{ϕ} ϕ \\
+# \mbox{minimize} & \sum_{i=1}^{N} c_{i} g_{i} + c_{\phi} \phi \\
 # \mbox{s.t.} & g_{i} \ge 0 \quad i=1..N  \\
 #             & g_{i} \le G_{i} \quad i=1..N  \\
-#             & \sum_{i=1}^{N} g_{i} + ϕ = d\\
+#             & \sum_{i=1}^{N} g_{i} + \phi = d\\
 # \end{array}
 # \end{split}
 # ```
