@@ -58,7 +58,7 @@ jobs:
         with:
           version: '1'
       - shell: bash
-        run: julia --color=yes --project=docs -e 'using Pkg; Pkg.add(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\",rev=\"4652d041f7b60e511c42494433db1f2198bdfb23\")); Pkg.instantiate()'
+        run: julia --color=yes --project=docs -e 'using Pkg; Pkg.add(Pkg.PackageSpec(url="https://github.com/jump-dev/MatrixOptInterface.jl",rev="4652d041f7b60e511c42494433db1f2198bdfb23")); Pkg.instantiate()'
       - shell: bash
         run: julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd()))"
       - shell: bash
