@@ -219,7 +219,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
                 end
             end
         end
-        h[i] = func.constant - set.lower
+        h[i+nineq_le] = func.constant - set.lower
         ineq_cont += 1
         index_map[con] =
             CI{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}(ineq_cont)
