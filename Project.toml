@@ -19,7 +19,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 [compat]
 BlockDiagonals = "0.1"
 IterativeSolvers = "0.8, 0.9"
-JuMP = "0.21"
+JuMP = "0.21, 0.22"
 LazyArrays = "0.16, 0.21"
 MathOptInterface = "0.9"
 MathOptSetDistances = "0.1"
