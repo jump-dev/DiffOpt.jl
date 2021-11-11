@@ -38,7 +38,8 @@
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = DiffOpt.GeometricConicForm{Float64}()
-    DiffOpt.set_set_types(conic_form, cone_types)
+    cones = conic_form.constraints.sets
+    DiffOpt.set_set_types(cones, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     @test x ≈ ones(3) atol=ATOL rtol=RTOL

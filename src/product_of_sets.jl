@@ -40,11 +40,13 @@ mutable struct ProductOfSets{T} <: MOI.Utilities.OrderedProductOfSets{T}
     end
 end
 
-function MOI.Utilities.set_index(set::ProductOfSets, S::Type)
+function MOI.Utilities.set_index(set::ProductOfSets, S::Type{<:MOI.AbstractSet})
     return set.set_types_dict[S]
 end
 MOI.Utilities.set_types(set::ProductOfSets{T}) where {T} = set.set_types
 function set_set_types(set::ProductOfSets{T}, set_types) where {T}
+    resize!(set.num_rows, length(set_types))
+    fill!(set.num_rows, 0)
     resize!(set.set_types, length(set_types))
     copy!(set.set_types, set_types)
     empty!(set.set_types_dict)

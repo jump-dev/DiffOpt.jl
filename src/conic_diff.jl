@@ -25,16 +25,17 @@ function build_conic_diff_cache!(model)
     vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
     cone_types = unique!([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = GeometricConicForm{Float64}()
-    set_set_types(conic_form.constraints, cone_types)
+    cones = conic_form.constraints.sets
+    set_set_types(cones, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     A = convert(SparseMatrixCSC{Float64, Int}, conic_form.constraints.coefficients)
     b = conic_form.constraints.constants
 
     c = zeros(length(vis_src))
-    max_sense = MOI.get(src, MOI.ObjectiveSense()) == MOI.MAX_SENSE
+    max_sense = MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
     if MOI.get(model, MOI.ObjectiveSense()) != MOI.FEASIBILITY_SENSE
-        obj = MOI.get(src, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
+        obj = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
         objective_constant = MOI.constant(obj)
         for term in obj.terms
             c[term.variable.value] += (max_sense ? -1 : 1) * term.coefficient
@@ -52,9 +53,9 @@ function build_conic_diff_cache!(model)
         x[i] = MOI.get(model, MOI.VariablePrimal(), vi)
     end
     s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci),
-        model.optimizer, conic_form, index_map, Flattened{Float64}())
+        model.optimizer, cones, index_map, Flattened{Float64}())
     y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci),
-        model.optimizer, conic_form, index_map, Flattened{Float64}())
+        model.optimizer, cones, index_map, Flattened{Float64}())
 
     # pre-compute quantities for the derivative
     m = A.m
@@ -65,7 +66,7 @@ function build_conic_diff_cache!(model)
 
 
     # find gradient of projections on dual of the cones
-    Dπv = Dπ(v, model.optimizer, conic_form, index_map)
+    Dπv = Dπ(v, model.optimizer, cones, index_map)
 
     # Q = [
     #      0   A'   c;
@@ -89,9 +90,9 @@ function build_conic_diff_cache!(model)
         -c'              -b' * Dπv     0.0
     ]
     # find projections on dual of the cones
-    vp = π(v, model.optimizer, conic_form, index_map)
+    vp = π(v, model.optimizer, cones, index_map)
 
-    model.gradient_cache =  ConicCache(
+    model.gradient_cache = ConicCache(
         M = M,
         vp = vp,
         Dπv = Dπv,
@@ -100,7 +101,7 @@ function build_conic_diff_cache!(model)
         b = b,
         c = c,
         index_map = index_map,
-        conic_form = conic_form,
+        cones = cones,
     )
     return nothing
 end
