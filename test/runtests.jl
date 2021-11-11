@@ -45,10 +45,6 @@ end
     include("solver_interface.jl")
 end
 
-@testset "Singular error with deleted variables" begin
-    include("singular_exception.jl")
-end
-
-@testset "Sensitivity index issue" begin
+@testset "Singular error with deleted variables: Sensitivity index issue" begin
     include("singular_exception.jl")
 end

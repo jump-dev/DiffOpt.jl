@@ -32,12 +32,13 @@ function build_conic_diff_cache!(model)
     A = -convert(SparseMatrixCSC{Float64, Int}, conic_form.constraints.coefficients)
     b = conic_form.constraints.constants
 
-    c = zeros(length(vis_src))
-    max_sense = MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
-    if MOI.get(model, MOI.ObjectiveSense()) != MOI.FEASIBILITY_SENSE
+    if MOI.get(model, MOI.ObjectiveSense()) == MOI.FEASIBILITY_SENSE
+        c = spzeros(length(vis_src))
+    else
         obj = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
-        for term in obj.terms
-            c[term.variable.value] += (max_sense ? -1 : 1) * term.coefficient
+        c = sparse_array_representation(obj, length(vis_src), index_map).terms
+        if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
+            c = -c
         end
     end
 
