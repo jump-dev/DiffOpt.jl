@@ -156,7 +156,7 @@ for Xi in 1:N
         DiffOpt.ForwardOutVariablePrimal(),
         w,
     )
-    db = MOI.get(W
+    db = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
         b,
