@@ -90,8 +90,8 @@ end
 #     end
 
 #     objective_function = MOI.ScalarQuadraticFunction(
-#                             MOI.ScalarAffineTerm.(q, x),
 #                             quad_terms,
+#                             MOI.ScalarAffineTerm.(q, x),
 #                             0.0,
 #                         )
 #     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
@@ -541,7 +541,7 @@ end
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = DiffOpt.GeometricConicForm{Float64}()
-    DiffOpt.set_set_types(cone_types)
+    DiffOpt.set_set_types(conic_form, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
@@ -610,7 +610,7 @@ function simple_psd(solver)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = DiffOpt.GeometricConicForm{Float64}()
-    DiffOpt.set_set_types(cone_types)
+    DiffOpt.set_set_types(conic_form, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     # s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
@@ -744,7 +744,7 @@ end
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = DiffOpt.GeometricConicForm{Float64}()
-    DiffOpt.set_set_types(cone_types)
+    DiffOpt.set_set_types(conic_form, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     # s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
@@ -851,7 +851,7 @@ end
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = DiffOpt.GeometricConicForm{Float64}()
-    DiffOpt.set_set_types(cone_types)
+    DiffOpt.set_set_types(conic_form, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
@@ -954,7 +954,7 @@ end
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = DiffOpt.GeometricConicForm{Float64}()
-    DiffOpt.set_set_types(cone_types)
+    DiffOpt.set_set_types(conic_form, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
@@ -1127,7 +1127,7 @@ end
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = DiffOpt.GeometricConicForm{Float64}()
-    DiffOpt.set_set_types(cone_types)
+    DiffOpt.set_set_types(conic_form, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
     s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, conic_form, index_map, DiffOpt.Flattened{Float64}())
