@@ -135,7 +135,6 @@ function MOI.copy_to(model::Optimizer, src::MOI.ModelLike)
 end
 
 function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
-    @show MOI.get(model.optimizer, MOI.TerminationStatus())
     return MOI.get(model.optimizer, MOI.TerminationStatus())
 end
 

@@ -16,10 +16,6 @@ const MOIU = MathOptInterface.Utilities
 using MathOptSetDistances
 const MOSD = MathOptSetDistances
 
-using MatrixOptInterface
-const MatOI = MatrixOptInterface
-
-
 const VI = MOI.VariableIndex
 const CI = MOI.ConstraintIndex
 

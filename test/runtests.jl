@@ -16,9 +16,6 @@ const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 const MOIT = MathOptInterface.Test
 
-import MatrixOptInterface
-const MatOI = MatrixOptInterface
-
 const ATOL = 1e-4
 const RTOL = 1e-4
 

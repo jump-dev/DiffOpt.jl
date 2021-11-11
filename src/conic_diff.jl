@@ -1,24 +1,45 @@
+include("product_of_sets.jl")
+const GeometricConicForm{T} = MOI.Utilities.GenericModel{
+    T,
+    MOI.Utilities.ObjectiveContainer{Float64},
+    MOI.Utilities.VariablesContainer{Float64},
+    MOI.Utilities.MatrixOfConstraints{
+        Float64,
+        MOI.Utilities.MutableSparseMatrixCSC{
+            Float64,
+            Int,
+            # We use `OneBasedIndexing` as it is the same indexing as used
+            # by `SparseMatrixCSC` so we can do an allocation-free conversion to
+            # `SparseMatrixCSC`.
+            MOI.Utilities.OneBasedIndexing,
+        },
+        Vector{Float64},
+        ProductOfSets{Float64},
+    },
+}
+
+
 function build_conic_diff_cache!(model)
     # For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 
-
     vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
-    # fetch matrices from MatrixOptInterface
     cone_types = unique!([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
-    # We use `MatOI.OneBasedIndexing` as it is the same indexing as used by `SparseMatrixCSC`
-    # so we can do an allocation-free conversion to `SparseMatrixCSC`.
-    conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
+    conic_form = GeometricConicForm{Float64}()
+    set_set_types(conic_form.constraints, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
-    # fix optimization sense
-    if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
-        conic_form.sense = MOI.MIN_SENSE
-        conic_form.c = -conic_form.c
-    end
+    A = convert(SparseMatrixCSC{Float64, Int}, conic_form.constraints.coefficients)
+    b = conic_form.constraints.constants
 
-    A = convert(SparseMatrixCSC{Float64, Int}, conic_form.A)
-    b = conic_form.b
-    c = conic_form.c
+    c = zeros(length(vis_src))
+    max_sense = MOI.get(src, MOI.ObjectiveSense()) == MOI.MAX_SENSE
+    if MOI.get(model, MOI.ObjectiveSense()) != MOI.FEASIBILITY_SENSE
+        obj = MOI.get(src, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
+        objective_constant = MOI.constant(obj)
+        for term in obj.terms
+            c[term.variable.value] += (max_sense ? -1 : 1) * term.coefficient
+        end
+    end
 
     # programs in tests were cross-checked against `diffcp`, which follows SCS format
     # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers

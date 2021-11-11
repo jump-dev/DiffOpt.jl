@@ -13,8 +13,6 @@ import Clp
 import SCS
 
 using DelimitedFiles
-import MatrixOptInterface
-const MatOI = MatrixOptInterface
 
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
