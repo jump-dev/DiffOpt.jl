@@ -29,14 +29,13 @@ function build_conic_diff_cache!(model)
     set_set_types(cones, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
-    A = convert(SparseMatrixCSC{Float64, Int}, conic_form.constraints.coefficients)
+    A = -convert(SparseMatrixCSC{Float64, Int}, conic_form.constraints.coefficients)
     b = conic_form.constraints.constants
 
     c = zeros(length(vis_src))
     max_sense = MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
     if MOI.get(model, MOI.ObjectiveSense()) != MOI.FEASIBILITY_SENSE
         obj = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
-        objective_constant = MOI.constant(obj)
         for term in obj.terms
             c[term.variable.value] += (max_sense ? -1 : 1) * term.coefficient
         end

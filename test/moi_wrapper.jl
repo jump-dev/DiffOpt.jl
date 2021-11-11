@@ -527,12 +527,12 @@ end
     MOI.set(model, MOI.Silent(), true)
     x,y,t = MOI.add_variables(model, 3)
 
-    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0))
+    MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(), 1.0x)
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
-    ceq  = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(-1.0, t))], [1.0]), MOI.Zeros(1))
-    cnon = MOI.add_constraint(model, MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(1.0, y))], [-1/√2]), MOI.Nonnegatives(1))
-    csoc = MOI.add_constraint(model, MOI.VectorAffineFunction(MOI.VectorAffineTerm.([1,2,3], MOI.ScalarAffineTerm.(1.0, [t,x,y])), zeros(3)), MOI.SecondOrderCone(3))
+    ceq  = MOI.add_constraint(model, MOIU.vectorize([-1.0t + 1.0]), MOI.Zeros(1))
+    cnon = MOI.add_constraint(model, MOIU.vectorize([1.0y - 1/√2]), MOI.Nonnegatives(1))
+    csoc = MOI.add_constraint(model, MOIU.vectorize([1.0t, 1.0x, 1.0y]), MOI.SecondOrderCone(3))
 
     MOI.optimize!(model)
 
