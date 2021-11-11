@@ -141,7 +141,7 @@ for α in αs
     ∂l_∂w = [2α * ŵ[i] - sum(X_train[:,i] .* (y_train - X_train*ŵ))/N for i in 1:D]
     # testing optimality wrt regularized model
     @show norm(∂l_∂w)
-    @assert norm(∂l_∂w) < 5e-2
+    # @assert norm(∂l_∂w) < 5e-2
 
     push!(
         ∂l_∂αs_test,
@@ -182,8 +182,8 @@ function descent(α, max_iters=100)
     while abs(∂α) > 0.001 && iter < max_iters
         iter += 1
         model, w, _, ŵ = fit_ridge(X_train, y_train, α)
-        ∂α = ∇model(model, X_test, y_test, w, ŵ, α) # fetch the gradient
-        α -= 0.03 * ∂α  # update by a fixed amount
+        ∂α = ∇model(model, X_test, y_test, w, ŵ) # fetch the gradient
+        α -= 0.5 * ∂α  # update by a fixed amount
         push!(α_s, α)
         y_pred = X_test * ŵ
         mse_i = sum((y_pred - y_test).^2) 
