@@ -135,6 +135,7 @@ function MOI.copy_to(model::Optimizer, src::MOI.ModelLike)
 end
 
 function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
+    @show MOI.get(model.optimizer, MOI.TerminationStatus())
     return MOI.get(model.optimizer, MOI.TerminationStatus())
 end
 
@@ -192,8 +193,7 @@ end
 
 # helper methods to check if a constraint contains a Variable
 function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VariableIndex, S}) where {S <: SUPPORTED_SCALAR_SETS}
-    func = MOI.get(model, MOI.ConstraintFunction(), ci)
-    return v == func.variable
+    return v == MOI.get(model, MOI.ConstraintFunction(), ci)
 end
 
 function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.ScalarAffineFunction{Float64}, S}) where {S <: SUPPORTED_SCALAR_SETS}

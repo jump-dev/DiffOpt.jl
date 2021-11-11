@@ -799,8 +799,8 @@ function _assign_mapped!(x, y, r, k, ::Flattened)
 end
 
 # Map the rows corresponding to `F`-in-`S` constraints and store it in `x`.
-function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOI.IndexMap, map_mode, k)
-    for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}()) # TODO how to get F-S now?
+function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.DoubleDicts.IndexDoubleDictInner{F, S}, map_mode, k) where {F, S}
+    for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
         r = MatOI.rows(conic_form, index_map[ci])
         k += 1
         _assign_mapped!(x, f(ci, r), r, k, map_mode)
@@ -828,7 +828,7 @@ function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, inde
     k = 0
     for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         # Function barrier for type unstability of `F` and `S`
-        # `conmap` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
+        # `con_map` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
         # which returns a `MOIU.DoubleDicts.IndexWithType{F, S}` which is type stable.
         # If we have a small number of different constraint types and many
         # constraint of each type, this mostly removes type unstabilities
@@ -920,14 +920,14 @@ function _fill(neg::Function, model::Optimizer, conic_form, args...)
     _fill(S -> true, neg, model, conic_form, args...)
 end
 function _fill(filter::Function, neg::Function, model::Optimizer, conic_form, args...)
-    conmap = model.gradient_cache.index_map.con_map
-    varmap = model.gradient_cache.index_map.var_map
+    con_map = model.gradient_cache.index_map.con_map
+    var_map = model.gradient_cache.index_map.var_map
     for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         filter(S) || continue
         if F == MOI.ScalarAffineFunction{Float64}
-            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.scalar_constraints[F,S])
+            _fill(args..., neg(S), conic_form, con_map[F,S], var_map, model.input_cache.scalar_constraints[F,S])
         elseif F == MOI.VectorAffineFunction{Float64}
-            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.vector_constraints[F,S])
+            _fill(args..., neg(S), conic_form, con_map[F,S], var_map, model.input_cache.vector_constraints[F,S])
         end
     end
     return
