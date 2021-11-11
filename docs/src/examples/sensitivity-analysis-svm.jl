@@ -52,12 +52,12 @@ model = Model(() -> diff_optimizer(SCS.Optimizer))
 # Add the constraints.
 
 @constraint(
-    model, 
+    model,
     1.0 * l ∈ MOI.Nonnegatives(N),
 )
 @constraint(
-    model, 
-    cons, 
+    model,
+    cons,
     y .* (X * w .+ b) + l .- 1 ∈ MOI.Nonnegatives(N),
 );
 
@@ -147,6 +147,8 @@ for Xi in 1:N
         MOI.Utilities.vectorize(dy .* index(b)),
     )
 
+    # FIXME Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
+    optimize!(model)
     DiffOpt.forward(model)
 
     dw = MOI.get.(
@@ -197,6 +199,8 @@ for Xi in 1:N
         )
     end
 
+    # FIXME Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
+    optimize!(model)
     DiffOpt.forward(model)
 
     dw = MOI.get.(
