@@ -38,8 +38,6 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
-      - shell: bash
-        run: julia --color=yes --project -e "using Pkg; Pkg.add(Pkg.PackageSpec(url=\"https://github.com/jump-dev/MatrixOptInterface.jl\", rev=\"4652d041f7b60e511c42494433db1f2198bdfb23\")); Pkg.instantiate()"
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
@@ -57,8 +55,6 @@ jobs:
       - uses: julia-actions/setup-julia@v1
         with:
           version: '1'
-      - shell: bash
-        run: julia --color=yes --project=docs -e 'using Pkg; Pkg.add(Pkg.PackageSpec(url="https://github.com/jump-dev/MatrixOptInterface.jl",rev="4652d041f7b60e511c42494433db1f2198bdfb23")); Pkg.instantiate()'
       - shell: bash
         run: julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd()))"
       - shell: bash

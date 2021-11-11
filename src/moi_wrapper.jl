@@ -110,8 +110,12 @@ end
 
 MOI.supports_constraint(::Optimizer, ::Type{<: SUPPORTED_SCALAR_FUNCTIONS}, ::Type{<: SUPPORTED_SCALAR_SETS}) = true
 MOI.supports_constraint(::Optimizer, ::Type{<: SUPPORTED_VECTOR_FUNCTIONS}, ::Type{<: SUPPORTED_VECTOR_SETS}) = true
-MOI.supports(::Optimizer, ::MOI.ConstraintName, ::Type{CI{F, S}}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS} = true
-MOI.supports(::Optimizer, ::MOI.ConstraintName, ::Type{CI{F, S}}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS} = true
+function MOI.supports(model::Optimizer, attr::MOI.ConstraintName, ::Type{CI{F, S}}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+    return MOI.supports(model.optimizer, attr, CI{F,S})
+end
+function MOI.supports(model::Optimizer, attr::MOI.ConstraintName, ::Type{CI{F, S}}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+    return MOI.supports(model.optimizer, attr, CI{F,S})
+end
 
 MOI.get(model::Optimizer, attr::MOI.SolveTimeSec) = MOI.get(model.optimizer, attr)
 
@@ -144,13 +148,16 @@ function MOI.set(model::Optimizer, ::MOI.VariablePrimalStart,
     MOI.set(model.optimizer, MOI.VariablePrimalStart(), vi, value)
 end
 
-function MOI.supports(model::Optimizer, ::MOI.VariablePrimalStart,
+function MOI.supports(model::Optimizer, attr::MOI.AbstractVariableAttribute,
                       ::Type{MOI.VariableIndex})
-    return MOI.supports(model.optimizer, MOI.VariablePrimalStart(), MOI.VariableIndex)
+    return MOI.supports(model.optimizer, attr, MOI.VariableIndex)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.VariablePrimal, vi::VI)
-    MOI.check_result_index_bounds(model.optimizer, attr)
+function MOI.set(model::Optimizer, attr::MOI.AbstractVariableAttribute, v::MOI.VariableIndex, value)
+    MOI.set(model.optimizer, attr, v, value)
+end
+
+function MOI.get(model::Optimizer, attr::MOI.AbstractVariableAttribute, vi::MOI.VariableIndex)
     return MOI.get(model.optimizer, attr, vi)
 end
 
@@ -192,8 +199,7 @@ end
 
 # helper methods to check if a constraint contains a Variable
 function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VariableIndex, S}) where {S <: SUPPORTED_SCALAR_SETS}
-    func = MOI.get(model, MOI.ConstraintFunction(), ci)
-    return v == func.variable
+    return v == MOI.get(model, MOI.ConstraintFunction(), ci)
 end
 
 function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.ScalarAffineFunction{Float64}, S}) where {S <: SUPPORTED_SCALAR_SETS}
@@ -248,16 +254,6 @@ function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionMod
     MOI.modify(model.optimizer, ci, chg)
 end
 
-
-MOI.supports(::Optimizer, ::MOI.VariableName, ::Type{MOI.VariableIndex}) = true
-
-function MOI.get(model::Optimizer, ::MOI.VariableName, v::VI)
-    return MOI.get(model.optimizer, MOI.VariableName(), v)
-end
-
-function MOI.set(model::Optimizer, ::MOI.VariableName, v::VI, name::String)
-    MOI.set(model.optimizer, MOI.VariableName(), v, name)
-end
 
 function MOI.get(model::Optimizer, ::Type{MOI.VariableIndex}, name::String)
     return MOI.get(model.optimizer, MOI.VariableIndex, name)

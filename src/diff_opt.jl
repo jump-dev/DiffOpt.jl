@@ -53,11 +53,6 @@ Base.@kwdef struct QPCache
     index_map::MOIU.IndexMap
 end
 
-const CONIC_FORM = MatOI.GeometricConicForm{
-    Float64,
-    MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing},
-    Vector{Float64}}
-
 Base.@kwdef struct ConicCache
     M::SparseMatrixCSC{Float64, Int}
     vp::Vector
@@ -67,7 +62,7 @@ Base.@kwdef struct ConicCache
     b::Vector{Float64}
     c::Vector{Float64}
     index_map::MOIU.IndexMap
-    conic_form::CONIC_FORM
+    cones::ProductOfSets{Float64}
 end
 
 const CACHE_TYPE = Union{
@@ -420,9 +415,9 @@ end
 _get_db(model::Optimizer, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
-    cf = g_cache.conic_form
+    cf = g_cache.cones
     _ci = g_cache.index_map[ci]
-    i = MatOI.rows(cf, _ci) # vector
+    i = MOI.Utilities.rows(cf, _ci) # vector
     # i = g_cache.index_map[ci].value
     (x, _, _) = g_cache.xys
     n = length(x) # columns in A
@@ -509,9 +504,9 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 end
 function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
-    cf = g_cache.conic_form
+    cf = g_cache.cones
     _ci = g_cache.index_map[ci]
-    i = MatOI.rows(cf, _ci) # vector
+    i = MOI.Utilities.rows(cf, _ci) # vector
     # i = g_cache.index_map[ci].value
     (x, y, _) = g_cache.xys
     n = length(x) # columns in A
@@ -689,9 +684,9 @@ function _forward_quad(model::Optimizer)
     # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
     # multiply by `-1` to transform it to `LessThan` so it cancels out.
     db = zeros(length(b))
-    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model, _QPForm(), db)
+    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model, _QPSets(), db)
     dh = zeros(length(h))
-    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dh)
+    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dh)
 
     nz = nnz(A)
     (lines, cols) = size(A)
@@ -701,7 +696,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dAi, dAj, dAv)
+    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     nz = nnz(G)
@@ -712,7 +707,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dGi, nz)
     sizehint!(dGj, nz)
     sizehint!(dGv, nz)
-    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dGi, dGj, dGv)
+    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dGi, dGj, dGv)
     dG = sparse(dGi, dGj, dGv, lines, cols)
 
 
@@ -745,16 +740,16 @@ _linsolve(A, b::SparseVector) = A \ Vector(b)
 
 
 """
-    π(v::Vector{Float64}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap)
+    π(v::Vector{Float64}, model::MOI.ModelLike, cones::ProductOfSets, index_map::MOIU.IndexMap)
 
-Given a `model`, its `conic_form` and the `index_map` from the indices of
-`model` to the indices of `conic_form`, find the projection of the vectors `v`
+Given a `model`, its `cones` and the `index_map` from the indices of
+`model` to the indices of `cones`, find the projection of the vectors `v`
 of length equal to the number of rows in the conic form onto the cartesian
 product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function π(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap) where T
-    return map_rows(model, conic_form, index_map, Flattened{T}()) do ci, r
+function π(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets, index_map::MOIU.IndexMap) where T
+    return map_rows(model, cones, index_map, Flattened{T}()) do ci, r
         MOSD.projection_on_set(
             MOSD.DefaultDistance(),
             v[r],
@@ -765,17 +760,17 @@ end
 
 
 """
-    Dπ(v::Vector{Float64}, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap)
+    Dπ(v::Vector{Float64}, model, cones::ProductOfSets, index_map::MOIU.IndexMap)
 
-Given a `model`, its `conic_form` and the `index_map` from the indices of
-`model` to the indices of `conic_form`, find the gradient of the projection of
+Given a `model`, its `cones` and the `index_map` from the indices of
+`model` to the indices of `cones`, find the gradient of the projection of
 the vectors `v` of length equal to the number of rows in the conic form onto the
 cartesian product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function Dπ(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap) where T
+function Dπ(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets, index_map::MOIU.IndexMap) where T
     return BlockDiagonals.BlockDiagonal(
-        map_rows(model, conic_form, index_map, Nested{Matrix{T}}()) do ci, r
+        map_rows(model, cones, index_map, Nested{Matrix{T}}()) do ci, r
             MOSD.projection_gradient_on_set(
                 MOSD.DefaultDistance(),
                 v[r],
@@ -799,9 +794,9 @@ function _assign_mapped!(x, y, r, k, ::Flattened)
 end
 
 # Map the rows corresponding to `F`-in-`S` constraints and store it in `x`.
-function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOI.IndexMap, map_mode, k)
-    for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}()) # TODO how to get F-S now?
-        r = MatOI.rows(conic_form, index_map[ci])
+function _map_rows!(f::Function, x::Vector, model, cones::ProductOfSets, index_map::MOIU.DoubleDicts.IndexDoubleDictInner{F, S}, map_mode, k) where {F, S}
+    for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
+        r = MOI.Utilities.rows(cones, index_map[ci])
         k += 1
         _assign_mapped!(x, f(ci, r), r, k, map_mode)
     end
@@ -809,31 +804,31 @@ function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricCo
 end
 
 # Allocate a vector for storing the output of `map_rows`.
-_allocate_rows(conic_form, ::Nested{T}) where {T} = Vector{T}(undef, length(conic_form.dimension))
-_allocate_rows(conic_form, ::Flattened{T}) where {T} = Vector{T}(undef, length(conic_form.b))
+_allocate_rows(cones, ::Nested{T}) where {T} = Vector{T}(undef, length(cones.dimension))
+_allocate_rows(cones, ::Flattened{T}) where {T} = Vector{T}(undef, MOI.dimension(cones))
 
 """
-    map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested{T}, Flattened{T}})
+    map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.IndexMap, map_mode::Union{Nested{T}, Flattened{T}})
 
-Given a `model`, its `conic_form`, the `index_map` from the indices of `model`
-to the indices of `conic_form` and `map_mode` of type `Nested` (resp.
+Given a `model`, its `cones`, the `index_map` from the indices of `model`
+to the indices of `cones` and `map_mode` of type `Nested` (resp.
 `Flattened`), return a `Vector{T}` of length equal to the number of cones (resp.
 rows) in the conic form where the value for the index (resp. rows) corresponding
 to each cone is equal to `f(ci, r)` where `ci` is the corresponding constraint
 index in `model` and `r` is a `UnitRange` of the corresponding rows in the conic
 form.
 """
-function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested, Flattened})
-    x = _allocate_rows(conic_form, map_mode)
+function map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.IndexMap, map_mode::Union{Nested, Flattened})
+    x = _allocate_rows(cones, map_mode)
     k = 0
     for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         # Function barrier for type unstability of `F` and `S`
-        # `conmap` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
+        # `con_map` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
         # which returns a `MOIU.DoubleDicts.IndexWithType{F, S}` which is type stable.
         # If we have a small number of different constraint types and many
         # constraint of each type, this mostly removes type unstabilities
         # as most the time is in `_map_rows!` which is type stable.
-        k = _map_rows!(f, x, model, conic_form, index_map.con_map[F, S], map_mode, k)
+        k = _map_rows!(f, x, model, cones, index_map.con_map[F, S], map_mode, k)
     end
     return x
 end
@@ -876,7 +871,7 @@ function _forward_conic(model::Optimizer)
     dc = sparse_array_obj.terms
 
     db = zeros(length(b))
-    _fill(S -> false, model, model.gradient_cache.conic_form, db)
+    _fill(S -> false, model, model.gradient_cache.cones, db)
     (lines, cols) = size(A)
     nz = nnz(A)
     dAi = zeros(Int, 0)
@@ -885,7 +880,7 @@ function _forward_conic(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(S -> false, model, model.gradient_cache.conic_form, dAi, dAj, dAv)
+    _fill(S -> false, model, model.gradient_cache.cones, dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
@@ -913,35 +908,35 @@ function _forward_conic(model::Optimizer)
 end
 
 # Just a hack that will be removed once we use `MOIU.MatrixOfConstraints`
-struct _QPForm end
-MatOI.rows(::_QPForm, ci::MOI.ConstraintIndex) = ci.value
+struct _QPSets end
+MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
-function _fill(neg::Function, model::Optimizer, conic_form, args...)
-    _fill(S -> true, neg, model, conic_form, args...)
+function _fill(neg::Function, model::Optimizer, cones, args...)
+    _fill(S -> true, neg, model, cones, args...)
 end
-function _fill(filter::Function, neg::Function, model::Optimizer, conic_form, args...)
-    conmap = model.gradient_cache.index_map.con_map
-    varmap = model.gradient_cache.index_map.var_map
+function _fill(filter::Function, neg::Function, model::Optimizer, cones, args...)
+    con_map = model.gradient_cache.index_map.con_map
+    var_map = model.gradient_cache.index_map.var_map
     for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         filter(S) || continue
         if F == MOI.ScalarAffineFunction{Float64}
-            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.scalar_constraints[F,S])
+            _fill(args..., neg(S), cones, con_map[F,S], var_map, model.input_cache.scalar_constraints[F,S])
         elseif F == MOI.VectorAffineFunction{Float64}
-            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.vector_constraints[F,S])
+            _fill(args..., neg(S), cones, con_map[F,S], var_map, model.input_cache.vector_constraints[F,S])
         end
     end
     return
 end
 
-function _fill(vector::Vector, neg::Bool, conic_form, constraint_map, variable_map, dict)
+function _fill(vector::Vector, neg::Bool, cones, constraint_map, variable_map, dict)
     for (ci, func) in dict
-        r = MatOI.rows(conic_form, constraint_map[ci])
+        r = MOI.Utilities.rows(cones, constraint_map[ci])
         vector[r] = neg ? -MOI.constant(func) : MOI.constant(func)
     end
 end
-function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, conic_form, constraint_map, variable_map, dict)
+function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, cones, constraint_map, variable_map, dict)
     for (ci, func) in dict
-        r = MatOI.rows(conic_form, constraint_map[ci])
+        r = MOI.Utilities.rows(cones, constraint_map[ci])
         for term in func.terms
             _push_term(I, J, V, neg, r, term, variable_map)
         end
