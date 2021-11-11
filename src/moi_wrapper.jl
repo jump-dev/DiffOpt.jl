@@ -29,6 +29,8 @@ function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJE
     MOI.set(model.optimizer, attr, f)
 end
 
+MOI.supports(::Optimizer, ::MOI.ObjectiveSense) = true
+
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
     model.gradient_cache = nothing
     return MOI.set(model.optimizer, attr, sense)
@@ -111,7 +113,7 @@ MOI.supports_constraint(::Optimizer, ::Type{<: SUPPORTED_VECTOR_FUNCTIONS}, ::Ty
 MOI.supports(::Optimizer, ::MOI.ConstraintName, ::Type{CI{F, S}}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS} = true
 MOI.supports(::Optimizer, ::MOI.ConstraintName, ::Type{CI{F, S}}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS} = true
 
-MOI.get(model::Optimizer, attr::MOI.SolveTime) = MOI.get(model.optimizer, attr)
+MOI.get(model::Optimizer, attr::MOI.SolveTimeSec) = MOI.get(model.optimizer, attr)
 
 function MOI.empty!(model::Optimizer)
     MOI.empty!(model.optimizer)
@@ -125,11 +127,11 @@ function MOI.is_empty(model::Optimizer)
 end
 
 # now supports name too
-MOIU.supports_default_copy_to(model::Optimizer, copy_names::Bool) = true #!copy_names
+MOI.supports_incremental_interface(::Optimizer) = true
 
-function MOI.copy_to(model::Optimizer, src::MOI.ModelLike; copy_names = false)
+function MOI.copy_to(model::Optimizer, src::MOI.ModelLike)
     model.gradient_cache = nothing
-    return MOIU.default_copy_to(model.optimizer, src, copy_names)
+    return MOIU.default_copy_to(model.optimizer, src)
 end
 
 function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
@@ -189,14 +191,14 @@ function MOI.get(model::Optimizer, ::MOI.ConstraintBasisStatus, ci::CI{F,S}) whe
 end
 
 # helper methods to check if a constraint contains a Variable
-function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.SingleVariable, S}) where {S <: SUPPORTED_SCALAR_SETS}
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VariableIndex, S}) where {S <: SUPPORTED_SCALAR_SETS}
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
     return v == func.variable
 end
 
 function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.ScalarAffineFunction{Float64}, S}) where {S <: SUPPORTED_SCALAR_SETS}
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
-    return any(term -> v == term.variable_index, func.terms)
+    return any(term -> v == term.variable, func.terms)
 end
 
 function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VectorOfVariables, S}) where {S <: SUPPORTED_VECTOR_SETS}
@@ -206,7 +208,7 @@ end
 
 function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VectorAffineFunction{Float64}, S}) where {S <: SUPPORTED_VECTOR_SETS}
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
-    return any(term -> v == term.scalar_term.variable_index, func.terms)
+    return any(term -> v == term.scalar_term.variable, func.terms)
 end
 
 

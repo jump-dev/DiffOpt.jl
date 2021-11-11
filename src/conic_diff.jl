@@ -4,7 +4,7 @@ function build_conic_diff_cache!(model)
 
     vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
     # fetch matrices from MatrixOptInterface
-    cone_types = unique!([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    cone_types = unique!([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     # We use `MatOI.OneBasedIndexing` as it is the same indexing as used by `SparseMatrixCSC`
     # so we can do an allocation-free conversion to `SparseMatrixCSC`.
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)

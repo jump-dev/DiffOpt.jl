@@ -34,7 +34,7 @@ function generate_lp(optimizer, n, m)
     end
 
     for i in 1:n
-        MOI.add_constraint(optimizer, MOI.SingleVariable(x[i]), MOI.GreaterThan(0.0))
+        MOI.add_constraint(optimizer, x[i], MOI.GreaterThan(0.0))
     end
 end
 

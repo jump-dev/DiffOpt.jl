@@ -41,10 +41,10 @@ Base.@kwdef struct QPCache
         Int, Vector{VI}, # nz, var_list
         Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}}, # nineq_le, le_con_idx
         Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}}, # nineq_ge, ge_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}}}, # nineq_sv_le, le_con_sv_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.GreaterThan{Float64}}}, # nineq_sv_ge, ge_con_sv_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.VariableIndex, MOI.LessThan{Float64}}}, # nineq_sv_le, le_con_sv_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.VariableIndex, MOI.GreaterThan{Float64}}}, # nineq_sv_ge, ge_con_sv_idx
         Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}}, # neq, eq_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.EqualTo{Float64}}}, # neq_sv, eq_con_sv_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.VariableIndex, MOI.EqualTo{Float64}}}, # neq_sv, eq_con_sv_idx
     }
     inequality_duals::Vector{Float64}
     equality_duals::Vector{Float64}
@@ -130,9 +130,7 @@ quadratic models.
 For instance, if the objective contains `θ * (x + 2y)`, for the purpose of
 computinig the derivative with respect to `θ`, the following should be set:
 ```julia
-fx = MOI.SingleVariable(x)
-fy = MOI.SingleVariable(y)
-MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * fx + 2.0 * fy)
+MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * x + 2.0 * y)
 ```
 where `x` and `y` are the relevant `MOI.VariableIndex`.
 """
@@ -148,9 +146,7 @@ For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y) <= 
 for the purpose of computing the derivative with respect to `θ`, the following
 should be set:
 ```julia
-fx = MOI.SingleVariable(x)
-fy = MOI.SingleVariable(y)
-MOI.set(model, DiffOpt.ForwardInConstraint(), ci, 1.0 * fx + 2.0 * fy - 5.0)
+MOI.set(model, DiffOpt.ForwardInConstraint(), ci, 1.0 * x + 2.0 * y - 5.0)
 ```
 Note that we use `-5` as the `ForwardInConstraint` sets the tangent of the
 ConstraintFunction so we consider the expression `θ * (x + 2y - 5)`.
@@ -803,8 +799,8 @@ function _assign_mapped!(x, y, r, k, ::Flattened)
 end
 
 # Map the rows corresponding to `F`-in-`S` constraints and store it in `x`.
-function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.DoubleDicts.IndexWithType{F, S}, map_mode, k) where {F, S}
-    for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
+function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOI.IndexMap, map_mode, k)
+    for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}()) # TODO how to get F-S now?
         r = MatOI.rows(conic_form, index_map[ci])
         k += 1
         _assign_mapped!(x, f(ci, r), r, k, map_mode)
@@ -830,14 +826,14 @@ form.
 function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested, Flattened})
     x = _allocate_rows(conic_form, map_mode)
     k = 0
-    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
+    for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         # Function barrier for type unstability of `F` and `S`
         # `conmap` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
         # which returns a `MOIU.DoubleDicts.IndexWithType{F, S}` which is type stable.
         # If we have a small number of different constraint types and many
         # constraint of each type, this mostly removes type unstabilities
         # as most the time is in `_map_rows!` which is type stable.
-        k = _map_rows!(f, x, model, conic_form, index_map.conmap[F, S], map_mode, k)
+        k = _map_rows!(f, x, model, conic_form, index_map.con_map[F, S], map_mode, k)
     end
     return x
 end
@@ -924,9 +920,9 @@ function _fill(neg::Function, model::Optimizer, conic_form, args...)
     _fill(S -> true, neg, model, conic_form, args...)
 end
 function _fill(filter::Function, neg::Function, model::Optimizer, conic_form, args...)
-    conmap = model.gradient_cache.index_map.conmap
-    varmap = model.gradient_cache.index_map.varmap
-    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
+    conmap = model.gradient_cache.index_map.con_map
+    varmap = model.gradient_cache.index_map.var_map
+    for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         filter(S) || continue
         if F == MOI.ScalarAffineFunction{Float64}
             _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.scalar_constraints[F,S])
@@ -953,7 +949,7 @@ function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, conic_form, constrain
 end
 function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::Integer, term::MOI.ScalarAffineTerm, variable_map)
     push!(I, r)
-    push!(J, variable_map[term.variable_index].value)
+    push!(J, variable_map[term.variable].value)
     push!(V, neg ? -term.coefficient : term.coefficient)
 end
 function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, term::MOI.VectorAffineTerm, variable_map)

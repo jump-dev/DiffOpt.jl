@@ -539,7 +539,7 @@ end
     v = [x, y, t]
     z = MOI.get(model, MOI.VariablePrimal(), v)
 
-    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
@@ -552,9 +552,9 @@ end
     @test s ≈ [0.0, 0.0, 1.0, -1/√2, 1/√2] atol=ATOL rtol=RTOL
     @test y ≈ [√2, 1.0, √2, 1.0, -1.0] atol=ATOL rtol=RTOL
 
-    MOI.set(model, DiffOpt.ForwardInConstraint(), ceq, MOIU.vectorize([1.0 * MOI.SingleVariable(x)]))
-    MOI.set(model, DiffOpt.ForwardInConstraint(), cnon, MOIU.vectorize([1.0 * MOI.SingleVariable(v[2])]))
-    MOI.set(model, DiffOpt.ForwardInConstraint(), csoc, MOIU.operate(vcat, Float64, 1.0 * MOI.SingleVariable(t), 0.0, 0.0))
+    MOI.set(model, DiffOpt.ForwardInConstraint(), ceq, MOIU.vectorize([1.0 * x]))
+    MOI.set(model, DiffOpt.ForwardInConstraint(), cnon, MOIU.vectorize([1.0 * v[2]]))
+    MOI.set(model, DiffOpt.ForwardInConstraint(), csoc, MOIU.operate(vcat, Float64, 1.0 * t, 0.0, 0.0))
 
     DiffOpt.forward(model)
 
@@ -583,7 +583,6 @@ function simple_psd(solver)
     model = diff_optimizer(solver)
     MOI.set(model, MOI.Silent(), true)
     X = MOI.add_variables(model, 3)
-    fX = MOI.SingleVariable.(X)
     vov = MOI.VectorOfVariables(X)
     cX = MOI.add_constraint(
         model,
@@ -601,14 +600,14 @@ function simple_psd(solver)
     )
 
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
-            1.0fX[1] + 1.0fX[end])
+            1.0 * X[1] + 1.0 * X[end])
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
     MOI.optimize!(model)
 
     x = MOI.get(model, MOI.VariablePrimal(), X)
 
-    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
@@ -741,7 +740,7 @@ end
     _x = MOI.get(model, MOI.VariablePrimal(), x)
     _X = MOI.get(model, MOI.VariablePrimal(), X)
 
-    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
@@ -847,7 +846,7 @@ end
 
     _x = MOI.get(model, MOI.VariablePrimal(), x)
 
-    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
@@ -861,16 +860,15 @@ end
     # dc = ones(7)
     MOI.set(model, DiffOpt.ForwardInObjective(), MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(7), x), 0.0))
     # db = ones(11)
-    fx = MOI.SingleVariable.(x)
     # dA = ones(11, 7)
     MOI.set(model,
-        DiffOpt.ForwardInConstraint(), c1, MOIU.vectorize(ones(1, 7) * fx + ones(1)))
+        DiffOpt.ForwardInConstraint(), c1, MOIU.vectorize(ones(1, 7) * x + ones(1)))
     MOI.set(model,
-        DiffOpt.ForwardInConstraint(), c2, MOIU.vectorize(ones(6, 7) * fx + ones(6)))
+        DiffOpt.ForwardInConstraint(), c2, MOIU.vectorize(ones(6, 7) * x + ones(6)))
     MOI.set(model,
-        DiffOpt.ForwardInConstraint(), c3, MOIU.vectorize(ones(3, 7) * fx + ones(3)))
+        DiffOpt.ForwardInConstraint(), c3, MOIU.vectorize(ones(3, 7) * x + ones(3)))
     MOI.set(model,
-        DiffOpt.ForwardInConstraint(), c4, MOIU.vectorize(ones(1, 7) * fx + ones(1)))
+        DiffOpt.ForwardInConstraint(), c4, MOIU.vectorize(ones(1, 7) * x + ones(1)))
 
     DiffOpt.forward(model)
 
@@ -933,14 +931,12 @@ end
     MOI.set(model, MOI.Silent(), true)
 
     x = MOI.add_variable(model)
-    fx = MOI.SingleVariable(x)
 
-    func = MOIU.operate(vcat, Float64, fx, one(Float64), fx, one(Float64), one(Float64), fx)
+    func = MOIU.operate(vcat, Float64, x, one(Float64), x, one(Float64), one(Float64), x)
 
     # do not confuse this constraint with the matrix `c` in the conic form (of the matrices A, b, c)
     c = MOI.add_constraint(model, func, MOI.PositiveSemidefiniteConeTriangle(3))
 
-    # MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), MOI.SingleVariable(x))
     MOI.set(
         model,
         MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
@@ -952,7 +948,7 @@ end
 
     _x = MOI.get(model, MOI.VariablePrimal(), x)
 
-    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
@@ -987,7 +983,7 @@ end
     dA = zeros(6, 1)
     db = zeros(6)
     MOI.set(model, DiffOpt.ForwardInConstraint(), c, MOIU.zero_with_output_dimension(VAF, 6))
-    MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * MOI.SingleVariable(x))
+    MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * x)
 
     # dx, dy, ds = backward(model, dA, db, dc)
     DiffOpt.forward(model)
@@ -1024,10 +1020,10 @@ end
         end
     end
     objective_function = MOI.ScalarQuadraticFunction(
-                            MOI.ScalarAffineTerm.(q, x),
-                            quad_terms,
-                            0.0,
-                        )
+        quad_terms,
+        MOI.ScalarAffineTerm.(q, x),
+        0.0,
+    )
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
 
@@ -1107,13 +1103,11 @@ end
     MOI.set(model, MOI.Silent(), true)
 
     x = MOI.add_variable(model)
-    fx = MOI.SingleVariable(x)
 
-    func = MOIU.operate(vcat, Float64, fx, 1.0, fx, 1.0, 1.0, fx)
+    func = MOIU.operate(vcat, Float64, x, 1.0, x, 1.0, 1.0, x)
 
     c = MOI.add_constraint(model, func, MOI.PositiveSemidefiniteConeTriangle(3))
 
-    # MOI.set(model, MOI.ObjectiveFunction{MOI.SingleVariable}(), MOI.SingleVariable(x))
     MOI.set(
         model,
         MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
@@ -1126,7 +1120,7 @@ end
 
     x_sol = MOI.get(model, MOI.VariablePrimal(), x)
 
-    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
+    cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
     conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
@@ -1166,7 +1160,7 @@ end
 
     # test 2
     MOI.set(model, DiffOpt.ForwardInConstraint(), c, _vaf(zeros(6)))
-    MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * MOI.SingleVariable(x))
+    MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * x)
 
     # dx, dy, ds = _backward_conic(model, dA, db, dc)
     DiffOpt.forward(model)
