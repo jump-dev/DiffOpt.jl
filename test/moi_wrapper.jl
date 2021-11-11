@@ -633,7 +633,7 @@ function simple_psd(solver)
 
     # test2: changing X[1], X[3] but keeping the objective (their sum) same
     MOI.set(model, DiffOpt.ForwardInConstraint(), c, MOIU.zero_with_output_dimension(MOI.VectorAffineFunction{Float64}, 1))
-    MOI.set(model, DiffOpt.ForwardInObjective(), -1.0fX[1] + 1.0fX[3])
+    MOI.set(model, DiffOpt.ForwardInObjective(), -1.0X[1] + 1.0X[3])
 
     DiffOpt.forward(model)
 
@@ -897,7 +897,7 @@ end
     MOI.set(model,
         DiffOpt.ForwardInConstraint(), c1, MOIU.zero_with_output_dimension(VAF, 1))
     MOI.set(model,
-        DiffOpt.ForwardInConstraint(), c2, MOIU.vectorize(ones(6) .* fx[1:6]))
+        DiffOpt.ForwardInConstraint(), c2, MOIU.vectorize(ones(6) .* x[1:6]))
     MOI.set(model,
         DiffOpt.ForwardInConstraint(), c3, MOIU.zero_with_output_dimension(VAF, 3))
     MOI.set(model,

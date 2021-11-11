@@ -145,10 +145,10 @@ function qp_test(
     end
     @_test(convert(Vector{Float64}, _λ), λ)
 
-    #dobjb = fv' * (dQb / 2.0) * fv + dqb' * fv
+    #dobjb = v' * (dQb / 2.0) * v + dqb' * v
     # TODO, it should .-
-    #dleb = dGb * fv .+ dhb
-    #deqb = dAb * fv .+ dbb
+    #dleb = dGb * v .+ dhb
+    #deqb = dAb * v .+ dbb
     @assert dzb !== nothing
     @testset "Backward pass" begin
         MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, dzb)
@@ -230,7 +230,7 @@ function qp_test(
                 func = deqf[length(ceq)+j]
                 canonicalize && MOI.Utilities.canonicalize!(func)
                 if set_zero || !MOI.iszero(func)
-                    # TODO FIXME should work if we drop support for SingleVariable and we let the Functionize bridge do the work
+                    # TODO FIXME should work if we drop support for `VariableIndex` and we let the Functionize bridge do the work
                     @test_throws MOI.UnsupportedAttribute MOI.set(model, DiffOpt.ForwardInConstraint(), jc, func)
                 end
             end

@@ -240,7 +240,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         con = ge_con_sv_idx[i]
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)
-        vidx = findfirst(v -> v == func, var_list)
+        vidx = findfirst(isequal(func), var_list)
         G[i+nineq_le+nineq_ge+nineq_sv_le,vidx] = -1
         h[i+nineq_le+nineq_ge+nineq_sv_le] = -MOI.constant(set)
         ineq_cont += 1
@@ -276,7 +276,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
         for x in func.terms
             # never nothing, variable is present
-            vidx = findfirst(v -> v == x.variable, var_list)
+            vidx = findfirst(isequal(x.variable), var_list)
             A[i, vidx] = x.coefficient
         end
         b[i] = set.value - func.constant
@@ -289,7 +289,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         con = eq_con_sv_idx[i]
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)
-        vidx = findfirst(v -> v == func, var_list)
+        vidx = findfirst(isequal(func), var_list)
         A[i+neq,vidx] = 1
         b[i+neq] = set.value
         eq_cont += 1
