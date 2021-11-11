@@ -154,17 +154,18 @@ for Xi in 1:N
     dw = MOI.get.(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
-        w
+        w,
     )
-    db = MOI.get(
+    db = MOI.get(W
         model,
         DiffOpt.ForwardOutVariablePrimal(),
-        b
+        b,
     )
     push!(∇, norm(dw) + norm(db))
 
     dy[Xi] = 0.0  # reset the change made above
 end
+
 normalize!(∇);
 
 
@@ -206,17 +207,18 @@ for Xi in 1:N
     dw = MOI.get.(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
-        w
+        w,
     )
     db = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
-        b
+        b,
     )
     push!(∇, norm(dw) + norm(db))
 
-    dX[Xi, :] = zeros(D)  # reset the change made ago
+    dX[Xi, :] = zeros(D)  # reset the change made at the beginning of the loop
 end
+
 normalize!(∇);
 
 # We can visualize point sensitivity with respect to the separating hyperplane. Note that the gradients are normalized.
