@@ -1,24 +1,46 @@
+include("product_of_sets.jl")
+const GeometricConicForm{T} = MOI.Utilities.GenericModel{
+    T,
+    MOI.Utilities.ObjectiveContainer{Float64},
+    MOI.Utilities.VariablesContainer{Float64},
+    MOI.Utilities.MatrixOfConstraints{
+        Float64,
+        MOI.Utilities.MutableSparseMatrixCSC{
+            Float64,
+            Int,
+            # We use `OneBasedIndexing` as it is the same indexing as used
+            # by `SparseMatrixCSC` so we can do an allocation-free conversion to
+            # `SparseMatrixCSC`.
+            MOI.Utilities.OneBasedIndexing,
+        },
+        Vector{Float64},
+        ProductOfSets{Float64},
+    },
+}
+
+
 function build_conic_diff_cache!(model)
     # For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 
-
     vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
-    # fetch matrices from MatrixOptInterface
-    cone_types = unique!([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraints())])
-    # We use `MatOI.OneBasedIndexing` as it is the same indexing as used by `SparseMatrixCSC`
-    # so we can do an allocation-free conversion to `SparseMatrixCSC`.
-    conic_form = MatOI.GeometricConicForm{Float64, MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing}, Vector{Float64}}(cone_types)
+    cone_types = unique!([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
+    conic_form = GeometricConicForm{Float64}()
+    cones = conic_form.constraints.sets
+    set_set_types(cones, cone_types)
     index_map = MOI.copy_to(conic_form, model)
 
-    # fix optimization sense
-    if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
-        conic_form.sense = MOI.MIN_SENSE
-        conic_form.c = -conic_form.c
-    end
+    A = -convert(SparseMatrixCSC{Float64, Int}, conic_form.constraints.coefficients)
+    b = conic_form.constraints.constants
 
-    A = convert(SparseMatrixCSC{Float64, Int}, conic_form.A)
-    b = conic_form.b
-    c = conic_form.c
+    if MOI.get(model, MOI.ObjectiveSense()) == MOI.FEASIBILITY_SENSE
+        c = spzeros(length(vis_src))
+    else
+        obj = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
+        c = sparse_array_representation(obj, length(vis_src), index_map).terms
+        if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
+            c = -c
+        end
+    end
 
     # programs in tests were cross-checked against `diffcp`, which follows SCS format
     # hence, some arrays saved during `MOI.optimize!` are not same across all optimizers
@@ -31,9 +53,9 @@ function build_conic_diff_cache!(model)
         x[i] = MOI.get(model, MOI.VariablePrimal(), vi)
     end
     s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci),
-        model.optimizer, conic_form, index_map, Flattened{Float64}())
+        model.optimizer, cones, index_map, Flattened{Float64}())
     y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci),
-        model.optimizer, conic_form, index_map, Flattened{Float64}())
+        model.optimizer, cones, index_map, Flattened{Float64}())
 
     # pre-compute quantities for the derivative
     m = A.m
@@ -44,7 +66,7 @@ function build_conic_diff_cache!(model)
 
 
     # find gradient of projections on dual of the cones
-    Dπv = Dπ(v, model.optimizer, conic_form, index_map)
+    Dπv = Dπ(v, model.optimizer, cones, index_map)
 
     # Q = [
     #      0   A'   c;
@@ -68,9 +90,9 @@ function build_conic_diff_cache!(model)
         -c'              -b' * Dπv     0.0
     ]
     # find projections on dual of the cones
-    vp = π(v, model.optimizer, conic_form, index_map)
+    vp = π(v, model.optimizer, cones, index_map)
 
-    model.gradient_cache =  ConicCache(
+    model.gradient_cache = ConicCache(
         M = M,
         vp = vp,
         Dπv = Dπv,
@@ -79,7 +101,7 @@ function build_conic_diff_cache!(model)
         b = b,
         c = c,
         index_map = index_map,
-        conic_form = conic_form,
+        cones = cones,
     )
     return nothing
 end

@@ -7,7 +7,7 @@ function sparse_array_representation(terms::Vector{MOI.ScalarAffineTerm{T}}, num
     coefficients = Vector{T}(undef, n)
     for i in eachindex(terms)
         term = terms[i]
-        indices[i] = index_map[term.variable_index].value
+        indices[i] = index_map[term.variable].value
         coefficients[i] = term.coefficient
     end
     return sparsevec(indices, coefficients, num_variables)
@@ -19,8 +19,8 @@ function sparse_array_representation(terms::Vector{MOI.ScalarQuadraticTerm{T}}, 
     V = Vector{T}(undef, n)
     for k in eachindex(terms)
         term = terms[k]
-        i = index_map[term.variable_index_1].value
-        j = index_map[term.variable_index_2].value
+        i = index_map[term.variable_1].value
+        j = index_map[term.variable_2].value
         I[k] = i
         J[k] = j
         V[k] = term.coefficient

@@ -52,7 +52,7 @@ in the case `vi1 == vi2`, it is rather equal to
 """
 function quad_sym_half end
 
-standard_form(func::Union{MOI.SingleVariable,MOI.ScalarAffineFunction,MOI.ScalarQuadraticFunction}) = func
+standard_form(func::Union{MOI.VariableIndex,MOI.ScalarAffineFunction,MOI.ScalarQuadraticFunction}) = func
 function Base.isapprox(func1::AbstractLazyScalarFunction, func2::MOI.AbstractScalarFunction; kws...)
     return isapprox(standard_form(func1), standard_form(func2); kws...)
 end
@@ -132,7 +132,7 @@ function Base.convert(::Type{MOI.ScalarQuadraticFunction{T}}, func::MatrixScalar
         MOI.ScalarQuadraticTerm{T}(quad_sym_half(func, VI(i), VI(j)), VI(i), VI(j))
         for j in 1:n for i in 1:j if !iszero(quad_sym_half(func, VI(i), VI(j)))
     ]
-    return MOI.ScalarQuadraticFunction{T}(aff.terms, quad, aff.constant)
+    return MOI.ScalarQuadraticFunction{T}(quad, aff.terms, aff.constant)
 end
 function standard_form(func::MatrixScalarQuadraticFunction{T}) where {T}
     return convert(MOI.ScalarQuadraticFunction{T}, func)

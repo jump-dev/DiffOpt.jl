@@ -16,15 +16,11 @@ const MOIU = MathOptInterface.Utilities
 using MathOptSetDistances
 const MOSD = MathOptSetDistances
 
-using MatrixOptInterface
-const MatOI = MatrixOptInterface
-
-
 const VI = MOI.VariableIndex
 const CI = MOI.ConstraintIndex
 
 const SUPPORTED_OBJECTIVES = Union{
-    MOI.SingleVariable,
+    MOI.VariableIndex,
     MOI.ScalarAffineFunction{Float64},
     MOI.ScalarQuadraticFunction{Float64}
 }
@@ -37,7 +33,7 @@ const SUPPORTED_SCALAR_SETS = Union{
 }
 
 const SUPPORTED_SCALAR_FUNCTIONS = Union{
-    MOI.SingleVariable,
+    MOI.VariableIndex,
     MOI.ScalarAffineFunction{Float64}
 }
 

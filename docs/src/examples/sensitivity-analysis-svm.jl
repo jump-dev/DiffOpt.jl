@@ -52,12 +52,12 @@ model = Model(() -> diff_optimizer(SCS.Optimizer))
 # Add the constraints.
 
 @constraint(
-    model, 
+    model,
     1.0 * l ∈ MOI.Nonnegatives(N),
 )
 @constraint(
-    model, 
-    cons, 
+    model,
+    cons,
     y .* (X * w .+ b) + l .- 1 ∈ MOI.Nonnegatives(N),
 );
 
@@ -144,25 +144,27 @@ for Xi in 1:N
         model,
         DiffOpt.ForwardInConstraint(),
         cons,
-        MOI.Utilities.vectorize(dy .* MOI.SingleVariable(b)),
+        MOI.Utilities.vectorize(dy .* index(b)),
     )
 
+    optimize!(model) # FIXME Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
     DiffOpt.forward(model)
 
     dw = MOI.get.(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
-        w
+        w,
     )
     db = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
-        b
+        b,
     )
     push!(∇, norm(dw) + norm(db))
 
     dy[Xi] = 0.0  # reset the change made above
 end
+
 normalize!(∇);
 
 
@@ -193,26 +195,28 @@ for Xi in 1:N
             model,
             DiffOpt.ForwardInConstraint(),
             cons,
-            MOI.Utilities.vectorize(dX[:,i] .* MOI.SingleVariable(w[i])),
+            MOI.Utilities.vectorize(dX[:,i] .* index(w[i])),
         )
     end
 
+    optimize!(model) # FIXME Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
     DiffOpt.forward(model)
 
     dw = MOI.get.(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
-        w
+        w,
     )
     db = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
-        b
+        b,
     )
     push!(∇, norm(dw) + norm(db))
 
-    dX[Xi, :] = zeros(D)  # reset the change made ago
+    dX[Xi, :] = zeros(D)  # reset the change made at the beginning of the loop
 end
+
 normalize!(∇);
 
 # We can visualize point sensitivity with respect to the separating hyperplane. Note that the gradients are normalized.

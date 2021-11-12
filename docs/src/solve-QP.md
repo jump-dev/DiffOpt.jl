@@ -52,7 +52,7 @@ for i in 1:n
     end
 end
 
-objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x),quad_terms,0.0)
+objective_function = MOI.ScalarQuadraticFunction(quad_terms, MOI.ScalarAffineTerm.(q, x), 0.0)
 MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 ```

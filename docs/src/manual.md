@@ -10,9 +10,9 @@ For `QPTH`/`OPTNET` style backend, the package supports following `Function-in-S
 
 |  MOI Function | MOI Set |
 |:-------|:---------------|
-|    `SingleVariable`    |    `GreaterThan`    |
-|    `SingleVariable`    |    `LessThan`    |
-|    `SingleVariable`    |    `EqualTo`    |
+|    `VariableIndex`    |    `GreaterThan`    |
+|    `VariableIndex`    |    `LessThan`    |
+|    `VariableIndex`    |    `EqualTo`    |
 |    `ScalarAffineFunction`    |    `GreaterThan`    |
 |    `ScalarAffineFunction`    |    `LessThan`    |
 |    `ScalarAffineFunction`    |    `EqualTo`    |
@@ -21,7 +21,7 @@ and the following objective types:
 
 |  MOI Function |
 |:-------:|
-|   `SingleVariable`   |
+|   `VariableIndex`   |
 |   `ScalarAffineFunction`   |
 | `ScalarQuadraticFunction`  | 
 
@@ -47,7 +47,7 @@ and the following objective types:
 
 |  MOI Function |
 |:-------:|
-|   `SingleVariable`   |
+|   `VariableIndex`   |
 |   `ScalarAffineFunction`   |
 
 
@@ -94,7 +94,7 @@ variable
 
 In the light of above, DiffOpt differentiates program variables ``x``, ``s``, ``y``  w.r.t pertubations/sensivities in problem data i.e. ``dA``, ``db``, ``dc``. This is achieved via *implicit differentiation* and *matrix differential calculus*.
 
-> Note that the primal (P) and dual (D) are self-duals of each other. Similarly for the constraints we support, ``\mathcal{K}`` is same in format as ``\mathcal{K}^*``.
+> Note that the primal (P) and dual (D) are self-duals of each other. Similarly, for the constraints we support, ``\mathcal{K}`` is same in format as ``\mathcal{K}^*``.
 
 
 ### Reference articles
@@ -104,6 +104,6 @@ In the light of above, DiffOpt differentiates program variables ``x``, ``s``, ``
 - OptNet: Differentiable Optimization as a Layer in Neural Networks
 
 ### Backward Pass vector
-One possible point of confusion in finding jacobians is the role of the backward pass vector - above eqn (7), *OptNet: Differentiable Optimization as a Layer in Neural Networks*. While differentiating convex programs, it is often the case that we dont't want to find the acutal derivatives, rather we might be interested in  computing the product of jacobians with a *backward pass vector*, often used in backprop in machine learing/automatic differentiation. This is what happens in scheme 1 of `DiffOpt` backend.
+One possible point of confusion in finding Jacobians is the role of the backward pass vector - above eqn (7), *OptNet: Differentiable Optimization as a Layer in Neural Networks*. While differentiating convex programs, it is often the case that we don't want to find the acutal derivatives, rather we might be interested in computing the product of Jacobians with a *backward pass vector*, often used in backprop in machine learning/automatic differentiation. This is what happens in scheme 1 of `DiffOpt` backend.
 
 But, for the conic system (scheme 2), we provide perturbations in conic data (`dA`, `db`, `dc`) to compute pertubations (`dx`, `dy`, `dz`) in input variables. Unlike the quadratic case, these perturbations are actual derivatives, not the product with a backward pass vector. This is an important distinction between the two schemes of differential optimization.
