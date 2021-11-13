@@ -36,7 +36,7 @@ function _moi_get_result(model::MOIU.CachingOptimizer, args...)
 end
 function MOI.get(model::JuMP.Model, attr::ForwardOutVariablePrimal, var_ref::JuMP.VariableRef)
     JuMP.check_belongs_to_model(var_ref, model)
-    return MOI.get(JuMP.backend(model), attr, JuMP.index(var_ref))
+    return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
 
 """
