@@ -171,7 +171,6 @@ function ChainRulesCore.frule(
     # setting the perturbation of the linear objective
     Δobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
     MOI.set(model, DiffOpt.ForwardInObjective(), Δobj)
-    optimize!(model)
     DiffOpt.forward(JuMP.backend(model))
     # querying the corresponding perturbation of the decision
     Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)
@@ -230,7 +229,6 @@ function ChainRulesCore.rrule(
         energy_balance_cons = model[:energy_balance_cons]
 
         MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), p, pb)
-        optimize!(model)
         DiffOpt.backward(JuMP.backend(model))
 
         obj = MOI.get(model, DiffOpt.BackwardOutObjective())

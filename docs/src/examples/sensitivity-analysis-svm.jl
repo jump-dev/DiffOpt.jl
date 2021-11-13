@@ -147,7 +147,6 @@ for Xi in 1:N
         MOI.Utilities.vectorize(dy .* index(b)),
     )
 
-    optimize!(model) # FIXME Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
     DiffOpt.forward(model)
 
     dw = MOI.get.(
@@ -199,7 +198,6 @@ for Xi in 1:N
         )
     end
 
-    optimize!(model) # FIXME Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
     DiffOpt.forward(model)
 
     dw = MOI.get.(
