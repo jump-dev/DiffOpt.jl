@@ -14,9 +14,29 @@ function MOI.get(model::JuMP.Model, attr::BackwardOutObjective)
 end
 
 function MOI.get(model::JuMP.Model, attr::BackwardOutConstraint, con_ref::JuMP.ConstraintRef)
-    check_belongs_to_model(con_ref, model)
+    JuMP.check_belongs_to_model(con_ref, model)
     moi_func = MOI.get(JuMP.backend(model), attr, JuMP.index(con_ref))
     return JuMP.jump_function(model, moi_func)
+end
+
+# FIXME Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
+function _moi_get_result(model::MOI.ModelLike, args...)
+    if MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
+        throw(OptimizeNotCalled())
+    end
+    return MOI.get(model, args...)
+end
+function _moi_get_result(model::MOIU.CachingOptimizer, args...)
+    if MOIU.state(model) == MOIU.NO_OPTIMIZER
+        throw(NoOptimizer())
+    elseif MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
+        throw(OptimizeNotCalled())
+    end
+    return MOI.get(model, args...)
+end
+function MOI.get(model::JuMP.Model, attr::ForwardOutVariablePrimal, var_ref::JuMP.VariableRef)
+    JuMP.check_belongs_to_model(var_ref, model)
+    return MOI.get(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
 
 """

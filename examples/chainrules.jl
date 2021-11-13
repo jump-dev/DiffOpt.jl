@@ -100,8 +100,6 @@ function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, �
     # setting the perturbation of the linear objective
     Δobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
     MOI.set(model, DiffOpt.ForwardInObjective(), Δobj)
-    # FIXME Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
-    optimize!(model)
     DiffOpt.forward(JuMP.backend(model))
     # querying the corresponding perturbation of the decision
     Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)
