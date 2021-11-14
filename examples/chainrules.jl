@@ -93,6 +93,7 @@ function ChainRulesCore.frule((_, Δload1_demand, Δload2_demand, Δgen_costs, �
         AffExpr[d1 + d2 for (d1, d2) in zip(Δload1_demand, Δload2_demand)],
     )
 
+
     p = model[:p]
     u = model[:u]
 

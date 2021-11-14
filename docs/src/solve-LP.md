@@ -55,11 +55,11 @@ constraint_indices = []
 
 # set constraints
 for i in 1:N
-    push!(constraint_indices, MOI.add_constraint(model,MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.),MOI.LessThan(b[i])))
+    push!(constraint_indices, MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:], x), 0.0), MOI.LessThan(b[i])))
 end
 
 for i in 1:D
-    push!(constraint_indices, MOI.add_constraint(model,MOI.SingleVariable(x[i]),MOI.GreaterThan(0.)))
+    push!(constraint_indices, MOI.add_constraint(model, x[i], MOI.GreaterThan(0.0)))
 end
 ```
 

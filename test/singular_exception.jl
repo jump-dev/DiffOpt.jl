@@ -27,8 +27,8 @@ for i in 1:2
     end
 end
 objective_function = MOI.ScalarQuadraticFunction(
-                        MOI.ScalarAffineTerm.(q, x),
                         quad_terms,
+                        MOI.ScalarAffineTerm.(q, x),
                         0.0,
                     )
 MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)

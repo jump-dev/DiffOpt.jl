@@ -16,9 +16,6 @@ const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 const MOIT = MathOptInterface.Test
 
-import MatrixOptInterface
-const MatOI = MatrixOptInterface
-
 const ATOL = 1e-4
 const RTOL = 1e-4
 
@@ -48,6 +45,6 @@ end
     include("solver_interface.jl")
 end
 
-@testset "Singular error with deleted variables" begin
+@testset "Singular error with deleted variables: Sensitivity index issue" begin
     include("singular_exception.jl")
 end

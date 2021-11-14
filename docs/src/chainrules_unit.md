@@ -1,4 +1,4 @@
-# ChainRules integration
+# ChainRules integration demo: Relaxed Unit Commitment
 
 In this example, we will demonstrate the integration of DiffOpt with
 [ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/stable/),
@@ -171,7 +171,6 @@ function ChainRulesCore.frule(
     # setting the perturbation of the linear objective
     Δobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
     MOI.set(model, DiffOpt.ForwardInObjective(), Δobj)
-
     DiffOpt.forward(JuMP.backend(model))
     # querying the corresponding perturbation of the decision
     Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)

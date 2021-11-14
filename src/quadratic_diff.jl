@@ -121,14 +121,14 @@ const _QP_SET_TYPES = Union{
 }
 
 const _QP_FUNCTION_TYPES = Union{
-    MOI.SingleVariable,
+    MOI.VariableIndex,
     MOI.ScalarAffineFunction{Float64},
 }
 
 _qp_supported(::Type{F}, ::Type{S}) where {F <: _QP_FUNCTION_TYPES, S <: _QP_SET_TYPES} = true
 _qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
 function _qp_supported(model::MOI.AbstractOptimizer)
-    return all(FS -> _qp_supported(FS...), MOI.get(model, MOI.ListOfConstraints()))
+    return all(FS -> _qp_supported(FS...), MOI.get(model, MOI.ListOfConstraintTypesPresent()))
 end
 
 """
@@ -137,7 +137,7 @@ end
 Return problem parameters as matrices along with other program info such as number of constraints, variables, etc
 """
 function get_problem_data(model::MOI.AbstractOptimizer)
-    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
+    for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         if !_qp_supported(F, S)
             throw(MOI.UnsupportedConstraint{F,S}("DiffOpt does not support this constraint type for its Quadratic Programming differentiation. Maybe try the Conic Programming differentiation ? For this, do `MOI.set(model, DiffOpt.ProgramClass(), DiffOpt.CONIC)`."))
         end
@@ -145,7 +145,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     var_list = MOI.get(model, MOI.ListOfVariableIndices())
     nz = length(var_list)
 
-    index_map = MOIU.IndexMap(nz)
+    index_map = MOIU.IndexMap()
     for (i,vi) in enumerate(var_list)
         index_map[vi] = VI(i)
     end
@@ -168,13 +168,13 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     le_con_sv_idx = MOI.get(
                         model,
                         MOI.ListOfConstraintIndices{
-                            MOI.SingleVariable,
+                            MOI.VariableIndex,
                             MOI.LessThan{Float64},
                         }())
     ge_con_sv_idx = MOI.get(
                         model,
                         MOI.ListOfConstraintIndices{
-                            MOI.SingleVariable,
+                            MOI.VariableIndex,
                             MOI.GreaterThan{Float64},
                         }())
     nineq_sv_le = length(le_con_sv_idx)
@@ -194,7 +194,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
         for (j, var_idx) in enumerate(var_list)
             for term in func.terms
-                if term.variable_index == var_idx
+                if term.variable == var_idx
                     G[i,j] = MOI.coefficient(term)
                 end
             end
@@ -214,12 +214,12 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
         for (j, var_idx) in enumerate(var_list)
             for term in func.terms
-                if term.variable_index == var_idx
+                if term.variable == var_idx
                     G[i+nineq_le,j] = -MOI.coefficient(term)
                 end
             end
         end
-        h[i] = func.constant - set.lower
+        h[i+nineq_le] = func.constant - set.lower
         ineq_cont += 1
         index_map[con] =
             CI{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}(ineq_cont)
@@ -228,24 +228,24 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         con = le_con_sv_idx[i]
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)
-        vidx = findfirst(v -> v == func.variable, var_list)
+        vidx = findfirst(v -> v == func, var_list)
         G[i+nineq_le+nineq_ge,vidx] = 1
         h[i+nineq_le+nineq_ge] = MOI.constant(set)
         ineq_cont += 1
         index_map[con] =
-            CI{MOI.SingleVariable, MOI.LessThan{Float64}}(ineq_cont)
+            CI{MOI.VariableIndex, MOI.LessThan{Float64}}(ineq_cont)
     end
     for i in eachindex(ge_con_sv_idx)
         # note: x >= b needs to be converted in Gx <= h form
         con = ge_con_sv_idx[i]
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)
-        vidx = findfirst(v -> v == func.variable, var_list)
+        vidx = findfirst(isequal(func), var_list)
         G[i+nineq_le+nineq_ge+nineq_sv_le,vidx] = -1
         h[i+nineq_le+nineq_ge+nineq_sv_le] = -MOI.constant(set)
         ineq_cont += 1
         index_map[con] =
-            CI{MOI.SingleVariable, MOI.GreaterThan{Float64}}(ineq_cont)
+            CI{MOI.VariableIndex, MOI.GreaterThan{Float64}}(ineq_cont)
     end
 
     # handle equality constraints
@@ -260,7 +260,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
     eq_con_sv_idx = MOI.get(
         model,
         MOI.ListOfConstraintIndices{
-            MOI.SingleVariable,
+            MOI.VariableIndex,
             MOI.EqualTo{Float64}
         }())
     neq_sv = length(eq_con_sv_idx)
@@ -276,7 +276,7 @@ function get_problem_data(model::MOI.AbstractOptimizer)
 
         for x in func.terms
             # never nothing, variable is present
-            vidx = findfirst(v -> v == x.variable_index, var_list)
+            vidx = findfirst(isequal(x.variable), var_list)
             A[i, vidx] = x.coefficient
         end
         b[i] = set.value - func.constant
@@ -289,21 +289,19 @@ function get_problem_data(model::MOI.AbstractOptimizer)
         con = eq_con_sv_idx[i]
         func = MOI.get(model, MOI.ConstraintFunction(), con)
         set = MOI.get(model, MOI.ConstraintSet(), con)
-        vidx = findfirst(v -> v == func.variable, var_list)
+        vidx = findfirst(isequal(func), var_list)
         A[i+neq,vidx] = 1
         b[i+neq] = set.value
         eq_cont += 1
         index_map[con] =
-            CI{MOI.SingleVariable, MOI.EqualTo{Float64}}(eq_cont)
+            CI{MOI.VariableIndex, MOI.EqualTo{Float64}}(eq_cont)
     end
 
 
     # handle objective
     # works both for any objective function convertible to a ScalarQuadraticFunction.
-    # So in particular SingleVariable, ScalarAffineFunction and ScalarQuadraticFunction should work.
+    # So in particular VariableIndex, ScalarAffineFunction and ScalarQuadraticFunction should work.
     objective_function = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
-    # TODO Remove, this is a temporary workaround for https://github.com/jump-dev/Ipopt.jl/pull/275
-    objective_function = convert(MOI.ScalarQuadraticFunction{Float64}, objective_function)
     sparse_array_obj = sparse_array_representation(objective_function, nz, index_map)
 
     return (
