@@ -64,14 +64,15 @@ function fit_ridge(X, y, α)
     model = Model(() -> diff_optimizer(OSQP.Optimizer))
 
     N, D = size(X)
-    
+
     @variable(model, w[1:D])
     set_optimizer_attribute(model, MOI.Silent(), true)
-    
+    err_term = X * w - y
+
     @objective(
         model,
         Min,
-        dot(X*w - y, X * w - y) + α * dot(w, w),
+        1/(2 * N * D) * dot(err_term, err_term) + 1/(2 * D) * α * dot(w, w),
     )
 
     optimize!(model)
@@ -86,45 +87,52 @@ end
 
 # Solve the problem for several values of α
 
-αs = 0.0:0.0001:0.001
+αs = 0.0:0.01:0.5
 Rs = Float64[]
 mse = Float64[]
 for α in αs
     _, _, _, w_train = fit_ridge(X_train, y_train, α)
     y_pred = X_test * w_train
     push!(Rs, R2(y_test, y_pred))
-    push!(mse, norm(y_pred - y_test)^2)
+    push!(mse, norm(y_pred - y_test)^2 / length(y_pred))
 end
 
 # Visualize the R2 correlation metric
 
-plot(αs, Rs, label="R2 prediction score",  xaxis = ("α"))
+plot(αs, Rs, label="R2 prediction score",  xaxis = "α")
 
 # Visualize the Mean Score Error metric
 
 plot(αs, mse, label="MSE", xaxis = "α")
 
-# Define the derivative of the test loss with respect to the parameter α
-function ∇model(model, X_test, y_test, w, ŵ)
-    N, D = size(X_test)
-    ∂w_∂α = zeros(D)
-    dα = 1.0
+function compute_dw_dparam(model, w)
+    D = length(w)
+    dw_dα = zeros(D)
+    MOI.set(
+        model, 
+        DiffOpt.ForwardInObjective(),
+        1/2 * dot(w, w) / D,
+    )
+    DiffOpt.forward(model)
     for i in 1:D
-        MOI.set(
-            model, 
-            DiffOpt.ForwardInObjective(),
-            dα * w[i]^2,
-        )
-
-        DiffOpt.forward(model)  # find grad
-
-        ∂w_∂α[i] = MOI.get(
+        # compute grad
+        dw_dα[i] = MOI.get(
             model,
             DiffOpt.ForwardOutVariablePrimal(), 
             w[i],
         )
     end
-    return dot(X_test * ∂w_∂α, X_test * ŵ - y_test) / N
+    return dw_dα
+end
+
+# Define the derivative of the test loss with respect to the parameter α
+function d_testloss_dα(model, X_test, y_test, w, ŵ)
+    N, D = size(X_test)
+    dw_dα = compute_dw_dparam(model, w)
+    err_term = X_test * ŵ - y_test
+    return sum(eachindex(err_term)) do i
+        dot(X_test[i,:], dw_dα) * err_term[i]
+    end / (N * D)
 end
 
 
@@ -138,18 +146,18 @@ N, D = size(X_train)
 
 for α in αs
     model, w, _, ŵ = fit_ridge(X_train, y_train, α)
-    ∂l_∂w = [2α * ŵ[i] - sum(X_train[:,i] .* (y_train - X_train*ŵ))/N for i in 1:D]
+    ∂l_∂w = α * ŵ / D - X_train' * (X_train*ŵ - y_train) / (N * D)
     # testing optimality wrt regularized model
     @show norm(∂l_∂w)
     # @assert norm(∂l_∂w) < 5e-2
 
     push!(
         ∂l_∂αs_test,
-        ∇model(model, X_test, y_test, w, ŵ),
+        d_testloss_dα(model, X_test, y_test, w, ŵ),
     )
     push!(
         ∂l_∂αs_train,
-        ∇model(model, X_train, y_train, w, ŵ),
+        d_testloss_dα(model, X_train, y_train, w, ŵ),
     )
     push!(
         ltrain,
