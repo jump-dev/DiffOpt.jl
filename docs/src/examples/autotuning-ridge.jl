@@ -47,11 +47,7 @@ end
 function create_problem(N, D, noise)
     w = 10 * randn(D)
     X = 10 * randn(N, D)
-
-    # if noise=0, then there is no need of regularization and
-    # alpha=0 will give the best R2 score
     y = X * w + noise * randn(N)
-
     l = N ÷ 2  # test train split
     return (X[1:l, :], X[l+1:N, :], y[1:l], y[l+1:N])
 end
@@ -68,24 +64,18 @@ X_train, X_test, y_train, y_test = create_problem(1000, 200, 50);
 function fit_ridge(X, y, α, model = Model(() -> diff_optimizer(OSQP.Optimizer)))
     JuMP.empty!(model)
     set_optimizer_attribute(model, MOI.Silent(), true)
-
     N, D = size(X)
     @variable(model, w[1:D])
-
     err_term = X * w - y
-
     @objective(
         model,
         Min,
         1/(2 * N * D) * dot(err_term, err_term) + 1/(2 * D) * α * dot(w, w),
     )
-
     optimize!(model)
-
     if termination_status(model) != MOI.OPTIMAL
         error("Unexpected status: $(termination_status(model))")
     end
-
     regularized_loss_value = objective_value(model)
     training_loss_value = 1/(2 * N * D) * JuMP.value(dot(err_term, err_term))
     return model, w, value.(w), training_loss_value, regularized_loss_value
@@ -147,7 +137,6 @@ function d_testloss_dα(model, X_test, y_test, w, ŵ)
         dot(X_test[i,:], dw_dα) * err_term[i]
     end / (N * D)
 end
-
 
 # Define meta-optimizer function performing gradient descent
 
