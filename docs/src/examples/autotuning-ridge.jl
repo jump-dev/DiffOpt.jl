@@ -160,7 +160,7 @@ function descent(α0, max_iters=100; fixed_step = 0.01, grad_tol=1e-3)
         push!(α_s, α)
         _, w, ŵ, _,  = fit_ridge(X_train, y_train, α, model)
         err_term = X_test * ŵ - y_test
-        test_loss = norm(err_term)^2 / length(X_test)
+        test_loss = norm(err_term)^2 / (2 * length(X_test))
         push!(
             test_loss_values,
             test_loss,
