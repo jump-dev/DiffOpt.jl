@@ -3,19 +3,24 @@
 #md # [![](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](@__REPO_ROOT_URL__/examples/autotuning-ridge.jl)
 #md # [![](https://img.shields.io/badge/show-nbviewer-579ACA.svg)](@__NBVIEWER_ROOT_URL__/generated/autotuning-ridge.ipynb)
 
-# This example shows how to learn the hyperparameters in Ridge Regression using a gradient descent routine.  
-# Let the problem be modelled as
+# This example shows how to learn a hyperparameter in Ridge Regression using a gradient descent routine.
+# Let the regularized regression problem be formulated as:
 
 # ```math
 # \begin{equation}
-# \min_{w} \quad \frac{1}{2n} \sum_{i=1}^{n} (y_{i} - w^T x_{i})^2 + \alpha \| w \|_2^2
+# \min_{w} \quad \frac{1}{2nd} \sum_{i=1}^{n} (w^T x_{i} - y_i)^2 + \frac{\alpha}{2d} \| w \|_2^2
 # \end{equation}
 # ```
 
 # where 
 # - `x`, `y` are the data points
-# - `w` constitutes weights of the regressing line
-# - `α` is the only hyperparameter acting on regularization
+# - `w` are the learned weights
+# - `α` is the hyperparameter acting on regularization.
+
+# The main optimization model will be formulated with JuMP.
+# Using the gradient of the optimal weights with respect to the regularization parameters
+# computed with DiffOpt, we can perform a gradient descent on top of the inner model
+# to minimize the test loss.
 
 using DiffOpt
 using Statistics
@@ -27,168 +32,148 @@ using LinearAlgebra
 
 
 """
-Return the coefficient of determination R2 of the prediction.
-Best possible score is 1.0, it can be negative because the model can be arbitrarily worse
+    R2(y_true, y_pred)
+
+Return the coefficient of determination R2 of the prediction in `[0,1]`.
 """
 function R2(y_true, y_pred)
-    u = sum((y_pred - y_true).^2)  # Regression sum of squares
-    v = sum((y_true .- mean(y_true)).^2)  # Total sum of squares
-    
-    return 1-(u/v)
+    u = norm(y_pred - y_true)^2  # Regression sum of squares
+    v = norm(y_true .- mean(y_true))^2  # Total sum of squares
+    return 1 - u/v
 end
 
-# Create a non-trivial, noisy regression dataset
+# ## Generating a noisy regression dataset
 
 function create_problem(N, D, noise)
-    w = rand(D) 
-    X = rand(N, D) 
-    
-    Y = X*w .+ noise*randn(N) # if noise=0, then there is no need of regularization and alpha=0 will give the best R2 score
-
+    w = 10 * randn(D)
+    X = 10 * randn(N, D)
+    y = X * w + noise * randn(N)
     l = N ÷ 2  # test train split
-    return X[1:l, :], X[l+1:N, :], Y[1:l], Y[l+1:N]
+    return (X[1:l, :], X[l+1:N, :], y[1:l], y[l+1:N])
 end
 
-X_train, X_test, Y_train, Y_test = create_problem(800, 30, 4);
+Random.seed!(42)
 
+X_train, X_test, y_train, y_test = create_problem(1000, 200, 50);
 
-# Define a helper function for regression
+# ## Defining the regression problem
 
-function fit_ridge(X, Y, α)
-    model = Model(() -> diff_optimizer(OSQP.Optimizer))
+# We implement the regularized regression problem as a function taking the problem data,
+# building a JuMP model and solving it.
 
-    N, D = size(X)
-    
-    @variable(model, w[1:D]>=-10)
+function fit_ridge(X, y, α, model = Model(() -> diff_optimizer(OSQP.Optimizer)))
+    JuMP.empty!(model)
     set_optimizer_attribute(model, MOI.Silent(), true)
-    
+    N, D = size(X)
+    @variable(model, w[1:D])
+    err_term = X * w - y
     @objective(
         model,
         Min,
-        sum((Y - X*w).*(Y - X*w))/(2.0*N) + α*(w'w),
+        1/(2 * N * D) * dot(err_term, err_term) + 1/(2 * D) * α * dot(w, w),
     )
-
     optimize!(model)
-
-    custom_loss = objective_value(model)
-    return model, w, custom_loss, value.(w)
+    if termination_status(model) != MOI.OPTIMAL
+        error("Unexpected status: $(termination_status(model))")
+    end
+    regularized_loss_value = objective_value(model)
+    training_loss_value = 1/(2 * N * D) * JuMP.value(dot(err_term, err_term))
+    return model, w, value.(w), training_loss_value, regularized_loss_value
 end
 
-# Solve the problem for several values of α
+# We can solve the problem for several values of α
+# to visualize the effect of regularization on the testing and training loss.
 
-αs = [0.0, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2, 5e-2, 7e-2, 2e-1, 3e-1, .5, .7, 1.0]
+αs = 0.0:0.01:0.5
 Rs = Float64[]
-mse = Float64[]
-
+mse_test = Float64[]
+mse_train = Float64[]
+model = JuMP.Model(() -> diff_optimizer(OSQP.Optimizer))
+(Ntest, D) = size(X_test)
 for α in αs
-    _, _, _, w_train = fit_ridge(X_train, Y_train, α)
-    Y_pred = X_test*w_train
-    push!(Rs, R2(Y_test, Y_pred))
-    push!(mse, sum((Y_pred - Y_test).^2))
+    _, _, w_train, training_loss_value, _ = fit_ridge(X_train, y_train, α, model)
+    y_pred = X_test * w_train
+    push!(Rs, R2(y_test, y_pred))
+    push!(mse_test, dot(y_pred - y_test, y_pred - y_test) / (2 * Ntest * D))
+    push!(mse_train, training_loss_value)
 end
 
 # Visualize the R2 correlation metric
 
-plot(log.(αs), Rs*10, label="R2 prediction score",  xaxis = ("log(α)"))
+plot(αs, Rs, label="R2 prediction score",  xaxis = "α")
 
 # Visualize the Mean Score Error metric
 
-plot(log.(αs), mse, label="MSE", xaxis = ("log(α)"))
+plot(αs, mse_test ./ sum(mse_test), label="MSE test", xaxis = "α", yaxis="MSE", legend=(0.8,0.2))
+plot!(αs, mse_train ./ sum(mse_train), label="MSE train")
+title!("Normalized mean squared error on training and testing sets")
 
-# Define the gradient of the model with respect to the parameter α
+# ## Leveraging differentiable optimization: computing the derivative of the solution
 
-function ∇model(model, X_train, w, ŵ, α)
-    N, D = size(X_train)
-    dw = zeros(D)
-    ∂w_∂α = zeros(D)
+# Using DiffOpt, we can compute `∂w_i/∂α`, the derivative of the learned solution `̂w`
+# w.r.t. the regularization parameter.
 
+function compute_dw_dparam(model, w)
+    D = length(w)
+    dw_dα = zeros(D)
+    MOI.set(
+        model, 
+        DiffOpt.ForwardInObjective(),
+        1/2 * dot(w, w) / D,
+    )
+    DiffOpt.forward(model)
     for i in 1:D
-        dw[i] = 1.0 #set
-
-        MOI.set(
-            model, 
-            DiffOpt.ForwardInObjective(), 
-            MOI.ScalarQuadraticFunction(
-                [MOI.ScalarAffineTerm(0.0, w[i].index)], 
-                [MOI.ScalarQuadraticTerm(dw[i]*α, w[i].index, w[i].index)], 
-                0.0
-            )
-        )
-
-        DiffOpt.forward(model)  # find grad
-
-        ∂w_∂α[i] = MOI.get(
+        dw_dα[i] = MOI.get(
             model,
             DiffOpt.ForwardOutVariablePrimal(), 
-            w[i]
+            w[i],
         )
-
-        dw[i] = 0.0 #unset
     end
-    return sqrt(ŵ'ŵ) + 2α*(ŵ'∂w_∂α) - sum((X_train*∂w_∂α).*(Y_train - X_train*ŵ))/(2*N)
+    return dw_dα
 end
 
+# Using `∂w_i/∂α` computed with `compute_dw_dparam`,
+# we can compute the derivative of the test loss w.r.t. the parameter α
+# by composing derivatives.
 
-# Plot the gradient ∂l/∂α
-
-∂l_∂αs = Float64[]
-N, D = size(X_train)
-
-for α in αs
-    model, w, _, ŵ = fit_ridge(X_train, Y_train, α)
-
-    ∂l_∂w = [2*α*ŵ[i] - sum(X_train[:,i].*(Y_train - X_train*ŵ))/N for i in 1:D]
-    @assert norm(∂l_∂w) < 1e-1  # testing optimality
-    
-    push!(
-        ∂l_∂αs, 
-        ∇model(model, X_train, w, ŵ, α)
-    )
+function d_testloss_dα(model, X_test, y_test, w, ŵ)
+    N, D = size(X_test)
+    dw_dα = compute_dw_dparam(model, w)
+    err_term = X_test * ŵ - y_test
+    return sum(eachindex(err_term)) do i
+        dot(X_test[i,:], dw_dα) * err_term[i]
+    end / (N * D)
 end
 
-plot(αs, ∂l_∂αs, label="∂l/∂α",  xaxis = ("α"))
+# We can define a meta-optimizer function performing gradient descent
+# on the test loss w.r.t. the regularization parameter.
 
-
-
-# Define helper function for Gradient Descent
-
-"""
-    start from initial value of regularization constant
-    do gradient descent on alpha
-    until the MSE keeps on decreasing
-"""
-function descent(α, max_iters=25)
-    prev_mse = 1e7
-    curr_mse = 1e6
-    
+function descent(α0, max_iters=100; fixed_step = 0.01, grad_tol=1e-3)
     α_s = Float64[]
-    mse = Float64[]
-    
-    iter=0
-    while curr_mse - 10 < prev_mse && iter < max_iters
-        iter += 1
-        model, w, _, ŵ = fit_ridge(X_train, Y_train, α)
-        
-        ∂α = ∇model(model, X_train, w, ŵ, α) # fetch the gradient
-        
-        α += 0.01*∂α  # update by a fixed amount
-        
+    test_loss_values = Float64[]
+    α = α0
+    model = JuMP.Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
+    for iter in 1:max_iters
         push!(α_s, α)
-        
-        Y_pred = X_test*ŵ
-
-        prev_mse = curr_mse
-        curr_mse = sum((Y_pred - Y_test).^2) 
-        
-        push!(mse, curr_mse)
+        _, w, ŵ, _,  = fit_ridge(X_train, y_train, α, model)
+        err_term = X_test * ŵ - y_test
+        test_loss = norm(err_term)^2 / (2 * length(X_test))
+        push!(
+            test_loss_values,
+            test_loss,
+        )
+        ∂α = d_testloss_dα(model, X_test, y_test, w, ŵ)
+        α -= fixed_step * ∂α
+        if abs(∂α) ≤ grad_tol
+            break
+        end
     end
-    
-    return α_s, mse
+    return α_s, test_loss_values
 end
 
-ᾱ, msē = descent(1.0);
+ᾱ, msē = descent(0.1, 500);
 
 # Visualize gradient descent and convergence 
 
-plot(log.(αs), mse, label="MSE", xaxis = ("α"))
-plot!(log.(ᾱ), msē, label="G.D. for α", lw = 2)
+plot(αs, mse_test, label="MSE test", xaxis = ("α"), legend=:topleft)
+plot!(ᾱ, msē, label="learned α", lw = 2)
