@@ -108,6 +108,11 @@ plot(αs, mse_test ./ sum(mse_test), label="MSE test", xaxis = "α", yaxis="MSE"
 plot!(αs, mse_train ./ sum(mse_train), label="MSE train")
 title!("Normalized mean squared error on training and testing sets")
 
+# ## Leveraging differentiable optimization: computing the derivative of the solution
+
+# Using DiffOpt, we can compute `∂w_i/∂α`, the derivative of the learned solution `̂w`
+# w.r.t. the regularization parameter.
+
 function compute_dw_dparam(model, w)
     D = length(w)
     dw_dα = zeros(D)
@@ -118,7 +123,6 @@ function compute_dw_dparam(model, w)
     )
     DiffOpt.forward(model)
     for i in 1:D
-        # compute grad
         dw_dα[i] = MOI.get(
             model,
             DiffOpt.ForwardOutVariablePrimal(), 
@@ -128,7 +132,10 @@ function compute_dw_dparam(model, w)
     return dw_dα
 end
 
-# Define the derivative of the test loss with respect to the parameter α
+# Using `∂w_i/∂α` computed with `compute_dw_dparam`,
+# we can compute the derivative of the test loss w.r.t. the parameter α
+# by composing derivatives.
+
 function d_testloss_dα(model, X_test, y_test, w, ŵ)
     N, D = size(X_test)
     dw_dα = compute_dw_dparam(model, w)
@@ -138,7 +145,8 @@ function d_testloss_dα(model, X_test, y_test, w, ŵ)
     end / (N * D)
 end
 
-# Define meta-optimizer function performing gradient descent
+# We can define a meta-optimizer function performing gradient descent
+# on the test loss w.r.t. the regularization parameter.
 
 function descent(α0, max_iters=100; fixed_step = 0.01, grad_tol=1e-3)
     α_s = Float64[]
