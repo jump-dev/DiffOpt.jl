@@ -42,6 +42,7 @@ y = append!(ones(N ÷ 2), -ones(N ÷ 2));
 # Let's initialize a special model that can understand sensitivities
 
 model = Model(() -> diff_optimizer(SCS.Optimizer))
+MOI.set(model, MOI.Silent(), true)
 
 # Add the variables
 

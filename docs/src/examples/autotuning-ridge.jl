@@ -42,7 +42,7 @@ function R2(y_true, y_pred)
     return 1 - u/v
 end
 
-# Create a non-trivial, noisy regression dataset
+# ## Generating a noisy regression dataset
 
 function create_problem(N, D, noise)
     w = 10 * randn(D)
@@ -53,15 +53,18 @@ function create_problem(N, D, noise)
     y = X * w + noise * randn(N)
 
     l = N ÷ 2  # test train split
-    return X[1:l, :], X[l+1:N, :], y[1:l], y[l+1:N]
+    return (X[1:l, :], X[l+1:N, :], y[1:l], y[l+1:N])
 end
 
 Random.seed!(42)
 
 X_train, X_test, y_train, y_test = create_problem(1000, 200, 50);
 
+# ## Defining the regression problem
 
-# Main regression problem fitting a regularized regression
+# We implement the regularized regression problem as a function taking the problem data,
+# building a JuMP model and solving it.
+
 function fit_ridge(X, y, α, model = Model(() -> diff_optimizer(OSQP.Optimizer)))
     JuMP.empty!(model)
     set_optimizer_attribute(model, MOI.Silent(), true)
@@ -88,7 +91,8 @@ function fit_ridge(X, y, α, model = Model(() -> diff_optimizer(OSQP.Optimizer))
     return model, w, value.(w), training_loss_value, regularized_loss_value
 end
 
-# Solve the problem for several values of α
+# We can solve the problem for several values of α
+# to visualize the effect of regularization on the testing and training loss.
 
 αs = 0.0:0.01:0.5
 Rs = Float64[]
@@ -100,7 +104,7 @@ for α in αs
     _, _, w_train, training_loss_value, _ = fit_ridge(X_train, y_train, α, model)
     y_pred = X_test * w_train
     push!(Rs, R2(y_test, y_pred))
-    push!(mse_test, norm(y_pred - y_test)^2 / (Ntest * D))
+    push!(mse_test, dot(y_pred - y_test, y_pred - y_test) / (2 * Ntest * D))
     push!(mse_train, training_loss_value)
 end
 
