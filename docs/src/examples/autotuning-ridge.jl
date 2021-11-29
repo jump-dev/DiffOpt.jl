@@ -100,13 +100,14 @@ end
 
 # Visualize the R2 correlation metric
 
-plot(αs, Rs, label="R2 prediction score",  xaxis = "α")
+plot(αs, Rs, label=nothing,  xaxis="α", yaxis="R2")
+title!("Test coefficient of determination R2")
 
 # Visualize the Mean Score Error metric
 
 plot(αs, mse_test ./ sum(mse_test), label="MSE test", xaxis = "α", yaxis="MSE", legend=(0.8,0.2))
 plot!(αs, mse_train ./ sum(mse_train), label="MSE train")
-title!("Normalized mean squared error on training and testing sets")
+title!("Normalized MSE on training and testing sets")
 
 # ## Leveraging differentiable optimization: computing the derivative of the solution
 
@@ -177,3 +178,4 @@ end
 
 plot(αs, mse_test, label="MSE test", xaxis = ("α"), legend=:topleft)
 plot!(ᾱ, msē, label="learned α", lw = 2)
+title!("Regularizer learning")
