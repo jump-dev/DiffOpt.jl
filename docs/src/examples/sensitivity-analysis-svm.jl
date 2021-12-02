@@ -120,9 +120,7 @@ for i in 1:N
             dy[j] * (dot(X[j,:], index.(w)) + index(b)),
         )
     end
-
     DiffOpt.forward(model)
-
     dw = MOI.get.(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
