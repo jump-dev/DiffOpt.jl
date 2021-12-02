@@ -105,7 +105,11 @@ Plots.plot!(p, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 ∇ = zeros(N)
 dy = zeros(N);
 
-# begin differentiating
+# Begin differentiating the model.
+# analogous to varying theta in the expression:
+# ```math
+# (y_{i} + \theta) (w^T X_{i} + b) \ge 1 - \xi_{i}
+# ```
 for i in 1:N
     dy[i] = 1.0 # set
 
@@ -116,8 +120,6 @@ for i in 1:N
             cons[j],
             dy[j] * (dot(X[j,:], index.(w)) + index(b)),
         )
-        # analogous to varying theta in the expression:
-        # (y_{i} + theta) (w^T X_{i} + b) \ge 1 - \xi_{i}
     end
 
     DiffOpt.forward(model)
