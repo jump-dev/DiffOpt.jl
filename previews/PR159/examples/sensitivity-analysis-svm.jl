@@ -11,37 +11,42 @@
 # ```math
 # \begin{split}
 # \begin{array} {ll}
-# \mbox{minimize} & \lambda||w||^2 \sum_{i=1}^{N} \xi_{i} \\
-# \mbox{s.t.} & \xi_{i} \ge 0 \quad i=1..N  \\
-#             & y_{i} (w^T X_{i} + b) \ge 1 - \xi_{i}\\
+# \mbox{minimize} & \lambda||w||^2 + \sum_{i=1}^{N} \xi_{i} \\
+# \mbox{s.t.} & \xi_{i} \ge 0 \quad \quad i=1..N  \\
+#             & y_{i} (w^T X_{i} + b) \ge 1 - \xi_{i} \quad i=1..N  \\
 # \end{array}
 # \end{split}
 # ```
 # where
 # - `X`, `y` are the `N` data points
+# - `w` is the support vector
+# - `b` determines the offset `b/||w||` of the hyperplane with normal `w`
 # - `ξ` is the soft-margin loss.
 
+# This tutorial uses the following packages
+
+using JuMP     # The mathematical programming modelling language
+import DiffOpt # JuMP extension for differentiable optimization
+import Ipopt   # Optimization solver that handles quadratic programs
+import Plots   # Graphing tool
+import LinearAlgebra: dot, norm, normalize!
+import Random
+
 # ## Define and solve the SVM
-
-# Import the libraries.
-
-
-using Ipopt, DiffOpt, LinearAlgebra, JuMP
-import Random, Plots
-
 
 # Construct separable, non-trivial data points.
 
 N = 100
 D = 2
 Random.seed!(62)
-X = vcat(randn(N ÷ 2, D), randn(N ÷ 2, D) .+ [4.0, 1.5]')
-y = append!(ones(N ÷ 2), -ones(N ÷ 2));
+X = vcat(randn(N ÷ 2, D), randn(N ÷ 2, D) .+ [4.5, 2.0]')
+y = append!(ones(N ÷ 2), -ones(N ÷ 2))
+λ = 0.05;
 
 
 # Let's initialize a special model that can understand sensitivities
 
-model = Model(() -> diff_optimizer(Ipopt.Optimizer))
+model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
 MOI.set(model, MOI.Silent(), true)
 
 # Add the variables
@@ -69,10 +74,10 @@ MOI.set(model, MOI.Silent(), true)
 @objective(
     model,
     Min,
-    0.05 * dot(w, w) + sum(ξ),
+    λ * dot(w, w) + sum(ξ),
 )
 
-optimize!(model) # solve
+optimize!(model)
 
 
 # We can visualize the separating hyperplane.
@@ -83,7 +88,7 @@ wv = value.(w)
 
 bv = value(b)
 
-svm_x = [0.0, 3.0]
+svm_x = [0.0, 5.0] # arbitrary points
 svm_y = (-bv .- wv[1] * svm_x )/wv[2]
 
 p = Plots.scatter(X[:,1], X[:,2], color = [yi > 0 ? :red : :blue for yi in y], label = "")
@@ -105,7 +110,7 @@ Plots.plot!(p, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 dy = zeros(N);
 
 # Begin differentiating the model.
-# analogous to varying theta in the expression:
+# analogous to varying θ in the expression:
 # ```math
 # (y_{i} + \theta) (w^T X_{i} + b) \ge 1 - \xi_{i}
 # ```
@@ -131,7 +136,7 @@ for i in 1:N
         b,
     )
     ∇[i] = norm(dw) + norm(db)
-    dy[i] = 0.0
+    dy[i] = 0.0 # reset the change made at the beginning of the loop
 end
 
 normalize!(∇);
@@ -142,9 +147,9 @@ normalize!(∇);
 p2 = Plots.scatter(
     X[:,1], X[:,2],
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
-    markersize = 20 * max.(∇, 0.2 * maximum(∇)),
+    markersize = 20 * max.(∇, 0.1 * maximum(∇)),
 )
-Plots.yaxis!(p2, (-2, 4.5))
+Plots.yaxis!(p2, (-3, 5.5))
 Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 
 
@@ -156,9 +161,9 @@ Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3
 dX = zeros(N, D);
 
 # Begin differentiating the model.
-# analogous to varying theta in the expression:
+# analogous to varying θ in the expression:
 # ```math
-# y_{i} (w^T (X_{i} + theta) + b) \ge 1 - \xi_{i}
+# y_{i} (w^T (X_{i} + \theta) + b) \ge 1 - \xi_{i}
 # ```
 for i in 1:N
     dX[i, :] = ones(D)  # set
@@ -170,9 +175,7 @@ for i in 1:N
             y[j] * dot(dX[j,:], index.(w)),
         )
     end
-
     DiffOpt.forward(model)
-
     dw = MOI.get.(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
@@ -183,9 +186,7 @@ for i in 1:N
         DiffOpt.ForwardOutVariablePrimal(),
         b,
     )
-
     ∇[i] = norm(dw) + norm(db)
-
     dX[i, :] = zeros(D)  # reset the change made at the beginning of the loop
 end
 
@@ -196,7 +197,7 @@ normalize!(∇);
 p3 = Plots.scatter(
     X[:,1], X[:,2],
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
-    markersize = 20 * max.(∇, 0.2 * maximum(∇)),
+    markersize = 20 * max.(∇, 0.1 * maximum(∇)),
 )
 Plots.yaxis!(p3, (-2, 4.5))
 Plots.plot!(p3, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
