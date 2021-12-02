@@ -112,7 +112,6 @@ dy = zeros(N);
 # ```
 for i in 1:N
     dy[i] = 1.0 # set
-
     for j in 1:N
         MOI.set(
             model,
@@ -134,10 +133,8 @@ for i in 1:N
         DiffOpt.ForwardOutVariablePrimal(),
         b,
     )
-
     ∇[i] = norm(dw) + norm(db)
-
-    dy[i] = 0.0  # reset the change made above
+    dy[i] = 0.0
 end
 
 normalize!(∇);
