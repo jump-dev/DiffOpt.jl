@@ -149,8 +149,8 @@ p2 = Plots.scatter(
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
     markersize = 20 * max.(∇, 0.1 * maximum(∇)),
 )
-Plots.yaxis!(p2, (-3, 5.5))
-Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
+Plots.yaxis!(p2, (-2, 4.5))
+Plots.plot!(p2, svm_x, svm_y, label = "", width=3)
 
 
 # ## Experiment 2: Gradient of hyperplane wrt the data point coordinates
@@ -200,4 +200,4 @@ p3 = Plots.scatter(
     markersize = 20 * max.(∇, 0.1 * maximum(∇)),
 )
 Plots.yaxis!(p3, (-2, 4.5))
-Plots.plot!(p3, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
+Plots.plot!(p3, svm_x, svm_y, label = "", width=3)
