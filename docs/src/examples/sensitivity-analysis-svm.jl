@@ -161,7 +161,6 @@ dX = zeros(N, D);
 # begin differentiating
 for i in 1:N
     dX[i, :] = ones(D)  # set
-
     for j in 1:N
         MOI.set(
             model,
