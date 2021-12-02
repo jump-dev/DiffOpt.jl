@@ -131,7 +131,7 @@ for i in 1:N
         b,
     )
     ∇[i] = norm(dw) + norm(db)
-    dy[i] = 0.0 # reset the change made at the beginning of the loop
+    dy[i] = 0.0
 end
 
 normalize!(∇);
@@ -170,7 +170,9 @@ for i in 1:N
             y[j] * dot(dX[j,:], index.(w)),
         )
     end
+
     DiffOpt.forward(model)
+
     dw = MOI.get.(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
@@ -181,7 +183,9 @@ for i in 1:N
         DiffOpt.ForwardOutVariablePrimal(),
         b,
     )
+
     ∇[i] = norm(dw) + norm(db)
+
     dX[i, :] = zeros(D)  # reset the change made at the beginning of the loop
 end
 
