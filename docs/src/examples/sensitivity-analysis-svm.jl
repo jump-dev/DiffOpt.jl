@@ -41,7 +41,6 @@ y = append!(ones(N ÷ 2), -ones(N ÷ 2));
 
 # Let's initialize a special model that can understand sensitivities
 
-# model = Model(() -> diff_optimizer(SCS.Optimizer))
 model = Model(() -> diff_optimizer(Ipopt.Optimizer))
 MOI.set(model, MOI.Silent(), true)
 
@@ -56,12 +55,12 @@ MOI.set(model, MOI.Silent(), true)
 @constraint(
     model,
     [i in 1:N],
-    ξ[i] >=0
+    ξ[i] >= 0
 );
 @constraint(
     model,
     cons[i in 1:N],
-    y[i] * (dot(X[i, :], w) + b) + ξ[i] - 1 >= 0
+    y[i] * (dot(X[i, :], w) + b) >= 1 - ξ[i]
 );
 
 
@@ -70,7 +69,7 @@ MOI.set(model, MOI.Silent(), true)
 @objective(
     model,
     Min,
-    0.05*dot(w,w) + sum(ξ),
+    0.05 * dot(w, w) + sum(ξ),
 )
 
 optimize!(model) # solve
@@ -156,7 +155,11 @@ Plots.plot!(p2, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3
 ∇ = zeros(N)
 dX = zeros(N, D);
 
-# begin differentiating
+# Begin differentiating the model.
+# analogous to varying theta in the expression:
+# ```math
+# y_{i} (w^T (X_{i} + theta) + b) \ge 1 - \xi_{i}
+# ```
 for i in 1:N
     dX[i, :] = ones(D)  # set
     for j in 1:N
@@ -166,8 +169,6 @@ for i in 1:N
             cons[j],
             y[j] * dot(dX[j,:], index.(w)),
         )
-        # analogous to varying theta in the expression:
-        # y_{i} (w^T (X_{i} + theta) + b) \ge 1 - \xi_{i}
     end
 
     DiffOpt.forward(model)
@@ -194,7 +195,7 @@ normalize!(∇);
 
 p3 = Plots.scatter(
     X[:,1], X[:,2],
-    color = [yi > 0 ? :red : :blue for yi in y], label = "",#["$i" for i in 1:N],
+    color = [yi > 0 ? :red : :blue for yi in y], label = "",
     markersize = 20 * max.(∇, 0.2 * maximum(∇)),
 )
 Plots.yaxis!(p3, (-2, 4.5))
