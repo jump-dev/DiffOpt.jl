@@ -2,6 +2,7 @@ module DiffOpt
 
 using Random
 using LinearAlgebra
+import LinearAlgebra: ⋅, dot, Diagonal
 using SparseArrays
 using IterativeSolvers: lsqr
 using JuMP
@@ -9,7 +10,7 @@ using JuMP
 import LazyArrays
 import BlockDiagonals
 
-using MathOptInterface
+import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 

@@ -20,9 +20,11 @@ DiffOpt can be installed via the Julia package manager:
 
 1. Create a model using the wrapper.
 ```julia
-using JuMP, DiffOpt, Clp
+using JuMP
+import DiffOpt
+import Clp
 
-model = JuMP.Model(() -> diff_optimizer(Clp.Optimizer))
+model = JuMP.Model(() -> DiffOpt.diff_optimizer(Clp.Optimizer))
 ```
 
 2. Define your model and solve it a single line.

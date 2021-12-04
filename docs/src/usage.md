@@ -2,11 +2,11 @@
 
 Create a differentiable model from [existing optimizers](https://www.juliaopt.org/JuMP.jl/stable/installation/)
 ```julia
-using DiffOpt
-using SCS
 using JuMP
+import DiffOpt
+import SCS
 
-model = diff_optimizer(SCS.Optimizer)
+model = DiffOpt.diff_optimizer(SCS.Optimizer)
 ```
 
 Update and solve the model 
@@ -51,7 +51,7 @@ grad_con = MOI.get.(model, DiffOpt.BackwardOutConstraint(), c)
 
 we can use the `forward` method with perturbations in matrices `A`, `b`, `c`
 ```julia
-using LinearAlgebra # for `⋅`
+import LinearAlgebra: ⋅
 MOI.set(model, DiffOpt.ForwardInObjective(), ones(2) ⋅ x)
 DiffOpt.forward(model)
 grad_x = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), x)

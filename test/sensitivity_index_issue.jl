@@ -1,7 +1,7 @@
 using JuMP
 
 function DiffOptModel()
-    model = diff_optimizer(GLPK.Optimizer)
+    model = DiffOpt.diff_optimizer(GLPK.Optimizer)
     MOI.set(model, DiffOpt.ProgramClass(), DiffOpt.QUADRATIC)
     return model
 end

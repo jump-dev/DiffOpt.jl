@@ -6,10 +6,12 @@
 # that can then be used by automatic differentiation systems.
 
 
-using DiffOpt, Plots, JuMP
-using LinearAlgebra
+using JuMP
+import DiffOpt
+import Plots
+import LinearAlgebra: ⋅
 import Clp
-using ChainRulesCore
+import ChainRulesCore
 
 # ## Unit commitment problem
 
@@ -118,9 +120,9 @@ pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])]
 # The influence of this variation of the demand is piecewise linear on the
 # generation at different time frames:
 
-scatter(demand_values, pflat)
-title!("Generation at different time frames and generators for a single variation")
-xlims!(0.0, 3.5)
+Plots.scatter(demand_values, pflat)
+Plots.title!("Generation at different time frames and generators for a single variation")
+Plots.xlims!(0.0, 3.5)
 
 # ## Forward Differentiation
 
@@ -141,7 +143,7 @@ function ChainRulesCore.frule(
         optimizer=Clp.Optimizer,
         )
     # creating the UC model with a DiffOpt optimizer wrapper around Clp
-    model = Model(() -> diff_optimizer(optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(optimizer))
     # building and solving the main model
     pv = unit_commitment(
         load1_demand, load2_demand, gen_costs, noload_costs, model=model)
@@ -210,7 +212,7 @@ function ChainRulesCore.rrule(
         load1_demand, load2_demand, gen_costs, noload_costs;
         optimizer=Clp.Optimizer,
         silent=false)
-    model = Model(() -> diff_optimizer(optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(optimizer))
     # solve the forward UC problem
     pv = unit_commitment(
         load1_demand, load2_demand, gen_costs, noload_costs,

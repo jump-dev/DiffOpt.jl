@@ -1,11 +1,11 @@
 const MOIDT = MOI.DeprecatedTest
 
 @testset "Linear tests" begin
-    MOIDT.contlineartest(diff_optimizer(GLPK.Optimizer), MOIDT.Config(basis = true), [
+    MOIDT.contlineartest(DiffOpt.diff_optimizer(GLPK.Optimizer), MOIDT.Config(basis = true), [
         "partial_start",  # see below
         "linear12",       # see below
     ])
-    model = diff_optimizer(Ipopt.Optimizer)
+    model = DiffOpt.diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     MOIDT.partial_start_test(
         model,
@@ -14,19 +14,19 @@ const MOIDT = MOI.DeprecatedTest
 
     # This requires an infeasiblity certificate for a variable bound.
     MOIDT.linear12test(
-        diff_optimizer(GLPK.Optimizer),
+        DiffOpt.diff_optimizer(GLPK.Optimizer),
         MOIDT.Config(infeas_certificates=false)
     )
 end
 
 @testset "Convex Quadratic tests" begin
-    model = diff_optimizer(OSQP.Optimizer)
+    model = DiffOpt.diff_optimizer(OSQP.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     MOIDT.qp1test(model, MOIDT.Config(atol=1e-2, rtol=1e-2))
-    model = diff_optimizer(OSQP.Optimizer)
+    model = DiffOpt.diff_optimizer(OSQP.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     MOIDT.qp2test(model, MOIDT.Config(atol=1e-2, rtol=1e-2))
-    model = diff_optimizer(Ipopt.Optimizer)
+    model = DiffOpt.diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     MOIDT.qp3test(
         model,
@@ -36,7 +36,7 @@ end
 
 
 @testset "FEASIBILITY_SENSE zeros objective" begin
-    model = diff_optimizer(GLPK.Optimizer)
+    model = DiffOpt.diff_optimizer(GLPK.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variable(model)
     MOI.add_constraint(model, x, MOI.GreaterThan(1.0))
@@ -53,7 +53,7 @@ end
 
 @testset "ModelLike" begin
     for opt in [GLPK.Optimizer]
-        MODEL = diff_optimizer(opt)
+        MODEL = DiffOpt.diff_optimizer(opt)
         @testset "default_objective_test" begin
             MOIDT.default_objective_test(MODEL)
         end
@@ -75,7 +75,7 @@ end
         @testset "copytest" begin
             # Requires VectorOfVariables
             # MOIDT.copytest(MODEL, MOIU.CachingOptimizer(
-            #     diff_optimizer(GLPK.Optimizer),
+            #     DiffOpt.diff_optimizer(GLPK.Optimizer),
             #     GLPK.Optimizer()
             # ))
         end
@@ -84,7 +84,7 @@ end
 
 
 @testset "Unit" begin
-    MOIDT.unittest(diff_optimizer(GLPK.Optimizer), MOIDT.Config(), [
+    MOIDT.unittest(DiffOpt.diff_optimizer(GLPK.Optimizer), MOIDT.Config(), [
         "number_threads", # might not work on all solvers
 
         # not testing integer constraints
@@ -105,21 +105,21 @@ end
         # SOC not supportedot supported
         "solve_start_soc",
     ])
-    model = diff_optimizer(SCS.Optimizer)
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     MOIDT.solve_duplicate_terms_obj(model, MOIDT.Config())
 end
 
 @testset "basic_constraint_tests" begin
     # it contains SOCP constraints
-    model = diff_optimizer(SCS.Optimizer)
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     MOIDT.basic_constraint_tests(model, MOIDT.Config())
 end
 
 # TODO: re-organiza conic tests
 @testset "contconic.jl tests" begin
-    model = diff_optimizer(SCS.Optimizer)
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     # linear tests
     for (name, test) in MOIDT.lintests

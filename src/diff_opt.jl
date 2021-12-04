@@ -18,9 +18,9 @@ by querying the internal optimizer instantiated using the
 One define a differentiable model by using any solver of choice. Example:
 
 ```julia
-julia> using DiffOpt, GLPK
+julia> import DiffOpt, GLPK
 
-julia> model = diff_optimizer(GLPK.Optimizer)
+julia> model = DiffOpt.diff_optimizer(GLPK.Optimizer)
 julia> model.add_variable(x)
 julia> model.add_constraint(...)
 

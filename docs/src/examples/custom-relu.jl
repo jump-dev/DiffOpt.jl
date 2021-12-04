@@ -9,14 +9,13 @@
 
 # This tutorial uses the following packages
 
-using Statistics
-using DiffOpt
-using Flux
-using Flux: onehotbatch, onecold, crossentropy, throttle
-using Base.Iterators: repeated
-import OSQP
 using JuMP
-using ChainRulesCore
+import DiffOpt
+import OSQP
+import ChainRulesCore
+import Flux
+import Statistics
+import Base.Iterators: repeated
 
 
 ## prepare data
@@ -25,10 +24,10 @@ labels = Flux.Data.MNIST.labels();
 
 # Preprocessing
 X = hcat(float.(reshape.(imgs, :))...) #stack all the images
-Y = onehotbatch(labels, 0:9); # just a common way to encode categorical variables
+Y = Flux.onehotbatch(labels, 0:9); # just a common way to encode categorical variables
 
 test_X = hcat(float.(reshape.(Flux.Data.MNIST.images(:test), :))...)
-test_Y = onehotbatch(Flux.Data.MNIST.labels(:test), 0:9)
+test_Y = Flux.onehotbatch(Flux.Data.MNIST.labels(:test), 0:9)
 
 X = X[:, 1:1000]
 Y = Y[:, 1:1000]
@@ -37,7 +36,7 @@ Y = Y[:, 1:1000]
 # Return the solution of the problem.
 function matrix_relu(
     y::AbstractArray{T};
-    model = Model(() -> diff_optimizer(OSQP.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
 ) where T
     _x = zeros(size(y))
     N = length(y[:, 1])
@@ -61,7 +60,7 @@ end
 function ChainRulesCore.rrule(
     ::typeof(matrix_relu),
     y::AbstractArray;
-    model = Model(() -> diff_optimizer(OSQP.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
 ) where T
     pv = matrix_relu(y, model = model)
     function pullback_matrix_relu(dx)
@@ -91,10 +90,10 @@ end
 
 # Network structure
 
-m = Chain(
-    Dense(784, 64),
+m = Flux.Chain(
+    Flux.Dense(784, 64),
     matrix_relu,
-    Dense(64, 10),
+    Flux.Dense(64, 10),
     softmax,
 )
 
@@ -104,17 +103,17 @@ dataset = repeated((X,Y), 20) # repeat the data set, very low accuracy on the or
 
 # Parameters for the network training
 
-custom_loss(x, y) = crossentropy(m(x), y) # training loss function
-opt = ADAM(); # stochastic gradient descent variant to optimize weights of the neral network
+custom_loss(x, y) = Flux.crossentropy(m(x), y) # training loss function
+opt = Flux.ADAM(); # stochastic gradient descent variant to optimize weights of the neral network
 evalcb = () -> @show(custom_loss(X, Y)) # callback to show loss
 
 # Train to optimize network parameters
 
-Flux.train!(custom_loss, params(m), dataset, opt, cb = throttle(evalcb, 5));
+Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));
 
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.
 
-accuracy(x, y) = mean(onecold(m(x)) .== onecold(y)) # average of correct guesses
+accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y)) # average of correct guesses
 @show accuracy(X,Y)
 @show accuracy(test_X, test_Y)

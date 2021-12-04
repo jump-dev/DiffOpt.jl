@@ -1,8 +1,9 @@
-using DiffOpt
 using Test
-using MathOptInterface
+import DiffOpt
+import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
+import DelimitedFiles
 
 const VAF = MOI.VectorAffineFunction{Float64}
 _vaf(c::Vector{Float64}) = VAF(MOI.ScalarAffineTerm{Float64}[], c)
@@ -48,7 +49,7 @@ end
     G = [1.0 1.0]
     h = [-1.0]
 
-    model = diff_optimizer(OSQP.Optimizer)
+    model = DiffOpt.diff_optimizer(OSQP.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 2)
 
@@ -75,7 +76,7 @@ end
 #     G = [1.0 1.0;]
 #     h = [-1.0;]
 
-#     model = diff_optimizer(OSQP.Optimizer)
+#     model = DiffOpt.diff_optimizer(OSQP.Optimizer)
 #     x = MOI.add_variables(model, 2)
 
 #     # define objective
@@ -276,7 +277,7 @@ end
     matrices = []
 
     for name in names
-        push!(matrices, readdlm(joinpath(dirname(dirname(pathof(DiffOpt))), "test", "data", name * ".txt"), ' ', Float64, '\n'))
+        push!(matrices, DelimitedFiles.readdlm(joinpath(dirname(dirname(pathof(DiffOpt))), "test", "data", name * ".txt"), ' ', Float64, '\n'))
     end
 
     Q, q, G, h, A, b = matrices
@@ -289,7 +290,7 @@ end
     grads_actual = []
 
     for name in names
-        push!(grads_actual, readdlm(joinpath(@__DIR__, "data", name * ".txt"), ' ', Float64, '\n'))
+        push!(grads_actual, DelimitedFiles.readdlm(joinpath(@__DIR__, "data", name * ".txt"), ' ', Float64, '\n'))
     end
 
     dqb = vec(grads_actual[2])
@@ -523,7 +524,7 @@ end
     #        1 - t ∈ {0}
     #      (t,x,y) ∈ SOC₃
 
-    model = diff_optimizer(SCS.Optimizer)
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x,y,t = MOI.add_variables(model, 3)
 
@@ -582,7 +583,7 @@ end
 # X = ⎜       ⎟           y = 2
 #     ⎝ 1   1 ⎠
 function simple_psd(solver)
-    model = diff_optimizer(solver)
+    model = DiffOpt.diff_optimizer(solver)
     MOI.set(model, MOI.Silent(), true)
     X = MOI.add_variables(model, 3)
     vov = MOI.VectorOfVariables(X)
@@ -681,7 +682,7 @@ end
     #
     #      (1-y1, -y2, -y2) in C^3_q
 
-    model = diff_optimizer(SCS.Optimizer)
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
 
     δ = √(1 + (3*√2+2)*√(-116*√2+166) / 14) / 2
@@ -799,7 +800,7 @@ end
     # refer psdt2test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4306
     # find equivalent diffcp program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
 
-    model = diff_optimizer(SCS.Optimizer)
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
 
     x = MOI.add_variables(model, 7)
@@ -1015,7 +1016,7 @@ end
     G = [1.0 1.0]
     h = [-1.0]
 
-    model = diff_optimizer(SCS.Optimizer)
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 2)
 

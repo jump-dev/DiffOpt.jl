@@ -1,6 +1,6 @@
 using JuMP
-using Clp
-using DiffOpt
+import Clp
+import DiffOpt
 using Test
 
 # This script creates the JuMP problem for a small unit commitment instance
@@ -20,7 +20,7 @@ D = Dict("Load1" => [1.0, 1.2, 1.4, 1.6], "Load2" => [1.0, 1.2, 1.4, 1.6]) # Dem
 Cp = Dict(1 => 1000.0, 2 => 1500.0) # Generation cost coefficient ($/pu)
 Cnl = Dict(1 => 500.0, 2 => 1000.0) # No-load cost ($)
 
-model = Model(() -> diff_optimizer(Clp.Optimizer))
+model = Model(() -> DiffOpt.diff_optimizer(Clp.Optimizer))
 
 ## Variables
 @variable(model, 0 <= u[g in unit_codes, t in 1:n_periods] <= 1) # Commitment
