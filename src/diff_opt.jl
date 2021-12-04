@@ -41,10 +41,10 @@ Base.@kwdef struct QPCache
         Int, Vector{VI}, # nz, var_list
         Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}}, # nineq_le, le_con_idx
         Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}}, # nineq_ge, ge_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}}}, # nineq_sv_le, le_con_sv_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.GreaterThan{Float64}}}, # nineq_sv_ge, ge_con_sv_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.VariableIndex, MOI.LessThan{Float64}}}, # nineq_sv_le, le_con_sv_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.VariableIndex, MOI.GreaterThan{Float64}}}, # nineq_sv_ge, ge_con_sv_idx
         Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}}, # neq, eq_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.SingleVariable, MOI.EqualTo{Float64}}}, # neq_sv, eq_con_sv_idx
+        Int, Vector{MOI.ConstraintIndex{MOI.VariableIndex, MOI.EqualTo{Float64}}}, # neq_sv, eq_con_sv_idx
     }
     inequality_duals::Vector{Float64}
     equality_duals::Vector{Float64}
@@ -52,11 +52,6 @@ Base.@kwdef struct QPCache
     lhs::SparseMatrixCSC{Float64, Int}
     index_map::MOIU.IndexMap
 end
-
-const CONIC_FORM = MatOI.GeometricConicForm{
-    Float64,
-    MatOI.SparseMatrixCSRtoCSC{Float64, Int, MatOI.OneBasedIndexing},
-    Vector{Float64}}
 
 Base.@kwdef struct ConicCache
     M::SparseMatrixCSC{Float64, Int}
@@ -67,7 +62,7 @@ Base.@kwdef struct ConicCache
     b::Vector{Float64}
     c::Vector{Float64}
     index_map::MOIU.IndexMap
-    conic_form::CONIC_FORM
+    cones::ProductOfSets{Float64}
 end
 
 const CACHE_TYPE = Union{
@@ -130,9 +125,7 @@ quadratic models.
 For instance, if the objective contains `θ * (x + 2y)`, for the purpose of
 computing the derivative with respect to `θ`, the following should be set:
 ```julia
-fx = MOI.SingleVariable(x)
-fy = MOI.SingleVariable(y)
-MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * fx + 2.0 * fy)
+MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * x + 2.0 * y)
 ```
 where `x` and `y` are the relevant `MOI.VariableIndex`.
 """
@@ -144,14 +137,14 @@ struct ForwardInObjective <: MOI.AbstractModelAttribute end
 A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
 is, problem input data.
 
-For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y)`,
+For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y) <= 5θ`,
 for the purpose of computing the derivative with respect to `θ`, the following
 should be set:
 ```julia
-fx = MOI.SingleVariable(x)
-fy = MOI.SingleVariable(y)
-MOI.set(model, DiffOpt.ForwardInConstraint(), ci, 1.0 * fx + 2.0 * fy)
+MOI.set(model, DiffOpt.ForwardInConstraint(), ci, 1.0 * x + 2.0 * y - 5.0)
 ```
+Note that we use `-5` as the `ForwardInConstraint` sets the tangent of the
+ConstraintFunction so we consider the expression `θ * (x + 2y - 5)`.
 """
 struct ForwardInConstraint <: MOI.AbstractConstraintAttribute end
 
@@ -226,9 +219,11 @@ MOI.is_set_by_optimize(::BackwardOutObjective) = true
 An `MOI.AbstractConstraintAttribute` to get output data to backward differentiation, that
 is, problem input data.
 
-For instance, if the following returns `x + 2y`, it means that the tangent
-has coordinate `1` for the coefficient of `x` and coordinate `2` for the
-coefficient of `y`.
+For instance, if the following returns `x + 2y + 5`, it means that the tangent
+has coordinate `1` for the coefficient of `x`, coordinate `2` for the
+coefficient of `y` and `5` for the function constant.
+If the constraint is of the form `func == constant` or `func <= constant`,
+the tangent for the constant on the right-hand side is `-5`.
 ```julia
 MOI.get(model, DiffOpt.BackwardOutConstraint(), ci)
 ```
@@ -236,8 +231,24 @@ MOI.get(model, DiffOpt.BackwardOutConstraint(), ci)
 struct BackwardOutConstraint <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::BackwardOutConstraint) = true
 
+"""
+    @enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
+
+Program class used by DiffOpt. DiffOpt implements differentiation of two
+different program class:
+1) Quadratic Program (QP): quadratic objective and linear constraints and
+2) Conic Program (CP): linear objective and conic constraints.
+
+`AUTOMATIC` which means that the class will be automatically selected given the
+problem data: if any constraint is conic, CP is used and QP is used otherwise.
+See [`ProgramClass`](@ref).
+"""
+@enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
+
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
+
+    program_class::ProgramClassCode
 
     # storage for problem data in matrix form
     # includes maps from matrix indices to problem data held in `optimizer`
@@ -255,14 +266,62 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     # sensitivity input cache using MOI like sparse format
     input_cache::DiffInputCache
 
-    function Optimizer(optimizer_constructor::OT) where {OT <: MOI.ModelLike}
+    function Optimizer(optimizer::OT) where {OT <: MOI.ModelLike}
         new{OT}(
-            optimizer_constructor,
+            optimizer,
+            AUTOMATIC,
             nothing,
             nothing,
             nothing,
             DiffInputCache(),
         )
+    end
+end
+
+"""
+    ProgramClass <: MOI.AbstractOptimizerAttribute
+
+Determines which program class to used from [`ProgramClassCode`](@ref). The
+default is `AUTOMATIC`.
+
+One important advantage of setting the class explicitly is that it will allow
+necessary bridges to be used. If the class is `AUTOMATIC` then
+`DiffOpt.Optimizer` will report that it supports both objective and constraints
+of the QP and CP classes. For instance, it will reports that is supports both
+quadratic objective and conic constraints. However, at the differentiation
+stage, we won't be able to differentiate since QP does not support conic
+constraints and CP does not support quadratic objective. On the other hand, if
+the `ProgramClass` is set to `CONIC` then `DiffOpt.Optimizer` will report that
+it does not support quadratic objective hence it will be bridged to second-order
+cone constraints and we will be able to use CP to differentiate.
+"""
+struct ProgramClass <: MOI.AbstractOptimizerAttribute end
+
+MOI.supports(::Optimizer, ::ProgramClass) = true
+MOI.get(model::Optimizer, ::ProgramClass) = model.program_class
+function MOI.set(model::Optimizer, ::ProgramClass, class::ProgramClassCode)
+    model.program_class = class
+end
+
+
+"""
+    ProgramClassUsed <: MOI.AbstractOptimizerAttribute
+
+Program class actually used, same as [`ProgramClass`](@ref) except that it does
+not return `AUTOMATIC` but the class automatically chosen instead. This attribute
+is read-only, it cannot be set, set [`ProgramClass`](@ref) instead.
+"""
+struct ProgramClassUsed <: MOI.AbstractOptimizerAttribute end
+
+function MOI.get(model::Optimizer, ::ProgramClassUsed)
+    if model.program_class == AUTOMATIC
+        if _qp_supported(model.optimizer)
+            return QUADRATIC
+        else
+            return CONIC
+        end
+    else
+        return model.program_class
     end
 end
 
@@ -356,9 +415,9 @@ end
 _get_db(model::Optimizer, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
-    cf = g_cache.conic_form
+    cf = g_cache.cones
     _ci = g_cache.index_map[ci]
-    i = MatOI.rows(cf, _ci) # vector
+    i = MOI.Utilities.rows(cf, _ci) # vector
     # i = g_cache.index_map[ci].value
     (x, _, _) = g_cache.xys
     n = length(x) # columns in A
@@ -379,8 +438,6 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
     dQ_end_ni = - g[end] * πz[n+i]
     return - dQ_ni_end + dQ_end_ni
 end
-_neg_if_lt(x, ::Type{<:MOI.LessThan}) = -x
-_neg_if_lt(x, ::Type{<:MOI.GreaterThan}) = x
 _neg_if_gt(x, ::Type{<:MOI.LessThan}) = x
 _neg_if_gt(x, ::Type{<:MOI.GreaterThan}) = -x
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
@@ -389,13 +446,13 @@ function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     # dh = -Diagonal(λ) * dλ
     dλ = b_cache.dλ
     λ = g_cache.inequality_duals
-    return _neg_if_lt(λ[i] * dλ[i], S)
+    return _neg_if_gt(λ[i] * dλ[i], S)
 end
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S<:MOI.EqualTo}
     i = g_cache.index_map[ci].value
     dν = b_cache.dν
-    return - dν[i]
+    return dν[i]
 end
 
 function MOI.get(model::Optimizer,
@@ -447,9 +504,9 @@ function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 end
 function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
-    cf = g_cache.conic_form
+    cf = g_cache.cones
     _ci = g_cache.index_map[ci]
-    i = MatOI.rows(cf, _ci) # vector
+    i = MOI.Utilities.rows(cf, _ci) # vector
     # i = g_cache.index_map[ci].value
     (x, y, _) = g_cache.xys
     n = length(x) # columns in A
@@ -494,25 +551,6 @@ function MOI.optimize!(model::Optimizer)
     return
 end
 
-
-const _QP_SET_TYPES = Union{
-    MOI.GreaterThan{Float64},
-    MOI.LessThan{Float64},
-    MOI.EqualTo{Float64},
-    # MOI.Interval{Float64},
-}
-
-const _QP_FUNCTION_TYPES = Union{
-    MOI.SingleVariable,
-    MOI.ScalarAffineFunction{Float64},
-}
-
-const QP_OBJECTIVE_TYPES = Union{
-    MOI.ScalarAffineFunction{Float64},
-    MOI.ScalarQuadraticFunction{Float64},
-    MOI.SingleVariable,
-}
-
 """
     backward(model::Optimizer)
 
@@ -523,12 +561,10 @@ The output problem data differentials can be queried with the
 attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
 function backward(model::Optimizer)
-    if _qp_supported(model.optimizer)
+    if MOI.get(model, ProgramClassUsed()) == QUADRATIC
         return _backward_quad(model)
-    elseif !_is_qp_obj(model)
-        return _backward_conic(model)
     else
-        error("Non-supported model")
+        return _backward_conic(model)
     end
 end
 
@@ -543,29 +579,11 @@ The output solution differentials can be queried with the attribute
 [`ForwardOutVariablePrimal`](@ref).
 """
 function forward(model::Optimizer)
-    if _qp_supported(model.optimizer)
+    if MOI.get(model, ProgramClassUsed()) == QUADRATIC
         return _forward_quad(model)
-    elseif !_is_qp_obj(model)
-        return _forward_conic(model)
     else
-        error("Non-supported model")
+        return _forward_conic(model)
     end
-end
-
-function _is_qp_obj(model)
-    MOI.get(model.optimizer, MOI.ObjectiveFunctionType()) <: MOI.ScalarQuadraticFunction{Float64}
-end
-
-_qp_supported(::Type{F}, ::Type{S}) where {F <: _QP_FUNCTION_TYPES, S <: _QP_SET_TYPES} = true
-_qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
-function _qp_supported(model)
-    con_types = MOI.get(model, MOI.ListOfConstraints())
-    for (func, set) in con_types
-        if !_qp_supported(func, set)
-            return false
-        end
-    end
-    return true
 end
 
 """
@@ -661,11 +679,14 @@ function _forward_quad(model::Optimizer)
     dQ = sparse_array_obj.quadratic_terms
     dq = sparse_array_obj.affine_terms
 
+    # The user sets the constraint function in the sense `func`-in-`set` while
+    # `db` and `dh` corresponds to the tangents of the set constants. Therefore,
+    # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
+    # multiply by `-1` to transform it to `LessThan` so it cancels out.
     db = zeros(length(b))
-    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), db)
-
+    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model, _QPSets(), db)
     dh = zeros(length(h))
-    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dh)
+    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dh)
 
     nz = nnz(A)
     (lines, cols) = size(A)
@@ -675,7 +696,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dAi, dAj, dAv)
+    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     nz = nnz(G)
@@ -686,7 +707,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dGi, nz)
     sizehint!(dGj, nz)
     sizehint!(dGv, nz)
-    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPForm(), dGi, dGj, dGv)
+    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dGi, dGj, dGv)
     dG = sparse(dGi, dGj, dGv, lines, cols)
 
 
@@ -719,16 +740,16 @@ _linsolve(A, b::SparseVector) = A \ Vector(b)
 
 
 """
-    π(v::Vector{Float64}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap)
+    π(v::Vector{Float64}, model::MOI.ModelLike, cones::ProductOfSets, index_map::MOIU.IndexMap)
 
-Given a `model`, its `conic_form` and the `index_map` from the indices of
-`model` to the indices of `conic_form`, find the projection of the vectors `v`
+Given a `model`, its `cones` and the `index_map` from the indices of
+`model` to the indices of `cones`, find the projection of the vectors `v`
 of length equal to the number of rows in the conic form onto the cartesian
 product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function π(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap) where T
-    return map_rows(model, conic_form, index_map, Flattened{T}()) do ci, r
+function π(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets, index_map::MOIU.IndexMap) where T
+    return map_rows(model, cones, index_map, Flattened{T}()) do ci, r
         MOSD.projection_on_set(
             MOSD.DefaultDistance(),
             v[r],
@@ -739,17 +760,17 @@ end
 
 
 """
-    Dπ(v::Vector{Float64}, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap)
+    Dπ(v::Vector{Float64}, model, cones::ProductOfSets, index_map::MOIU.IndexMap)
 
-Given a `model`, its `conic_form` and the `index_map` from the indices of
-`model` to the indices of `conic_form`, find the gradient of the projection of
+Given a `model`, its `cones` and the `index_map` from the indices of
+`model` to the indices of `cones`, find the gradient of the projection of
 the vectors `v` of length equal to the number of rows in the conic form onto the
 cartesian product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function Dπ(v::Vector{T}, model::MOI.ModelLike, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap) where T
+function Dπ(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets, index_map::MOIU.IndexMap) where T
     return BlockDiagonals.BlockDiagonal(
-        map_rows(model, conic_form, index_map, Nested{Matrix{T}}()) do ci, r
+        map_rows(model, cones, index_map, Nested{Matrix{T}}()) do ci, r
             MOSD.projection_gradient_on_set(
                 MOSD.DefaultDistance(),
                 v[r],
@@ -773,9 +794,9 @@ function _assign_mapped!(x, y, r, k, ::Flattened)
 end
 
 # Map the rows corresponding to `F`-in-`S` constraints and store it in `x`.
-function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.DoubleDicts.IndexWithType{F, S}, map_mode, k) where {F, S}
+function _map_rows!(f::Function, x::Vector, model, cones::ProductOfSets, index_map::MOIU.DoubleDicts.IndexDoubleDictInner{F, S}, map_mode, k) where {F, S}
     for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
-        r = MatOI.rows(conic_form, index_map[ci])
+        r = MOI.Utilities.rows(cones, index_map[ci])
         k += 1
         _assign_mapped!(x, f(ci, r), r, k, map_mode)
     end
@@ -783,31 +804,31 @@ function _map_rows!(f::Function, x::Vector, model, conic_form::MatOI.GeometricCo
 end
 
 # Allocate a vector for storing the output of `map_rows`.
-_allocate_rows(conic_form, ::Nested{T}) where {T} = Vector{T}(undef, length(conic_form.dimension))
-_allocate_rows(conic_form, ::Flattened{T}) where {T} = Vector{T}(undef, length(conic_form.b))
+_allocate_rows(cones, ::Nested{T}) where {T} = Vector{T}(undef, length(cones.dimension))
+_allocate_rows(cones, ::Flattened{T}) where {T} = Vector{T}(undef, MOI.dimension(cones))
 
 """
-    map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested{T}, Flattened{T}})
+    map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.IndexMap, map_mode::Union{Nested{T}, Flattened{T}})
 
-Given a `model`, its `conic_form`, the `index_map` from the indices of `model`
-to the indices of `conic_form` and `map_mode` of type `Nested` (resp.
+Given a `model`, its `cones`, the `index_map` from the indices of `model`
+to the indices of `cones` and `map_mode` of type `Nested` (resp.
 `Flattened`), return a `Vector{T}` of length equal to the number of cones (resp.
 rows) in the conic form where the value for the index (resp. rows) corresponding
 to each cone is equal to `f(ci, r)` where `ci` is the corresponding constraint
 index in `model` and `r` is a `UnitRange` of the corresponding rows in the conic
 form.
 """
-function map_rows(f::Function, model, conic_form::MatOI.GeometricConicForm, index_map::MOIU.IndexMap, map_mode::Union{Nested, Flattened})
-    x = _allocate_rows(conic_form, map_mode)
+function map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.IndexMap, map_mode::Union{Nested, Flattened})
+    x = _allocate_rows(cones, map_mode)
     k = 0
-    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
+    for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         # Function barrier for type unstability of `F` and `S`
-        # `conmap` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
+        # `con_map` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
         # which returns a `MOIU.DoubleDicts.IndexWithType{F, S}` which is type stable.
         # If we have a small number of different constraint types and many
         # constraint of each type, this mostly removes type unstabilities
         # as most the time is in `_map_rows!` which is type stable.
-        k = _map_rows!(f, x, model, conic_form, index_map.conmap[F, S], map_mode, k)
+        k = _map_rows!(f, x, model, cones, index_map.con_map[F, S], map_mode, k)
     end
     return x
 end
@@ -850,7 +871,7 @@ function _forward_conic(model::Optimizer)
     dc = sparse_array_obj.terms
 
     db = zeros(length(b))
-    _fill(S -> false, model, model.gradient_cache.conic_form, db)
+    _fill(S -> false, model, model.gradient_cache.cones, db)
     (lines, cols) = size(A)
     nz = nnz(A)
     dAi = zeros(Int, 0)
@@ -859,7 +880,7 @@ function _forward_conic(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(S -> false, model, model.gradient_cache.conic_form, dAi, dAj, dAv)
+    _fill(S -> false, model, model.gradient_cache.cones, dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
@@ -887,35 +908,35 @@ function _forward_conic(model::Optimizer)
 end
 
 # Just a hack that will be removed once we use `MOIU.MatrixOfConstraints`
-struct _QPForm end
-MatOI.rows(::_QPForm, ci::MOI.ConstraintIndex) = ci.value
+struct _QPSets end
+MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
-function _fill(neg::Function, model::Optimizer, conic_form, args...)
-    _fill(S -> true, neg, model, conic_form, args...)
+function _fill(neg::Function, model::Optimizer, cones, args...)
+    _fill(S -> true, neg, model, cones, args...)
 end
-function _fill(filter::Function, neg::Function, model::Optimizer, conic_form, args...)
-    conmap = model.gradient_cache.index_map.conmap
-    varmap = model.gradient_cache.index_map.varmap
-    for (F, S) in MOI.get(model, MOI.ListOfConstraints())
+function _fill(filter::Function, neg::Function, model::Optimizer, cones, args...)
+    con_map = model.gradient_cache.index_map.con_map
+    var_map = model.gradient_cache.index_map.var_map
+    for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         filter(S) || continue
         if F == MOI.ScalarAffineFunction{Float64}
-            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.scalar_constraints[F,S])
+            _fill(args..., neg(S), cones, con_map[F,S], var_map, model.input_cache.scalar_constraints[F,S])
         elseif F == MOI.VectorAffineFunction{Float64}
-            _fill(args..., neg(S), conic_form, conmap[F,S], varmap, model.input_cache.vector_constraints[F,S])
+            _fill(args..., neg(S), cones, con_map[F,S], var_map, model.input_cache.vector_constraints[F,S])
         end
     end
     return
 end
 
-function _fill(vector::Vector, neg::Bool, conic_form, constraint_map, variable_map, dict)
+function _fill(vector::Vector, neg::Bool, cones, constraint_map, variable_map, dict)
     for (ci, func) in dict
-        r = MatOI.rows(conic_form, constraint_map[ci])
+        r = MOI.Utilities.rows(cones, constraint_map[ci])
         vector[r] = neg ? -MOI.constant(func) : MOI.constant(func)
     end
 end
-function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, conic_form, constraint_map, variable_map, dict)
+function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, cones, constraint_map, variable_map, dict)
     for (ci, func) in dict
-        r = MatOI.rows(conic_form, constraint_map[ci])
+        r = MOI.Utilities.rows(cones, constraint_map[ci])
         for term in func.terms
             _push_term(I, J, V, neg, r, term, variable_map)
         end
@@ -923,7 +944,7 @@ function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, conic_form, constrain
 end
 function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::Integer, term::MOI.ScalarAffineTerm, variable_map)
     push!(I, r)
-    push!(J, variable_map[term.variable_index].value)
+    push!(J, variable_map[term.variable].value)
     push!(V, neg ? -term.coefficient : term.coefficient)
 end
 function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, term::MOI.VectorAffineTerm, variable_map)

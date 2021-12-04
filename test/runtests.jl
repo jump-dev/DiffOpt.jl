@@ -16,21 +16,19 @@ const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 const MOIT = MathOptInterface.Test
 
-import MatrixOptInterface
-const MatOI = MatrixOptInterface
-
 const ATOL = 1e-4
 const RTOL = 1e-4
 
 @testset "Examples" begin
-    include(joinpath(@__DIR__, "../examples/autotuning-ridge.jl")) 
+    include(joinpath(@__DIR__, "../docs/src/examples/autotuning-ridge.jl"))
+    include(joinpath(@__DIR__, "../docs/src/examples/chainrules_unit.jl"))
+    # include(joinpath(@__DIR__, "../docs/src/examples/custom-relu.jl")) # needs downloads
+    include(joinpath(@__DIR__, "../docs/src/examples/matrix-inversion-manual.jl")) # rev
+    # include(joinpath(@__DIR__, "../docs/src/examples/sensitivity-analysis-ridge.jl")) # bug
+    include(joinpath(@__DIR__, "../docs/src/examples/sensitivity-analysis-svm.jl"))
+    # @joaquimg to @matbesancon: tutorials or tests or remove?
+    include(joinpath(@__DIR__, "../examples/unit_example.jl"))
     include(joinpath(@__DIR__, "../examples/chainrules.jl"))
-    include(joinpath(@__DIR__, "../examples/custom-relu.jl"))
-    include(joinpath(@__DIR__, "../examples/custom-svm.jl"))
-    include(joinpath(@__DIR__, "../examples/unit_example.jl"))
-    include(joinpath(@__DIR__, "../examples/sensitivity-analysis-ridge.jl")) 
-    include(joinpath(@__DIR__, "../examples/sensitivity-SVM.jl"))
-    include(joinpath(@__DIR__, "../examples/unit_example.jl"))
 end
 
 @testset "Generate random problems" begin
@@ -52,6 +50,6 @@ end
     include("solver_interface.jl")
 end
 
-@testset "Singular error with deleted variables" begin
+@testset "Singular error with deleted variables: Sensitivity index issue" begin
     include("singular_exception.jl")
 end

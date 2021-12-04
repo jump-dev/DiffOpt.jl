@@ -91,38 +91,37 @@ function qp_test(
     MOI.set(model, MOI.Silent(), true)
 
     v = MOI.add_variables(model, n)
-    fv = MOI.SingleVariable.(v)
 
     _sign(x, a) = a == lt ? -x : x
 
     if lt
-        cle = MOI.add_constraint.(model, G * fv, MOI.LessThan.(h))
+        cle = MOI.add_constraint.(model, G * v, MOI.LessThan.(h))
     else
-        cle = MOI.add_constraint.(model, -G * fv, MOI.GreaterThan.(-h))
+        cle = MOI.add_constraint.(model, -G * v, MOI.GreaterThan.(-h))
     end
     if !iszero(nub)
-        cub = MOI.add_constraint.(model, fv[ub_indices], MOI.LessThan.(ub_values))
+        cub = MOI.add_constraint.(model, v[ub_indices], MOI.LessThan.(ub_values))
         G = vcat(G, sparse(1:nub, ub_indices, ones(nub), nub, n))
         h = vcat(h, ub_values)
     end
     if !iszero(nlb)
-        clb = MOI.add_constraint.(model, fv[lb_indices], MOI.GreaterThan.(lb_values))
+        clb = MOI.add_constraint.(model, v[lb_indices], MOI.GreaterThan.(lb_values))
         G = vcat(G, sparse(1:nlb, lb_indices, -ones(nlb), nlb, n))
         h = vcat(h, -lb_values)
     end
 
-    ceq = MOI.add_constraint.(model, A * fv, MOI.EqualTo.(b))
+    ceq = MOI.add_constraint.(model, A * v, MOI.EqualTo.(b))
     if !iszero(nfix)
-        cfix = MOI.add_constraint.(model, fv[fix_indices], MOI.EqualTo.(fix_values))
+        cfix = MOI.add_constraint.(model, v[fix_indices], MOI.EqualTo.(fix_values))
         A = vcat(A, sparse(1:nfix, fix_indices, ones(nfix), nfix, n))
         b = vcat(b, fix_values)
     end
 
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     if iszero(Q)
-        obj = q ⋅ fv
+        obj = q ⋅ v
     else
-        obj = fv' * (Q / 2) * fv + q ⋅ fv
+        obj = dot(v, Q/2, v) + dot(q, v)
     end
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
 
@@ -146,10 +145,10 @@ function qp_test(
     end
     @_test(convert(Vector{Float64}, _λ), λ)
 
-    #dobjb = fv' * (dQb / 2.0) * fv + dqb' * fv
+    #dobjb = v' * (dQb / 2.0) * v + dqb' * v
     # TODO, it should .-
-    #dleb = dGb * fv .+ dhb
-    #deqb = dAb * fv .+ dbb
+    #dleb = dGb * v .+ dhb
+    #deqb = dAb * v .+ dbb
     @assert dzb !== nothing
     @testset "Backward pass" begin
         MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, dzb)
@@ -174,14 +173,14 @@ function qp_test(
             # FIXME should multiply by -1
             funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), clb))
         end
-        @_test(convert(Vector{Float64}, _sign(MOI.constant.(funcs), false)), dhb)
+        @_test(convert(Vector{Float64}, _sign(MOI.constant.(funcs), true)), dhb)
         @_test(Float64[_sign(JuMP.coefficient(funcs[i], vi), false) for i in eachindex(funcs), vi in v], dGb)
 
         funcs = MOI.get.(model, DiffOpt.BackwardOutConstraint(), ceq)
         if !iszero(nfix)
             funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), cfix))
         end
-        @_test(convert(Vector{Float64}, MOI.constant.(funcs)), dbb)
+        @_test(convert(Vector{Float64}, -MOI.constant.(funcs)), dbb)
         @_test(Float64[JuMP.coefficient(funcs[i], vi) for i in eachindex(funcs), vi in v], dAb)
     end
 
@@ -206,10 +205,9 @@ function qp_test(
     end
     @_test(-A * ∇zb, dνb)
 
-    dobjf = fv' * (dQf / 2.0) * fv + dqf' * fv
-    # TODO, it should .-
-    dlef = dGf * fv .+ dhf
-    deqf = dAf * fv .+ dbf
+    dobjf = v' * (dQf / 2.0) * v + dqf' * v
+    dlef = dGf * v .- dhf
+    deqf = dAf * v .- dbf
 
     @testset "Forward pass" begin
         MOI.set(model, DiffOpt.ForwardInObjective(), dobjf)
@@ -232,7 +230,7 @@ function qp_test(
                 func = deqf[length(ceq)+j]
                 canonicalize && MOI.Utilities.canonicalize!(func)
                 if set_zero || !MOI.iszero(func)
-                    # TODO FIXME should work if we drop support for SingleVariable and we let the Functionize bridge do the work
+                    # TODO FIXME should work if we drop support for `VariableIndex` and we let the Functionize bridge do the work
                     @test_throws MOI.UnsupportedAttribute MOI.set(model, DiffOpt.ForwardInConstraint(), jc, func)
                 end
             end

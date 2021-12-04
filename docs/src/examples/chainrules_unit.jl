@@ -1,50 +1,45 @@
-# ChainRules integration
+# # ChainRules integration demo: Relaxed Unit Commitment
 
-In this example, we will demonstrate the integration of DiffOpt with
-[ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/stable/),
-the library allowing the definition of derivatives for functions
-that can then be used by automatic differentiation systems.
+# In this example, we will demonstrate the integration of DiffOpt with
+# [ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/stable/),
+# the library allowing the definition of derivatives for functions
+# that can then be used by automatic differentiation systems.
 
-```@example 1
+
 using DiffOpt, Plots, JuMP
 using LinearAlgebra
 import Clp
-```
-
-```@example 1
 using ChainRulesCore
-```
 
-## Unit commitment problem
+# ## Unit commitment problem
 
-We will consider a unit commitment problem, finding the cost-minimizing activation
-of generation units in a power network over multiple time periods.
-The considered constraints include:
-- Demand satisfaction of several loads
-- Ramping constraints
-- Generation limits.
+# We will consider a unit commitment problem, finding the cost-minimizing activation
+# of generation units in a power network over multiple time periods.
+# The considered constraints include:
+# - Demand satisfaction of several loads
+# - Ramping constraints
+# - Generation limits.
 
-The decisions are:
-- ``u_{it} \in \{0,1\}``: activation of the ``i``-th unit at time ``t``
-- ``p_{it}``: power output of the ``i``-th unit at time ``t``.
+# The decisions are:
+# - ``u_{it} \in \{0,1\}``: activation of the ``i``-th unit at time ``t``
+# - ``p_{it}``: power output of the ``i``-th unit at time ``t``.
 
-DiffOpt handles convex optimization problems only, we therefore
-relax the domain of the ``u_{it}`` variables to ``\left[0,1\right]``.
+# DiffOpt handles convex optimization problems only, we therefore
+# relax the domain of the ``u_{it}`` variables to ``\left[0,1\right]``.
 
-## Primal UC problem
+# ## Primal UC problem
 
-ChainRules defines the differentiation of functions.
-The actual function that is differentiated in the context of DiffOpt is the
-solution map taking in input the problem parameters and returning the solution.
+# ChainRules defines the differentiation of functions.
+# The actual function that is differentiated in the context of DiffOpt is the
+# solution map taking in input the problem parameters and returning the solution.
 
-```@example 1
 function unit_commitment(
         load1_demand, load2_demand, gen_costs, noload_costs;
         model = Model(Clp.Optimizer), silent=false)
     MOI.set(model, MOI.Silent(), silent)
 
     ## Problem data
-    unit_codes = [1, 2] # Generator identifiers
+    units = [1, 2] # Generator identifiers
     load_names = ["Load1", "Load2"] # Load identifiers
     n_periods = 4 # Number of time periods
     Pmin = Dict(1 => fill(0.5, n_periods), 2 => fill(0.5, n_periods)) # Minimum power output (pu)
@@ -59,8 +54,8 @@ function unit_commitment(
     # Note: u represents the activation of generation units.
     # Would be binary in the typical UC problem, relaxed here to u ∈ [0,1]
     # for a linear relaxation.
-    @variable(model, 0 <= u[g in unit_codes, t in 1:n_periods] <= 1) # Commitment
-    @variable(model, p[g in unit_codes, t in 1:n_periods] >= 0) # Power output (pu)
+    @variable(model, 0 <= u[g in units, t in 1:n_periods] <= 1) # Commitment
+    @variable(model, p[g in units, t in 1:n_periods] >= 0) # Power output (pu)
 
     ## Constraints
 
@@ -68,24 +63,24 @@ function unit_commitment(
     @constraint(
         model,
         energy_balance_cons[t in 1:n_periods],
-        sum(p[g, t] for g in unit_codes) == sum(D[l][t] for l in load_names),
+        sum(p[g, t] for g in units) == sum(D[l][t] for l in load_names),
     )
 
     # Generation limits
-    @constraint(model, [g in unit_codes, t in 1:n_periods], Pmin[g][t] * u[g, t] <= p[g, t])
-    @constraint(model, [g in unit_codes, t in 1:n_periods], p[g, t] <= Pmax[g][t] * u[g, t])
+    @constraint(model, [g in units, t in 1:n_periods], Pmin[g][t] * u[g, t] <= p[g, t])
+    @constraint(model, [g in units, t in 1:n_periods], p[g, t] <= Pmax[g][t] * u[g, t])
 
     # Ramp rates
-    @constraint(model, [g in unit_codes, t in 2:n_periods], p[g, t] - p[g, t - 1] <= 60 * RR[g])
-    @constraint(model, [g in unit_codes], p[g, 1] - P0[g] <= 60 * RR[g])
-    @constraint(model, [g in unit_codes, t in 2:n_periods], p[g, t - 1] - p[g, t] <= 60 * RR[g])
-    @constraint(model, [g in unit_codes], P0[g] - p[g, 1] <= 60 * RR[g])
+    @constraint(model, [g in units, t in 2:n_periods], p[g, t] - p[g, t - 1] <= 60 * RR[g])
+    @constraint(model, [g in units], p[g, 1] - P0[g] <= 60 * RR[g])
+    @constraint(model, [g in units, t in 2:n_periods], p[g, t - 1] - p[g, t] <= 60 * RR[g])
+    @constraint(model, [g in units], P0[g] - p[g, 1] <= 60 * RR[g])
 
     # Objective
     @objective(
         model,
         Min,
-        sum((Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for g in unit_codes, t in 1:n_periods),
+        sum((Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for g in units, t in 1:n_periods),
     )
 
     optimize!(model)
@@ -94,9 +89,7 @@ function unit_commitment(
     # converting to dense matrix
     return JuMP.value.(p.data)
 end
-```
 
-```@example 1
 m = Model(Clp.Optimizer)
 @show unit_commitment(
     [1.0, 1.2, 1.4, 1.6], [1.0, 1.2, 1.4, 1.6],
@@ -104,13 +97,13 @@ m = Model(Clp.Optimizer)
     model=m, silent=true
 )
 println(m)
-```
 
-## Perturbation of a single input parameter
 
-Let us vary the demand at the second time frame on both loads:
+# ## Perturbation of a single input parameter
 
-```@example 1
+# Let us vary the demand at the second time frame on both loads:
+
+
 demand_values = 0.05:0.05:3.0
 pvalues = map(demand_values) do di
     unit_commitment(
@@ -120,27 +113,27 @@ pvalues = map(demand_values) do di
     )
 end
 pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])]
-```
 
-The influence of this variation of the demand is piecewise linear on the generation at different time frames:
 
-```@example 1
+# The influence of this variation of the demand is piecewise linear on the
+# generation at different time frames:
+
 scatter(demand_values, pflat)
 title!("Generation at different time frames and generators for a single variation")
 xlims!(0.0, 3.5)
-```
 
-## Forward Differentiation
+# ## Forward Differentiation
 
-Forward differentiation rule for the solution map of the unit commitment problem.
-It takes as arguments:
-1. the perturbations on the input parameters
-2. the differentiated function
-3. the primal values of the input parameters,
+# Forward differentiation rule for the solution map of the unit commitment problem.
+# It takes as arguments:
+# 1. the perturbations on the input parameters
+# 2. the differentiated function
+# 3. the primal values of the input parameters,
 
-and returns a tuple `(primal_output, perturbations)`, the main primal result and the perturbation propagated to this result:
+# and returns a tuple `(primal_output, perturbations)`, the main primal result
+# and the perturbation propagated to this result:
 
-```@example 1
+
 function ChainRulesCore.frule(
         (_, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs),
         ::typeof(unit_commitment),
@@ -150,7 +143,8 @@ function ChainRulesCore.frule(
     # creating the UC model with a DiffOpt optimizer wrapper around Clp
     model = Model(() -> diff_optimizer(optimizer))
     # building and solving the main model
-    pv = unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs, model=model)
+    pv = unit_commitment(
+        load1_demand, load2_demand, gen_costs, noload_costs, model=model)
     energy_balance_cons = model[:energy_balance_cons]
 
     # Setting some perturbation of the energy balance constraints
@@ -171,18 +165,16 @@ function ChainRulesCore.frule(
     # setting the perturbation of the linear objective
     Δobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
     MOI.set(model, DiffOpt.ForwardInObjective(), Δobj)
-
     DiffOpt.forward(JuMP.backend(model))
     # querying the corresponding perturbation of the decision
     Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)
     return (pv, Δp.data)
 end
-```
 
-We can now compute the perturbation of the output powers `Δpv`
-for a perturbation of the first load demand at time 2:
+# We can now compute the perturbation of the output powers `Δpv`
+# for a perturbation of the first load demand at time 2:
 
-```@example 1
+
 load1_demand = [1.0, 1.0, 1.4, 1.6]
 load2_demand = [1.0, 1.0, 1.4, 1.6]
 gen_costs = [1000.0, 1500.0]
@@ -200,22 +192,19 @@ noload_costs = [500.0, 1000.0]
     unit_commitment,
     load1_demand, load2_demand, gen_costs, noload_costs,
 )
-```
 
-```@example 1
 Δpv
-```
 
-The result matches what we observe in the previous figure:
-the generation of the first generator at the second time frame (third element on the plot).
 
-# Reverse-mode differentiation of the solution map
+# The result matches what we observe in the previous figure:
+# the generation of the first generator at the second time frame (third element on the plot).
 
-The `rrule` returns the primal and a pullback.
-The pullback takes a seed for the optimal solution `̄p` and returns
-derivatives with respect to each input parameter of the function.
+# # Reverse-mode differentiation of the solution map
 
-```@example 1
+# The `rrule` returns the primal and a pullback.
+# The pullback takes a seed for the optimal solution `̄p` and returns
+# derivatives with respect to each input parameter of the function.
+
 function ChainRulesCore.rrule(
         ::typeof(unit_commitment),
         load1_demand, load2_demand, gen_costs, noload_costs;
@@ -223,7 +212,9 @@ function ChainRulesCore.rrule(
         silent=false)
     model = Model(() -> diff_optimizer(optimizer))
     # solve the forward UC problem
-    pv = unit_commitment(load1_demand, load2_demand, gen_costs, noload_costs, model=model, silent=silent)
+    pv = unit_commitment(
+        load1_demand, load2_demand, gen_costs, noload_costs,
+        model=model, silent=silent)
     function pullback_unit_commitment(pb)
         p = model[:p]
         u = model[:u]
@@ -244,18 +235,17 @@ function ChainRulesCore.rrule(
         dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2,:]))
 
         # computing derivative wrt constraint constant
-        dload1_demand = JuMP.constant.(MOI.get.(model, DiffOpt.BackwardOutConstraint(), energy_balance_cons))
+        dload1_demand = JuMP.constant.(
+            MOI.get.(model, DiffOpt.BackwardOutConstraint(), energy_balance_cons))
         dload2_demand = copy(dload1_demand)
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
     end
     return (pv, pullback_unit_commitment)
 end
-```
 
-We can set a seed of one on the power of the first generator at the second time frame and zero for all other
-parts of the solution:
+# We can set a seed of one on the power of the first generator at the second time frame and zero for all other
+# parts of the solution:
 
-```@example 1
 (pv, pullback_unit_commitment) = ChainRulesCore.rrule(
     unit_commitment,
     load1_demand, load2_demand, gen_costs, noload_costs,
@@ -266,16 +256,15 @@ dpv = 0 * pv
 dpv[1,2] = 1
 dargs = pullback_unit_commitment(dpv)
 (dload1_demand, dload2_demand, dgen_costs, dnoload_costs) = dargs
-nothing # hide
-```
 
-The sensitivities with respect to the load demands are:
-```@example 1
+
+# The sensitivities with respect to the load demands are:
 dload1_demand
-```
 
-```@example 1
 dload2_demand
-```
 
-The sensitivity of the generation is propagated to the sensitivity of both loads at the second time frame.
+# The sensitivity of the generation is propagated to the sensitivity of both
+# loads at the second time frame.
+
+# This example integrating ChainRules was designed with support
+# from [Invenia Technical Computing](https://www.invenia.ca/).
