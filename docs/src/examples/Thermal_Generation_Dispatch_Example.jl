@@ -24,7 +24,7 @@
 # First, import the libraries.
 
 using DiffOpt
-using GLPK
+using Clp
 using MathOptInterface
 using JuMP
 using Test
@@ -35,7 +35,7 @@ const MOI = MathOptInterface
 
 function GenerateModel(d::Float64; g_sup::Array{Float64,1}, c_g::Array{Float64,1}, c_ϕ::Float64)
     ## Creation of the Model and Parameters
-    model = Model(() -> diff_optimizer(GLPK.Optimizer))
+    model = Model(() -> diff_optimizer(Clp.Optimizer))
     I = length(g_sup)
 
     ## Variables
