@@ -45,10 +45,10 @@
 # \begin{gather}
 #  \begin{bmatrix} 
 #      Q & g^T \\
-#      \lambda^* g & g z^* - h
+#      \lambda^* g & g x^* - h
 #  \end{bmatrix}
 #  \begin{bmatrix} 
-#      dz \\
+#      dx \\
 #      d \lambda
 #  \end{bmatrix}
 #  =
@@ -59,7 +59,7 @@
 # \end{gather}
 # ```
 
-# Now to find the jacobians $$ \frac{\partial z}{\partial h}, \frac{\partial \lambda}{\partial h}$$
+# Now to find the jacobians $$ \frac{\partial x}{\partial h}, \frac{\partial \lambda}{\partial h}$$
 # we substitute `dh = I = [1]` and plug in values of `Q`,`q`,`G` to get
 # ```math
 # \begin{gather}
@@ -69,8 +69,8 @@
 #      -0.75 & -0.75 & 0
 #  \end{bmatrix}
 #  \begin{bmatrix} 
-#      \frac{\partial z_1}{\partial h} \\
-#      \frac{\partial z_2}{\partial h} \\
+#      \frac{\partial x_1}{\partial h} \\
+#      \frac{\partial x_2}{\partial h} \\
 #      \frac{\partial \lambda}{\partial h}
 #  \end{bmatrix}
 #  =
@@ -84,7 +84,7 @@
 
 # Upon solving using matrix inversion, the jacobian is
 # ```math
-# \frac{\partial z_1}{\partial h} = 0.25, \frac{\partial z_2}{\partial h} = 0.75, \frac{\partial \lambda}{\partial h} = -1.75 
+# \frac{\partial x_1}{\partial h} = 0.25, \frac{\partial x_2}{\partial h} = 0.75, \frac{\partial \lambda}{\partial h} = -1.75 
 # ```
 
 # ## Finding Jacobian using JuMP and DiffOpt
@@ -157,3 +157,6 @@ dx = MOI.get.(
     DiffOpt.ForwardOutVariablePrimal(),
     x,
 )
+
+using Test               #src
+@test dx == [0.25 ,0.75] #src

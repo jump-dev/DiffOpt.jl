@@ -83,13 +83,19 @@ Inverse matrix specified on RHS of eqn(7) in https://arxiv.org/pdf/1703.00443.pd
 Helper method while calling `_backward_quad`
 """
 function create_LHS_matrix(z, λ, Q, G, h, A=nothing)::AbstractMatrix{Float64}
-    if A === nothing || size(A)[1] == 0
+    if (A === nothing || size(A)[1] == 0) && (G === nothing || size(G)[1] == 0)
+        return Q
+    elseif A === nothing || size(A)[1] == 0
         return [Q         G' * Diagonal(λ);
                 G         Diagonal(G * z - h)]
-    else
+    elseif G === nothing || size(G)[1] == 0
         p, n = size(A)
-        m    = size(G, 1)
-        if n != size(G, 2)
+        return [Q         A';
+                A         spzeros(p, p)]
+    else
+        p, n  = size(A)
+        m, n2 = size(G)
+        if n != n2
             throw(DimensionError("Sizes of $A and $G do not match"))
         end
         return [Q         G' * Diagonal(λ)       A';

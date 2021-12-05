@@ -98,8 +98,6 @@ m = Model(Clp.Optimizer)
     [1000.0, 1500.0], [500.0, 1000.0],
     model=m, silent=true
 )
-println(m)
-
 
 # ## Perturbation of a single input parameter
 

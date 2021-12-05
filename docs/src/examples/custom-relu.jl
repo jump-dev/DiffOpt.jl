@@ -26,11 +26,12 @@ labels = Flux.Data.MNIST.labels();
 X = hcat(float.(reshape.(imgs, :))...) #stack all the images
 Y = Flux.onehotbatch(labels, 0:9); # just a common way to encode categorical variables
 
+N = 1000
+train_X = X[:, 1:N]
+train_Y = Y[:, 1:N]
+
 test_X = hcat(float.(reshape.(Flux.Data.MNIST.images(:test), :))...)
 test_Y = Flux.onehotbatch(Flux.Data.MNIST.labels(:test), 0:9)
-
-X = X[:, 1:1000]
-Y = Y[:, 1:1000]
 
 # Define a relu through an optimization problem solved by a quadratic solver.
 # Return the solution of the problem.
@@ -59,7 +60,7 @@ end
 # Define the backward differentiation rule, for the function we defined above.
 function ChainRulesCore.rrule(
     ::typeof(matrix_relu),
-    y::AbstractArray;
+    y::AbstractArray{T};
     model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
 ) where T
     pv = matrix_relu(y, model = model)
@@ -81,7 +82,7 @@ function ChainRulesCore.rrule(
             dy[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in -2x'y
             dy[:, i] = -2 * dy[:, i]
         end
-        return (NO_FIELDS, dy)
+        return (ChainRulesCore.NoTangent(), dy,)
     end
     return pv, pullback_matrix_relu
 end
@@ -90,16 +91,25 @@ end
 
 # Network structure
 
+# m = Flux.Chain(
+#     Flux.Dense(784, 64),
+#     matrix_relu,
+#     Flux.Dense(64, 10),
+#     Flux.softmax,
+# )
 m = Flux.Chain(
-    Flux.Dense(784, 64),
+    Flux.Dense(784, 20), #784 being image linear dimension (28 x 28)
     matrix_relu,
-    Flux.Dense(64, 10),
-    softmax,
+    Flux.Dense(20, 10), # 10 beinf the number of outcomes (0 to 9)
+    Flux.softmax,
 )
 
 # Define input data
+# The original data is repeated `epochs` times because `Flux.train!` only
+# loops through the data set once
 
-dataset = repeated((X,Y), 20) # repeat the data set, very low accuracy on the orig dataset
+epochs = 20
+dataset = repeated((train_X, train_Y), epochs)
 
 # Parameters for the network training
 
@@ -115,5 +125,5 @@ Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb
 # accuracy as the usual ReLU function implementation.
 
 accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y)) # average of correct guesses
-@show accuracy(X,Y)
+@show accuracy(train_X, train_Y)
 @show accuracy(test_X, test_Y)
