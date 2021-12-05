@@ -1,4 +1,5 @@
 using Test
+using JuMP
 import DiffOpt
 import MathOptInterface
 const MOI = MathOptInterface
