@@ -53,32 +53,32 @@ function unit_commitment(
     Cnl = Dict(1 => noload_costs[1], 2 => noload_costs[2]) # No-load cost ($)
 
     ## Variables
-    # Note: u represents the activation of generation units.
-    # Would be binary in the typical UC problem, relaxed here to u ∈ [0,1]
-    # for a linear relaxation.
+    ## Note: u represents the activation of generation units.
+    ## Would be binary in the typical UC problem, relaxed here to u ∈ [0,1]
+    ## for a linear relaxation.
     @variable(model, 0 <= u[g in units, t in 1:n_periods] <= 1) # Commitment
     @variable(model, p[g in units, t in 1:n_periods] >= 0) # Power output (pu)
 
     ## Constraints
 
-    # Energy balance
+    ## Energy balance
     @constraint(
         model,
         energy_balance_cons[t in 1:n_periods],
         sum(p[g, t] for g in units) == sum(D[l][t] for l in load_names),
     )
 
-    # Generation limits
+    ## Generation limits
     @constraint(model, [g in units, t in 1:n_periods], Pmin[g][t] * u[g, t] <= p[g, t])
     @constraint(model, [g in units, t in 1:n_periods], p[g, t] <= Pmax[g][t] * u[g, t])
 
-    # Ramp rates
+    ## Ramp rates
     @constraint(model, [g in units, t in 2:n_periods], p[g, t] - p[g, t - 1] <= 60 * RR[g])
     @constraint(model, [g in units], p[g, 1] - P0[g] <= 60 * RR[g])
     @constraint(model, [g in units, t in 2:n_periods], p[g, t - 1] - p[g, t] <= 60 * RR[g])
     @constraint(model, [g in units], P0[g] - p[g, 1] <= 60 * RR[g])
 
-    # Objective
+    ## Objective
     @objective(
         model,
         Min,
@@ -86,9 +86,9 @@ function unit_commitment(
     )
 
     optimize!(model)
-    # asserting finite optimal value
+    ## asserting finite optimal value
     @assert termination_status(model) == MOI.OPTIMAL
-    # converting to dense matrix
+    ## converting to dense matrix
     return JuMP.value.(p.data)
 end
 
@@ -140,15 +140,15 @@ function ChainRulesCore.frule(
         load1_demand, load2_demand, gen_costs, noload_costs;
         optimizer=Clp.Optimizer,
         )
-    # creating the UC model with a DiffOpt optimizer wrapper around Clp
+    ## creating the UC model with a DiffOpt optimizer wrapper around Clp
     model = Model(() -> DiffOpt.diff_optimizer(optimizer))
-    # building and solving the main model
+    ## building and solving the main model
     pv = unit_commitment(
         load1_demand, load2_demand, gen_costs, noload_costs, model=model)
     energy_balance_cons = model[:energy_balance_cons]
 
-    # Setting some perturbation of the energy balance constraints
-    # Perturbations are set as MOI functions
+    ## Setting some perturbation of the energy balance constraints
+    ## Perturbations are set as MOI functions
     Δenergy_balance = [
         convert(MOI.ScalarAffineFunction{Float64}, d1 + d2)
         for (d1, d2) in zip(Δload1_demand, Δload2_demand)
@@ -162,11 +162,11 @@ function ChainRulesCore.frule(
     p = model[:p]
     u = model[:u]
 
-    # setting the perturbation of the linear objective
+    ## setting the perturbation of the linear objective
     Δobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
     MOI.set(model, DiffOpt.ForwardInObjective(), Δobj)
     DiffOpt.forward(JuMP.backend(model))
-    # querying the corresponding perturbation of the decision
+    ## querying the corresponding perturbation of the decision
     Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)
     return (pv, Δp.data)
 end
@@ -211,7 +211,7 @@ function ChainRulesCore.rrule(
         optimizer=Clp.Optimizer,
         silent=false)
     model = Model(() -> DiffOpt.diff_optimizer(optimizer))
-    # solve the forward UC problem
+    ## solve the forward UC problem
     pv = unit_commitment(
         load1_demand, load2_demand, gen_costs, noload_costs,
         model=model, silent=silent)
@@ -225,7 +225,7 @@ function ChainRulesCore.rrule(
 
         obj = MOI.get(model, DiffOpt.BackwardOutObjective())
 
-        # computing derivative wrt linear objective costs
+        ## computing derivative wrt linear objective costs
         dgen_costs = similar(gen_costs)
         dgen_costs[1] = sum(JuMP.coefficient.(obj, p[1,:]))
         dgen_costs[2] = sum(JuMP.coefficient.(obj, p[2,:]))
@@ -234,7 +234,7 @@ function ChainRulesCore.rrule(
         dnoload_costs[1] = sum(JuMP.coefficient.(obj, u[1,:]))
         dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2,:]))
 
-        # computing derivative wrt constraint constant
+        ## computing derivative wrt constraint constant
         dload1_demand = JuMP.constant.(
             MOI.get.(model, DiffOpt.BackwardOutConstraint(), energy_balance_cons))
         dload2_demand = copy(dload1_demand)
