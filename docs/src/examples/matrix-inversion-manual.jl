@@ -158,5 +158,5 @@ dx = MOI.get.(
     x,
 )
 
-using Test               #src
-@test dx == [0.25 ,0.75] #src
+using Test                                  #src
+@test dx ≈ [0.25 ,0.75] atol=1e-4 rtol=1e-4 #src

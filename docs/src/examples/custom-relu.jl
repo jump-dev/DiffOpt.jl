@@ -17,21 +17,7 @@ import Flux
 import Statistics
 import Base.Iterators: repeated
 
-
-## prepare data
-imgs = Flux.Data.MNIST.images()
-labels = Flux.Data.MNIST.labels();
-
-# Preprocessing
-X = hcat(float.(reshape.(imgs, :))...) #stack all the images
-Y = Flux.onehotbatch(labels, 0:9); # just a common way to encode categorical variables
-
-N = 1000
-train_X = X[:, 1:N]
-train_Y = Y[:, 1:N]
-
-test_X = hcat(float.(reshape.(Flux.Data.MNIST.images(:test), :))...)
-test_Y = Flux.onehotbatch(Flux.Data.MNIST.labels(:test), 0:9)
+# ## The ReLU and its derivative
 
 # Define a relu through an optimization problem solved by a quadratic solver.
 # Return the solution of the problem.
@@ -87,20 +73,33 @@ function ChainRulesCore.rrule(
     return pv, pullback_matrix_relu
 end
 
+## prepare data
+imgs = Flux.Data.MNIST.images()
+labels = Flux.Data.MNIST.labels();
+
+# Preprocessing
+X = hcat(float.(reshape.(imgs, :))...) #stack all the images
+Y = Flux.onehotbatch(labels, 0:9); # just a common way to encode categorical variables
+
+N = 1000
+
+train_X = X[:, 1:N]
+train_Y = Y[:, 1:N]
+
+test_X = hcat(float.(reshape.(Flux.Data.MNIST.images(:test), :))...)
+test_Y = Flux.onehotbatch(Flux.Data.MNIST.labels(:test), 0:9)
+
+
 ## Define the Network
 
 # Network structure
 
-# m = Flux.Chain(
-#     Flux.Dense(784, 64),
-#     matrix_relu,
-#     Flux.Dense(64, 10),
-#     Flux.softmax,
-# )
+inner = 15
+
 m = Flux.Chain(
-    Flux.Dense(784, 20), #784 being image linear dimension (28 x 28)
+    Flux.Dense(784, inner), #784 being image linear dimension (28 x 28)
     matrix_relu,
-    Flux.Dense(20, 10), # 10 beinf the number of outcomes (0 to 9)
+    Flux.Dense(inner, 10), # 10 beinf the number of outcomes (0 to 9)
     Flux.softmax,
 )
 
@@ -108,7 +107,8 @@ m = Flux.Chain(
 # The original data is repeated `epochs` times because `Flux.train!` only
 # loops through the data set once
 
-epochs = 20
+epochs = 5
+
 dataset = repeated((train_X, train_Y), epochs)
 
 # Parameters for the network training
@@ -119,7 +119,7 @@ evalcb = () -> @show(custom_loss(X, Y)) # callback to show loss
 
 # Train to optimize network parameters
 
-Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));
+@time Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));
 
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.
@@ -127,3 +127,7 @@ Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb
 accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y)) # average of correct guesses
 @show accuracy(train_X, train_Y)
 @show accuracy(test_X, test_Y)
+
+# Note that the accuracy is low due to simplified training.
+# It is possible to increase the number of samples `N`,
+# the number of epochs `epoch` and teh conectivity `inner`.
