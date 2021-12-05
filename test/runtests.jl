@@ -20,8 +20,6 @@ const ATOL = 1e-4
 const RTOL = 1e-4
 
 @testset "Examples" begin
-    include(joinpath(@__DIR__, "../examples/solve-LP.jl"))
-    include(joinpath(@__DIR__, "../examples/solve-QP.jl"))
     include(joinpath(@__DIR__, "../examples/unit_example.jl"))
     include(joinpath(@__DIR__, "../examples/chainrules.jl"))
 end
