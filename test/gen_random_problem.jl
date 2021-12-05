@@ -34,7 +34,7 @@ function generate_lp(optimizer, n, m)
     end
 
     for i in 1:n
-        MOI.add_constraint(optimizer, MOI.SingleVariable(x[i]), MOI.GreaterThan(0.0))
+        MOI.add_constraint(optimizer, x[i], MOI.GreaterThan(0.0))
     end
 end
 
@@ -70,7 +70,7 @@ function generate_qp(optimizer,n,m,p)
         end
     end
 
-    objective_function = MOI.ScalarQuadraticFunction(MOI.ScalarAffineTerm.(q, x), quadratic_terms, 0.0)
+    objective_function = MOI.ScalarQuadraticFunction(quadratic_terms, MOI.ScalarAffineTerm.(q, x), 0.0)
     MOI.set(optimizer, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
     MOI.set(optimizer, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 

@@ -190,15 +190,14 @@ println("s -> ", round.(s_sol; digits=3))
 println("y -> ", round.(y_sol; digits=3))
 
 # perturbations in all the parameters
-fx = MOI.SingleVariable.(x)
 MOI.set(model,
-    DiffOpt.ForwardInConstraint(), c1, MOI.Utilities.vectorize(ones(1, 9) * fx + ones(1)))
+    DiffOpt.ForwardInConstraint(), c1, MOI.Utilities.vectorize(ones(1, 9) * x + ones(1)))
 MOI.set(model,
-    DiffOpt.ForwardInConstraint(), c2, MOI.Utilities.vectorize(ones(6, 9) * fx + ones(6)))
+    DiffOpt.ForwardInConstraint(), c2, MOI.Utilities.vectorize(ones(6, 9) * x + ones(6)))
 MOI.set(model,
-    DiffOpt.ForwardInConstraint(), c3, MOI.Utilities.vectorize(ones(3, 9) * fx + ones(3)))
+    DiffOpt.ForwardInConstraint(), c3, MOI.Utilities.vectorize(ones(3, 9) * x + ones(3)))
 MOI.set(model,
-    DiffOpt.ForwardInConstraint(), c4, MOI.Utilities.vectorize(ones(1, 9) * fx + ones(1)))
+    DiffOpt.ForwardInConstraint(), c4, MOI.Utilities.vectorize(ones(1, 9) * x + ones(1)))
 
 # differentiate and get the gradients
 DiffOpt.forward(model)

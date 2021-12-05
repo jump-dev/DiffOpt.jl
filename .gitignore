@@ -3,6 +3,7 @@
 *.jl.mem
 docs/build/
 docs/site/
+docs/src/examples/*.md
 Manifest.toml
 examples/.ipynb_checkpoints
 .DS_Store

@@ -39,7 +39,7 @@ for i in 1:N
 end
 
 for i in 1:D
-    push!(constraint_indices, MOI.add_constraint(model,MOI.SingleVariable(x[i]),MOI.GreaterThan(0.)))
+    push!(constraint_indices, MOI.add_constraint(model, x[i], MOI.GreaterThan(0.)))
 end
 
 MOI.optimize!(model)

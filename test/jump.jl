@@ -13,8 +13,6 @@ import Clp
 import SCS
 
 using DelimitedFiles
-import MatrixOptInterface
-const MatOI = MatrixOptInterface
 
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
@@ -74,7 +72,7 @@ end
     DiffOpt.backward(model)
 
     grad = JuMP.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), ctr_le[]))
-    @test grad ≈ 1.0  atol=ATOL rtol=RTOL
+    @test grad ≈ -1.0  atol=ATOL rtol=RTOL
 
     # TODO: this simple show fails
     # @show ctr_le
@@ -130,7 +128,7 @@ end
     dA = [0.0 -0.5 0.0]
     for (j,jc) in enumerate(ctr_eq)
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
-        @test JuMP.constant(grad) ≈ db[j] atol=ATOL rtol=RTOL
+        @test JuMP.constant(grad) ≈ -db[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(x)
             @test JuMP.coefficient(grad, iv) ≈ dA[j,i] atol=ATOL rtol=RTOL
         end
@@ -141,7 +139,7 @@ end
     dG = zeros(6,3)
     for (j,jc) in enumerate(ctr_le)
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
-        @test JuMP.constant(grad) ≈ dh[j] atol=ATOL rtol=RTOL
+        @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(x)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
         end
@@ -194,15 +192,15 @@ end
     expected = dl_dq' * z + z' * (dl_dQ / 2.0) * z
     @test moi_function(MOI.get(model, DiffOpt.BackwardOutObjective())) ≈ moi_function(expected)  atol=ATOL rtol=RTOL
 
-    dh = [-0.35714284; -0.4285714]
+    dh = [0.35714284; 0.4285714]
     # This ws already broken
     # @test_broken dl_dG ≈ [0.05102035   0.30612245  0.255102;
     #                0.06122443   0.36734694  0.3061224] atol=ATOL rtol=RTOL
-    dG = [0.05102035   0.30612245  0.255102;
-          0.06122443   0.36734694  0.3061224]
+    dG = -[0.05102035   0.30612245  0.255102;
+           0.06122443   0.36734694  0.3061224]
     for (j,jc) in enumerate([c1, c2])
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
-        @test JuMP.constant(grad) ≈ dh[j] atol=ATOL rtol=RTOL
+        @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(z)
             @test_broken JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
         end
@@ -239,7 +237,7 @@ end
     @test moi_function(MOI.get(model, DiffOpt.BackwardOutObjective())) ≈ moi_function(expected)  atol=ATOL rtol=RTOL
 
     func = MOI.get(model, DiffOpt.BackwardOutConstraint(), c1)
-    @test 0.7 ≈ JuMP.constant(func) atol=ATOL rtol=RTOL
+    @test -0.7 ≈ JuMP.constant(func) atol=ATOL rtol=RTOL
 
     # This ws already broken
     # @test_broken dl_dG ≈ [0.05102035   0.30612245  0.255102;
@@ -320,12 +318,12 @@ end
     @test moi_function(grad) ≈ moi_function(dq ⋅ x) atol=1e-2 rtol=1e-2
 
     for (i, ci) in enumerate(c_le)
-        @test dh[i] ≈ JuMP.constant(MOI.get(model,
+        @test -dh[i] ≈ JuMP.constant(MOI.get(model,
             DiffOpt.BackwardOutConstraint(), ci)) atol=1e-2 rtol=1e-2
     end
 
     for (i, ci) in enumerate(c_eq)
-        @test db[i] ≈ JuMP.constant(MOI.get(model,
+        @test -db[i] ≈ JuMP.constant(MOI.get(model,
             DiffOpt.BackwardOutConstraint(), ci)) atol=1e-2 rtol=1e-2
     end
 
@@ -359,11 +357,11 @@ end
 
     c_le = [c1, c2]
 
-    dh = [0.0, -1.0]
-    dG = [0.0, 3.0]
+    dh = [0.0, 1.0]
+    dG = [0.0, -3.0]
     for (j,jc) in enumerate(c_le)
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
-        @test JuMP.constant(grad) ≈ dh[j] atol=ATOL rtol=RTOL
+        @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(x)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
         end
@@ -387,11 +385,11 @@ end
 
     c_le = [c1, c2]
 
-    dh = [0.0, -1.0]
-    dG = [0.0, 3.0]
+    dh = [0.0, 1.0]
+    dG = [0.0, -3.0]
     for (j,jc) in enumerate(c_le)
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
-        @test JuMP.constant(grad) ≈ dh[j] atol=ATOL rtol=RTOL
+        @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(x)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
         end
@@ -425,10 +423,10 @@ end
     dc = zeros(3)
     dG = [0.0 0.0 0.0;
           0.0 0.0 -5/3;
-          0.0 0.0 5/3;
-          0.0 0.0 -10/3;
+          0.0 0.0 -5/3;
+          0.0 0.0 10/3;
           0.0 0.0 0.0]
-    dh = [0.0; 1/3; -1/3; 2/3; 0.0]
+    dh = [0.0; 1/3; 1/3; -2/3; 0.0]
 
     cb = LowerBoundRef.(v)
     cc = [c1, c2]
@@ -440,7 +438,7 @@ end
 
     for (j,jc) in enumerate(ctrs)
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
-        @test JuMP.constant(grad) ≈ dh[j] atol=ATOL rtol=RTOL
+        @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(v)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
         end
@@ -482,11 +480,11 @@ end
           0.0 0.0 0.0
           0.0 0.0 0.0
           0.0 0.0 0.0
-          0.0 0.0 5/3
-          0.0 0.0 -10/3
+          0.0 0.0 -5/3
+          0.0 0.0 10/3
           0.0 0.0 0.0
           ]
-    dh = [0.0, 1/3, 0.0, 0.0, 0.0, -1/3, 2/3, 0.0]
+    dh = [0.0, 1/3, 0.0, 0.0, 0.0, 1/3, -2/3, 0.0]
 
     cb = LowerBoundRef.(v)
     cc = [c1, c2, c3, c4, c5]
@@ -498,7 +496,7 @@ end
 
     for (j,jc) in enumerate(ctrs)
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
-        @test JuMP.constant(grad) ≈ dh[j] atol=ATOL rtol=RTOL
+        @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(v)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
         end

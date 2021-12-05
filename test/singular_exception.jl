@@ -27,8 +27,8 @@ for i in 1:2
     end
 end
 objective_function = MOI.ScalarQuadraticFunction(
-                        MOI.ScalarAffineTerm.(q, x),
                         quad_terms,
+                        MOI.ScalarAffineTerm.(q, x),
                         0.0,
                     )
 MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
@@ -50,7 +50,7 @@ DiffOpt.backward(model)
 
 grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
 # grad_wrt_h = backward(model, ["h"], ones(2))[1]
-@test grad_wrt_h ≈ 1.0 atol=2ATOL rtol=RTOL
+@test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
 @test model.gradient_cache !== nothing
 
 # adding two variables invalidates the cache
@@ -67,5 +67,5 @@ DiffOpt.backward(model)
 grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
 
 # grad_wrt_h = backward(model, ["h"], ones(2))[1]
-@test grad_wrt_h ≈ 1.0 atol=1e-3
+@test grad_wrt_h ≈ -1.0 atol=1e-3
 @test model.gradient_cache !== nothing
