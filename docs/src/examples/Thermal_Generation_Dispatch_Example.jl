@@ -23,19 +23,21 @@
 
 # First, import the libraries.
 
+using Test
+using LinearAlgebra
 using DiffOpt
 using Clp
 using MathOptInterface
 using JuMP
-using Test
 using Plots
 const MOI = MathOptInterface
 
 # Define the model that will be construct given a set of parameters.
 
-function GenerateModel(d::Float64; g_sup::Array{Float64,1}, c_g::Array{Float64,1}, c_ϕ::Float64)
+function generate_model(d::Float64; g_sup::Vector{Float64}, c_g::Vector{Float64}, c_ϕ::Float64)
     ## Creation of the Model and Parameters
     model = Model(() -> diff_optimizer(Clp.Optimizer))
+    JuMP.set_silent(model)
     I = length(g_sup)
 
     ## Variables
@@ -47,7 +49,7 @@ function GenerateModel(d::Float64; g_sup::Array{Float64,1}, c_g::Array{Float64,1
     @constraint(model, demand_constraint, sum(g) + ϕ == d)
 
     ## Objectives
-    @objective(model, Min, c_g' * g + c_ϕ * ϕ)
+    @objective(model, Min, dot(c_g, g) + c_ϕ * ϕ)
 
     ## Solve the model
     optimize!(model)
@@ -58,13 +60,13 @@ end
 
 # Define the functions that will get the primal values `g` and `\phi` and sensitivity analysis of the demand `dg/dd` and `d\phi/dd` from a optimized model.
 
-function DiffOptForward(model::Model, ϵ::Float64 = 1.0)
+function diff_forward(model::Model, ϵ::Float64 = 1.0)
     ## Initialization of parameters and references to simplify the notation
-    vectRef = [model[:g]; model[:ϕ]]
+    vect_ref = [model[:g]; model[:ϕ]]
     I = length(model[:g])
 
     ## Get the primal solution of the model
-    vect =  MOI.get.(model, MOI.VariablePrimal(), vectRef)
+    vect =  MOI.get.(model, MOI.VariablePrimal(), vect_ref)
      
     ## Pass the perturbation to the DiffOpt Framework and set the context to Forward
     constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, ϵ)
@@ -72,19 +74,19 @@ function DiffOptForward(model::Model, ϵ::Float64 = 1.0)
     DiffOpt.forward(model)
     
     ## Get the derivative of the model
-    dvect = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), vectRef)
+    dvect = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), vect_ref)
     
     ## Return the values as a vector
-    return [vect;dvect]
+    return [vect; dvect]
 end
 
-function DiffOptBackward(model::Model, ϵ::Float64 = 1.0)
+function diff_backward(model::Model, ϵ::Float64 = 1.0)
     ## Initialization of parameters and references to simplify the notation
-    vectRef = [model[:g]; model[:ϕ]]
+    vect_ref = [model[:g]; model[:ϕ]]
     I = length(model[:g])
 
     ## Get the primal solution of the model
-    vect =  MOI.get.(model, MOI.VariablePrimal(), vectRef)
+    vect =  MOI.get.(model, MOI.VariablePrimal(), vect_ref)
 
     ## Set variables needed for the DiffOpt Backward Framework
     dvect = Array{Float64, 1}(undef, I + 1)
@@ -94,7 +96,7 @@ function DiffOptBackward(model::Model, ϵ::Float64 = 1.0)
     for i in 1:I+1
         ## Set the perturbation in the Primal Variables and set the context to Backward
         perturbation[i] = ϵ
-        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), vectRef, perturbation)
+        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), vect_ref, perturbation)
         DiffOpt.backward(model)
 
         ## Get the value of the derivative of the model
@@ -111,40 +113,41 @@ end
 g_sup = [10.0, 20.0, 30.0]
 I = length(g_sup)
 d = 0.0:0.1:80
-dSize = length(d)
+d_size = length(d)
 c_g = [1.0, 3.0, 5.0]
 c_ϕ = 10.0
 
 # Generate models for each demand `d`
-models = GenerateModel.(d; g_sup = g_sup, c_g = c_g, c_ϕ = c_ϕ)
+models = generate_model.(d; g_sup = g_sup, c_g = c_g, c_ϕ = c_ϕ)
 
 # Get the results of models with the DiffOpt Forward and Backward context
 
-resultForward = DiffOptForward.(models)
+result_forward = diff_forward.(models)
 
-resultBackward = DiffOptBackward.(models)
+optimize!.(models)
+result_backward = diff_backward.(models)
 
 # Organization of results to plot
-# Set dataResults array that will contain every result
-dataResults = Array{Float64,3}(undef, 2, dSize, 2*(I+1))
+# Initialize data_results that will contain every result
+data_results = Array{Float64,3}(undef, 2, d_size, 2*(I+1))
 
-# Populate the dataResults array
-for k in 1:dSize
-    dataResults[1,k,:] = resultForward[k]
-    dataResults[2,k,:] = resultBackward[k]
+# Populate the data_results array
+for k in 1:d_size
+    data_results[1,k,:] = result_forward[k]
+    data_results[2,k,:] = result_backward[k]
 end
 
 # ## Results with Plot graphs
 # ### Results for the forward context
 # Result Primal Values:
-plot(d,dataResults[1,:,1:I+1])
+plot(d,data_results[1,:,1:I+1])
 
 # Result Sensitivity Analysis:
-plot(d,dataResults[1,:,I+2:2*(I+1)])
+plot(d,data_results[1,:,I+2:2*(I+1)])
 
 # ### Results for the backward context
 # Result Primal Values:
-plot(d,dataResults[2,:,1:I+1])
+plot(d,data_results[2,:,1:I+1])
 
 # Result Sensitivity Analysis:
-plot(d,dataResults[2,:,I+2:2*(I+1)])
+plot(d,data_results[2,:,I+2:2*(I+1)])
