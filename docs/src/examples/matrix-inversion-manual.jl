@@ -91,7 +91,7 @@
 
 using JuMP
 import DiffOpt
-import OSQP
+import Ipopt
 
 n = 2 # variable dimension
 m = 1; # no of inequality constraints
