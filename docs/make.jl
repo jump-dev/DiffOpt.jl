@@ -38,7 +38,6 @@ end
 
 literate_directory(_EXAMPLE_DIR)
 
-
 makedocs(;
     modules=[DiffOpt],
     doctest = false,
@@ -54,17 +53,8 @@ makedocs(;
         "Usage" => "usage.md",
         "Reference" => "reference.md",
         "Tutorials" => [
-            "Differentiating a simple QP by hand" => "matrix-inversion-manual.md",
-            "Sensitivity Analysis" => [
-                "SVM" => "sensitivity-analysis-svm.md",
-                "Ridge Regression" => "sensitivity-analysis-ridge.md",
-            ],
-            "Hyper-parameter optimization" => "autotuning-ridge.md",
-            "Custom Neural Network Layers" => [
-                "ReLU Layer" => "custom-relu.md",
-            ],
-            "ChainRules integration" => "chainrules_unit.md",
-        ]
+            joinpath("examples", f) for f in readdir(_EXAMPLE_DIR) if endswith(f, ".md")
+        ],
     ],
     strict = true,  # See https://github.com/JuliaOpt/JuMP.jl/issues/1576
     repo="https://github.com/jump-dev/DiffOpt.jl",
