@@ -65,12 +65,6 @@ Base.@kwdef struct ConicCache
     cones::ProductOfSets{Float64}
 end
 
-const CACHE_TYPE = Union{
-    Nothing,
-    QPCache,
-    ConicCache,
-}
-
 Base.@kwdef struct QPForwBackCache
     dz::Vector{Float64}
     dλ::Vector{Float64}
@@ -85,17 +79,6 @@ Base.@kwdef struct ConicBackCache
     g::Vector{Float64}
     πz::Vector{Float64}
 end
-
-const CACHE_FORW_TYPE = Union{
-    Nothing,
-    QPForwBackCache,
-    ConicForwCache,
-}
-const CACHE_BACK_TYPE = Union{
-    Nothing,
-    QPForwBackCache,
-    ConicBackCache,
-}
 
 const MOIDD = MOI.Utilities.DoubleDicts
 
@@ -245,35 +228,59 @@ See [`ProgramClass`](@ref).
 """
 @enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
 
-mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
-    optimizer::OT
-
-    program_class::ProgramClassCode
+struct QPDiff <: MOI.ModelLike
+    model::MOI.Utilities.Model{Float64} # TODO remplace with matrix form
 
     # storage for problem data in matrix form
     # includes maps from matrix indices to problem data held in `optimizer`
     # also includes KKT matrices
     # also includes the solution
-    gradient_cache::CACHE_TYPE
+    gradient_cache::QPCache
 
     # caches for sensitivity output
     # result from solving KKT/residualmap linear systems
     # this allows keeping the same `gradient_cache`
     # if only sensitivy input changes
-    forw_grad_cache::CACHE_FORW_TYPE
-    back_grad_cache::CACHE_BACK_TYPE
+    forw_grad_cache::QPForwBackCache
+    back_grad_cache::QPForwBackCache
 
     # sensitivity input cache using MOI like sparse format
     input_cache::DiffInputCache
+end
+
+struct ConicDiff <: MOI.ModelLike
+    model::GeometricConicForm{Float64}
+
+    # storage for problem data in matrix form
+    # includes maps from matrix indices to problem data held in `optimizer`
+    # also includes KKT matrices
+    # also includes the solution
+    gradient_cache::ConicCache
+
+    # caches for sensitivity output
+    # result from solving KKT/residualmap linear systems
+    # this allows keeping the same `gradient_cache`
+    # if only sensitivy input changes
+    forw_grad_cache::ConicForwCache
+    back_grad_cache::ConicBackCache
+
+    # sensitivity input cache using MOI like sparse format
+    input_cache::DiffInputCache
+end
+
+mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
+    optimizer::OT
+
+    program_class::ProgramClassCode
+
+    # TODO Add bridge layer
+    diff::Union{Nothing,QPDiff,ConicDiff}
 
     function Optimizer(optimizer::OT) where {OT <: MOI.ModelLike}
         new{OT}(
             optimizer,
             AUTOMATIC,
             nothing,
-            nothing,
-            nothing,
-            DiffInputCache(),
         )
     end
 end
@@ -562,10 +569,11 @@ attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
 function backward(model::Optimizer)
     if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-        return _backward_quad(model)
+        _quad(model)
     else
-        return _backward_conic(model)
+        _conic(model)
     end
+    backward(model.diff)
 end
 
 """
@@ -580,14 +588,21 @@ The output solution differentials can be queried with the attribute
 """
 function forward(model::Optimizer)
     if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-        return _forward_quad(model)
+        _quad(model)
     else
-        return _forward_conic(model)
+        _conic(model)
+    end
+    forward(model.diff)
+end
+
+function _quad(model::Optimizer)
+    if model.diff === nothing
+        build_quad_diff_cache!(model)
     end
 end
 
 """
-    _backward_quad(model::Optimizer)
+    backward(model::QPDiff)
 
 Method to differentiate optimal solution `z` and return
 product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
@@ -602,11 +617,7 @@ Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function _backward_quad(model::Optimizer)
-
-    if model.gradient_cache === nothing
-        build_quad_diff_cache!(model)
-    end
+function backward(model::QPDiff)
     (
         Q, q, G, h, A, b, nz, var_list,
         nineq_le, le_con_idx,
@@ -653,12 +664,9 @@ function _backward_quad(model::Optimizer)
 end
 
 """
-    _forward_quad(model::Optimizer)
+    forward(model::QPDiff)
 """
-function _forward_quad(model::Optimizer)
-    if model.gradient_cache === nothing
-        build_quad_diff_cache!(model)
-    end
+function forward(model::QPDiff)
     (
         Q, q, G, h, A, b, nz, var_list,
         nineq_le, le_con_idx,
@@ -841,8 +849,16 @@ function _check_termination_status(model::Optimizer)
     end
 end
 
+function _conic(model::Optimizer)
+    _check_termination_status(model)
+
+    if model.diff === nothing
+        build_conic_diff_cache!(model)
+    end
+end
+
 """
-    _forward_conic(model::Optimizer)
+    forward(model::ConicDiff)
 
 Method to compute the product of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
@@ -850,13 +866,7 @@ This is similar to [`forward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function _forward_conic(model::Optimizer)
-    _check_termination_status(model)
-
-    if model.gradient_cache === nothing
-        build_conic_diff_cache!(model)
-    end
-
+function forward(model::ConicDiff)
     M = model.gradient_cache.M
     vp = model.gradient_cache.vp
     Dπv = model.gradient_cache.Dπv
@@ -952,7 +962,7 @@ function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, te
 end
 
 """
-    _backward_conic(model::Optimizer, dx::Vector{Float64}, dy::Vector{Float64}, ds::Vector{Float64})
+    backward(model::ConicDiff)
 
 Method to compute the product of the transpose of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dx`, `dy`, `ds`.
@@ -960,13 +970,7 @@ This is similar to [`backward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function _backward_conic(model::Optimizer)
-    _check_termination_status(model)
-
-    if model.gradient_cache === nothing
-        build_conic_diff_cache!(model)
-    end
-
+function backward(model::ConicDiff)
     M = model.gradient_cache.M
     vp = model.gradient_cache.vp
     Dπv = model.gradient_cache.Dπv
