@@ -38,7 +38,6 @@ end
 
 literate_directory(_EXAMPLE_DIR)
 
-
 makedocs(;
     modules=[DiffOpt],
     doctest = false,
@@ -53,11 +52,6 @@ makedocs(;
         "Manual" => "manual.md",
         "Usage" => "usage.md",
         "Reference" => "reference.md",
-        "Examples" => [
-            "Differentiating a simple QP by hand" => "matrix-inversion-manual.md",
-            "ChainRules integration (Relaxed Unit Commitment)" => "chainrules_unit.md",
-            "Solving conic with PSD and SOC constraints" => "solve-conic-1.md",
-        ],
         "Tutorials" => [
             joinpath("examples", f) for f in readdir(_EXAMPLE_DIR) if endswith(f, ".md")
         ],

@@ -9,7 +9,7 @@
 #     ⎝ 1   1 ⎠
 @testset "Differentiating simple PSD back" begin
 
-    model = diff_optimizer(SCS.Optimizer)
+    model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     X = MOI.add_variables(model, 3)
     vov = MOI.VectorOfVariables(X)

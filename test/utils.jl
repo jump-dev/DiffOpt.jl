@@ -1,12 +1,13 @@
-using LinearAlgebra, SparseArrays, Test
+using Test
+using JuMP
+import DiffOpt
+import MathOptInterface
+const MOI = MathOptInterface
+import LinearAlgebra: dot, ⋅, Diagonal
+import SparseArrays: sparse
 
 const ATOL = 1e-4
 const RTOL = 1e-4
-
-using DiffOpt
-
-import MathOptInterface
-const MOI = MathOptInterface
 
 macro _test(computed, expected::Symbol)
     exp = esc(expected)
@@ -87,7 +88,7 @@ function qp_test(
     @assert n == size(A, 2)
     @assert n == size(G, 2)
     @assert length(fix_values) == length(fix_indices)
-    model = diff_optimizer(solver)
+    model = DiffOpt.diff_optimizer(solver)
     MOI.set(model, MOI.Silent(), true)
 
     v = MOI.add_variables(model, n)

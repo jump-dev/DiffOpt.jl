@@ -1,15 +1,14 @@
-using DiffOpt
 using Test
-using OSQP
-using Ipopt
-using Clp
-using Random
-using SCS
-using LinearAlgebra
-using DelimitedFiles
-using GLPK
+import DiffOpt
+import OSQP
+import Ipopt
+import GLPK
+import Random
+import SCS
+import LinearAlgebra
+import DelimitedFiles
 
-using SparseArrays: spzeros
+import SparseArrays: spzeros
 
 import MathOptInterface
 const MOI = MathOptInterface
@@ -19,20 +18,19 @@ const MOIT = MathOptInterface.Test
 const ATOL = 1e-4
 const RTOL = 1e-4
 
-@testset "Examples" begin
-    include(joinpath(@__DIR__, "../examples/unit_example.jl"))
-    include(joinpath(@__DIR__, "../examples/chainrules.jl"))
-end
-
-@testset "Generate random problems" begin
-    include("gen_random_problem.jl")
-end
-
 @testset "MOI_wrapper" begin
-    include("utils.jl")
-    include("moi_wrapper.jl")
-    include("qp_forward.jl")
-    include("conic_backward.jl")
+    @testset "Utils" begin
+        include("utils.jl")
+    end
+    @testset "MOI_wrapper main" begin
+        include("moi_wrapper.jl")
+    end
+    @testset "QP fwd" begin
+        include("qp_forward.jl")
+    end
+    @testset "Conic bck" begin
+        include("conic_backward.jl")
+    end
 end
 
 @testset "JuMP wrapper" begin
@@ -45,4 +43,25 @@ end
 
 @testset "Singular error with deleted variables: Sensitivity index issue" begin
     include("singular_exception.jl")
+end
+
+@testset "Examples" begin
+    @testset "autotuning-ridge" begin
+        include(joinpath(@__DIR__, "../docs/src/examples/autotuning-ridge.jl"))
+    end
+    @testset "chainrules_unit" begin
+        include(joinpath(@__DIR__, "../docs/src/examples/chainrules_unit.jl"))
+    end
+    @testset "custom-relu" begin
+        include(joinpath(@__DIR__, "../docs/src/examples/custom-relu.jl")) # needs downloads
+    end
+    @testset "matrix-inversion-manual" begin
+       include(joinpath(@__DIR__, "../docs/src/examples/matrix-inversion-manual.jl"))
+    end
+    @testset "sensitivity-analysis-ridge" begin
+        include(joinpath(@__DIR__, "../docs/src/examples/sensitivity-analysis-ridge.jl"))
+    end
+    @testset "sensitivity-analysis-svm" begin
+        include(joinpath(@__DIR__, "../docs/src/examples/sensitivity-analysis-svm.jl"))
+    end
 end

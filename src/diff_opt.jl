@@ -18,9 +18,9 @@ by querying the internal optimizer instantiated using the
 One define a differentiable model by using any solver of choice. Example:
 
 ```julia
-julia> using DiffOpt, GLPK
+julia> import DiffOpt, GLPK
 
-julia> model = diff_optimizer(GLPK.Optimizer)
+julia> model = DiffOpt.diff_optimizer(GLPK.Optimizer)
 julia> model.add_variable(x)
 julia> model.add_constraint(...)
 
@@ -123,7 +123,7 @@ A `MOI.ScalarQuadraticFunction` can only be used in linearly constrained
 quadratic models.
 
 For instance, if the objective contains `θ * (x + 2y)`, for the purpose of
-computinig the derivative with respect to `θ`, the following should be set:
+computing the derivative with respect to `θ`, the following should be set:
 ```julia
 MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * x + 2.0 * y)
 ```

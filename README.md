@@ -20,22 +20,24 @@ DiffOpt can be installed via the Julia package manager:
 
 1. Create a model using the wrapper.
 ```julia
-using JuMP, DiffOpt, Clp
+using JuMP
+import DiffOpt
+import GLPK
 
-model = JuMP.Model(() -> diff_optimizer(Clp.Optimizer))
+model = JuMP.Model(() -> DiffOpt.diff_optimizer(GLPK.Optimizer))
 ```
 
 2. Define your model and solve it a single line.
 ```julia
 @variable(model, x)
 @constraint(
-  model, 
-  cons, 
+  model,
+  cons,
   x >= 3,
 )
 @objective(
-  model, 
-  Min, 
+  model,
+  Min,
   2x,
 )
 
@@ -46,8 +48,8 @@ optimize!(model) # solve
 ```julia
 MOI.set.(  # set pertubations / gradient inputs
     model, 
-    DiffOpt.BackwardInVariablePrimal(), 
-    x, 
+    DiffOpt.BackwardInVariablePrimal(),
+    x,
     1.0,
 )
 ```
@@ -57,8 +59,8 @@ MOI.set.(  # set pertubations / gradient inputs
 DiffOpt.backward(model) # differentiate
 
 grad_exp = MOI.get(   # -3x+1
-    model, 
-    DiffOpt.BackwardOutConstraint(), 
+    model,
+    DiffOpt.BackwardOutConstraint(),
     cons
 )
 JuMP.constant(grad_exp)  # 1

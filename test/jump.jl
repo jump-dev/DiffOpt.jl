@@ -1,18 +1,15 @@
-using DiffOpt
 using Test
-using MathOptInterface
+using JuMP
+import DiffOpt
+import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
-
-
-using JuMP
-using LinearAlgebra
+import LinearAlgebra: dot, ⋅, I
 import Ipopt
 import OSQP
-import Clp
+import GLPK
 import SCS
-
-using DelimitedFiles
+import DelimitedFiles
 
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
@@ -31,7 +28,7 @@ using DelimitedFiles
     ]
     h = [1, 0.7, 0.7, -1, 0, 0]
 
-    model = JuMP.Model(() -> diff_optimizer(Ipopt.Optimizer))
+    model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:2])
     @objective(model, Min, dot(Q * x, x) + dot(q, x))
@@ -54,7 +51,7 @@ end
     G = [1.0 1.0]
     h = [-1.0]
 
-    model = JuMP.direct_model(diff_optimizer(Ipopt.Optimizer))
+    model = JuMP.direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     x = @variable(model, [1:2])
     @objective(model, Min, dot(Q * x, x) + dot(q, x))
@@ -99,7 +96,7 @@ end
     A = [1.0 1.0 1.0;]
     b = [0.5]
 
-    model = Model(() -> diff_optimizer(Ipopt.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:3])
     @objective(model, Min, dot(Q * x, x) + dot(q, x))
@@ -156,7 +153,7 @@ end
     #     x +  y      >= 1 (c2)
     #     x, y, z \in R
 
-    model = JuMP.direct_model(diff_optimizer(OSQP.Optimizer))
+    model = JuMP.direct_model(DiffOpt.diff_optimizer(OSQP.Optimizer))
     MOI.set(JuMP.backend(model).optimizer, MOI.RawParameter("eps_prim_inf"), 1e-7)
     MOI.set(JuMP.backend(model).optimizer, MOI.RawParameter("eps_dual_inf"), 1e-7)
     MOI.set(model, MOI.Silent(), true)
@@ -213,7 +210,7 @@ end
     #       s.t.  x, y >= 0
     #             x + y = 1 (c1)
 
-    model = JuMP.Model(() -> diff_optimizer(Ipopt.Optimizer))
+    model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x ≥ 0);
     @variable(model, y ≥ 0);
@@ -271,7 +268,7 @@ end
     matrices = []
 
     for name in names
-        push!(matrices, readdlm(joinpath(dirname(dirname(pathof(DiffOpt))), "test", "data", name * ".txt"), ' ', Float64, '\n'))
+        push!(matrices, DelimitedFiles.readdlm(joinpath(dirname(dirname(pathof(DiffOpt))), "test", "data", name * ".txt"), ' ', Float64, '\n'))
     end
 
     Q, q, G, h, A, b = matrices
@@ -279,7 +276,7 @@ end
     h = vec(h)
     b = vec(b)
 
-    model = JuMP.Model(() -> diff_optimizer(Ipopt.Optimizer))
+    model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
 
     @variable(model, x[1:nz])
@@ -303,7 +300,7 @@ end
 
     for name in param_names
         push!(grads_actual,
-            readdlm(
+            DelimitedFiles.readdlm(
                 joinpath(@__DIR__, "data", "$(name).txt"),
                 ' ', Float64, '\n',
             )
@@ -339,7 +336,7 @@ end
     # s.t. x >= 0
     #      x >= 3
 
-    model = direct_model(diff_optimizer(Clp.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(GLPK.Optimizer))
     MOI.set(model, MOI.Silent(), true)
 
     @variable(model, x[1:1])
@@ -368,7 +365,7 @@ end
     end
 
 
-    model = direct_model(diff_optimizer(Clp.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(GLPK.Optimizer))
     MOI.set(model, MOI.Silent(), true)
 
     @variable(model, x[1:1])
@@ -405,7 +402,7 @@ end
     #      2x+5y+3z <= 15
     #      x,y,z >= 0
 
-    model = direct_model(diff_optimizer(SCS.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(SCS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, v[1:3] ≥ 0)
     @objective(model, Min, dot([-2.0, -3.0, -4.0], v))
@@ -456,7 +453,7 @@ end
     #      x,y,z >= 0
     # variant of previous test with same solution
 
-    model = direct_model(diff_optimizer(Clp.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(GLPK.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, v[1:3] ≥ 0)
     (x, y, z) = v
@@ -517,7 +514,7 @@ end
     #        1 - t ∈ {0}
     #      (t,x,y) ∈ SOC₃
 
-    model = JuMP.direct_model(diff_optimizer(SCS.Optimizer))
+    model = JuMP.direct_model(DiffOpt.diff_optimizer(SCS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x)
     @variable(model, y)

@@ -4,7 +4,7 @@
     # s.t. x >= 0
     #      x >= 3
     qp_test_with_solutions(
-        Clp.Optimizer,
+        GLPK.Optimizer,
         q = [1.0],
         G = -ones(2, 1),
         h = [0.0, -3.0],

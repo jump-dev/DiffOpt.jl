@@ -1,7 +1,7 @@
-using DiffOpt
+using Test
+import DiffOpt
 import MathOptInterface
 const MOI = MathOptInterface
-using Test, LinearAlgebra
 import OSQP
 
 Q = [
@@ -12,7 +12,7 @@ q = [1.0, 1.0]
 G = [1.0 1.0]
 h = [-1.0]
 
-model = diff_optimizer(OSQP.Optimizer)
+model = DiffOpt.diff_optimizer(OSQP.Optimizer)
 MOI.set(model, MOI.Silent(), true)
 x = MOI.add_variables(model, 2)
 
