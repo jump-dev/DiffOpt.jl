@@ -30,7 +30,6 @@
 # ```
 
 
-
 # This tutorial uses the following packages
 
 using JuMP
@@ -53,29 +52,36 @@ b = rand()
 X = randn(N)
 Y = w * X .+ b + 0.8 * randn(N);
 
-# The helper method `fitRidge` defines and solves the corresponding model.
+# The helper method `fit_ridge` defines and solves the corresponding model.
+# The ridge regression is modeled with quadratic programming
+# (quadratic objective and linear constraints) and solved in generic methods
+# of OSQP. This is not the standard way of solving the ridge regression problem
+# this is done here for didactic purposes.
 
-function fitRidge(X, Y, alpha = 0.1)
+function fit_ridge(X, Y, alpha = 0.1)
     N = length(Y)
+    ## Initialize a JuMP Model with OSQP solver
     model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
     set_silent(model)
-    @variable(model, w)
-    @variable(model, b)
-    @variable(model, e[1:N])
+    @variable(model, w) # angular coefficient
+    @variable(model, b) # linear coefficient
+    @variable(model, e[1:N]) # approximation error
+    ## constraint defining approximation error
     @constraint(model, cons[i=1:N], e[i] == Y[i] - w * X[i] - b)
+    ## objective minimizing squared error and ridge penalty
     @objective(
         model,
         Min,
         dot(e, e) + alpha * (sum(w * w) + sum(b * b)),
     )
     optimize!(model)
-    return model, w, b, cons
+    return model, w, b, cons # return model, variables and constraints references
 end
 
 
 # Train on the data generated.
 
-model, w, b, cons = fitRidge(X, Y)
+model, w, b, cons = fit_ridge(X, Y)
 ŵ, b̂ = value(w), value(b)
 
 # We can visualize the approximating line.
@@ -130,3 +136,5 @@ p = Plots.scatter(
 mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :red, label = "")
 
+# Note the points in the extremes of the line segment are larger because
+# moving those points can affect more the angular coefficient of the line.
