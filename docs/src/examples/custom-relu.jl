@@ -1,6 +1,6 @@
 # # Custom ReLU layer
 
-#md # [![](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](@__REPO_ROOT_URL__/docs/src/examples/custom-relu.jl)
+#md # [![](https://img.shields.io/badge/show-github-579ACA.svg)](@__REPO_ROOT_URL__/docs/src/examples/custom-relu.jl)
 #md # [![](https://img.shields.io/badge/show-nbviewer-579ACA.svg)](@__NBVIEWER_ROOT_URL__/generated/custom-relu.ipynb)
 
 # We demonstrate how DiffOpt can be used to generate a simple neural network
