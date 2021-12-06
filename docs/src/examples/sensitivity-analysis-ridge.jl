@@ -137,4 +137,4 @@ mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :red, label = "")
 
 # Note the points in the extremes of the line segment are larger because
-# moving those points can affect more the angular coefficient of the line.
+# moving those points has a stronger effect on the angular coefficient of the line.
