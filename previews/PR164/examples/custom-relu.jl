@@ -73,7 +73,7 @@ function ChainRulesCore.rrule(
     return pv, pullback_matrix_relu
 end
 
-## prepare data
+# ## prepare data
 imgs = Flux.Data.MNIST.images()
 labels = Flux.Data.MNIST.labels();
 
@@ -87,10 +87,9 @@ train_X = X[:, 1:N]
 train_Y = Y[:, 1:N]
 
 test_X = hcat(float.(reshape.(Flux.Data.MNIST.images(:test), :))...)
-test_Y = Flux.onehotbatch(Flux.Data.MNIST.labels(:test), 0:9)
+test_Y = Flux.onehotbatch(Flux.Data.MNIST.labels(:test), 0:9);
 
-
-## Define the Network
+# ## Define the Network
 
 # Network structure
 
@@ -109,13 +108,13 @@ m = Flux.Chain(
 
 epochs = 5
 
-dataset = repeated((train_X, train_Y), epochs)
+dataset = repeated((train_X, train_Y), epochs);
 
 # Parameters for the network training
 
 custom_loss(x, y) = Flux.crossentropy(m(x), y) # training loss function
 opt = Flux.ADAM(); # stochastic gradient descent variant to optimize weights of the neral network
-evalcb = () -> @show(custom_loss(X, Y)) # callback to show loss
+evalcb = () -> @show(custom_loss(X, Y)); # callback to show loss
 
 # Train to optimize network parameters
 
@@ -124,9 +123,15 @@ evalcb = () -> @show(custom_loss(X, Y)) # callback to show loss
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.
 
-accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y)) # average of correct guesses
-@show accuracy(train_X, train_Y)
-@show accuracy(test_X, test_Y)
+accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y)); # average of correct guesses
+
+# Train accuracy
+
+accuracy(train_X, train_Y)
+
+# Test accuracy
+
+accuracy(test_X, test_Y)
 
 # Note that the accuracy is low due to simplified training.
 # It is possible to increase the number of samples `N`,

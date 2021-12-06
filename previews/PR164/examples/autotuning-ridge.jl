@@ -73,7 +73,7 @@ end
 # We can solve the problem for several values of α
 # to visualize the effect of regularization on the testing and training loss.
 
-αs = 0.05:0.01:0.35
+αs = 0.00:0.01:0.50
 mse_test = Float64[]
 mse_train = Float64[]
 model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
@@ -142,6 +142,7 @@ end
 
 function descent(α0, max_iters=100; fixed_step = 0.01, grad_tol=1e-3)
     α_s = Float64[]
+    ∂α_s = Float64[]
     test_loss = Float64[]
     α = α0
     N, D = size(X_test)
@@ -150,19 +151,19 @@ function descent(α0, max_iters=100; fixed_step = 0.01, grad_tol=1e-3)
         w = fit_ridge(model, X_train, y_train, α)
         ŵ = value.(w)
         err_term = X_test * ŵ - y_test
-        push!(α_s, α)
-        push!(test_loss, norm(err_term)^2 / (2 * N * D))
         ∂α = d_testloss_dα(model, X_test, y_test, w, ŵ)
+        push!(α_s, α)
+        push!(∂α_s, ∂α)
+        push!(test_loss, norm(err_term)^2 / (2 * N * D))
         α -= fixed_step * ∂α
         if abs(∂α) ≤ grad_tol
             break
         end
     end
-    return α_s, test_loss
+    return α_s, ∂α_s, test_loss
 end
 
-ᾱ_l, msē_l = descent(0.10, 500);
-ᾱ_r, msē_r = descent(0.33, 500);
+ᾱ, ∂ᾱ, msē = descent(0.10, 500);
 
 # Visualize gradient descent and convergence 
 
@@ -170,6 +171,25 @@ Plots.plot(
     αs, mse_test,
     label="MSE test", xaxis = ("α"), legend=:topleft
 )
-Plots.plot!(ᾱ_l, msē_l, label="learned α, start = 0.10", lw = 2)
-Plots.plot!(ᾱ_r, msē_r, label="learned α, start = 0.33", lw = 2)
+Plots.plot!(ᾱ, msē, label="learned α", lw = 2)
 Plots.title!("Regularizer learning")
+
+iters = 1:length(ᾱ)
+
+Plots.plot(
+    iters, ᾱ, label = nothing, color = :blue,
+    xaxis = ("Iterations"), legend=:bottom,
+    title = "Convergence of α"
+)
+
+Plots.plot(
+    iters, msē, label = nothing, color = :red,
+    xaxis = ("Iterations"), legend=:bottom,
+    title = "Convergence of MSE"
+)
+
+Plots.plot(
+    iters, ∂ᾱ, label = nothing, color = :green,
+    xaxis = ("Iterations"), legend=:bottom,
+    title = "Convergence of ∂α"
+)

@@ -40,7 +40,7 @@ import OSQP
 import Plots
 import LinearAlgebra: normalize!, dot
 
-## Define and solve the problem
+# ## Define and solve the problem
 
 # Construct a set of noisy (guassian) data points around a line.
 
@@ -51,7 +51,7 @@ N = 100
 w = 2 * abs(randn())
 b = rand()
 X = randn(N)
-Y = w * X .+ b + 0.8 * randn(N)
+Y = w * X .+ b + 0.8 * randn(N);
 
 # The helper method `fitRidge` defines and solves the corresponding model.
 
@@ -85,13 +85,11 @@ mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color=:red, label="")
 
 
-## Differentiate
+# ## Differentiate
 
 # Now that we've solved the problem, we can compute the sensitivity of optimal
-# values -- the approximating line component `b` in this case -- with
+# values of the angular coefficient `w` with
 # respect to perturbations in the data points (`x`,`y`).
-
-∇ = zero(X)
 
 # Begin differentiating the model.
 # analogous to varying θ in the expression:
@@ -99,6 +97,7 @@ Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color=:red, label="")
 # e_i = (y_{i} + \theta_{y_i}) - w (x_{i} + \theta_{x_{i}}) - b
 # ```
 
+∇ = zero(X)
 for i in 1:N
     for j in 1:N
         MOI.set(
@@ -109,16 +108,15 @@ for i in 1:N
         )
     end
     DiffOpt.forward(model)
-    db = MOI.get(
+    dw = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
-        b
+        w
     )
-    ∇[i] = db
+    ∇[i] = abs(dw)
 end
 
 normalize!(∇);
-
 
 # Visualize point sensitivities with respect to regressing line.
 # Note that the gradients are normalized.

@@ -10,7 +10,7 @@ using JuMP
 import DiffOpt
 import Plots
 import LinearAlgebra: ⋅
-import Clp
+import GLPK
 import ChainRulesCore
 
 # ## Unit commitment problem
@@ -37,7 +37,7 @@ import ChainRulesCore
 
 function unit_commitment(
         load1_demand, load2_demand, gen_costs, noload_costs;
-        model = Model(Clp.Optimizer), silent=false)
+        model = Model(GLPK.Optimizer), silent=false)
     MOI.set(model, MOI.Silent(), silent)
 
     ## Problem data
@@ -92,7 +92,7 @@ function unit_commitment(
     return JuMP.value.(p.data)
 end
 
-m = Model(Clp.Optimizer)
+m = Model(GLPK.Optimizer)
 @show unit_commitment(
     [1.0, 1.2, 1.4, 1.6], [1.0, 1.2, 1.4, 1.6],
     [1000.0, 1500.0], [500.0, 1000.0],
@@ -112,14 +112,14 @@ pvalues = map(demand_values) do di
         silent=true,
     )
 end
-pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])]
+pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])];
 
 
 # The influence of this variation of the demand is piecewise linear on the
 # generation at different time frames:
 
-Plots.scatter(demand_values, pflat)
-Plots.title!("Generation at different time frames and generators for a single variation")
+Plots.scatter(demand_values, pflat, xaxis = ("Demand"), yaxis = ("Generation"))
+Plots.title!("Different time frames and generators")
 Plots.xlims!(0.0, 3.5)
 
 # ## Forward Differentiation
@@ -138,9 +138,9 @@ function ChainRulesCore.frule(
         (_, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs),
         ::typeof(unit_commitment),
         load1_demand, load2_demand, gen_costs, noload_costs;
-        optimizer=Clp.Optimizer,
+        optimizer=GLPK.Optimizer,
         )
-    ## creating the UC model with a DiffOpt optimizer wrapper around Clp
+    ## creating the UC model with a DiffOpt optimizer wrapper around GLPK
     model = Model(() -> DiffOpt.diff_optimizer(optimizer))
     ## building and solving the main model
     pv = unit_commitment(
@@ -178,7 +178,7 @@ end
 load1_demand = [1.0, 1.0, 1.4, 1.6]
 load2_demand = [1.0, 1.0, 1.4, 1.6]
 gen_costs = [1000.0, 1500.0]
-noload_costs = [500.0, 1000.0]
+noload_costs = [500.0, 1000.0];
 
 # all input perturbations are 0
 # except first load at time 2
@@ -208,7 +208,7 @@ noload_costs = [500.0, 1000.0]
 function ChainRulesCore.rrule(
         ::typeof(unit_commitment),
         load1_demand, load2_demand, gen_costs, noload_costs;
-        optimizer=Clp.Optimizer,
+        optimizer=GLPK.Optimizer,
         silent=false)
     model = Model(() -> DiffOpt.diff_optimizer(optimizer))
     ## solve the forward UC problem
@@ -249,18 +249,18 @@ end
 (pv, pullback_unit_commitment) = ChainRulesCore.rrule(
     unit_commitment,
     load1_demand, load2_demand, gen_costs, noload_costs,
-    optimizer=Clp.Optimizer,
+    optimizer=GLPK.Optimizer,
     silent=true,
 )
 dpv = 0 * pv
 dpv[1,2] = 1
 dargs = pullback_unit_commitment(dpv)
-(dload1_demand, dload2_demand, dgen_costs, dnoload_costs) = dargs
-
+(dload1_demand, dload2_demand, dgen_costs, dnoload_costs) = dargs;
 
 # The sensitivities with respect to the load demands are:
 dload1_demand
 
+# and:
 dload2_demand
 
 # The sensitivity of the generation is propagated to the sensitivity of both
