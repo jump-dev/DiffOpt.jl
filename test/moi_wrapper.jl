@@ -328,7 +328,7 @@ end
     #      x >= 3
     nz = 1
     qp_test_with_solutions(
-        Clp.Optimizer;
+        GLPK.Optimizer;
         q = ones(nz),
         G = -ones(2, nz),
         h = [0.0, -3.0],

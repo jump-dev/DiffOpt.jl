@@ -15,19 +15,20 @@ function build_quad_diff_cache!(model)
 
     # separate λ, ν
 
-    λ = -MOI.get.(model.optimizer, MOI.ConstraintDual(), le_con_idx)
+    _λ = -MOI.get.(model.optimizer, MOI.ConstraintDual(), le_con_idx)
     append!(
-        λ,
+        _λ,
         MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_idx),
     )
     append!(
-        λ,
+        _λ,
         -MOI.get.(model.optimizer, MOI.ConstraintDual(), le_con_sv_idx),
     )
     append!(
-        λ,
+        _λ,
         MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_sv_idx),
     )
+    λ = convert(Vector{Float64}, _λ)
     # We want to stay consistent with the variable `ν` defined in (3) of
     # Left hand side of eq. (6) in https://arxiv.org/pdf/1703.00443.pdf
     # However, in eq. (6), they put it in the lagrangian as
@@ -36,11 +37,12 @@ function build_quad_diff_cache!(model)
     # `- ν ⋅ (Az - b)`
     # so the we should reverse the sign if we want to use the same equations
     # as in the paper.
-    ν = -MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
+    _ν = -MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
     append!(
-        ν,
+        _ν,
         -MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_sv_idx),
     )
+    ν = convert(Vector{Float64}, _ν)
 
     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
     model.gradient_cache = QPCache(

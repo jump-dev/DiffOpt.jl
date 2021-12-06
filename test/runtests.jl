@@ -2,12 +2,11 @@ using Test
 import DiffOpt
 import OSQP
 import Ipopt
-import Clp
+import GLPK
 import Random
 import SCS
 import LinearAlgebra
 import DelimitedFiles
-import GLPK
 
 import SparseArrays: spzeros
 

@@ -1,6 +1,6 @@
 [deps]
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-Clp = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
+GLPK = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"

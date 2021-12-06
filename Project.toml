@@ -26,7 +26,6 @@ MathOptSetDistances = "0.1"
 julia = "1.6"
 
 [extras]
-Clp = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
@@ -43,4 +42,4 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Clp", "DelimitedFiles", "SCS", "OSQP", "GLPK", "Ipopt", "CSV", "Statistics", "DataFrames", "Flux", "MLDatasets", "Plots", "Printf", "HTTP"]
+test = ["Test", "DelimitedFiles", "SCS", "OSQP", "GLPK", "Ipopt", "CSV", "Statistics", "DataFrames", "Flux", "MLDatasets", "Plots", "Printf", "HTTP"]
