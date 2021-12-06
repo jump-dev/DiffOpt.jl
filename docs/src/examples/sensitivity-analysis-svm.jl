@@ -138,19 +138,16 @@ for i in 1:N
     dX[i, :] = zeros(D)  # reset the change made at the beginning of the loop
 end
 
-normalize!(∇)
-∇ = log.(∇)
-∇ .-= minimum(∇)
-;
+normalize!(∇);
 
 # We can visualize the separating hyperplane sensitivity with respect to the data points.
-# Note that the norm of the gradients are in a log scale and very small numbers
+# Note that the norm of the gradients are normalized and all the small numbers
 # were converted into 1/10 of the largest value to show all the points of the set.
 
 p3 = Plots.scatter(
     X[:,1], X[:,2],
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
-    markersize = 0.5 * max.(∇, 0.1 * maximum(∇)),
+    markersize = 20 * max.(∇, 0.1 * maximum(∇)),
 )
 Plots.yaxis!(p3, (-2, 4.5))
 Plots.plot!(p3, svm_x, svm_y, label = "", width=3)
