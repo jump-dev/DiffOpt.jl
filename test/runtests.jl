@@ -65,11 +65,4 @@ end
     @testset "sensitivity-analysis-svm" begin
         include(joinpath(@__DIR__, "../docs/src/examples/sensitivity-analysis-svm.jl"))
     end
-    # @joaquimg to @matbesancon: tutorials or tests or remove?
-    @testset "unit_example" begin
-        include(joinpath(@__DIR__, "../examples/unit_example.jl"))
-    end
-    @testset "chainrules" begin
-        include(joinpath(@__DIR__, "../examples/chainrules.jl"))
-    end
 end
