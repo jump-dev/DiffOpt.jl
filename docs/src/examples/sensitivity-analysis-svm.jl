@@ -95,76 +95,24 @@ p = Plots.scatter(X[:,1], X[:,2], color = [yi > 0 ? :red : :blue for yi in y], l
 Plots.yaxis!(p, (-2, 4.5))
 Plots.plot!(p, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
 
+# ## Gradient of hyperplane wrt the data point coordinates
 
-# # Experiments
-# Now that we've solved the SVM, we can compute the sensitivity of optimal values -- the separating hyperplane in our case -- with respect to perturbations of the problem data -- the data points -- using DiffOpt. For illustration, we've explored two questions:
+# Now that we've solved the SVM, we can compute the sensitivity of optimal
+# values -- the separating hyperplane in our case -- with respect to
+# perturbations of the problem data -- the data points -- using DiffOpt.
 
-# - How does a change in labels of the data points (`y=1` to `y=-1`, and vice versa) affect the position of the hyperplane? This is achieved by finding the gradient of `w`, `b` with respect to `y[i]`, the classification label of the ith data point.
-# - How does a change in coordinates of the data points, `X`, affects the position of the hyperplane? This is achieved by finding gradient of `w`, `b` with respect to `X[i]`, 2D coordinates of the data points.
-
-# ## Experiment 1: Gradient of hyperplane wrt the data point labels
-
-# Construct perturbations in data point labels `y` without changing the data point coordinates `X`.
-
-∇ = zeros(N)
-dy = zeros(N);
-
-# Begin differentiating the model.
-# analogous to varying θ in the expression:
-# ```math
-# (y_{i} + \theta) (w^T X_{i} + b) \ge 1 - \xi_{i}
-# ```
-for i in 1:N
-    dy[i] = 1.0 # set
-    for j in 1:N
-        MOI.set(
-            model,
-            DiffOpt.ForwardInConstraint(),
-            cons[j],
-            dy[j] * (dot(X[j,:], index.(w)) + index(b)),
-        )
-    end
-    DiffOpt.forward(model)
-    dw = MOI.get.(
-        model,
-        DiffOpt.ForwardOutVariablePrimal(),
-        w,
-    )
-    db = MOI.get(
-        model,
-        DiffOpt.ForwardOutVariablePrimal(),
-        b,
-    )
-    ∇[i] = norm(dw) + norm(db)
-    dy[i] = 0.0 # reset the change made at the beginning of the loop
-end
-
-normalize!(∇);
-
-
-# Visualize point sensitivities with respect to separating hyperplane. Note that the gradients are normalized.
-
-p2 = Plots.scatter(
-    X[:,1], X[:,2],
-    color = [yi > 0 ? :red : :blue for yi in y], label = "",
-    markersize = 20 * max.(∇, 0.1 * maximum(∇)),
-)
-Plots.yaxis!(p2, (-2, 4.5))
-Plots.plot!(p2, svm_x, svm_y, label = "", width=3)
-
-
-# ## Experiment 2: Gradient of hyperplane wrt the data point coordinates
-
-# Similar to previous example, construct perturbations in data points coordinates `X`.
-
-∇ = zeros(N)
-dX = zeros(N, D);
+# How does a change in coordinates of the data points, `X`,
+# affects the position of the hyperplane?
+# This is achieved by finding gradients of `w`, `b` with respect to `X[i]`,
+# 2D coordinates of the data points.
 
 # Begin differentiating the model.
 # analogous to varying θ in the expression:
 # ```math
 # y_{i} (w^T (X_{i} + \theta) + b) \ge 1 - \xi_{i}
 # ```
+∇ = zeros(N)
+dX = zeros(N, D);
 for i in 1:N
     dX[i, :] = ones(D)  # set
     for j in 1:N
@@ -190,14 +138,19 @@ for i in 1:N
     dX[i, :] = zeros(D)  # reset the change made at the beginning of the loop
 end
 
-normalize!(∇);
+normalize!(∇)
+∇ = log.(∇)
+∇ .-= minimum(∇)
+;
 
-# We can visualize point sensitivity with respect to the separating hyperplane. Note that the gradients are normalized.
+# We can visualize the separating hyperplane sensitivity with respect to the data points.
+# Note that the norm of the gradients are in a log scale and very small numbers
+# were converted into 1/10 of the largest value to show all the points of the set.
 
 p3 = Plots.scatter(
     X[:,1], X[:,2],
     color = [yi > 0 ? :red : :blue for yi in y], label = "",
-    markersize = 20 * max.(∇, 0.1 * maximum(∇)),
+    markersize = 0.5 * max.(∇, 0.1 * maximum(∇)),
 )
 Plots.yaxis!(p3, (-2, 4.5))
 Plots.plot!(p3, svm_x, svm_y, label = "", width=3)

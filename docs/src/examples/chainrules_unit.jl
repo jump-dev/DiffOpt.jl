@@ -112,14 +112,14 @@ pvalues = map(demand_values) do di
         silent=true,
     )
 end
-pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])]
+pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])];
 
 
 # The influence of this variation of the demand is piecewise linear on the
 # generation at different time frames:
 
-Plots.scatter(demand_values, pflat)
-Plots.title!("Generation at different time frames and generators for a single variation")
+Plots.scatter(demand_values, pflat, xaxis = ("Demand"), yaxis = ("Generation"))
+Plots.title!("Different time frames and generators")
 Plots.xlims!(0.0, 3.5)
 
 # ## Forward Differentiation
@@ -178,7 +178,7 @@ end
 load1_demand = [1.0, 1.0, 1.4, 1.6]
 load2_demand = [1.0, 1.0, 1.4, 1.6]
 gen_costs = [1000.0, 1500.0]
-noload_costs = [500.0, 1000.0]
+noload_costs = [500.0, 1000.0];
 
 # all input perturbations are 0
 # except first load at time 2
@@ -255,12 +255,12 @@ end
 dpv = 0 * pv
 dpv[1,2] = 1
 dargs = pullback_unit_commitment(dpv)
-(dload1_demand, dload2_demand, dgen_costs, dnoload_costs) = dargs
-
+(dload1_demand, dload2_demand, dgen_costs, dnoload_costs) = dargs;
 
 # The sensitivities with respect to the load demands are:
 dload1_demand
 
+# and:
 dload2_demand
 
 # The sensitivity of the generation is propagated to the sensitivity of both
