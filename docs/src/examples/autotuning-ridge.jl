@@ -163,9 +163,10 @@ function descent(α0, max_iters=100; fixed_step = 0.01, grad_tol=1e-3)
     return α_s, ∂α_s, test_loss
 end
 
-ᾱ, ∂ᾱ, msē = descent(0.10, 500);
+ᾱ, ∂ᾱ, msē = descent(0.10, 500)
+iters = 1:length(ᾱ);
 
-# Visualize gradient descent and convergence 
+# Visualize gradient descent and convergence
 
 Plots.plot(
     αs, mse_test,
@@ -174,7 +175,7 @@ Plots.plot(
 Plots.plot!(ᾱ, msē, label="learned α", lw = 2)
 Plots.title!("Regularizer learning")
 
-iters = 1:length(ᾱ)
+# Visualize the convergence of α to its optimal value
 
 Plots.plot(
     iters, ᾱ, label = nothing, color = :blue,
@@ -182,11 +183,15 @@ Plots.plot(
     title = "Convergence of α"
 )
 
+# Visualize the convergence of the objective function
+
 Plots.plot(
     iters, msē, label = nothing, color = :red,
     xaxis = ("Iterations"), legend=:bottom,
     title = "Convergence of MSE"
 )
+
+# Visualize the convergence of the derivative to zero
 
 Plots.plot(
     iters, ∂ᾱ, label = nothing, color = :green,
