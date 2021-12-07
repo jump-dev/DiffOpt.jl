@@ -34,11 +34,18 @@ function _moi_get_result(model::MOIU.CachingOptimizer, args...)
     end
     return MOI.get(model, args...)
 end
-function MOI.get(model::JuMP.Model, attr::Attr, var_ref::JuMP.VariableRef) where {Attr <: Union{ForwardOutVariablePrimal, BackwardOutConstraint, BackwardOutObjective}}
+function MOI.get(model::JuMP.Model, attr::ForwardOutVariablePrimal, var_ref::JuMP.VariableRef)
     JuMP.check_belongs_to_model(var_ref, model)
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
-
+function MOI.get(model::JuMP.Model, attr::BackwardOutConstraint, cons_ref::JuMP.ConstraintRef)
+    JuMP.check_belongs_to_model(cons_ref, model)
+    return _moi_get_result(JuMP.backend(model), attr, JuMP.index(cons_ref))
+end
+function MOI.get(model::JuMP.Model, attr::BackwardOutObjective)
+    return _moi_get_result(JuMP.backend(model), attr)
+end
+ 
 """
     abstract type AbstractLazyScalarFunction <: MOI.AbstractScalarFunction end
 
