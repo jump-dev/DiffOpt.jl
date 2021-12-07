@@ -140,14 +140,14 @@ end
 # ## Results with Plot graphs
 # ### Results for the forward context
 # Result Primal Values:
-plot(d,data_results[1,:,1:I+1])
+Plots.plot(d,data_results[1,:,1:I+1])
 
 # Result Sensitivity Analysis:
-plot(d,data_results[1,:,I+2:2*(I+1)])
+Plots.plot(d,data_results[1,:,I+2:2*(I+1)])
 
 # ### Results for the backward context
 # Result Primal Values:
-plot(d,data_results[2,:,1:I+1])
+Plots.plot(d,data_results[2,:,1:I+1])
 
 # Result Sensitivity Analysis:
-plot(d,data_results[2,:,I+2:2*(I+1)])
+Plots.plot(d,data_results[2,:,I+2:2*(I+1)])
