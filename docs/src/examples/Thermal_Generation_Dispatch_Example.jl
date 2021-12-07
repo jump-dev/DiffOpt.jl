@@ -24,12 +24,12 @@
 # First, import the libraries.
 
 using Test
-using LinearAlgebra
-using DiffOpt
-using Clp
-using MathOptInterface
 using JuMP
-using Plots
+import DiffOpt
+import LinearAlgebra: dot
+import GLPK
+import MathOptInterface
+import Plots
 const MOI = MathOptInterface
 
 # Define the model that will be construct given a set of parameters.
