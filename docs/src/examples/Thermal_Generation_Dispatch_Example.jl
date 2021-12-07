@@ -36,7 +36,7 @@ const MOI = MathOptInterface
 
 function generate_model(d::Float64; g_sup::Vector{Float64}, c_g::Vector{Float64}, c_ϕ::Float64)
     ## Creation of the Model and Parameters
-    model = Model(() -> diff_optimizer(Clp.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(GLPK.Optimizer))
     JuMP.set_silent(model)
     I = length(g_sup)
 
