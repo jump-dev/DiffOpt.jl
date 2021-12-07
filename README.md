@@ -58,12 +58,12 @@ MOI.set.(  # set pertubations / gradient inputs
 ```julia
 DiffOpt.backward(model) # differentiate
 
-grad_exp = MOI.get(   # -3x+1
+grad_exp = MOI.get(   # -3 x - 1
     model,
     DiffOpt.BackwardOutConstraint(),
     cons
 )
-JuMP.constant(grad_exp)  # 1
+JuMP.constant(grad_exp)  # -1
 JuMP.coefficient(grad_exp, x)  # -3
 ```
 
