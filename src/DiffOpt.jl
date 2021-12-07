@@ -1,6 +1,5 @@
 module DiffOpt
 
-using Random
 using LinearAlgebra
 import LinearAlgebra: ⋅, dot, Diagonal
 using SparseArrays
