@@ -154,8 +154,8 @@ end
     #     x, y, z \in R
 
     model = JuMP.direct_model(DiffOpt.diff_optimizer(OSQP.Optimizer))
-    MOI.set(JuMP.backend(model).optimizer, MOI.RawParameter("eps_prim_inf"), 1e-7)
-    MOI.set(JuMP.backend(model).optimizer, MOI.RawParameter("eps_dual_inf"), 1e-7)
+    MOI.set(JuMP.backend(model).optimizer, MOI.RawOptimizerAttribute("eps_prim_inf"), 1e-7)
+    MOI.set(JuMP.backend(model).optimizer, MOI.RawOptimizerAttribute("eps_dual_inf"), 1e-7)
     MOI.set(model, MOI.Silent(), true)
     @variables(model, begin
         x
