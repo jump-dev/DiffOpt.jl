@@ -1,6 +1,6 @@
 name = "DiffOpt"
 uuid = "930fe3bc-9c6b-11ea-2d94-6184641e85e7"
-authors = ["Akshay Sharma"]
+authors = ["Akshay Sharma", "Mathieu Besançon", "Joaquim Dias Garcia", "Benoît Legat"]
 version = "0.1.0"
 
 [deps]
