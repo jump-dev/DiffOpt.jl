@@ -19,11 +19,11 @@ const GeometricConicForm{T} = MOI.Utilities.GenericModel{
 }
 
 
-function build_conic_diff_cache!(model)
+function ConicDiff(model::MOI.ModelLike)
     # For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 
-    vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
-    cone_types = unique!([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
+    vis_src = MOI.get(model, MOI.ListOfVariableIndices())
+    cone_types = unique!([S for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())])
     conic_form = GeometricConicForm{Float64}()
     cones = conic_form.constraints.sets
     set_set_types(cones, cone_types)
@@ -53,9 +53,9 @@ function build_conic_diff_cache!(model)
         x[i] = MOI.get(model, MOI.VariablePrimal(), vi)
     end
     s = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintPrimal(), ci),
-        model.optimizer, cones, index_map, Flattened{Float64}())
+        model, cones, index_map, Flattened{Float64}())
     y = map_rows((ci, r) -> MOI.get(model, MOI.ConstraintDual(), ci),
-        model.optimizer, cones, index_map, Flattened{Float64}())
+        model, cones, index_map, Flattened{Float64}())
 
     # pre-compute quantities for the derivative
     m = A.m
@@ -66,7 +66,7 @@ function build_conic_diff_cache!(model)
 
 
     # find gradient of projections on dual of the cones
-    Dπv = Dπ(v, model.optimizer, cones, index_map)
+    Dπv = Dπ(v, model, cones, index_map)
 
     # Q = [
     #      0   A'   c;
@@ -90,18 +90,22 @@ function build_conic_diff_cache!(model)
         -c'              -b' * Dπv     0.0
     ]
     # find projections on dual of the cones
-    vp = π(v, model.optimizer, cones, index_map)
+    vp = π(v, model, cones, index_map)
 
-    model.gradient_cache = ConicCache(
-        M = M,
-        vp = vp,
-        Dπv = Dπv,
-        xys = (x, y, s),
-        A = A,
-        b = b,
-        c = c,
-        index_map = index_map,
-        cones = cones,
+    return ConicDiff(
+        ConicCache(
+            M = M,
+            vp = vp,
+            Dπv = Dπv,
+            xys = (x, y, s),
+            A = A,
+            b = b,
+            c = c,
+            index_map = index_map,
+            cones = cones,
+        ),
+        nothing,
+        nothing,
+        nothing,
     )
-    return nothing
 end

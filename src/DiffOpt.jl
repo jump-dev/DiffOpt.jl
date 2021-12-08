@@ -52,9 +52,9 @@ const SUPPORTED_VECTOR_SETS = Union{
 }
 
 include("utils.jl")
+include("diff_opt.jl")
 include("conic_diff.jl")
 include("quadratic_diff.jl")
-include("diff_opt.jl")
 include("moi_wrapper.jl")
 include("jump_moi_overloads.jl")
 

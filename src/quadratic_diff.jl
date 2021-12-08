@@ -1,5 +1,5 @@
-function build_quad_diff_cache!(model)
-    problem_data, index_map = get_problem_data(model.optimizer)
+function QPCache(model::MOI.ModelLike)
+    problem_data, index_map = get_problem_data(model)
     (
         Q, q, G, h, A, b,
         nz, var_list,
@@ -11,22 +11,22 @@ function build_quad_diff_cache!(model)
         neq_sv, eq_con_sv_idx,
     ) = problem_data
 
-    z = MOI.get(model.optimizer, MOI.VariablePrimal(), var_list)
+    z = MOI.get(model, MOI.VariablePrimal(), var_list)
 
     # separate λ, ν
 
-    _λ = -MOI.get.(model.optimizer, MOI.ConstraintDual(), le_con_idx)
+    _λ = -MOI.get.(model, MOI.ConstraintDual(), le_con_idx)
     append!(
         _λ,
-        MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_idx),
+        MOI.get.(model, MOI.ConstraintDual(), ge_con_idx),
     )
     append!(
         _λ,
-        -MOI.get.(model.optimizer, MOI.ConstraintDual(), le_con_sv_idx),
+        -MOI.get.(model, MOI.ConstraintDual(), le_con_sv_idx),
     )
     append!(
         _λ,
-        MOI.get.(model.optimizer, MOI.ConstraintDual(), ge_con_sv_idx),
+        MOI.get.(model, MOI.ConstraintDual(), ge_con_sv_idx),
     )
     λ = convert(Vector{Float64}, _λ)
     # We want to stay consistent with the variable `ν` defined in (3) of
@@ -37,23 +37,27 @@ function build_quad_diff_cache!(model)
     # `- ν ⋅ (Az - b)`
     # so the we should reverse the sign if we want to use the same equations
     # as in the paper.
-    _ν = -MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_idx)
+    _ν = -MOI.get.(model, MOI.ConstraintDual(), eq_con_idx)
     append!(
         _ν,
-        -MOI.get.(model.optimizer, MOI.ConstraintDual(), eq_con_sv_idx),
+        -MOI.get.(model, MOI.ConstraintDual(), eq_con_sv_idx),
     )
     ν = convert(Vector{Float64}, _ν)
 
     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
-    model.gradient_cache = QPCache(
-        problem_data,
-        λ,
-        ν,
-        z,
-        LHS,
-        index_map,
+    return QPDiff(
+        QPCache(
+            problem_data,
+            λ,
+            ν,
+            z,
+            LHS,
+            index_map,
+        ),
+        nothing,
+        nothing,
+        nothing,
     )
-    return nothing
 end
 
 
