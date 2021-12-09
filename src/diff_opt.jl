@@ -761,7 +761,7 @@ end
 function _fill(filter::Function, neg::Function, model::DiffModel, cones, args...)
     con_map = model.gradient_cache.index_map.con_map
     var_map = model.gradient_cache.index_map.var_map
-    for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
+    for (F, S) in keys(con_map.dict)
         filter(S) || continue
         if F == MOI.ScalarAffineFunction{Float64}
             _fill(args..., neg(S), cones, con_map[F,S], var_map, model.input_cache.scalar_constraints[F,S])
