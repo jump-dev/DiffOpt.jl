@@ -428,12 +428,7 @@ The output problem data differentials can be queried with the
 attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
 function backward(model::Optimizer)
-    if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-        _quad(model)
-    else
-        _conic(model)
-    end
-    backward(model.diff)
+    backward(_diff(model))
 end
 
 """
@@ -447,18 +442,19 @@ The output solution differentials can be queried with the attribute
 [`ForwardOutVariablePrimal`](@ref).
 """
 function forward(model::Optimizer)
-    if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-        _quad(model)
-    else
-        _conic(model)
-    end
-    forward(model.diff)
+    forward(_diff(model))
 end
 
-function _quad(model::Optimizer)
+function _diff(model::Optimizer)
     if model.diff === nothing
-        model.diff = QPDiff(model.optimizer)
+        if MOI.get(model, ProgramClassUsed()) == QUADRATIC
+            model.diff = QPDiff(model.optimizer)
+        else
+            _check_termination_status(model)
+            model.diff = ConicDiff(model.optimizer)
+        end
     end
+    return model.diff
 end
 
 function _check_termination_status(model::Optimizer)
@@ -469,33 +465,25 @@ function _check_termination_status(model::Optimizer)
     end
 end
 
-function _conic(model::Optimizer)
-    _check_termination_status(model)
-
-    if model.diff === nothing
-        model.diff = ConicDiff(model.optimizer)
-    end
-end
-
 # DiffOpt attributes redirected to `diff`
 
 function MOI.get(model::Optimizer, attr::Union{BackwardOutObjective, ForwardInObjective})
-    return MOI.get(model.diff, attr)
+    return MOI.get(_diff(model), attr)
 end
 function MOI.set(model::Optimizer, attr::ForwardInObjective, value)
-    return MOI.get(model.diff, attr, value)
+    return MOI.set(_diff(model), attr, value)
 end
 
 function MOI.get(model::Optimizer, attr::Union{ForwardOutVariablePrimal, BackwardInVariablePrimal}, vi::MOI.VariableIndex)
-    return MOI.get(model.diff, attr, vi)
+    return MOI.get(_diff(model), attr, vi)
 end
 function MOI.set(model::Optimizer, attr::BackwardInVariablePrimal, vi::MOI.VariableIndex, value)
-    return MOI.get(model.diff, attr, vi, value)
+    return MOI.set(_diff(model), attr, vi, value)
 end
 
 function MOI.get(model::Optimizer, attr::Union{BackwardOutConstraint, ForwardInConstraint}, ci::MOI.ConstraintIndex)
-    return MOI.get(model.diff, attr, ci)
+    return MOI.get(_diff(model), attr, ci)
 end
 function MOI.set(model::Optimizer, attr::ForwardInConstraint, ci::MOI.ConstraintIndex, value)
-    return MOI.get(model.diff, attr, ci, value)
+    return MOI.set(_diff(model), attr, ci, value)
 end

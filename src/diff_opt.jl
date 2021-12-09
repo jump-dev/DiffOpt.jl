@@ -203,7 +203,7 @@ See [`ProgramClass`](@ref).
 
 abstract type DiffModel <: MOI.ModelLike end
 
-struct QPDiff <: DiffModel
+mutable struct QPDiff <: DiffModel
     # storage for problem data in matrix form
     # includes maps from matrix indices to problem data held in `optimizer`
     # also includes KKT matrices
@@ -218,10 +218,10 @@ struct QPDiff <: DiffModel
     back_grad_cache::Union{Nothing,QPForwBackCache}
 
     # sensitivity input cache using MOI like sparse format
-    input_cache::Union{Nothing,DiffInputCache}
+    input_cache::DiffInputCache
 end
 
-struct ConicDiff <: DiffModel
+mutable struct ConicDiff <: DiffModel
     # storage for problem data in matrix form
     # includes maps from matrix indices to problem data held in `optimizer`
     # also includes KKT matrices
@@ -236,7 +236,7 @@ struct ConicDiff <: DiffModel
     back_grad_cache::Union{Nothing,ConicBackCache}
 
     # sensitivity input cache using MOI like sparse format
-    input_cache::Union{Nothing,DiffInputCache}
+    input_cache::DiffInputCache
 end
 
 function MOI.get(model::DiffModel, ::ForwardOutVariablePrimal, vi::VI)

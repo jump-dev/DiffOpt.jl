@@ -1,4 +1,4 @@
-function QPCache(model::MOI.ModelLike)
+function QPDiff(model::MOI.ModelLike)
     problem_data, index_map = get_problem_data(model)
     (
         Q, q, G, h, A, b,
@@ -56,7 +56,7 @@ function QPCache(model::MOI.ModelLike)
         ),
         nothing,
         nothing,
-        nothing,
+        DiffInputCache(),
     )
 end
 

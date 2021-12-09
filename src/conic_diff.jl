@@ -1,4 +1,3 @@
-include("product_of_sets.jl")
 const GeometricConicForm{T} = MOI.Utilities.GenericModel{
     T,
     MOI.Utilities.ObjectiveContainer{Float64},
@@ -106,6 +105,6 @@ function ConicDiff(model::MOI.ModelLike)
         ),
         nothing,
         nothing,
-        nothing,
+        DiffInputCache(),
     )
 end
