@@ -6,33 +6,6 @@ Supports `forward` and `backward` methods for solving and differentiating the mo
 Currently supports differentiating linear and quadratic programs only.
 """
 
-
-"""
-    diff_optimizer(optimizer_constructor)::Optimizer
-
-Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer
-and other utility methods. Results (primal, dual and slack values) are obtained
-by querying the internal optimizer instantiated using the
-`optimizer_constructor`. These values are required for find jacobians with respect to problem data.
-
-One define a differentiable model by using any solver of choice. Example:
-
-```julia
-julia> import DiffOpt, GLPK
-
-julia> model = DiffOpt.diff_optimizer(GLPK.Optimizer)
-julia> model.add_variable(x)
-julia> model.add_constraint(...)
-
-julia> _backward_quad(model)  # for convex quadratic models
-
-julia> _backward_quad(model)  # for convex conic models
-```
-"""
-function diff_optimizer(optimizer_constructor)::Optimizer
-    return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
-end
-
 Base.@kwdef struct QPCache
     problem_data::Tuple{
         SparseArrays.SparseMatrixCSC{Float64,Int64}, Vector{Float64}, # Q, q
@@ -65,12 +38,6 @@ Base.@kwdef struct ConicCache
     cones::ProductOfSets{Float64}
 end
 
-const CACHE_TYPE = Union{
-    Nothing,
-    QPCache,
-    ConicCache,
-}
-
 Base.@kwdef struct QPForwBackCache
     dz::Vector{Float64}
     dλ::Vector{Float64}
@@ -86,17 +53,6 @@ Base.@kwdef struct ConicBackCache
     πz::Vector{Float64}
 end
 
-const CACHE_FORW_TYPE = Union{
-    Nothing,
-    QPForwBackCache,
-    ConicForwCache,
-}
-const CACHE_BACK_TYPE = Union{
-    Nothing,
-    QPForwBackCache,
-    ConicBackCache,
-}
-
 const MOIDD = MOI.Utilities.DoubleDicts
 
 Base.@kwdef mutable struct DiffInputCache
@@ -111,6 +67,14 @@ Base.@kwdef mutable struct DiffInputCache
     scalar_constraints::MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}} = MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}}() # also includes G for QPs
     vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} = MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}}() # also includes G for QPs
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
+end
+
+function Base.empty!(cache::DiffInputCache)
+    empty!(cache.dx)
+    empty!(cache.scalar_constraints)
+    empty!(cache.vector_constraints)
+    cache.objective = nothing
+    return
 end
 
 """
@@ -245,90 +209,42 @@ See [`ProgramClass`](@ref).
 """
 @enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
 
-mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
-    optimizer::OT
+abstract type DiffModel <: MOI.ModelLike end
 
-    program_class::ProgramClassCode
-
+mutable struct QPDiff <: DiffModel
     # storage for problem data in matrix form
     # includes maps from matrix indices to problem data held in `optimizer`
     # also includes KKT matrices
     # also includes the solution
-    gradient_cache::CACHE_TYPE
+    gradient_cache::QPCache
 
     # caches for sensitivity output
     # result from solving KKT/residualmap linear systems
     # this allows keeping the same `gradient_cache`
     # if only sensitivy input changes
-    forw_grad_cache::CACHE_FORW_TYPE
-    back_grad_cache::CACHE_BACK_TYPE
-
-    # sensitivity input cache using MOI like sparse format
-    input_cache::DiffInputCache
-
-    function Optimizer(optimizer::OT) where {OT <: MOI.ModelLike}
-        new{OT}(
-            optimizer,
-            AUTOMATIC,
-            nothing,
-            nothing,
-            nothing,
-            DiffInputCache(),
-        )
-    end
+    forw_grad_cache::Union{Nothing,QPForwBackCache}
+    back_grad_cache::Union{Nothing,QPForwBackCache}
 end
 
-"""
-    ProgramClass <: MOI.AbstractOptimizerAttribute
+mutable struct ConicDiff <: DiffModel
+    # storage for problem data in matrix form
+    # includes maps from matrix indices to problem data held in `optimizer`
+    # also includes KKT matrices
+    # also includes the solution
+    gradient_cache::ConicCache
 
-Determines which program class to used from [`ProgramClassCode`](@ref). The
-default is `AUTOMATIC`.
-
-One important advantage of setting the class explicitly is that it will allow
-necessary bridges to be used. If the class is `AUTOMATIC` then
-`DiffOpt.Optimizer` will report that it supports both objective and constraints
-of the QP and CP classes. For instance, it will reports that is supports both
-quadratic objective and conic constraints. However, at the differentiation
-stage, we won't be able to differentiate since QP does not support conic
-constraints and CP does not support quadratic objective. On the other hand, if
-the `ProgramClass` is set to `CONIC` then `DiffOpt.Optimizer` will report that
-it does not support quadratic objective hence it will be bridged to second-order
-cone constraints and we will be able to use CP to differentiate.
-"""
-struct ProgramClass <: MOI.AbstractOptimizerAttribute end
-
-MOI.supports(::Optimizer, ::ProgramClass) = true
-MOI.get(model::Optimizer, ::ProgramClass) = model.program_class
-function MOI.set(model::Optimizer, ::ProgramClass, class::ProgramClassCode)
-    model.program_class = class
+    # caches for sensitivity output
+    # result from solving KKT/residualmap linear systems
+    # this allows keeping the same `gradient_cache`
+    # if only sensitivy input changes
+    forw_grad_cache::Union{Nothing,ConicForwCache}
+    back_grad_cache::Union{Nothing,ConicBackCache}
 end
 
-
-"""
-    ProgramClassUsed <: MOI.AbstractOptimizerAttribute
-
-Program class actually used, same as [`ProgramClass`](@ref) except that it does
-not return `AUTOMATIC` but the class automatically chosen instead. This attribute
-is read-only, it cannot be set, set [`ProgramClass`](@ref) instead.
-"""
-struct ProgramClassUsed <: MOI.AbstractOptimizerAttribute end
-
-function MOI.get(model::Optimizer, ::ProgramClassUsed)
-    if model.program_class == AUTOMATIC
-        if _qp_supported(model.optimizer)
-            return QUADRATIC
-        else
-            return CONIC
-        end
-    else
-        return model.program_class
-    end
-end
-
-function MOI.get(model::Optimizer, ::ForwardOutVariablePrimal, vi::VI)
+function MOI.get(model::DiffModel, ::ForwardOutVariablePrimal, vi::VI)
     return _get_dx(model, vi)
 end
-_get_dx(model::Optimizer, vi) = _get_dx(model.forw_grad_cache, model.gradient_cache, vi)
+_get_dx(model::DiffModel, vi) = _get_dx(model.forw_grad_cache, model.gradient_cache, vi)
 function _get_dx(cache::QPForwBackCache, g_cache::QPCache, vi)
     i = g_cache.index_map[vi].value
     return cache.dz[i]
@@ -339,14 +255,6 @@ function _get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     dw = f_cache.dw
     x = g_cache.xys[1]
     return - (du[i] - x[i] * dw[])
-end
-
-function MOI.get(model::Optimizer, ::BackwardInVariablePrimal, vi::VI)
-    return get(model.input_cache.dx, vi, 0.0)
-end
-function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
-    model.input_cache.dx[vi] = val
-    return
 end
 
 function lazy_combination(op::F, α, a, β, b) where {F<:Function}
@@ -372,7 +280,7 @@ function lazy_combination(op::F, a, b, i::UnitRange, I::UnitRange) where {F<:Fun
     return lazy_combination(op, _view(a, i), b, _view(b, i), a, I)
 end
 
-function MOI.get(model::Optimizer, ::BackwardOutObjective)
+function MOI.get(model::DiffModel, ::BackwardOutObjective)
     return IndexMappedFunction(
         _back_obj(model.back_grad_cache, model.gradient_cache),
         model.gradient_cache.index_map,
@@ -396,23 +304,15 @@ function _back_obj(b_cache::QPForwBackCache, g_cache::QPCache)
     )
 end
 
-function MOI.get(model::Optimizer, ::ForwardInObjective)
-    return model.input_cache.objective
-end
-function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
-    model.input_cache.objective = objective
-    return
-end
-
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
-function MOI.get(model::Optimizer, ::BackwardOutConstraint, ci::CI)
+function MOI.get(model::DiffModel, ::BackwardOutConstraint, ci::CI)
     return IndexMappedFunction(
         _lazy_affine(_get_dA(model, ci), _get_db(model, ci)),
         model.gradient_cache.index_map,
     )
 end
-_get_db(model::Optimizer, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
+_get_db(model::DiffModel, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     cf = g_cache.cones
@@ -455,41 +355,7 @@ function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     return dν[i]
 end
 
-function MOI.get(model::Optimizer,
-    ::ForwardInConstraint, ci::CI{MOI.ScalarAffineFunction{T},S}
-) where {T,S}
-    return get(model.input_cache.scalar_constraints, ci, zero(MOI.ScalarAffineFunction{T}))
-end
-function MOI.get(model::Optimizer,
-    ::ForwardInConstraint, ci::CI{MOI.VectorAffineFunction{T},S}
-) where {T,S}
-    func = get(model.input_cache.vector_constraints, ci, nothing)
-    if func === nothing
-        set = MOI.get(model, MOI.ConstraintSet(), ci)
-        dim = MOI.dimension(set)
-        return MOI.Utilities.zero_with_output_dimension(MOI.VectorAffineFunction{T}, dim)
-    else
-        return func
-    end
-end
-function MOI.set(model::Optimizer,
-    ::ForwardInConstraint,
-    ci::CI{MOI.ScalarAffineFunction{T},S},
-    func::MOI.ScalarAffineFunction{T},
-) where {T,S}
-    model.input_cache.scalar_constraints[ci] = func
-    return
-end
-function MOI.set(model::Optimizer,
-    ::ForwardInConstraint,
-    ci::CI{MOI.VectorAffineFunction{T},S},
-    func::MOI.VectorAffineFunction{T},
-) where {T,S}
-    model.input_cache.vector_constraints[ci] = func
-    return
-end
-
-_get_dA(model::Optimizer, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, ci)
+_get_dA(model::DiffModel, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, ci)
 function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
     j = g_cache.index_map[vi].value
@@ -537,57 +403,8 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     return lazy_combination(+, l * dλ[i], z, l * λ[i], dz)
 end
 
-
-function MOI.optimize!(model::Optimizer)
-    model.gradient_cache = nothing
-    MOI.optimize!(model.optimizer)
-
-    # do not fail. interferes with MOI.Tests.linear12test
-    if !in(MOI.get(model.optimizer, MOI.TerminationStatus()),  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
-        @warn "problem status: $(MOI.get(model.optimizer, MOI.TerminationStatus()))"
-        return
-    end
-
-    return
-end
-
 """
-    backward(model::Optimizer)
-
-Wrapper method for the backward pass.
-This method will consider as input a currently solved problem and differentials
-with respect to the solution set with the [`BackwardInVariablePrimal`](@ref) attribute.
-The output problem data differentials can be queried with the
-attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
-"""
-function backward(model::Optimizer)
-    if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-        return _backward_quad(model)
-    else
-        return _backward_conic(model)
-    end
-end
-
-"""
-    forward(model::Optimizer)
-
-Wrapper method for the forward pass.
-This method will consider as input a currently solved problem and
-differentials with respect to problem data set with
-the [`ForwardInObjective`](@ref) and  [`ForwardInConstraint`](@ref) attributes.
-The output solution differentials can be queried with the attribute
-[`ForwardOutVariablePrimal`](@ref).
-"""
-function forward(model::Optimizer)
-    if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-        return _forward_quad(model)
-    else
-        return _forward_conic(model)
-    end
-end
-
-"""
-    _backward_quad(model::Optimizer)
+    backward(model::QPDiff)
 
 Method to differentiate optimal solution `z` and return
 product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
@@ -602,11 +419,7 @@ Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function _backward_quad(model::Optimizer)
-
-    if model.gradient_cache === nothing
-        build_quad_diff_cache!(model)
-    end
+function backward(model::QPDiff, input_cache::DiffInputCache)
     (
         Q, q, G, h, A, b, nz, var_list,
         nineq_le, le_con_idx,
@@ -623,7 +436,7 @@ function _backward_quad(model::Optimizer)
 
     index_map = model.gradient_cache.index_map
     dl_dz = zeros(length(z))
-    for (vi, val) in model.input_cache.dx
+    for (vi, val) in input_cache.dx
         inner_index = index_map[vi].value
         dl_dz[inner_index] = val
     end
@@ -653,12 +466,9 @@ function _backward_quad(model::Optimizer)
 end
 
 """
-    _forward_quad(model::Optimizer)
+    forward(model::QPDiff)
 """
-function _forward_quad(model::Optimizer)
-    if model.gradient_cache === nothing
-        build_quad_diff_cache!(model)
-    end
+function forward(model::QPDiff, input_cache::DiffInputCache)
     (
         Q, q, G, h, A, b, nz, var_list,
         nineq_le, le_con_idx,
@@ -674,7 +484,7 @@ function _forward_quad(model::Optimizer)
     LHS = model.gradient_cache.lhs
     index_map = model.gradient_cache.index_map
 
-    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
+    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, input_cache.objective)
     sparse_array_obj = sparse_array_representation(objective_function, LinearAlgebra.checksquare(Q), index_map)
     dQ = sparse_array_obj.quadratic_terms
     dq = sparse_array_obj.affine_terms
@@ -684,9 +494,9 @@ function _forward_quad(model::Optimizer)
     # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
     # multiply by `-1` to transform it to `LessThan` so it cancels out.
     db = zeros(length(b))
-    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model, _QPSets(), db)
+    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model.gradient_cache, input_cache, _QPSets(), db)
     dh = zeros(length(h))
-    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dh)
+    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model.gradient_cache, input_cache, _QPSets(), dh)
 
     nz = nnz(A)
     (lines, cols) = size(A)
@@ -696,7 +506,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dAi, dAj, dAv)
+    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, input_cache, _QPSets(), dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     nz = nnz(G)
@@ -707,7 +517,7 @@ function _forward_quad(model::Optimizer)
     sizehint!(dGi, nz)
     sizehint!(dGj, nz)
     sizehint!(dGv, nz)
-    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dGi, dGj, dGv)
+    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, input_cache, _QPSets(), dGi, dGj, dGv)
     dG = sparse(dGi, dGj, dGv, lines, cols)
 
 
@@ -833,16 +643,8 @@ function map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.Inde
     return x
 end
 
-function _check_termination_status(model::Optimizer)
-    if !in(
-        MOI.get(model, MOI.TerminationStatus()), (MOI.LOCALLY_SOLVED, MOI.OPTIMAL)
-        )
-        error("problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus()))
-    end
-end
-
 """
-    _forward_conic(model::Optimizer)
+    forward(model::ConicDiff, input_cache::DiffInputCache)
 
 Method to compute the product of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
@@ -850,13 +652,7 @@ This is similar to [`forward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function _forward_conic(model::Optimizer)
-    _check_termination_status(model)
-
-    if model.gradient_cache === nothing
-        build_conic_diff_cache!(model)
-    end
-
+function forward(model::ConicDiff, input_cache::DiffInputCache)
     M = model.gradient_cache.M
     vp = model.gradient_cache.vp
     Dπv = model.gradient_cache.Dπv
@@ -866,12 +662,12 @@ function _forward_conic(model::Optimizer)
     c = model.gradient_cache.c
     index_map = model.gradient_cache.index_map
 
-    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
+    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, input_cache.objective)
     sparse_array_obj = sparse_array_representation(objective_function, length(c), index_map)
     dc = sparse_array_obj.terms
 
     db = zeros(length(b))
-    _fill(S -> false, model, model.gradient_cache.cones, db)
+    _fill(S -> false, model.gradient_cache, input_cache, model.gradient_cache.cones, db)
     (lines, cols) = size(A)
     nz = nnz(A)
     dAi = zeros(Int, 0)
@@ -880,7 +676,7 @@ function _forward_conic(model::Optimizer)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(S -> false, model, model.gradient_cache.cones, dAi, dAj, dAv)
+    _fill(S -> false, model.gradient_cache, input_cache, model.gradient_cache.cones, dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
@@ -911,18 +707,18 @@ end
 struct _QPSets end
 MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
-function _fill(neg::Function, model::Optimizer, cones, args...)
-    _fill(S -> true, neg, model, cones, args...)
+function _fill(neg::Function, gradient_cache, input_cache, cones, args...)
+    _fill(S -> true, neg, gradient_cache, input_cache, cones, args...)
 end
-function _fill(filter::Function, neg::Function, model::Optimizer, cones, args...)
-    con_map = model.gradient_cache.index_map.con_map
-    var_map = model.gradient_cache.index_map.var_map
-    for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
+function _fill(filter::Function, neg::Function, gradient_cache, input_cache, cones, args...)
+    con_map = gradient_cache.index_map.con_map
+    var_map = gradient_cache.index_map.var_map
+    for (F, S) in keys(con_map.dict)
         filter(S) || continue
         if F == MOI.ScalarAffineFunction{Float64}
-            _fill(args..., neg(S), cones, con_map[F,S], var_map, model.input_cache.scalar_constraints[F,S])
+            _fill(args..., neg(S), cones, con_map[F,S], var_map, input_cache.scalar_constraints[F,S])
         elseif F == MOI.VectorAffineFunction{Float64}
-            _fill(args..., neg(S), cones, con_map[F,S], var_map, model.input_cache.vector_constraints[F,S])
+            _fill(args..., neg(S), cones, con_map[F,S], var_map, input_cache.vector_constraints[F,S])
         end
     end
     return
@@ -952,7 +748,7 @@ function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, te
 end
 
 """
-    _backward_conic(model::Optimizer, dx::Vector{Float64}, dy::Vector{Float64}, ds::Vector{Float64})
+    backward(model::ConicDiff)
 
 Method to compute the product of the transpose of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dx`, `dy`, `ds`.
@@ -960,13 +756,7 @@ This is similar to [`backward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function _backward_conic(model::Optimizer)
-    _check_termination_status(model)
-
-    if model.gradient_cache === nothing
-        build_conic_diff_cache!(model)
-    end
-
+function backward(model::ConicDiff, input_cache::DiffInputCache)
     M = model.gradient_cache.M
     vp = model.gradient_cache.vp
     Dπv = model.gradient_cache.Dπv
@@ -977,7 +767,7 @@ function _backward_conic(model::Optimizer)
 
     index_map = model.gradient_cache.index_map
     dx = zeros(length(c))
-    for (vi, val) in model.input_cache.dx
+    for (vi, val) in input_cache.dx
         inner_index = index_map[vi].value
         dx[inner_index] = val
     end

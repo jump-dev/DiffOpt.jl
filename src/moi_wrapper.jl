@@ -1,38 +1,85 @@
+"""
+    diff_optimizer(optimizer_constructor)::Optimizer
+
+Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer
+and other utility methods. Results (primal, dual and slack values) are obtained
+by querying the internal optimizer instantiated using the
+`optimizer_constructor`. These values are required for find jacobians with respect to problem data.
+
+One define a differentiable model by using any solver of choice. Example:
+
+```julia
+julia> import DiffOpt, GLPK
+
+julia> model = DiffOpt.diff_optimizer(GLPK.Optimizer)
+julia> model.add_variable(x)
+julia> model.add_constraint(...)
+
+julia> _backward_quad(model)  # for convex quadratic models
+
+julia> _backward_quad(model)  # for convex conic models
+```
+"""
+function diff_optimizer(optimizer_constructor)::Optimizer
+    return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
+end
+
+mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
+    optimizer::OT
+
+    program_class::ProgramClassCode
+
+    # TODO Add bridge layer
+    diff::Union{Nothing,QPDiff,ConicDiff}
+
+    # sensitivity input cache using MOI like sparse format
+    input_cache::DiffInputCache
+
+    function Optimizer(optimizer::OT) where {OT <: MOI.ModelLike}
+        new{OT}(
+            optimizer,
+            AUTOMATIC,
+            nothing,
+            DiffInputCache(),
+        )
+    end
+end
+
 function MOI.add_variable(model::Optimizer)
-    model.gradient_cache = nothing
+    model.diff = nothing
     vi = MOI.add_variable(model.optimizer)
     return vi
 end
 
 function MOI.add_variables(model::Optimizer, N::Int)
-    model.gradient_cache = nothing
+    model.diff = nothing
     return VI[MOI.add_variable(model) for i in 1:N]
 end
 
 function MOI.add_constraint(model::Optimizer, f::SUPPORTED_SCALAR_FUNCTIONS, s::SUPPORTED_SCALAR_SETS)
-    model.gradient_cache = nothing
+    model.diff = nothing
     return MOI.add_constraint(model.optimizer, f, s)
 end
 
 function MOI.add_constraint(model::Optimizer, vf::SUPPORTED_VECTOR_FUNCTIONS, s::SUPPORTED_VECTOR_SETS)
-    model.gradient_cache = nothing
+    model.diff = nothing
     return MOI.add_constraint(model.optimizer, vf, s)
 end
 
 function MOI.add_constraints(model::Optimizer, f::AbstractVector{F}, s::AbstractVector{S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = nothing
+    model.diff = nothing
     return CI{F, S}[MOI.add_constraint(model, f[i], s[i]) for i in eachindex(f)]
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES}, f::SUPPORTED_OBJECTIVES)
-    model.gradient_cache = nothing
+    model.diff = nothing
     MOI.set(model.optimizer, attr, f)
 end
 
 MOI.supports(::Optimizer, ::MOI.ObjectiveSense) = true
 
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
-    model.gradient_cache = nothing
+    model.diff = nothing
     return MOI.set(model.optimizer, attr, sense)
 end
 
@@ -49,7 +96,7 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}) where 
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = nothing
+    model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, s)
 end
 
@@ -58,7 +105,7 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) w
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = nothing
+    model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, f)
 end
 
@@ -71,7 +118,7 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}) where 
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    model.gradient_cache = nothing
+    model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, s)
 end
 
@@ -80,7 +127,7 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) w
 end
 
 function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    model.gradient_cache = nothing
+    model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, f)
 end
 
@@ -121,20 +168,21 @@ MOI.get(model::Optimizer, attr::MOI.SolveTimeSec) = MOI.get(model.optimizer, att
 
 function MOI.empty!(model::Optimizer)
     MOI.empty!(model.optimizer)
-    model.gradient_cache = nothing
+    model.diff = nothing
+    empty!(model.input_cache)
     return
 end
 
 function MOI.is_empty(model::Optimizer)
     return MOI.is_empty(model.optimizer) &&
-           model.gradient_cache === nothing
+           model.diff === nothing
 end
 
 # now supports name too
 MOI.supports_incremental_interface(::Optimizer) = true
 
 function MOI.copy_to(model::Optimizer, src::MOI.ModelLike)
-    model.gradient_cache = nothing
+    model.diff = nothing
     return MOIU.default_copy_to(model.optimizer, src)
 end
 
@@ -144,7 +192,7 @@ end
 
 function MOI.set(model::Optimizer, ::MOI.VariablePrimalStart,
                  vi::VI, value::Float64)
-    model.gradient_cache = nothing
+    model.diff = nothing
     MOI.set(model.optimizer, MOI.VariablePrimalStart(), vi, value)
 end
 
@@ -162,12 +210,12 @@ function MOI.get(model::Optimizer, attr::MOI.AbstractVariableAttribute, vi::MOI.
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = nothing
+    model.diff = nothing
     MOI.delete(model.optimizer, ci)
 end
 
 function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
-    model.gradient_cache = nothing
+    model.diff = nothing
     MOI.delete(model.optimizer, ci)
 end
 
@@ -219,13 +267,13 @@ end
 
 
 function MOI.delete(model::Optimizer, v::VI)
-    model.gradient_cache = nothing
+    model.diff = nothing
     MOI.delete(model.optimizer, v)
 end
 
 # for array deletion
 function MOI.delete(model::Optimizer, indices::Vector{VI})
-    model.gradient_cache = nothing
+    model.diff = nothing
     for i in indices
         MOI.delete(model, i)
     end
@@ -236,7 +284,7 @@ function MOI.modify(
     ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}},
     chg::MOI.AbstractFunctionModification
 )
-    model.gradient_cache = nothing
+    model.diff = nothing
     MOI.modify(
         model.optimizer,
         MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
@@ -245,12 +293,12 @@ function MOI.modify(
 end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    model.gradient_cache = nothing
+    model.diff = nothing
     MOI.modify(model.optimizer, ci, chg)
 end
 
 function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:MOI.VectorAffineFunction{Float64}, S <: SUPPORTED_VECTOR_SETS}
-    model.gradient_cache = nothing
+    model.diff = nothing
     MOI.modify(model.optimizer, ci, chg)
 end
 
@@ -311,4 +359,181 @@ end
 
 function MOI.get(model::Optimizer, ::MOI.SolverName)
     return MOI.get(model.optimizer, MOI.SolverName())
+end
+
+function MOI.optimize!(model::Optimizer)
+    model.diff = nothing
+    MOI.optimize!(model.optimizer)
+
+    # do not fail. interferes with MOI.Tests.linear12test
+    if !in(MOI.get(model.optimizer, MOI.TerminationStatus()),  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
+        @warn "problem status: $(MOI.get(model.optimizer, MOI.TerminationStatus()))"
+        return
+    end
+
+    return
+end
+
+"""
+    ProgramClass <: MOI.AbstractOptimizerAttribute
+
+Determines which program class to used from [`ProgramClassCode`](@ref). The
+default is `AUTOMATIC`.
+
+One important advantage of setting the class explicitly is that it will allow
+necessary bridges to be used. If the class is `AUTOMATIC` then
+`DiffOpt.Optimizer` will report that it supports both objective and constraints
+of the QP and CP classes. For instance, it will reports that is supports both
+quadratic objective and conic constraints. However, at the differentiation
+stage, we won't be able to differentiate since QP does not support conic
+constraints and CP does not support quadratic objective. On the other hand, if
+the `ProgramClass` is set to `CONIC` then `DiffOpt.Optimizer` will report that
+it does not support quadratic objective hence it will be bridged to second-order
+cone constraints and we will be able to use CP to differentiate.
+"""
+struct ProgramClass <: MOI.AbstractOptimizerAttribute end
+
+MOI.supports(::Optimizer, ::ProgramClass) = true
+MOI.get(model::Optimizer, ::ProgramClass) = model.program_class
+function MOI.set(model::Optimizer, ::ProgramClass, class::ProgramClassCode)
+    model.program_class = class
+end
+
+
+"""
+    ProgramClassUsed <: MOI.AbstractOptimizerAttribute
+
+Program class actually used, same as [`ProgramClass`](@ref) except that it does
+not return `AUTOMATIC` but the class automatically chosen instead. This attribute
+is read-only, it cannot be set, set [`ProgramClass`](@ref) instead.
+"""
+struct ProgramClassUsed <: MOI.AbstractOptimizerAttribute end
+
+function MOI.get(model::Optimizer, ::ProgramClassUsed)
+    if model.program_class == AUTOMATIC
+        if _qp_supported(model.optimizer)
+            return QUADRATIC
+        else
+            return CONIC
+        end
+    else
+        return model.program_class
+    end
+end
+
+
+
+"""
+    backward(model::Optimizer)
+
+Wrapper method for the backward pass.
+This method will consider as input a currently solved problem and differentials
+with respect to the solution set with the [`BackwardInVariablePrimal`](@ref) attribute.
+The output problem data differentials can be queried with the
+attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
+"""
+function backward(model::Optimizer)
+    backward(_diff(model), model.input_cache)
+end
+
+"""
+    forward(model::Optimizer)
+
+Wrapper method for the forward pass.
+This method will consider as input a currently solved problem and
+differentials with respect to problem data set with
+the [`ForwardInObjective`](@ref) and  [`ForwardInConstraint`](@ref) attributes.
+The output solution differentials can be queried with the attribute
+[`ForwardOutVariablePrimal`](@ref).
+"""
+function forward(model::Optimizer)
+    forward(_diff(model), model.input_cache)
+end
+
+function _diff(model::Optimizer)
+    if model.diff === nothing
+        if MOI.get(model, ProgramClassUsed()) == QUADRATIC
+            model.diff = QPDiff(model.optimizer)
+        else
+            _check_termination_status(model)
+            model.diff = ConicDiff(model.optimizer)
+        end
+    end
+    return model.diff
+end
+
+function _check_termination_status(model::Optimizer)
+    if !in(
+        MOI.get(model, MOI.TerminationStatus()), (MOI.LOCALLY_SOLVED, MOI.OPTIMAL)
+        )
+        error("problem status: ", MOI.get(model.optimizer, MOI.TerminationStatus()))
+    end
+end
+
+# DiffOpt attributes redirected to `diff`
+
+function _checked_diff(model::Optimizer, attr::MOI.AnyAttribute, call)
+    if model.diff === nothing
+        error("Cannot get attribute `attr`. First call `DiffOpt.$call`.")
+    end
+    return model.diff
+end
+
+function MOI.get(model::Optimizer, attr::BackwardOutObjective)
+    return MOI.get(_checked_diff(model, attr, :backward), attr)
+end
+function MOI.get(model::Optimizer, ::ForwardInObjective)
+    return model.input_cache.objective
+end
+function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
+    model.input_cache.objective = objective
+    return
+end
+
+function MOI.get(model::Optimizer, attr::ForwardOutVariablePrimal, vi::MOI.VariableIndex)
+    return MOI.get(_checked_diff(model, attr, :forward), attr, vi)
+end
+function MOI.get(model::Optimizer, ::BackwardInVariablePrimal, vi::VI)
+    return get(model.input_cache.dx, vi, 0.0)
+end
+function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
+    model.input_cache.dx[vi] = val
+    return
+end
+
+function MOI.get(model::Optimizer, attr::BackwardOutConstraint, ci::MOI.ConstraintIndex)
+    return MOI.get(_checked_diff(model, attr, :backward), attr, ci)
+end
+function MOI.get(model::Optimizer,
+    ::ForwardInConstraint, ci::CI{MOI.ScalarAffineFunction{T},S}
+) where {T,S}
+    return get(model.input_cache.scalar_constraints, ci, zero(MOI.ScalarAffineFunction{T}))
+end
+function MOI.get(model::Optimizer,
+    ::ForwardInConstraint, ci::CI{MOI.VectorAffineFunction{T},S}
+) where {T,S}
+    func = get(model.input_cache.vector_constraints, ci, nothing)
+    if func === nothing
+        set = MOI.get(model, MOI.ConstraintSet(), ci)
+        dim = MOI.dimension(set)
+        return MOI.Utilities.zero_with_output_dimension(MOI.VectorAffineFunction{T}, dim)
+    else
+        return func
+    end
+end
+function MOI.set(model::Optimizer,
+    ::ForwardInConstraint,
+    ci::CI{MOI.ScalarAffineFunction{T},S},
+    func::MOI.ScalarAffineFunction{T},
+) where {T,S}
+    model.input_cache.scalar_constraints[ci] = func
+    return
+end
+function MOI.set(model::Optimizer,
+    ::ForwardInConstraint,
+    ci::CI{MOI.VectorAffineFunction{T},S},
+    func::MOI.VectorAffineFunction{T},
+) where {T,S}
+    model.input_cache.vector_constraints[ci] = func
+    return
 end

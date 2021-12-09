@@ -1051,7 +1051,7 @@ end
 
     MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
 
-    @test model.gradient_cache === nothing
+    @test model.diff === nothing
     DiffOpt.backward(model)
 
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
@@ -1062,7 +1062,7 @@ end
     y = MOI.add_variables(model, 2)
     MOI.delete(model, y)
 
-    @test model.gradient_cache === nothing
+    @test model.diff === nothing
     MOI.optimize!(model)
 
     MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
@@ -1070,22 +1070,22 @@ end
 
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
     @test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
-    # @test model.gradient_cache isa DiffOpt.QPCache
+    # @test model.diff.gradient_cache isa DiffOpt.QPCache
 
     # adding single variable invalidates the cache
     y0 = MOI.add_variable(model)
-    @test model.gradient_cache === nothing
+    @test model.diff === nothing
     MOI.add_constraint(model, MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, y0)], 0.0), MOI.EqualTo(42.0))
 
     MOI.optimize!(model)
-    @test model.gradient_cache === nothing
+    @test model.diff === nothing
 
     MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
     DiffOpt.backward(model)
     # grad_wrt_h = backward(model, ["h"], ones(3))[1]
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
     @test grad_wrt_h ≈ -1.0 atol=5e-3 rtol=RTOL
-    @test model.gradient_cache isa DiffOpt.QPCache
+    @test model.diff.gradient_cache isa DiffOpt.QPCache
 
     # adding constraint invalidates the cache
     c2 = MOI.add_constraint(
@@ -1093,7 +1093,7 @@ end
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0, 1.0], x), 0.0),
         MOI.LessThan(0.0),
     )
-    @test model.gradient_cache === nothing
+    @test model.diff === nothing
     MOI.optimize!(model)
 
 
@@ -1105,7 +1105,7 @@ end
     # second constraint inactive
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c2))
     @test grad_wrt_h ≈ 0.0 atol=5e-3 rtol=RTOL
-    @test model.gradient_cache isa DiffOpt.QPCache
+    @test model.diff.gradient_cache isa DiffOpt.QPCache
 end
 
 @testset "Verifying cache on a PSD" begin
@@ -1125,9 +1125,9 @@ end
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [x]), 0.0)
     )
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
-    @test model.gradient_cache === nothing
+    @test model.diff === nothing
     MOI.optimize!(model)
-    @test model.gradient_cache === nothing
+    @test model.diff === nothing
 
     x_sol = MOI.get(model, MOI.VariablePrimal(), x)
 
@@ -1159,7 +1159,7 @@ end
     # @test dy ≈ zeros(6) atol=ATOL rtol=RTOL
     # @test ds ≈ [0.5, 1.0, 0.5, 1.0, 1.0, 0.5] atol=ATOL rtol=RTOL
 
-    @test model.gradient_cache isa DiffOpt.ConicCache
+    @test model.diff.gradient_cache isa DiffOpt.ConicCache
 
     DiffOpt.forward(model)
 
