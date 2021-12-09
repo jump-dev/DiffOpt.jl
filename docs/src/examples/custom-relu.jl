@@ -64,7 +64,7 @@ function ChainRulesCore.rrule(
             obj_exp = MOI.get(
                 model,
                 DiffOpt.BackwardOutObjective()
-            ) # return grdiente wrt objective function parameters
+            ) # return gradient wrt objective function parameters
             dy[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in -2x'y
             dy[:, i] = -2 * dy[:, i]
         end
