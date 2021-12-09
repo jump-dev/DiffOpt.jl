@@ -23,7 +23,6 @@ Base.@kwdef struct QPCache
     equality_duals::Vector{Float64}
     var_primals::Vector{Float64}
     lhs::SparseMatrixCSC{Float64, Int}
-    index_map::MOIU.IndexMap
 end
 
 Base.@kwdef struct ConicCache
@@ -34,7 +33,6 @@ Base.@kwdef struct ConicCache
     A::SparseMatrixCSC{Float64, Int}
     b::Vector{Float64}
     c::Vector{Float64}
-    index_map::MOIU.IndexMap
     cones::ProductOfSets{Float64}
 end
 
@@ -216,7 +214,7 @@ mutable struct QPDiff <: DiffModel
     # includes maps from matrix indices to problem data held in `optimizer`
     # also includes KKT matrices
     # also includes the solution
-    gradient_cache::QPCache
+    gradient_cache::Union{Nothing,QPCache}
 
     # caches for sensitivity output
     # result from solving KKT/residualmap linear systems
@@ -224,6 +222,12 @@ mutable struct QPDiff <: DiffModel
     # if only sensitivy input changes
     forw_grad_cache::Union{Nothing,QPForwBackCache}
     back_grad_cache::Union{Nothing,QPForwBackCache}
+
+    # sensitivity input cache using MOI like sparse format
+    input_cache::DiffInputCache
+end
+function QPDiff()
+    return QPDiff(nothing, nothing, nothing, DiffInputCache())
 end
 
 mutable struct ConicDiff <: DiffModel
@@ -231,7 +235,7 @@ mutable struct ConicDiff <: DiffModel
     # includes maps from matrix indices to problem data held in `optimizer`
     # also includes KKT matrices
     # also includes the solution
-    gradient_cache::ConicCache
+    gradient_cache::Union{Nothing,ConicCache}
 
     # caches for sensitivity output
     # result from solving KKT/residualmap linear systems
@@ -239,6 +243,37 @@ mutable struct ConicDiff <: DiffModel
     # if only sensitivy input changes
     forw_grad_cache::Union{Nothing,ConicForwCache}
     back_grad_cache::Union{Nothing,ConicBackCache}
+
+    # sensitivity input cache using MOI like sparse format
+    input_cache::DiffInputCache
+end
+function ConicDiff()
+    return ConicDiff(nothing, nothing, nothing, DiffInputCache())
+end
+
+function MOI.set(model::DiffModel, ::ForwardInObjective, objective)
+    model.input_cache.objective = objective
+    return
+end
+function MOI.set(model::DiffModel, ::BackwardInVariablePrimal, vi::VI, val)
+    model.input_cache.dx[vi] = val
+    return
+end
+function MOI.set(model::DiffModel,
+    ::ForwardInConstraint,
+    ci::CI{MOI.ScalarAffineFunction{T},S},
+    func::MOI.ScalarAffineFunction{T},
+) where {T,S}
+    model.input_cache.scalar_constraints[ci] = func
+    return
+end
+function MOI.set(model::DiffModel,
+    ::ForwardInConstraint,
+    ci::CI{MOI.VectorAffineFunction{T},S},
+    func::MOI.VectorAffineFunction{T},
+) where {T,S}
+    model.input_cache.vector_constraints[ci] = func
+    return
 end
 
 function MOI.get(model::DiffModel, ::ForwardOutVariablePrimal, vi::VI)
@@ -246,11 +281,10 @@ function MOI.get(model::DiffModel, ::ForwardOutVariablePrimal, vi::VI)
 end
 _get_dx(model::DiffModel, vi) = _get_dx(model.forw_grad_cache, model.gradient_cache, vi)
 function _get_dx(cache::QPForwBackCache, g_cache::QPCache, vi)
-    i = g_cache.index_map[vi].value
-    return cache.dz[i]
+    return cache.dz[vi.value]
 end
 function _get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
-    i = g_cache.index_map[vi].value
+    i = vi.value
     du = f_cache.du
     dw = f_cache.dw
     x = g_cache.xys[1]
@@ -281,10 +315,7 @@ function lazy_combination(op::F, a, b, i::UnitRange, I::UnitRange) where {F<:Fun
 end
 
 function MOI.get(model::DiffModel, ::BackwardOutObjective)
-    return IndexMappedFunction(
-        _back_obj(model.back_grad_cache, model.gradient_cache),
-        model.gradient_cache.index_map,
-    )
+    return _back_obj(model.back_grad_cache, model.gradient_cache)
 end
 function _back_obj(b_cache::ConicBackCache, g_cache::ConicCache)
     g = b_cache.g
@@ -307,18 +338,14 @@ end
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
 function MOI.get(model::DiffModel, ::BackwardOutConstraint, ci::CI)
-    return IndexMappedFunction(
-        _lazy_affine(_get_dA(model, ci), _get_db(model, ci)),
-        model.gradient_cache.index_map,
-    )
+    return _lazy_affine(_get_dA(model, ci), _get_db(model, ci))
 end
 _get_db(model::DiffModel, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     cf = g_cache.cones
-    _ci = g_cache.index_map[ci]
-    i = MOI.Utilities.rows(cf, _ci) # vector
-    # i = g_cache.index_map[ci].value
+    i = MOI.Utilities.rows(cf, ci) # vector
+    # i = ci.value
     (x, _, _) = g_cache.xys
     n = length(x) # columns in A
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
@@ -328,7 +355,7 @@ function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 end
 function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
-    i = g_cache.index_map[ci].value
+    i = ci.value
     (x, _, _) = g_cache.xys
     n = length(x) # columns in A
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
@@ -342,7 +369,7 @@ _neg_if_gt(x, ::Type{<:MOI.LessThan}) = x
 _neg_if_gt(x, ::Type{<:MOI.GreaterThan}) = -x
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S}
-    i = g_cache.index_map[ci].value
+    i = ci.value
     # dh = -Diagonal(λ) * dλ
     dλ = b_cache.dλ
     λ = g_cache.inequality_duals
@@ -350,7 +377,7 @@ function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 end
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S<:MOI.EqualTo}
-    i = g_cache.index_map[ci].value
+    i = ci.value
     dν = b_cache.dν
     return dν[i]
 end
@@ -358,8 +385,8 @@ end
 _get_dA(model::DiffModel, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, ci)
 function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractScalarFunction,S}
-    j = g_cache.index_map[vi].value
-    i = g_cache.index_map[ci].value
+    j = vi.value
+    i = ci.value
     (x, y, _) = g_cache.xys
     n = length(x) # columns in A
     m = length(y) # lines in A
@@ -371,9 +398,8 @@ end
 function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     cf = g_cache.cones
-    _ci = g_cache.index_map[ci]
-    i = MOI.Utilities.rows(cf, _ci) # vector
-    # i = g_cache.index_map[ci].value
+    i = MOI.Utilities.rows(cf, ci) # vector
+    # i = ci.value
     (x, y, _) = g_cache.xys
     n = length(x) # columns in A
     m = length(y) # lines in A
@@ -385,7 +411,7 @@ end
 # quadratic matrix indexes are split by type either == or (<=/>=)
 function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F, S<:MOI.EqualTo}
-    i = g_cache.index_map[ci].value
+    i = ci.value
     z = g_cache.var_primals
     dz = b_cache.dz
     ν = g_cache.equality_duals
@@ -394,7 +420,7 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 end
 function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F,S}
-    i = g_cache.index_map[ci].value
+    i = ci.value
     z = g_cache.var_primals
     dz = b_cache.dz
     λ = g_cache.inequality_duals
@@ -419,7 +445,7 @@ Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function backward(model::QPDiff, input_cache::DiffInputCache)
+function backward(model::QPDiff)
     (
         Q, q, G, h, A, b, nz, var_list,
         nineq_le, le_con_idx,
@@ -434,11 +460,9 @@ function backward(model::QPDiff, input_cache::DiffInputCache)
     ν = model.gradient_cache.equality_duals
     LHS = model.gradient_cache.lhs
 
-    index_map = model.gradient_cache.index_map
     dl_dz = zeros(length(z))
-    for (vi, val) in input_cache.dx
-        inner_index = index_map[vi].value
-        dl_dz[inner_index] = val
+    for (vi, value) in model.input_cache.dx
+        dl_dz[vi.value] = value
     end
 
     nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
@@ -468,7 +492,7 @@ end
 """
     forward(model::QPDiff)
 """
-function forward(model::QPDiff, input_cache::DiffInputCache)
+function forward(model::QPDiff)
     (
         Q, q, G, h, A, b, nz, var_list,
         nineq_le, le_con_idx,
@@ -482,10 +506,9 @@ function forward(model::QPDiff, input_cache::DiffInputCache)
     λ = model.gradient_cache.inequality_duals
     ν = model.gradient_cache.equality_duals
     LHS = model.gradient_cache.lhs
-    index_map = model.gradient_cache.index_map
 
-    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, input_cache.objective)
-    sparse_array_obj = sparse_array_representation(objective_function, LinearAlgebra.checksquare(Q), index_map)
+    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
+    sparse_array_obj = sparse_array_representation(objective_function, LinearAlgebra.checksquare(Q))
     dQ = sparse_array_obj.quadratic_terms
     dq = sparse_array_obj.affine_terms
 
@@ -494,9 +517,9 @@ function forward(model::QPDiff, input_cache::DiffInputCache)
     # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
     # multiply by `-1` to transform it to `LessThan` so it cancels out.
     db = zeros(length(b))
-    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model.gradient_cache, input_cache, _QPSets(), db)
+    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model.gradient_cache, model.input_cache, _QPSets(), db)
     dh = zeros(length(h))
-    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model.gradient_cache, input_cache, _QPSets(), dh)
+    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model.gradient_cache, model.input_cache, _QPSets(), dh)
 
     nz = nnz(A)
     (lines, cols) = size(A)
@@ -506,7 +529,7 @@ function forward(model::QPDiff, input_cache::DiffInputCache)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, input_cache, _QPSets(), dAi, dAj, dAv)
+    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, model.input_cache, _QPSets(), dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     nz = nnz(G)
@@ -517,7 +540,7 @@ function forward(model::QPDiff, input_cache::DiffInputCache)
     sizehint!(dGi, nz)
     sizehint!(dGj, nz)
     sizehint!(dGv, nz)
-    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, input_cache, _QPSets(), dGi, dGj, dGv)
+    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, model.input_cache, _QPSets(), dGi, dGj, dGv)
     dG = sparse(dGi, dGj, dGv, lines, cols)
 
 
@@ -550,7 +573,7 @@ _linsolve(A, b::SparseVector) = A \ Vector(b)
 
 
 """
-    π(v::Vector{Float64}, model::MOI.ModelLike, cones::ProductOfSets, index_map::MOIU.IndexMap)
+    π(v::Vector{Float64}, model::MOI.ModelLike, cones::ProductOfSets)
 
 Given a `model`, its `cones` and the `index_map` from the indices of
 `model` to the indices of `cones`, find the projection of the vectors `v`
@@ -644,7 +667,7 @@ function map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.Inde
 end
 
 """
-    forward(model::ConicDiff, input_cache::DiffInputCache)
+    forward(model::ConicDiff)
 
 Method to compute the product of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
@@ -652,7 +675,7 @@ This is similar to [`forward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function forward(model::ConicDiff, input_cache::DiffInputCache)
+function forward(model::ConicDiff)
     M = model.gradient_cache.M
     vp = model.gradient_cache.vp
     Dπv = model.gradient_cache.Dπv
@@ -660,14 +683,13 @@ function forward(model::ConicDiff, input_cache::DiffInputCache)
     A = model.gradient_cache.A
     b = model.gradient_cache.b
     c = model.gradient_cache.c
-    index_map = model.gradient_cache.index_map
 
-    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, input_cache.objective)
-    sparse_array_obj = sparse_array_representation(objective_function, length(c), index_map)
+    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
+    sparse_array_obj = sparse_array_representation(objective_function, length(c))
     dc = sparse_array_obj.terms
 
     db = zeros(length(b))
-    _fill(S -> false, model.gradient_cache, input_cache, model.gradient_cache.cones, db)
+    _fill(S -> false, model.gradient_cache, model.input_cache, model.gradient_cache.cones, db)
     (lines, cols) = size(A)
     nz = nnz(A)
     dAi = zeros(Int, 0)
@@ -676,7 +698,7 @@ function forward(model::ConicDiff, input_cache::DiffInputCache)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(S -> false, model.gradient_cache, input_cache, model.gradient_cache.cones, dAi, dAj, dAv)
+    _fill(S -> false, model.gradient_cache, model.input_cache, model.gradient_cache.cones, dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
@@ -711,40 +733,37 @@ function _fill(neg::Function, gradient_cache, input_cache, cones, args...)
     _fill(S -> true, neg, gradient_cache, input_cache, cones, args...)
 end
 function _fill(filter::Function, neg::Function, gradient_cache, input_cache, cones, args...)
-    con_map = gradient_cache.index_map.con_map
-    var_map = gradient_cache.index_map.var_map
-    for (F, S) in keys(con_map.dict)
+    for (F, S) in keys(input_cache.scalar_constraints.dict)
         filter(S) || continue
-        if F == MOI.ScalarAffineFunction{Float64}
-            _fill(args..., neg(S), cones, con_map[F,S], var_map, input_cache.scalar_constraints[F,S])
-        elseif F == MOI.VectorAffineFunction{Float64}
-            _fill(args..., neg(S), cones, con_map[F,S], var_map, input_cache.vector_constraints[F,S])
-        end
+        _fill(args..., neg(S), cones, input_cache.scalar_constraints[F,S])
+    end
+    for (F, S) in keys(input_cache.vector_constraints.dict)
+        _fill(args..., neg(S), cones, input_cache.vector_constraints[F,S])
     end
     return
 end
 
-function _fill(vector::Vector, neg::Bool, cones, constraint_map, variable_map, dict)
+function _fill(vector::Vector, neg::Bool, cones, dict)
     for (ci, func) in dict
-        r = MOI.Utilities.rows(cones, constraint_map[ci])
+        r = MOI.Utilities.rows(cones, ci)
         vector[r] = neg ? -MOI.constant(func) : MOI.constant(func)
     end
 end
-function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, cones, constraint_map, variable_map, dict)
+function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, cones, dict)
     for (ci, func) in dict
-        r = MOI.Utilities.rows(cones, constraint_map[ci])
+        r = MOI.Utilities.rows(cones, ci)
         for term in func.terms
-            _push_term(I, J, V, neg, r, term, variable_map)
+            _push_term(I, J, V, neg, r, term)
         end
     end
 end
-function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::Integer, term::MOI.ScalarAffineTerm, variable_map)
+function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::Integer, term::MOI.ScalarAffineTerm)
     push!(I, r)
-    push!(J, variable_map[term.variable].value)
+    push!(J, term.variable.value)
     push!(V, neg ? -term.coefficient : term.coefficient)
 end
-function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, term::MOI.VectorAffineTerm, variable_map)
-    _push_term(I, J, V, neg, r[term.output_index], term.scalar_term, variable_map)
+function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, term::MOI.VectorAffineTerm)
+    _push_term(I, J, V, neg, r[term.output_index], term.scalar_term)
 end
 
 """
@@ -756,7 +775,7 @@ This is similar to [`backward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function backward(model::ConicDiff, input_cache::DiffInputCache)
+function backward(model::ConicDiff)
     M = model.gradient_cache.M
     vp = model.gradient_cache.vp
     Dπv = model.gradient_cache.Dπv
@@ -765,11 +784,9 @@ function backward(model::ConicDiff, input_cache::DiffInputCache)
     b = model.gradient_cache.b
     c = model.gradient_cache.c
 
-    index_map = model.gradient_cache.index_map
     dx = zeros(length(c))
-    for (vi, val) in input_cache.dx
-        inner_index = index_map[vi].value
-        dx[inner_index] = val
+    for (vi, value) in model.input_cache.dx
+        dx[vi.value] = value
     end
     dy = zeros(length(b))
     ds = zeros(length(b))

@@ -1,4 +1,4 @@
-function QPDiff(model::MOI.ModelLike)
+function MOI.copy_to(dest::QPDiff, model::MOI.ModelLike)
     problem_data, index_map = get_problem_data(model)
     (
         Q, q, G, h, A, b,
@@ -45,18 +45,15 @@ function QPDiff(model::MOI.ModelLike)
     ν = convert(Vector{Float64}, _ν)
 
     LHS = create_LHS_matrix(z, λ, Q, G, h, A)
-    return QPDiff(
-        QPCache(
-            problem_data,
-            λ,
-            ν,
-            z,
-            LHS,
-            index_map,
-        ),
-        nothing,
-        nothing,
+    dest.gradient_cache = QPCache(
+        problem_data,
+        λ,
+        ν,
+        z,
+        LHS,
     )
+
+    return index_map
 end
 
 

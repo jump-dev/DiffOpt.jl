@@ -56,3 +56,9 @@ function sparse_array_representation(func::MOI.ScalarQuadraticFunction, num_vari
 end
 _convert(::Type{F}, ::Nothing) where {F} = zero(F)
 _convert(::Type{F}, obj) where {F} = convert(F, obj)
+
+struct IdentityMap end
+Base.getindex(::IdentityMap, index) = index
+function sparse_array_representation(func::MOI.AbstractFunction, num_variables)
+    return sparse_array_representation(func, num_variables, IdentityMap())
+end
