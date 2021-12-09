@@ -138,4 +138,4 @@ accuracy(test_X, test_Y)
 
 # Note that the accuracy is low due to simplified training.
 # It is possible to increase the number of samples `N`,
-# the number of epochs `epoch` and teh conectivity `inner`.
+# the number of epochs `epoch` and the connectivity `inner`.
