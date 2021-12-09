@@ -69,6 +69,14 @@ Base.@kwdef mutable struct DiffInputCache
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
 end
 
+function Base.empty!(cache::DiffInputCache)
+    empty!(cache.dx)
+    empty!(cache.scalar_constraints)
+    empty!(cache.vector_constraints)
+    cache.objective = nothing
+    return
+end
+
 """
     ForwardInObjective <: MOI.AbstractModelAttribute
 
@@ -216,9 +224,6 @@ mutable struct QPDiff <: DiffModel
     # if only sensitivy input changes
     forw_grad_cache::Union{Nothing,QPForwBackCache}
     back_grad_cache::Union{Nothing,QPForwBackCache}
-
-    # sensitivity input cache using MOI like sparse format
-    input_cache::DiffInputCache
 end
 
 mutable struct ConicDiff <: DiffModel
@@ -234,9 +239,6 @@ mutable struct ConicDiff <: DiffModel
     # if only sensitivy input changes
     forw_grad_cache::Union{Nothing,ConicForwCache}
     back_grad_cache::Union{Nothing,ConicBackCache}
-
-    # sensitivity input cache using MOI like sparse format
-    input_cache::DiffInputCache
 end
 
 function MOI.get(model::DiffModel, ::ForwardOutVariablePrimal, vi::VI)
@@ -253,14 +255,6 @@ function _get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
     dw = f_cache.dw
     x = g_cache.xys[1]
     return - (du[i] - x[i] * dw[])
-end
-
-function MOI.get(model::DiffModel, ::BackwardInVariablePrimal, vi::VI)
-    return get(model.input_cache.dx, vi, 0.0)
-end
-function MOI.set(model::DiffModel, ::BackwardInVariablePrimal, vi::VI, val)
-    model.input_cache.dx[vi] = val
-    return
 end
 
 function lazy_combination(op::F, α, a, β, b) where {F<:Function}
@@ -308,14 +302,6 @@ function _back_obj(b_cache::QPForwBackCache, g_cache::QPCache)
         VectorScalarAffineFunction(b_cache.dz, 0.0),
         dQ,
     )
-end
-
-function MOI.get(model::DiffModel, ::ForwardInObjective)
-    return model.input_cache.objective
-end
-function MOI.set(model::DiffModel, ::ForwardInObjective, objective)
-    model.input_cache.objective = objective
-    return
 end
 
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
@@ -367,40 +353,6 @@ function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     i = g_cache.index_map[ci].value
     dν = b_cache.dν
     return dν[i]
-end
-
-function MOI.get(model::DiffModel,
-    ::ForwardInConstraint, ci::CI{MOI.ScalarAffineFunction{T},S}
-) where {T,S}
-    return get(model.input_cache.scalar_constraints, ci, zero(MOI.ScalarAffineFunction{T}))
-end
-function MOI.get(model::DiffModel,
-    ::ForwardInConstraint, ci::CI{MOI.VectorAffineFunction{T},S}
-) where {T,S}
-    func = get(model.input_cache.vector_constraints, ci, nothing)
-    if func === nothing
-        set = MOI.get(model, MOI.ConstraintSet(), ci)
-        dim = MOI.dimension(set)
-        return MOI.Utilities.zero_with_output_dimension(MOI.VectorAffineFunction{T}, dim)
-    else
-        return func
-    end
-end
-function MOI.set(model::DiffModel,
-    ::ForwardInConstraint,
-    ci::CI{MOI.ScalarAffineFunction{T},S},
-    func::MOI.ScalarAffineFunction{T},
-) where {T,S}
-    model.input_cache.scalar_constraints[ci] = func
-    return
-end
-function MOI.set(model::DiffModel,
-    ::ForwardInConstraint,
-    ci::CI{MOI.VectorAffineFunction{T},S},
-    func::MOI.VectorAffineFunction{T},
-) where {T,S}
-    model.input_cache.vector_constraints[ci] = func
-    return
 end
 
 _get_dA(model::DiffModel, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, ci)
@@ -467,7 +419,7 @@ Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function backward(model::QPDiff)
+function backward(model::QPDiff, input_cache::DiffInputCache)
     (
         Q, q, G, h, A, b, nz, var_list,
         nineq_le, le_con_idx,
@@ -484,7 +436,7 @@ function backward(model::QPDiff)
 
     index_map = model.gradient_cache.index_map
     dl_dz = zeros(length(z))
-    for (vi, val) in model.input_cache.dx
+    for (vi, val) in input_cache.dx
         inner_index = index_map[vi].value
         dl_dz[inner_index] = val
     end
@@ -516,7 +468,7 @@ end
 """
     forward(model::QPDiff)
 """
-function forward(model::QPDiff)
+function forward(model::QPDiff, input_cache::DiffInputCache)
     (
         Q, q, G, h, A, b, nz, var_list,
         nineq_le, le_con_idx,
@@ -532,7 +484,7 @@ function forward(model::QPDiff)
     LHS = model.gradient_cache.lhs
     index_map = model.gradient_cache.index_map
 
-    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
+    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, input_cache.objective)
     sparse_array_obj = sparse_array_representation(objective_function, LinearAlgebra.checksquare(Q), index_map)
     dQ = sparse_array_obj.quadratic_terms
     dq = sparse_array_obj.affine_terms
@@ -542,9 +494,9 @@ function forward(model::QPDiff)
     # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
     # multiply by `-1` to transform it to `LessThan` so it cancels out.
     db = zeros(length(b))
-    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model, _QPSets(), db)
+    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model.gradient_cache, input_cache, _QPSets(), db)
     dh = zeros(length(h))
-    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dh)
+    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model.gradient_cache, input_cache, _QPSets(), dh)
 
     nz = nnz(A)
     (lines, cols) = size(A)
@@ -554,7 +506,7 @@ function forward(model::QPDiff)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dAi, dAj, dAv)
+    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, input_cache, _QPSets(), dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     nz = nnz(G)
@@ -565,7 +517,7 @@ function forward(model::QPDiff)
     sizehint!(dGi, nz)
     sizehint!(dGj, nz)
     sizehint!(dGv, nz)
-    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model, _QPSets(), dGi, dGj, dGv)
+    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, input_cache, _QPSets(), dGi, dGj, dGv)
     dG = sparse(dGi, dGj, dGv, lines, cols)
 
 
@@ -692,7 +644,7 @@ function map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.Inde
 end
 
 """
-    forward(model::ConicDiff)
+    forward(model::ConicDiff, input_cache::DiffInputCache)
 
 Method to compute the product of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
@@ -700,7 +652,7 @@ This is similar to [`forward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function forward(model::ConicDiff)
+function forward(model::ConicDiff, input_cache::DiffInputCache)
     M = model.gradient_cache.M
     vp = model.gradient_cache.vp
     Dπv = model.gradient_cache.Dπv
@@ -710,12 +662,12 @@ function forward(model::ConicDiff)
     c = model.gradient_cache.c
     index_map = model.gradient_cache.index_map
 
-    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
+    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, input_cache.objective)
     sparse_array_obj = sparse_array_representation(objective_function, length(c), index_map)
     dc = sparse_array_obj.terms
 
     db = zeros(length(b))
-    _fill(S -> false, model, model.gradient_cache.cones, db)
+    _fill(S -> false, model.gradient_cache, input_cache, model.gradient_cache.cones, db)
     (lines, cols) = size(A)
     nz = nnz(A)
     dAi = zeros(Int, 0)
@@ -724,7 +676,7 @@ function forward(model::ConicDiff)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(S -> false, model, model.gradient_cache.cones, dAi, dAj, dAv)
+    _fill(S -> false, model.gradient_cache, input_cache, model.gradient_cache.cones, dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
@@ -755,18 +707,18 @@ end
 struct _QPSets end
 MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
-function _fill(neg::Function, model::DiffModel, cones, args...)
-    _fill(S -> true, neg, model, cones, args...)
+function _fill(neg::Function, gradient_cache, input_cache, cones, args...)
+    _fill(S -> true, neg, gradient_cache, input_cache, cones, args...)
 end
-function _fill(filter::Function, neg::Function, model::DiffModel, cones, args...)
-    con_map = model.gradient_cache.index_map.con_map
-    var_map = model.gradient_cache.index_map.var_map
+function _fill(filter::Function, neg::Function, gradient_cache, input_cache, cones, args...)
+    con_map = gradient_cache.index_map.con_map
+    var_map = gradient_cache.index_map.var_map
     for (F, S) in keys(con_map.dict)
         filter(S) || continue
         if F == MOI.ScalarAffineFunction{Float64}
-            _fill(args..., neg(S), cones, con_map[F,S], var_map, model.input_cache.scalar_constraints[F,S])
+            _fill(args..., neg(S), cones, con_map[F,S], var_map, input_cache.scalar_constraints[F,S])
         elseif F == MOI.VectorAffineFunction{Float64}
-            _fill(args..., neg(S), cones, con_map[F,S], var_map, model.input_cache.vector_constraints[F,S])
+            _fill(args..., neg(S), cones, con_map[F,S], var_map, input_cache.vector_constraints[F,S])
         end
     end
     return
@@ -804,7 +756,7 @@ This is similar to [`backward`](@ref).
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function backward(model::ConicDiff)
+function backward(model::ConicDiff, input_cache::DiffInputCache)
     M = model.gradient_cache.M
     vp = model.gradient_cache.vp
     Dπv = model.gradient_cache.Dπv
@@ -815,7 +767,7 @@ function backward(model::ConicDiff)
 
     index_map = model.gradient_cache.index_map
     dx = zeros(length(c))
-    for (vi, val) in model.input_cache.dx
+    for (vi, val) in input_cache.dx
         inner_index = index_map[vi].value
         dx[inner_index] = val
     end

@@ -105,6 +105,5 @@ function ConicDiff(model::MOI.ModelLike)
         ),
         nothing,
         nothing,
-        DiffInputCache(),
     )
 end

@@ -32,11 +32,15 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     # TODO Add bridge layer
     diff::Union{Nothing,QPDiff,ConicDiff}
 
+    # sensitivity input cache using MOI like sparse format
+    input_cache::DiffInputCache
+
     function Optimizer(optimizer::OT) where {OT <: MOI.ModelLike}
         new{OT}(
             optimizer,
             AUTOMATIC,
             nothing,
+            DiffInputCache(),
         )
     end
 end
@@ -165,6 +169,7 @@ MOI.get(model::Optimizer, attr::MOI.SolveTimeSec) = MOI.get(model.optimizer, att
 function MOI.empty!(model::Optimizer)
     MOI.empty!(model.optimizer)
     model.diff = nothing
+    empty!(model.input_cache)
     return
 end
 
@@ -428,7 +433,7 @@ The output problem data differentials can be queried with the
 attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
 function backward(model::Optimizer)
-    backward(_diff(model))
+    backward(_diff(model), model.input_cache)
 end
 
 """
@@ -442,7 +447,7 @@ The output solution differentials can be queried with the attribute
 [`ForwardOutVariablePrimal`](@ref).
 """
 function forward(model::Optimizer)
-    forward(_diff(model))
+    forward(_diff(model), model.input_cache)
 end
 
 function _diff(model::Optimizer)
@@ -467,23 +472,68 @@ end
 
 # DiffOpt attributes redirected to `diff`
 
-function MOI.get(model::Optimizer, attr::Union{BackwardOutObjective, ForwardInObjective})
-    return MOI.get(_diff(model), attr)
-end
-function MOI.set(model::Optimizer, attr::ForwardInObjective, value)
-    return MOI.set(_diff(model), attr, value)
-end
-
-function MOI.get(model::Optimizer, attr::Union{ForwardOutVariablePrimal, BackwardInVariablePrimal}, vi::MOI.VariableIndex)
-    return MOI.get(_diff(model), attr, vi)
-end
-function MOI.set(model::Optimizer, attr::BackwardInVariablePrimal, vi::MOI.VariableIndex, value)
-    return MOI.set(_diff(model), attr, vi, value)
+function _checked_diff(model::Optimizer, attr::MOI.AnyAttribute, call)
+    if model.diff === nothing
+        error("Cannot get attribute `attr`. First call `DiffOpt.$call`.")
+    end
+    return model.diff
 end
 
-function MOI.get(model::Optimizer, attr::Union{BackwardOutConstraint, ForwardInConstraint}, ci::MOI.ConstraintIndex)
-    return MOI.get(_diff(model), attr, ci)
+function MOI.get(model::Optimizer, attr::BackwardOutObjective)
+    return MOI.get(_checked_diff(model, attr, :backward), attr)
 end
-function MOI.set(model::Optimizer, attr::ForwardInConstraint, ci::MOI.ConstraintIndex, value)
-    return MOI.set(_diff(model), attr, ci, value)
+function MOI.get(model::Optimizer, ::ForwardInObjective)
+    return model.input_cache.objective
+end
+function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
+    model.input_cache.objective = objective
+    return
+end
+
+function MOI.get(model::Optimizer, attr::ForwardOutVariablePrimal, vi::MOI.VariableIndex)
+    return MOI.get(_checked_diff(model, attr, :forward), attr, vi)
+end
+function MOI.get(model::Optimizer, ::BackwardInVariablePrimal, vi::VI)
+    return get(model.input_cache.dx, vi, 0.0)
+end
+function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
+    model.input_cache.dx[vi] = val
+    return
+end
+
+function MOI.get(model::Optimizer, attr::BackwardOutConstraint, ci::MOI.ConstraintIndex)
+    return MOI.get(_checked_diff(model, attr, :backward), attr, ci)
+end
+function MOI.get(model::Optimizer,
+    ::ForwardInConstraint, ci::CI{MOI.ScalarAffineFunction{T},S}
+) where {T,S}
+    return get(model.input_cache.scalar_constraints, ci, zero(MOI.ScalarAffineFunction{T}))
+end
+function MOI.get(model::Optimizer,
+    ::ForwardInConstraint, ci::CI{MOI.VectorAffineFunction{T},S}
+) where {T,S}
+    func = get(model.input_cache.vector_constraints, ci, nothing)
+    if func === nothing
+        set = MOI.get(model, MOI.ConstraintSet(), ci)
+        dim = MOI.dimension(set)
+        return MOI.Utilities.zero_with_output_dimension(MOI.VectorAffineFunction{T}, dim)
+    else
+        return func
+    end
+end
+function MOI.set(model::Optimizer,
+    ::ForwardInConstraint,
+    ci::CI{MOI.ScalarAffineFunction{T},S},
+    func::MOI.ScalarAffineFunction{T},
+) where {T,S}
+    model.input_cache.scalar_constraints[ci] = func
+    return
+end
+function MOI.set(model::Optimizer,
+    ::ForwardInConstraint,
+    ci::CI{MOI.VectorAffineFunction{T},S},
+    func::MOI.VectorAffineFunction{T},
+) where {T,S}
+    model.input_cache.vector_constraints[ci] = func
+    return
 end

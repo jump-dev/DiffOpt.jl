@@ -56,7 +56,6 @@ function QPDiff(model::MOI.ModelLike)
         ),
         nothing,
         nothing,
-        DiffInputCache(),
     )
 end
 
