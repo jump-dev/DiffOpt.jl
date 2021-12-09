@@ -34,7 +34,7 @@ function matrix_relu(
         @objective(
             model,
             Min,
-            x'x -2x'y[:, i]
+            x'x -2x'y[:, i]  # x' Q x + q'x with Q = I, q = -2y
         )
         optimize!(model)
         _x[:, i] = value.(x)
@@ -65,8 +65,8 @@ function ChainRulesCore.rrule(
                 model,
                 DiffOpt.BackwardOutObjective()
             ) # return gradient wrt objective function parameters
-            dy[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in -2x'y
-            dy[:, i] = -2 * dy[:, i]
+            dq[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in q'x = -2x'y
+            dy[:, i] = -2 * dq[:, i]  # ∵ dq/dy = -2
         end
         return (ChainRulesCore.NoTangent(), dy,)
     end
