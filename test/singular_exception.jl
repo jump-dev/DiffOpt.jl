@@ -44,21 +44,21 @@ MOI.optimize!(model)
 
 @test MOI.get(model, MOI.VariablePrimal(), x) ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
 
-@test model.gradient_cache === nothing
+@test model.diff === nothing
 MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
 DiffOpt.backward(model)
 
 grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
 # grad_wrt_h = backward(model, ["h"], ones(2))[1]
 @test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
-@test model.gradient_cache !== nothing
+@test model.diff !== nothing
 
 # adding two variables invalidates the cache
 y = MOI.add_variables(model, 2)
 for yi in y
     MOI.delete(model, yi)
 end
-@test model.gradient_cache === nothing
+@test model.diff === nothing
 MOI.optimize!(model)
 
 MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
@@ -68,4 +68,4 @@ grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
 
 # grad_wrt_h = backward(model, ["h"], ones(2))[1]
 @test grad_wrt_h ≈ -1.0 atol=1e-3
-@test model.gradient_cache !== nothing
+@test model.diff !== nothing
