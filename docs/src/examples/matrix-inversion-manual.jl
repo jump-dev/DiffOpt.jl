@@ -44,8 +44,8 @@
 # ```math
 # \begin{gather}
 #  \begin{bmatrix} 
-#      Q & G^T \\
-#      \lambda^* G & G x^* - h
+#      Q & g^T \\
+#      \lambda^* g & g x^* - h
 #  \end{bmatrix}
 #  \begin{bmatrix} 
 #      dx \\
@@ -143,10 +143,8 @@ MOI.set(
     model,
     DiffOpt.ForwardInConstraint(),
     cons[1],
-    0.0 * index(x[1]) - 1.0,  # the tangent of the ConstraintFunction, i.e., ∂(Gx - h)/∂h = -1
+    0.0 * index(x[1]) - 1.0,
 )
-
-# Note that `0.0 * index(x[1])` is used to make its type `typeof(0.0 * index(x[1]) - 1.0) <: MOI.AbstractScalarFunction`.
 
 # Compute derivatives
 
@@ -158,7 +156,7 @@ dx = MOI.get.(
     model,
     DiffOpt.ForwardOutVariablePrimal(),
     x,
-)  # ∂x/∂h
+)
 
 using Test                                  #src
 @test dx ≈ [0.25 ,0.75] atol=1e-4 rtol=1e-4 #src
