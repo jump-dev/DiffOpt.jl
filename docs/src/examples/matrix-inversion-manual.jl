@@ -146,7 +146,7 @@ MOI.set(
     0.0 * index(x[1]) - 1.0,  # the tangent of the ConstraintFunction, i.e., ∂(Gx - h)/∂h = -1
 )
 
-# Note that `0.0 * index(x[1])` is used to make its type `MOI.AbstractScalarFunction`.
+# Note that `0.0 * index(x[1])` is used to make its type `typeof(0.0 * index(x[1]) - 1.0) <: MOI.AbstractScalarFunction`.
 
 # Compute derivatives
 
