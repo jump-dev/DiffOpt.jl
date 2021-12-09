@@ -29,8 +29,9 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
 
     program_class::ProgramClassCode
 
-    # TODO Add bridge layer
     diff::Union{Nothing,QPDiff,ConicDiff}
+
+    index_map::Union{Nothing,MOI.Utilities.IndexMap}
 
     # sensitivity input cache using MOI like sparse format
     input_cache::DiffInputCache
@@ -39,6 +40,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
         new{OT}(
             optimizer,
             AUTOMATIC,
+            nothing,
             nothing,
             DiffInputCache(),
         )
@@ -169,6 +171,7 @@ MOI.get(model::Optimizer, attr::MOI.SolveTimeSec) = MOI.get(model.optimizer, att
 function MOI.empty!(model::Optimizer)
     MOI.empty!(model.optimizer)
     model.diff = nothing
+    model.index_map = nothing
     empty!(model.input_cache)
     return
 end
@@ -433,7 +436,17 @@ The output problem data differentials can be queried with the
 attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
 function backward(model::Optimizer)
-    backward(_diff(model), model.input_cache)
+    diff = _diff(model)
+    for (vi, value) in model.input_cache.dx
+        MOI.set(diff, BackwardInVariablePrimal(), model.index_map[vi], value)
+    end
+    backward(diff)
+end
+
+function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
+    for (index, value) in constraints
+        MOI.set(diff, ForwardInConstraint(), con_map[index], MOI.Utilities.map_indices(index_map, value))
+    end
 end
 
 """
@@ -447,17 +460,28 @@ The output solution differentials can be queried with the attribute
 [`ForwardOutVariablePrimal`](@ref).
 """
 function forward(model::Optimizer)
-    forward(_diff(model), model.input_cache)
+    diff = _diff(model)
+    if model.input_cache.objective !== nothing
+        MOI.set(diff, ForwardInObjective(), MOI.Utilities.map_indices(model.index_map, model.input_cache.objective))
+    end
+    for (F, S) in keys(model.input_cache.scalar_constraints.dict)
+        _copy_forward_in_constraint(diff, model.index_map, model.index_map.con_map[F, S], model.input_cache.scalar_constraints[F, S])
+    end
+    for (F, S) in keys(model.input_cache.vector_constraints.dict)
+        _copy_forward_in_constraint(diff, model.index_map, model.index_map.con_map[F, S], model.input_cache.vector_constraints[F, S])
+    end
+    forward(diff)
 end
 
 function _diff(model::Optimizer)
     if model.diff === nothing
         if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-            model.diff = QPDiff(model.optimizer)
+            model.diff = QPDiff()
         else
             _check_termination_status(model)
-            model.diff = ConicDiff(model.optimizer)
+            model.diff = ConicDiff()
         end
+        model.index_map = MOI.copy_to(model.diff, model.optimizer)
     end
     return model.diff
 end
@@ -480,7 +504,10 @@ function _checked_diff(model::Optimizer, attr::MOI.AnyAttribute, call)
 end
 
 function MOI.get(model::Optimizer, attr::BackwardOutObjective)
-    return MOI.get(_checked_diff(model, attr, :backward), attr)
+    return IndexMappedFunction(
+        MOI.get(_checked_diff(model, attr, :backward), attr),
+        model.index_map,
+    )
 end
 function MOI.get(model::Optimizer, ::ForwardInObjective)
     return model.input_cache.objective
@@ -491,7 +518,7 @@ function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
 end
 
 function MOI.get(model::Optimizer, attr::ForwardOutVariablePrimal, vi::MOI.VariableIndex)
-    return MOI.get(_checked_diff(model, attr, :forward), attr, vi)
+    return MOI.get(_checked_diff(model, attr, :forward), attr, model.index_map[vi])
 end
 function MOI.get(model::Optimizer, ::BackwardInVariablePrimal, vi::VI)
     return get(model.input_cache.dx, vi, 0.0)
@@ -502,7 +529,10 @@ function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
 end
 
 function MOI.get(model::Optimizer, attr::BackwardOutConstraint, ci::MOI.ConstraintIndex)
-    return MOI.get(_checked_diff(model, attr, :backward), attr, ci)
+    return IndexMappedFunction(
+        MOI.get(_checked_diff(model, attr, :backward), attr, model.index_map[ci]),
+        model.index_map,
+    )
 end
 function MOI.get(model::Optimizer,
     ::ForwardInConstraint, ci::CI{MOI.ScalarAffineFunction{T},S}

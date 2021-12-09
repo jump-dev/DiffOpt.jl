@@ -18,7 +18,7 @@ const GeometricConicForm{T} = MOI.Utilities.GenericModel{
 }
 
 
-function ConicDiff(model::MOI.ModelLike)
+function MOI.copy_to(dest::ConicDiff, model::MOI.ModelLike)
     # For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 
     vis_src = MOI.get(model, MOI.ListOfVariableIndices())
@@ -91,19 +91,16 @@ function ConicDiff(model::MOI.ModelLike)
     # find projections on dual of the cones
     vp = π(v, model, cones, index_map)
 
-    return ConicDiff(
-        ConicCache(
-            M = M,
-            vp = vp,
-            Dπv = Dπv,
-            xys = (x, y, s),
-            A = A,
-            b = b,
-            c = c,
-            index_map = index_map,
-            cones = cones,
-        ),
-        nothing,
-        nothing,
+    dest.gradient_cache = ConicCache(
+        M = M,
+        vp = vp,
+        Dπv = Dπv,
+        xys = (x, y, s),
+        A = A,
+        b = b,
+        c = c,
+        cones = cones,
     )
+
+    return index_map
 end
