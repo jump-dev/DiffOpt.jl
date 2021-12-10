@@ -34,7 +34,7 @@ function matrix_relu(
         @objective(
             model,
             Min,
-            x'x -2x'y[:, i]  # x' Q x + q'x with Q = I, q = -2y
+            x'x -2y[:, i]'x  # x' Q x + q'x with Q = I, q = -2y
         )
         optimize!(model)
         _x[:, i] = value.(x)
