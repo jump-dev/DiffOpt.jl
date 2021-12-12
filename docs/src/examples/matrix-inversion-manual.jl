@@ -143,7 +143,7 @@ MOI.set(
     model,
     DiffOpt.ForwardInConstraint(),
     cons[1],
-    0.0 * index(x[1]) - 1.0,
+    0.0 * index(x[1]) - 1.0,  # to indicate the direction vector to get directional derivatives
 )
 
 # Note that `0.0 * index(x[1])` is used to make its type `typeof(0.0 * index(x[1]) - 1.0) <: MOI.AbstractScalarFunction`.
