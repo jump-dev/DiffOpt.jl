@@ -146,6 +146,9 @@ MOI.set(
     0.0 * index(x[1]) - 1.0,
 )
 
+# Note that `0.0 * index(x[1])` is used to make its type `typeof(0.0 * index(x[1]) - 1.0) <: MOI.AbstractScalarFunction`.
+# To indicate different direction to get directional derivative, users should replace `0.0 * index(x[1]) - 1.0` as the form of `dG*x - dh`, where `dG` and `dh` correspond to the elements of direction vectors along `G` and `h` axes, respectively.
+
 # Compute derivatives
 
 DiffOpt.forward(model)
