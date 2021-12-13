@@ -75,15 +75,7 @@ function ChainRulesCore.rrule(
     return pv, pullback_matrix_relu
 end
 
-# The line, `dy[:, i] = -2 * dq[:, i]` might be really confusing as
-# ```math
-# q = -2y.
-# ```
-# However, the `dfoo` in pullback refers to `dl/dfoo` for some output `l`, for example, a loss.
-# That is, `dy` actually means `dl/dy`, and therefore `dl/dy = dl/dq * dq/dy = dl/dq * (-2)` is correct
-# For more details, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
-
-
+# For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
 # ## prepare data
 imgs = Flux.Data.MNIST.images()
 labels = Flux.Data.MNIST.labels();
