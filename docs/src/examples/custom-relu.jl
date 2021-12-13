@@ -50,7 +50,8 @@ function ChainRulesCore.rrule(
     model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
 ) where T
     pv = matrix_relu(y, model = model)
-    function pullback_matrix_relu(dx)
+    function pullback_matrix_relu(dl_dx)
+    # some value from the backpropagation (e.g., loss) is denoted by `l`
         x = model[:x]
         dl_dy = zeros(T, size(dl_dx))
         dl_dq = zeros(T, size(dl_dx))  # for step-by-step explanation
