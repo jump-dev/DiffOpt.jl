@@ -67,8 +67,8 @@ function ChainRulesCore.rrule(
                 model,
                 DiffOpt.BackwardOutObjective()
             ) # return gradient wrt objective function parameters
-            dq[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in q'x = -2y'x
-            dy[:, i] = -2 * dq[:, i]  # ∵ dq/dy = -2
+            dl_dq[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in q'x = -2y'x
+            dl_dy[:, i] = -2 * dl_dq[:, i]  # ∵ dq/dy = -2
         end
         return (ChainRulesCore.NoTangent(), dy,)
     end
