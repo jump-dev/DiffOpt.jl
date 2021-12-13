@@ -44,8 +44,8 @@
 # ```math
 # \begin{gather}
 #  \begin{bmatrix} 
-#      Q & g^T \\
-#      \lambda^* g & g x^* - h
+#      Q & G^T \\
+#      \lambda^* G & G x^* - h
 #  \end{bmatrix}
 #  \begin{bmatrix} 
 #      dx \\
@@ -143,8 +143,11 @@ MOI.set(
     model,
     DiffOpt.ForwardInConstraint(),
     cons[1],
-    0.0 * index(x[1]) - 1.0,
+    0.0 * index(x[1]) - 1.0,  # to indicate the direction vector to get directional derivatives
 )
+
+# Note that `0.0 * index(x[1])` is used to make its type `typeof(0.0 * index(x[1]) - 1.0) <: MOI.AbstractScalarFunction`.
+# To indicate different direction to get directional derivative, users should replace `0.0 * index(x[1]) - 1.0` as the form of `dG*x - dh`, where `dG` and `dh` correspond to the elements of direction vectors along `G` and `h` axes, respectively.
 
 # Compute derivatives
 
@@ -156,7 +159,7 @@ dx = MOI.get.(
     model,
     DiffOpt.ForwardOutVariablePrimal(),
     x,
-)
+)  # ∂x/∂h
 
 using Test                                  #src
 @test dx ≈ [0.25 ,0.75] atol=1e-4 rtol=1e-4 #src

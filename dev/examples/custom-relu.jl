@@ -64,7 +64,7 @@ function ChainRulesCore.rrule(
             obj_exp = MOI.get(
                 model,
                 DiffOpt.BackwardOutObjective()
-            ) # return grdiente wrt objective function parameters
+            ) # return gradient wrt objective function parameters
             dy[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in -2x'y
             dy[:, i] = -2 * dy[:, i]
         end
@@ -135,4 +135,4 @@ accuracy(test_X, test_Y)
 
 # Note that the accuracy is low due to simplified training.
 # It is possible to increase the number of samples `N`,
-# the number of epochs `epoch` and teh conectivity `inner`.
+# the number of epochs `epoch` and the connectivity `inner`.
