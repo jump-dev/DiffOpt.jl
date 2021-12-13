@@ -70,7 +70,7 @@ function ChainRulesCore.rrule(
             dl_dq[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in q'x = -2y'x
             dl_dy[:, i] = -2 * dl_dq[:, i]  # ∵ dq/dy = -2
         end
-        return (ChainRulesCore.NoTangent(), dy,)
+        return (ChainRulesCore.NoTangent(), dl_dy,)
     end
     return pv, pullback_matrix_relu
 end
