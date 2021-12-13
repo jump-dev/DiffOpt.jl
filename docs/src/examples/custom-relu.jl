@@ -52,8 +52,8 @@ function ChainRulesCore.rrule(
     pv = matrix_relu(y, model = model)
     function pullback_matrix_relu(dx)
         x = model[:x]
-        dy = zeros(T, size(dx))
-        dq = zeros(T, size(dx))  # for step-by-step explanation
+        dl_dy = zeros(T, size(dl_dx))
+        dl_dq = zeros(T, size(dl_dx))  # for step-by-step explanation
         for i in 1:size(y)[2]
             MOI.set.(
                 model,
