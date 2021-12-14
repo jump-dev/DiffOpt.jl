@@ -30,7 +30,7 @@ function matrix_relu(
     empty!(model)
     set_silent(model)
     @variable(model, x[1:N] >= 0)
-    for i in 1:size(y)[2]
+    for i in 1:size(y, 2)
         @objective(
             model,
             Min,
@@ -51,16 +51,17 @@ function ChainRulesCore.rrule(
 ) where T
     pv = matrix_relu(y, model = model)
     function pullback_matrix_relu(dl_dx)
-    # some value from the backpropagation (e.g., loss) is denoted by `l`
-        x = model[:x]
+        # some value from the backpropagation (e.g., loss) is denoted by `l`
+        # so `dl_dy` is the derivative of `l` wrt `y`
+        x = model[:x] # load decision variable `x` into scope
         dl_dy = zeros(T, size(dl_dx))
-        dl_dq = zeros(T, size(dl_dx))  # for step-by-step explanation
-        for i in 1:size(y)[2]
+        dl_dq = zeros(T, size(dl_dx)) # for step-by-step explanation
+        for i in 1:size(y, 2)
             MOI.set.(
                 model,
                 DiffOpt.BackwardInVariablePrimal(),
                 x,
-                dx[:, i]
+                dl_dx[:, i]
             ) # set sensitivities
             DiffOpt.backward(model) # compute grad
             obj_exp = MOI.get(
@@ -68,7 +69,8 @@ function ChainRulesCore.rrule(
                 DiffOpt.BackwardOutObjective()
             ) # return gradient wrt objective function parameters
             dl_dq[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in q'x = -2y'x
-            dl_dy[:, i] = -2 * dl_dq[:, i]  # ∵ dq/dy = -2
+            dq_dy = -2 # ∵ dq/dy = -2
+            dl_dy[:, i] = dl_dq[:, i] * dq_dy
         end
         return (ChainRulesCore.NoTangent(), dl_dy,)
     end
