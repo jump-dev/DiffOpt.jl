@@ -44,7 +44,7 @@
 # ```math
 # \begin{gather}
 #  \begin{bmatrix} 
-#      Q & G^T \\
+#      Q & g^T \\
 #      \lambda^* G & G x^* - h
 #  \end{bmatrix}
 #  \begin{bmatrix} 
@@ -159,7 +159,7 @@ dx = MOI.get.(
     model,
     DiffOpt.ForwardOutVariablePrimal(),
     x,
-)  # ∂x/∂h
+)
 
 using Test                                  #src
 @test dx ≈ [0.25 ,0.75] atol=1e-4 rtol=1e-4 #src

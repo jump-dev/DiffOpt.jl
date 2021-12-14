@@ -14,11 +14,11 @@ import Base.Iterators: repeated</code></pre><h2 id="The-ReLU-and-its-derivative"
     empty!(model)
     set_silent(model)
     @variable(model, x[1:N] &gt;= 0)
-    for i in 1:size(y)[2]
+    for i in 1:size(y, 2)
         @objective(
             model,
             Min,
-            x&#39;x -2x&#39;y[:, i]
+            x&#39;x -2y[:, i]&#39;x  # x&#39; Q x + q&#39;x with Q = I, q = -2y
         )
         optimize!(model)
         _x[:, i] = value.(x)
@@ -30,28 +30,32 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
     model = Model(() -&gt; DiffOpt.diff_optimizer(OSQP.Optimizer))
 ) where T
     pv = matrix_relu(y, model = model)
-    function pullback_matrix_relu(dx)
-        x = model[:x]
-        dy = zeros(T, size(dx))
-        for i in 1:size(y)[2]
+    function pullback_matrix_relu(dl_dx)
+        # some value from the backpropagation (e.g., loss) is denoted by `l`
+        # so `dl_dy` is the derivative of `l` wrt `y`
+        x = model[:x] # load decision variable `x` into scope
+        dl_dy = zeros(T, size(dl_dx))
+        dl_dq = zeros(T, size(dl_dx)) # for step-by-step explanation
+        for i in 1:size(y, 2)
             MOI.set.(
                 model,
                 DiffOpt.BackwardInVariablePrimal(),
                 x,
-                dx[:, i]
+                dl_dx[:, i]
             ) # set sensitivities
             DiffOpt.backward(model) # compute grad
             obj_exp = MOI.get(
                 model,
                 DiffOpt.BackwardOutObjective()
             ) # return gradient wrt objective function parameters
-            dy[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in -2x&#39;y
-            dy[:, i] = -2 * dy[:, i]
+            dl_dq[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in q&#39;x = -2y&#39;x
+            dq_dy = -2 # ∵ dq/dy = -2
+            dl_dy[:, i] = dl_dq[:, i] * dq_dy
         end
-        return (ChainRulesCore.NoTangent(), dy,)
+        return (ChainRulesCore.NoTangent(), dl_dy,)
     end
     return pv, pullback_matrix_relu
-end</code></pre><h2 id="prepare-data"><a class="docs-heading-anchor" href="#prepare-data">prepare data</a><a id="prepare-data-1"></a><a class="docs-heading-anchor-permalink" href="#prepare-data" title="Permalink"></a></h2><pre><code class="language-julia hljs">imgs = Flux.Data.MNIST.images()
+end</code></pre><p>For more details about backpropagation, visit <a href="https://juliadiff.org/ChainRulesCore.jl/dev/">Introduction, ChainRulesCore.jl</a>.</p><h2 id="prepare-data"><a class="docs-heading-anchor" href="#prepare-data">prepare data</a><a id="prepare-data-1"></a><a class="docs-heading-anchor-permalink" href="#prepare-data" title="Permalink"></a></h2><pre><code class="language-julia hljs">imgs = Flux.Data.MNIST.images()
 labels = Flux.Data.MNIST.labels();</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Flux&#39;s datasets are deprecated, please use the package MLDatasets.jl
 └ @ Flux.Data ~/.julia/packages/Flux/BPPNj/src/data/Data.jl:16
 ┌ Warning: Flux&#39;s datasets are deprecated, please use the package MLDatasets.jl
@@ -83,5 +87,5 @@ m = Flux.Chain(
 
 dataset = repeated((train_X, train_Y), epochs);</code></pre><p>Parameters for the network training</p><pre><code class="language-julia hljs">custom_loss(x, y) = Flux.crossentropy(m(x), y) # training loss function
 opt = Flux.ADAM(); # stochastic gradient descent variant to optimize weights of the neral network
-evalcb = () -&gt; @show(custom_loss(X, Y)); # callback to show loss</code></pre><p>Train to optimize network parameters</p><pre><code class="language-julia hljs">@time Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">custom_loss(X, Y) = 2.2948543520580995
- 53.690582 seconds (75.96 M allocations: 6.852 GiB, 4.39% gc time, 1.63% compilation time)</code></pre><p>Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.</p><pre><code class="language-julia hljs">accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y)); # average of correct guesses</code></pre><p>Train accuracy</p><pre><code class="language-julia hljs">accuracy(train_X, train_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.122</code></pre><p>Test accuracy</p><pre><code class="language-julia hljs">accuracy(test_X, test_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.1446</code></pre><p>Note that the accuracy is low due to simplified training. It is possible to increase the number of samples <code>N</code>, the number of epochs <code>epoch</code> and the connectivity <code>inner</code>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../chainrules_unit/">« ChainRules integration demo: Relaxed Unit Commitment</a><a class="docs-footer-nextpage" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.10 on <span class="colophon-date" title="Monday 13 December 2021 18:36">Monday 13 December 2021</span>. Using Julia version 1.7.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+evalcb = () -&gt; @show(custom_loss(X, Y)); # callback to show loss</code></pre><p>Train to optimize network parameters</p><pre><code class="language-julia hljs">@time Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">custom_loss(X, Y) = 2.28660613402327
+ 56.874446 seconds (68.16 M allocations: 6.213 GiB, 3.67% gc time, 1.55% compilation time)</code></pre><p>Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.</p><pre><code class="language-julia hljs">accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y)); # average of correct guesses</code></pre><p>Train accuracy</p><pre><code class="language-julia hljs">accuracy(train_X, train_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.168</code></pre><p>Test accuracy</p><pre><code class="language-julia hljs">accuracy(test_X, test_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.1874</code></pre><p>Note that the accuracy is low due to simplified training. It is possible to increase the number of samples <code>N</code>, the number of epochs <code>epoch</code> and the connectivity <code>inner</code>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../chainrules_unit/">« ChainRules integration demo: Relaxed Unit Commitment</a><a class="docs-footer-nextpage" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.10 on <span class="colophon-date" title="Tuesday 14 December 2021 05:00">Tuesday 14 December 2021</span>. Using Julia version 1.7.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
