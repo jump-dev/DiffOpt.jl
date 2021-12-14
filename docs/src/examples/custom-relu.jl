@@ -51,8 +51,8 @@ function ChainRulesCore.rrule(
 ) where T
     pv = matrix_relu(y, model = model)
     function pullback_matrix_relu(dl_dx)
-        # # some value from the backpropagation (e.g., loss) is denoted by `l`
-        # # so `dl_dy` is the derivative of `l` wrt `y`
+        ## some value from the backpropagation (e.g., loss) is denoted by `l`
+        ## so `dl_dy` is the derivative of `l` wrt `y`
         x = model[:x] # load decision variable `x` into scope
         dl_dy = zeros(T, size(dl_dx))
         dl_dq = zeros(T, size(dl_dx)) # for step-by-step explanation
