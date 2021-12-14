@@ -45,7 +45,7 @@
 # \begin{gather}
 #  \begin{bmatrix} 
 #      Q & g^T \\
-#      \lambda^* g & g x^* - h
+#      \lambda^* G & G x^* - h
 #  \end{bmatrix}
 #  \begin{bmatrix} 
 #      dx \\
