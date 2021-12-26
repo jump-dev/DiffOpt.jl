@@ -29,11 +29,9 @@ Base.@kwdef struct ConicCache
     M::SparseMatrixCSC{Float64, Int}
     vp::Vector
     Dπv::BlockDiagonals.BlockDiagonal{Float64, Matrix{Float64}}
-    xys::NTuple{3, Vector{Float64}}
     A::SparseMatrixCSC{Float64, Int}
     b::Vector{Float64}
     c::Vector{Float64}
-    cones::ProductOfSets{Float64}
 end
 
 Base.@kwdef struct QPForwBackCache
@@ -230,27 +228,6 @@ function QPDiff()
     return QPDiff(nothing, nothing, nothing, DiffInputCache())
 end
 
-mutable struct ConicDiff <: DiffModel
-    # storage for problem data in matrix form
-    # includes maps from matrix indices to problem data held in `optimizer`
-    # also includes KKT matrices
-    # also includes the solution
-    gradient_cache::Union{Nothing,ConicCache}
-
-    # caches for sensitivity output
-    # result from solving KKT/residualmap linear systems
-    # this allows keeping the same `gradient_cache`
-    # if only sensitivy input changes
-    forw_grad_cache::Union{Nothing,ConicForwCache}
-    back_grad_cache::Union{Nothing,ConicBackCache}
-
-    # sensitivity input cache using MOI like sparse format
-    input_cache::DiffInputCache
-end
-function ConicDiff()
-    return ConicDiff(nothing, nothing, nothing, DiffInputCache())
-end
-
 function MOI.set(model::DiffModel, ::ForwardInObjective, objective)
     model.input_cache.objective = objective
     return
@@ -276,19 +253,8 @@ function MOI.set(model::DiffModel,
     return
 end
 
-function MOI.get(model::DiffModel, ::ForwardOutVariablePrimal, vi::VI)
-    return _get_dx(model, vi)
-end
-_get_dx(model::DiffModel, vi) = _get_dx(model.forw_grad_cache, model.gradient_cache, vi)
-function _get_dx(cache::QPForwBackCache, g_cache::QPCache, vi)
-    return cache.dz[vi.value]
-end
-function _get_dx(f_cache::ConicForwCache, g_cache::ConicCache, vi)
-    i = vi.value
-    du = f_cache.du
-    dw = f_cache.dw
-    x = g_cache.xys[1]
-    return - (du[i] - x[i] * dw[])
+function MOI.get(model::QPDiff, ::ForwardOutVariablePrimal, vi::VI)
+    return model.forw_grad_cache.dz[vi.value]
 end
 
 function lazy_combination(op::F, α, a, β, b) where {F<:Function}
@@ -340,31 +306,7 @@ _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
 function MOI.get(model::DiffModel, ::BackwardOutConstraint, ci::CI)
     return _lazy_affine(_get_dA(model, ci), _get_db(model, ci))
 end
-_get_db(model::DiffModel, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
-function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
-) where {F<:MOI.AbstractVectorFunction,S}
-    cf = g_cache.cones
-    i = MOI.Utilities.rows(cf, ci) # vector
-    # i = ci.value
-    (x, _, _) = g_cache.xys
-    n = length(x) # columns in A
-    # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
-    g = b_cache.g
-    πz = b_cache.πz
-    return lazy_combination(-, πz, g, length(g), n .+ i)
-end
-function _get_db(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
-) where {F<:MOI.AbstractScalarFunction,S}
-    i = ci.value
-    (x, _, _) = g_cache.xys
-    n = length(x) # columns in A
-    # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
-    g = b_cache.g
-    πz = b_cache.πz
-    dQ_ni_end = - g[n+i] * πz[end]
-    dQ_end_ni = - g[end] * πz[n+i]
-    return - dQ_ni_end + dQ_end_ni
-end
+_get_db(model::QPDiff, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
 _neg_if_gt(x, ::Type{<:MOI.LessThan}) = x
 _neg_if_gt(x, ::Type{<:MOI.GreaterThan}) = -x
 function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
@@ -382,32 +324,7 @@ function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     return dν[i]
 end
 
-_get_dA(model::DiffModel, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, ci)
-function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
-) where {F<:MOI.AbstractScalarFunction,S}
-    j = vi.value
-    i = ci.value
-    (x, y, _) = g_cache.xys
-    n = length(x) # columns in A
-    m = length(y) # lines in A
-    # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
-    g = b_cache.g
-    πz = b_cache.πz
-    return lazy_combination(-, g, πz, i, n .+ (1:n))
-end
-function _get_dA(b_cache::ConicBackCache, g_cache::ConicCache, ci::CI{F,S}
-) where {F<:MOI.AbstractVectorFunction,S}
-    cf = g_cache.cones
-    i = MOI.Utilities.rows(cf, ci) # vector
-    # i = ci.value
-    (x, y, _) = g_cache.xys
-    n = length(x) # columns in A
-    m = length(y) # lines in A
-    # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
-    g = b_cache.g
-    πz = b_cache.πz
-    return lazy_combination(-, g, πz, i, n .+ (1:n))
-end
+_get_dA(model::QPDiff, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, ci)
 # quadratic matrix indexes are split by type either == or (<=/>=)
 function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
 ) where {F, S<:MOI.EqualTo}
@@ -575,14 +492,13 @@ _linsolve(A, b::SparseVector) = A \ Vector(b)
 """
     π(v::Vector{Float64}, model::MOI.ModelLike, cones::ProductOfSets)
 
-Given a `model`, its `cones` and the `index_map` from the indices of
-`model` to the indices of `cones`, find the projection of the vectors `v`
+Given a `model`, its `cones`, find the projection of the vectors `v`
 of length equal to the number of rows in the conic form onto the cartesian
 product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function π(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets, index_map::MOIU.IndexMap) where T
-    return map_rows(model, cones, index_map, Flattened{T}()) do ci, r
+function π(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets) where T
+    return map_rows(model, cones, Flattened{T}()) do ci, r
         MOSD.projection_on_set(
             MOSD.DefaultDistance(),
             v[r],
@@ -593,17 +509,16 @@ end
 
 
 """
-    Dπ(v::Vector{Float64}, model, cones::ProductOfSets, index_map::MOIU.IndexMap)
+    Dπ(v::Vector{Float64}, model, cones::ProductOfSets)
 
-Given a `model`, its `cones` and the `index_map` from the indices of
-`model` to the indices of `cones`, find the gradient of the projection of
+Given a `model`, its `cones`, find the gradient of the projection of
 the vectors `v` of length equal to the number of rows in the conic form onto the
 cartesian product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function Dπ(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets, index_map::MOIU.IndexMap) where T
+function Dπ(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets) where T
     return BlockDiagonals.BlockDiagonal(
-        map_rows(model, cones, index_map, Nested{Matrix{T}}()) do ci, r
+        map_rows(model, cones, Nested{Matrix{T}}()) do ci, r
             MOSD.projection_gradient_on_set(
                 MOSD.DefaultDistance(),
                 v[r],
@@ -627,9 +542,9 @@ function _assign_mapped!(x, y, r, k, ::Flattened)
 end
 
 # Map the rows corresponding to `F`-in-`S` constraints and store it in `x`.
-function _map_rows!(f::Function, x::Vector, model, cones::ProductOfSets, index_map::MOIU.DoubleDicts.IndexDoubleDictInner{F, S}, map_mode, k) where {F, S}
+function _map_rows!(f::Function, x::Vector, model, cones::ProductOfSets, ::Type{F}, ::Type{S}, map_mode, k) where {F, S}
     for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
-        r = MOI.Utilities.rows(cones, index_map[ci])
+        r = MOI.Utilities.rows(cones, ci)
         k += 1
         _assign_mapped!(x, f(ci, r), r, k, map_mode)
     end
@@ -641,17 +556,16 @@ _allocate_rows(cones, ::Nested{T}) where {T} = Vector{T}(undef, length(cones.dim
 _allocate_rows(cones, ::Flattened{T}) where {T} = Vector{T}(undef, MOI.dimension(cones))
 
 """
-    map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.IndexMap, map_mode::Union{Nested{T}, Flattened{T}})
+    map_rows(f::Function, model, cones::ProductOfSets, map_mode::Union{Nested{T}, Flattened{T}})
 
-Given a `model`, its `cones`, the `index_map` from the indices of `model`
-to the indices of `cones` and `map_mode` of type `Nested` (resp.
+Given a `model`, its `cones` and `map_mode` of type `Nested` (resp.
 `Flattened`), return a `Vector{T}` of length equal to the number of cones (resp.
 rows) in the conic form where the value for the index (resp. rows) corresponding
 to each cone is equal to `f(ci, r)` where `ci` is the corresponding constraint
 index in `model` and `r` is a `UnitRange` of the corresponding rows in the conic
 form.
 """
-function map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.IndexMap, map_mode::Union{Nested, Flattened})
+function map_rows(f::Function, model, cones::ProductOfSets, map_mode::Union{Nested, Flattened})
     x = _allocate_rows(cones, map_mode)
     k = 0
     for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
@@ -661,68 +575,9 @@ function map_rows(f::Function, model, cones::ProductOfSets, index_map::MOIU.Inde
         # If we have a small number of different constraint types and many
         # constraint of each type, this mostly removes type unstabilities
         # as most the time is in `_map_rows!` which is type stable.
-        k = _map_rows!(f, x, model, cones, index_map.con_map[F, S], map_mode, k)
+        k = _map_rows!(f, x, model, cones, F, S, map_mode, k)
     end
     return x
-end
-
-"""
-    forward(model::ConicDiff)
-
-Method to compute the product of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
-This is similar to [`forward`](@ref).
-
-For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
-"""
-function forward(model::ConicDiff)
-    M = model.gradient_cache.M
-    vp = model.gradient_cache.vp
-    Dπv = model.gradient_cache.Dπv
-    (x, y, s) = model.gradient_cache.xys
-    A = model.gradient_cache.A
-    b = model.gradient_cache.b
-    c = model.gradient_cache.c
-
-    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
-    sparse_array_obj = sparse_array_representation(objective_function, length(c))
-    dc = sparse_array_obj.terms
-
-    db = zeros(length(b))
-    _fill(S -> false, model.gradient_cache, model.input_cache, model.gradient_cache.cones, db)
-    (lines, cols) = size(A)
-    nz = nnz(A)
-    dAi = zeros(Int, 0)
-    dAj = zeros(Int, 0)
-    dAv = zeros(Float64, 0)
-    sizehint!(dAi, nz)
-    sizehint!(dAj, nz)
-    sizehint!(dAv, nz)
-    _fill(S -> false, model.gradient_cache, model.input_cache, model.gradient_cache.cones, dAi, dAj, dAv)
-    dA = sparse(dAi, dAj, dAv, lines, cols)
-
-    m = size(A, 1)
-    n = size(A, 2)
-    N = m + n + 1
-    # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-    (u, v, w) = (x, y - s, 1.0)
-
-    # g = dQ * Π(z/|w|) = dQ * [u, vp, 1.0]
-    RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u - db ⋅ vp]
-
-    dz = if norm(RHS) <= 1e-400 # TODO: parametrize or remove
-        RHS .= 0 # because M is square
-    else
-        lsqr(M, RHS)
-    end
-
-    du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
-    model.forw_grad_cache = ConicForwCache(du, dv, [dw])
-    return nothing
-    # dx = du - x * dw
-    # dy = Dπv * dv - y * dw
-    # ds = Dπv * dv - dv - s * dw
-    # return -dx, -dy, -ds
 end
 
 # Just a hack that will be removed once we use `MOIU.MatrixOfConstraints`
@@ -766,66 +621,15 @@ function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, te
     _push_term(I, J, V, neg, r[term.output_index], term.scalar_term)
 end
 
-"""
-    backward(model::ConicDiff)
 
-Method to compute the product of the transpose of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c`  to the perturbations `dx`, `dy`, `ds`.
-This is similar to [`backward`](@ref).
+function MOI.supports(model::DiffModel, attr::MOI.AbstractModelAttribute)
+    return MOI.supports(model.model, attr)
+end
 
-For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
-"""
-function backward(model::ConicDiff)
-    M = model.gradient_cache.M
-    vp = model.gradient_cache.vp
-    Dπv = model.gradient_cache.Dπv
-    (x, y, s) = model.gradient_cache.xys
-    A = model.gradient_cache.A
-    b = model.gradient_cache.b
-    c = model.gradient_cache.c
+function MOI.set(model::DiffModel, attr::MOI.AbstractModelAttribute, value)
+    MOI.set(model.model, attr, value)
+end
 
-    dx = zeros(length(c))
-    for (vi, value) in model.input_cache.dx
-        dx[vi.value] = value
-    end
-    dy = zeros(length(b))
-    ds = zeros(length(b))
-
-    m = size(A, 1)
-    n = size(A, 2)
-    N = m + n + 1
-    # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-    (u, v, w) = (x, y - s, 1.0)
-
-    # dz = D \phi (z)^T (dx,dy,dz)
-    dz = [
-        dx
-        Dπv' * (dy + ds) - ds
-        - x' * dx - y' * dy - s' * ds
-    ]
-
-    g = if norm(dz) <= 1e-4 # TODO: parametrize or remove
-        dz .= 0 # because M is square
-    else
-        lsqr(M, dz)
-    end
-
-    πz = [
-        u
-        vp
-        1.0
-    ]
-
-    # TODO: very important
-    # contrast with:
-    # http://reports-archive.adm.cs.cmu.edu/anon/2019/CMU-CS-19-109.pdf
-    # pg 97, cap 7.4.2
-
-    model.back_grad_cache = ConicBackCache(g, πz)
-    return nothing
-    # dQ = - g * πz'
-    # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
-    # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
-    # dc = - dQ[1:n, end] + dQ[end, 1:n]'
-    # return dA, db, dc
+function MOI.get(model::DiffModel, attr::MOI.AbstractModelAttribute)
+    return MOI.get(model.model, attr)
 end
