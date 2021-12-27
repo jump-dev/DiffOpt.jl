@@ -34,6 +34,8 @@ jobs:
             ${{ runner.os }}-
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true # For MLDatasets.MNIST
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v1
         with:
@@ -54,6 +56,8 @@ jobs:
       - shell: bash
         run: julia --project=docs -e "using Pkg; Pkg.instantiate()"
       - shell: bash
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true # For MLDatasets.MNIST
         run: |
           julia --project=docs -e '
             using Documenter: doctest
@@ -61,5 +65,6 @@ jobs:
             doctest(DiffOpt)'
       - run: julia --project=docs docs/make.jl
         env:
+          DATADEPS_ALWAYS_ACCEPT: true # For MLDatasets.MNIST
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
