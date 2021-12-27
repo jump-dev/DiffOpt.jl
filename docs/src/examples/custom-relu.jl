@@ -117,7 +117,7 @@ dataset = repeated((train_X, train_Y), epochs);
 
 custom_loss(x, y) = Flux.crossentropy(m(x), y) # training loss function
 opt = Flux.ADAM(); # stochastic gradient descent variant to optimize weights of the neral network
-evalcb = () -> @show(custom_loss(X, Y)); # callback to show loss
+evalcb = () -> @show(custom_loss(train_X, train_Y)); # callback to show loss
 
 # Train to optimize network parameters
 
