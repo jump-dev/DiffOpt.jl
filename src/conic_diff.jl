@@ -92,15 +92,6 @@ function MOI.add_constraint(model::ConicDiff, func::MOI.AbstractFunction, set::M
     return MOI.add_constraint(model.model, func, set)
 end
 
-function MOI.copy_to(dest::ConicDiff, model::MOI.ModelLike)
-
-    cone_types = unique!([S for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())])
-    set_set_types(dest.model.constraints.sets, cone_types)
-    index_map = MOI.copy_to(dest.model, model)
-
-    return index_map
-end
-
 function _enlarge_set(vec::Vector, idx, value)
     m = last(idx)
     if length(vec) < m
@@ -342,27 +333,6 @@ function _get_db(model::ConicDiff, ci::CI{F,S}
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
     return lazy_combination(-, πz, g, length(g), n .+ i)
-end
-function _get_db(model::ConicDiff, ci::CI{F,S}
-) where {F<:MOI.AbstractScalarFunction,S}
-    i = ci.value
-    n = length(model.x) # columns in A
-    # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
-    g = model.back_grad_cache.g
-    πz = model.back_grad_cache.πz
-    dQ_ni_end = - g[n+i] * πz[end]
-    dQ_end_ni = - g[end] * πz[n+i]
-    return - dQ_ni_end + dQ_end_ni
-end
-function _get_dA(model::ConicDiff, ci::CI{<:MOI.AbstractScalarFunction})
-    j = vi.value
-    i = ci.value
-    n = length(model.x) # columns in A
-    m = length(model.y) # lines in A
-    # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
-    g = model.back_grad_cache.g
-    πz = model.back_grad_cache.πz
-    return lazy_combination(-, g, πz, i, n .+ (1:n))
 end
 function _get_dA(model::ConicDiff, ci::CI{<:MOI.AbstractVectorFunction})
     i = MOI.Utilities.rows(model.model.constraints, ci) # vector
