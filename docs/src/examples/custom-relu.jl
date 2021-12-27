@@ -79,20 +79,18 @@ end
 
 # For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
 # ## prepare data
-imgs = Flux.Data.MNIST.images()
-labels = Flux.Data.MNIST.labels();
+import MLDatasets
+N = 1000
+imgs = MLDatasets.MNIST.traintensor(1:N)
+labels = MLDatasets.MNIST.trainlabels(1:N);
 
 # Preprocessing
-X = hcat(float.(reshape.(imgs, :))...) #stack all the images
-Y = Flux.onehotbatch(labels, 0:9); # just a common way to encode categorical variables
+train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), N)) #stack all the images
+train_Y = Flux.onehotbatch(labels, 0:9); # just a common way to encode categorical variables
 
-N = 1000
-
-train_X = X[:, 1:N]
-train_Y = Y[:, 1:N]
-
-test_X = hcat(float.(reshape.(Flux.Data.MNIST.images(:test), :))...)
-test_Y = Flux.onehotbatch(Flux.Data.MNIST.labels(:test), 0:9);
+test_imgs = MLDatasets.MNIST.testtensor(1:N)
+test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), N))
+test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:N), 0:9);
 
 # ## Define the Network
 
