@@ -596,5 +596,5 @@ function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
     λ = g_cache.inequality_duals
     dλ = b_cache.dλ
     l = _neg_if_gt(λ[i], S)
-    return lazy_combination(+, l * dλ[i], z, l * λ[i], dz)
+    return lazy_combination(+, l * dλ[i], z, l, dz)
 end
