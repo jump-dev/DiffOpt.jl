@@ -7,18 +7,6 @@ Currently supports differentiating linear and quadratic programs only.
 """
 
 Base.@kwdef struct QPCache
-    problem_data::Tuple{
-        SparseArrays.SparseMatrixCSC{Float64,Int64}, Vector{Float64}, # Q, q
-        SparseArrays.SparseMatrixCSC{Float64,Int64}, Vector{Float64}, # G, h
-        SparseArrays.SparseMatrixCSC{Float64,Int64}, Vector{Float64}, # A, b
-        Int, Vector{VI}, # nz, var_list
-        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}}, # nineq_le, le_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}}, # nineq_ge, ge_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.VariableIndex, MOI.LessThan{Float64}}}, # nineq_sv_le, le_con_sv_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.VariableIndex, MOI.GreaterThan{Float64}}}, # nineq_sv_ge, ge_con_sv_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}}, # neq, eq_con_idx
-        Int, Vector{MOI.ConstraintIndex{MOI.VariableIndex, MOI.EqualTo{Float64}}}, # neq_sv, eq_con_sv_idx
-    }
     inequality_duals::Vector{Float64}
     equality_duals::Vector{Float64}
     var_primals::Vector{Float64}
@@ -207,25 +195,45 @@ See [`ProgramClass`](@ref).
 
 abstract type DiffModel <: MOI.ModelLike end
 
-mutable struct QPDiff <: DiffModel
-    # storage for problem data in matrix form
-    # includes maps from matrix indices to problem data held in `optimizer`
-    # also includes KKT matrices
-    # also includes the solution
-    gradient_cache::Union{Nothing,QPCache}
+MOI.supports_incremental_interface(::DiffModel) = true
 
-    # caches for sensitivity output
-    # result from solving KKT/residualmap linear systems
-    # this allows keeping the same `gradient_cache`
-    # if only sensitivy input changes
-    forw_grad_cache::Union{Nothing,QPForwBackCache}
-    back_grad_cache::Union{Nothing,QPForwBackCache}
+MOI.is_valid(model::DiffModel, idx::MOI.Index) = MOI.is_valid(model.model, idx)
 
-    # sensitivity input cache using MOI like sparse format
-    input_cache::DiffInputCache
+function MOI.add_variables(model::DiffModel, n)
+    return MOI.add_variables(model.model, n)
 end
-function QPDiff()
-    return QPDiff(nothing, nothing, nothing, DiffInputCache())
+
+function MOI.Utilities.pass_nonvariable_constraints(
+    dest::DiffModel,
+    src::MOI.ModelLike,
+    idxmap::MOIU.IndexMap,
+    constraint_types,
+)
+    MOI.Utilities.pass_nonvariable_constraints(dest.model, src, idxmap, constraint_types)
+end
+
+function MOI.Utilities.final_touch(model::DiffModel, index_map)
+    MOI.Utilities.final_touch(model.model, index_map)
+end
+
+function MOI.add_constraint(model::DiffModel, func::MOI.AbstractFunction, set::MOI.AbstractSet)
+    return MOI.add_constraint(model.model, func, set)
+end
+
+function _enlarge_set(vec::Vector, idx, value)
+    m = last(idx)
+    if length(vec) < m
+        n = length(vec)
+        resize!(vec, m)
+        fill!(view(vec, (n+1):m), NaN)
+        vec[idx] = value
+    end
+    return
+end
+
+function MOI.set(model::DiffModel, ::MOI.VariablePrimalStart, vi::MOI.VariableIndex, value)
+    MOI.throw_if_not_valid(model, vi)
+    _enlarge_set(model.x, vi.value, value)
 end
 
 function MOI.set(model::DiffModel, ::ForwardInObjective, objective)
@@ -251,10 +259,6 @@ function MOI.set(model::DiffModel,
 ) where {T,S}
     model.input_cache.vector_constraints[ci] = func
     return
-end
-
-function MOI.get(model::QPDiff, ::ForwardOutVariablePrimal, vi::VI)
-    return model.forw_grad_cache.dz[vi.value]
 end
 
 function lazy_combination(op::F, α, a, β, b) where {F<:Function}
@@ -306,188 +310,6 @@ _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
 function MOI.get(model::DiffModel, ::BackwardOutConstraint, ci::CI)
     return _lazy_affine(_get_dA(model, ci), _get_db(model, ci))
 end
-_get_db(model::QPDiff, ci) = _get_db(model.back_grad_cache, model.gradient_cache, ci)
-_neg_if_gt(x, ::Type{<:MOI.LessThan}) = x
-_neg_if_gt(x, ::Type{<:MOI.GreaterThan}) = -x
-function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
-) where {F,S}
-    i = ci.value
-    # dh = -Diagonal(λ) * dλ
-    dλ = b_cache.dλ
-    λ = g_cache.inequality_duals
-    return _neg_if_gt(λ[i] * dλ[i], S)
-end
-function _get_db(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
-) where {F,S<:MOI.EqualTo}
-    i = ci.value
-    dν = b_cache.dν
-    return dν[i]
-end
-
-_get_dA(model::QPDiff, ci) = _get_dA(model.back_grad_cache, model.gradient_cache, ci)
-# quadratic matrix indexes are split by type either == or (<=/>=)
-function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
-) where {F, S<:MOI.EqualTo}
-    i = ci.value
-    z = g_cache.var_primals
-    dz = b_cache.dz
-    ν = g_cache.equality_duals
-    dν = b_cache.dν
-    return lazy_combination(+, dν[i], z, ν[i], dz)
-end
-function _get_dA(b_cache::QPForwBackCache, g_cache::QPCache, ci::CI{F,S}
-) where {F,S}
-    i = ci.value
-    z = g_cache.var_primals
-    dz = b_cache.dz
-    λ = g_cache.inequality_duals
-    dλ = b_cache.dλ
-    l = _neg_if_gt(λ[i], S)
-    return lazy_combination(+, l * dλ[i], z, l * λ[i], dz)
-end
-
-"""
-    backward(model::QPDiff)
-
-Method to differentiate optimal solution `z` and return
-product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
-the backward pass vector `dl / dz`
-
-The method computes the product of
-1. jacobian of problem solution `z*` with respect to
-    problem parameters set with the [`BackwardInVariablePrimal`](@ref)
-2. a backward pass vector `dl / dz`, where `l` can be a loss function
-
-Note that this method *does not returns* the actual jacobians.
-
-For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
-"""
-function backward(model::QPDiff)
-    (
-        Q, q, G, h, A, b, nz, var_list,
-        nineq_le, le_con_idx,
-        nineq_ge, ge_con_idx,
-        nineq_sv_le, le_con_sv_idx,
-        nineq_sv_ge, ge_con_sv_idx,
-        neq, eq_con_idx,
-        neq_sv, eq_con_sv_idx,
-    ) = model.gradient_cache.problem_data
-    z = model.gradient_cache.var_primals
-    λ = model.gradient_cache.inequality_duals
-    ν = model.gradient_cache.equality_duals
-    LHS = model.gradient_cache.lhs
-
-    dl_dz = zeros(length(z))
-    for (vi, value) in model.input_cache.dx
-        dl_dz[vi.value] = value
-    end
-
-    nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
-    RHS = [dl_dz; zeros(neq + neq_sv + nineq_total)]
-
-    partial_grads = if norm(Q) ≈ 0
-        -lsqr(LHS, RHS)
-    else
-        -LHS \ RHS
-    end
-
-    dz = partial_grads[1:nz]
-    dλ = partial_grads[nz+1:nz+nineq_total]
-    dν = partial_grads[nz+nineq_total+1:nz+nineq_total+neq+neq_sv]
-
-    model.back_grad_cache = QPForwBackCache(dz, dλ, dν)
-    return nothing
-    # dQ = 0.5 * (dz * z' + z * dz')
-    # dq = dz
-    # dG = Diagonal(λ) * (dλ * z' + λ * dz') # was: Diagonal(λ) * dλ * z' - λ * dz')
-    # dh = -Diagonal(λ) * dλ
-    # dA = dν * z'+ ν * dz' # was: dν * z' - ν * dz'
-    # db = -dν
-    # todo, check MOI signs for dA and dG
-end
-
-"""
-    forward(model::QPDiff)
-"""
-function forward(model::QPDiff)
-    (
-        Q, q, G, h, A, b, nz, var_list,
-        nineq_le, le_con_idx,
-        nineq_ge, ge_con_idx,
-        nineq_sv_le, le_con_sv_idx,
-        nineq_sv_ge, ge_con_sv_idx,
-        neq, eq_con_idx,
-        neq_sv, eq_con_sv_idx,
-    ) = model.gradient_cache.problem_data
-    z = model.gradient_cache.var_primals
-    λ = model.gradient_cache.inequality_duals
-    ν = model.gradient_cache.equality_duals
-    LHS = model.gradient_cache.lhs
-
-    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
-    sparse_array_obj = sparse_array_representation(objective_function, LinearAlgebra.checksquare(Q))
-    dQ = sparse_array_obj.quadratic_terms
-    dq = sparse_array_obj.affine_terms
-
-    # The user sets the constraint function in the sense `func`-in-`set` while
-    # `db` and `dh` corresponds to the tangents of the set constants. Therefore,
-    # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
-    # multiply by `-1` to transform it to `LessThan` so it cancels out.
-    db = zeros(length(b))
-    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, model.gradient_cache, model.input_cache, _QPSets(), db)
-    dh = zeros(length(h))
-    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), model.gradient_cache, model.input_cache, _QPSets(), dh)
-
-    nz = nnz(A)
-    (lines, cols) = size(A)
-    dAi = zeros(Int, 0)
-    dAj = zeros(Int, 0)
-    dAv = zeros(Float64, 0)
-    sizehint!(dAi, nz)
-    sizehint!(dAj, nz)
-    sizehint!(dAv, nz)
-    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, model.input_cache, _QPSets(), dAi, dAj, dAv)
-    dA = sparse(dAi, dAj, dAv, lines, cols)
-
-    nz = nnz(G)
-    (lines, cols) = size(G)
-    dGi = zeros(Int, 0)
-    dGj = zeros(Int, 0)
-    dGv = zeros(Float64, 0)
-    sizehint!(dGi, nz)
-    sizehint!(dGj, nz)
-    sizehint!(dGv, nz)
-    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), model.gradient_cache, model.input_cache, _QPSets(), dGi, dGj, dGv)
-    dG = sparse(dGi, dGj, dGv, lines, cols)
-
-
-    RHS = [
-        dQ * z + dq + dG' * λ + dA' * ν
-        λ .* (dG * z) - λ .* dh
-        dA * z - db
-    ]
-
-    partial_grads = if norm(Q) ≈ 0
-        -lsqr(LHS', RHS)
-    else
-        -_linsolve(LHS', RHS)
-    end
-
-
-    nv = length(z)
-    nineq_total = nineq_le + nineq_ge + nineq_sv_le + nineq_sv_ge
-    dz = partial_grads[1:nv]
-    dλ = partial_grads[nv+1:nv+nineq_total]
-    dν = partial_grads[nv+nineq_total+1:nv+nineq_total+neq+neq_sv]
-
-    model.forw_grad_cache = QPForwBackCache(dz, dλ, dν)
-    return nothing
-end
-
-_linsolve(A, b) = A \ b
-# See https://github.com/JuliaLang/julia/issues/32668
-_linsolve(A, b::SparseVector) = A \ Vector(b)
-
 
 """
     π(v::Vector{Float64}, model::MOI.ModelLike, cones::ProductOfSets)
@@ -579,10 +401,6 @@ function map_rows(f::Function, model, cones::ProductOfSets, map_mode::Union{Nest
     end
     return x
 end
-
-# Just a hack that will be removed once we use `MOIU.MatrixOfConstraints`
-struct _QPSets end
-MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
 function _fill(neg::Function, gradient_cache, input_cache, cones, args...)
     _fill(S -> true, neg, gradient_cache, input_cache, cones, args...)

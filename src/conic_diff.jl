@@ -43,8 +43,6 @@ function ConicDiff()
     return ConicDiff(GeometricConicForm{Float64}(), nothing, nothing, nothing, DiffInputCache(), Float64[], Float64[], Float64[])
 end
 
-MOI.supports_incremental_interface(::ConicDiff) = true
-
 function MOI.empty!(model::ConicDiff)
     MOI.empty!(model.model)
     model.gradient_cache = nothing
@@ -57,12 +55,6 @@ function MOI.empty!(model::ConicDiff)
     return
 end
 
-MOI.is_valid(model::ConicDiff, idx::MOI.Index) = MOI.is_valid(model.model, idx)
-
-function MOI.add_variables(model::ConicDiff, n)
-    return MOI.add_variables(model.model, n)
-end
-
 function MOI.supports_constraint(model::ConicDiff, F::Type{MOI.VectorAffineFunction{Float64}}, ::Type{S}) where {S<:MOI.AbstractVectorSet}
     if add_set_types(model.model.constraints.sets, S)
         push!(model.model.constraints.caches, Tuple{F,S}[])
@@ -73,39 +65,6 @@ end
 
 function MOI.supports_constraint(model::ConicDiff, ::Type{F}, ::Type{S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
     return MOI.supports_constraint(model.model, F, S)
-end
-
-function MOI.Utilities.pass_nonvariable_constraints(
-    dest::ConicDiff,
-    src::MOI.ModelLike,
-    idxmap::MOIU.IndexMap,
-    constraint_types,
-)
-    MOI.Utilities.pass_nonvariable_constraints(dest.model, src, idxmap, constraint_types)
-end
-
-function MOI.Utilities.final_touch(model::ConicDiff, index_map)
-    MOI.Utilities.final_touch(model.model, index_map)
-end
-
-function MOI.add_constraint(model::ConicDiff, func::MOI.AbstractFunction, set::MOI.AbstractSet)
-    return MOI.add_constraint(model.model, func, set)
-end
-
-function _enlarge_set(vec::Vector, idx, value)
-    m = last(idx)
-    if length(vec) < m
-        n = length(vec)
-        resize!(vec, m)
-        fill!(view(vec, (n+1):m), NaN)
-        vec[idx] = value
-    end
-    return
-end
-
-function MOI.set(model::ConicDiff, ::MOI.VariablePrimalStart, vi::MOI.VariableIndex, value)
-    MOI.throw_if_not_valid(model, vi)
-    _enlarge_set(model.x, vi.value, value)
 end
 
 function MOI.set(model::ConicDiff, ::MOI.ConstraintPrimalStart, ci::MOI.ConstraintIndex, value)
