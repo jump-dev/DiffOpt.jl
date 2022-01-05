@@ -58,6 +58,7 @@ include("quadratic_diff.jl")
 include("moi_wrapper.jl")
 include("jump_moi_overloads.jl")
 
+include("bridges.jl")
 
 export diff_optimizer
 
