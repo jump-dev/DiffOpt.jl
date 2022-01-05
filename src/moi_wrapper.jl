@@ -29,7 +29,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
 
     program_class::ProgramClassCode
 
-    diff::Union{Nothing,QPDiff,MOI.Bridges.LazyBridgeOptimizer{ConicDiff}}
+    diff::Union{Nothing,MOI.Bridges.LazyBridgeOptimizer{QPDiff},MOI.Bridges.LazyBridgeOptimizer{ConicDiff}}
 
     index_map::Union{Nothing,MOI.Utilities.IndexMap}
 
@@ -483,21 +483,17 @@ end
 function _diff(model::Optimizer)
     if model.diff === nothing
         if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-            model.diff = QPDiff()
+            model.diff = MOI.Bridges.full_bridge_optimizer(QPDiff(), Float64)
         else
             _check_termination_status(model)
             model.diff = MOI.Bridges.full_bridge_optimizer(ConicDiff(), Float64)
         end
         model.index_map = MOI.copy_to(model.diff, model.optimizer)
-        if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-            # TODO
-        else
-            vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
-            MOI.set(model.diff, MOI.VariablePrimalStart(), getindex.(Ref(model.index_map), vis_src), MOI.get(model.optimizer, MOI.VariablePrimal(), vis_src))
-            for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
-                _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintPrimalStart(), MOI.ConstraintPrimal())
-                _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintDualStart(), MOI.ConstraintDual())
-            end
+        vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
+        MOI.set(model.diff, MOI.VariablePrimalStart(), getindex.(Ref(model.index_map), vis_src), MOI.get(model.optimizer, MOI.VariablePrimal(), vis_src))
+        for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
+            _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintPrimalStart(), MOI.ConstraintPrimal())
+            _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintDualStart(), MOI.ConstraintDual())
         end
     end
     return model.diff

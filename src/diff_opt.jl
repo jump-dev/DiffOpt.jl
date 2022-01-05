@@ -7,15 +7,12 @@ Currently supports differentiating linear and quadratic programs only.
 """
 
 Base.@kwdef struct QPCache
-    inequality_duals::Vector{Float64}
-    equality_duals::Vector{Float64}
-    var_primals::Vector{Float64}
     lhs::SparseMatrixCSC{Float64, Int}
 end
 
 Base.@kwdef struct ConicCache
     M::SparseMatrixCSC{Float64, Int}
-    vp::Vector
+    vp::Vector{Float64}
     Dπv::BlockDiagonals.BlockDiagonal{Float64, Matrix{Float64}}
     A::SparseMatrixCSC{Float64, Int}
     b::Vector{Float64}
@@ -214,6 +211,10 @@ end
 
 function MOI.Utilities.final_touch(model::DiffModel, index_map)
     MOI.Utilities.final_touch(model.model, index_map)
+end
+
+function MOI.supports_constraint(model::DiffModel, ::Type{F}, ::Type{S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+    return MOI.supports_constraint(model.model, F, S)
 end
 
 function MOI.add_constraint(model::DiffModel, func::MOI.AbstractFunction, set::MOI.AbstractSet)

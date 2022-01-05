@@ -1,19 +1,19 @@
 const GeometricConicForm{T} = MOI.Utilities.GenericModel{
     T,
-    MOI.Utilities.ObjectiveContainer{Float64},
-    MOI.Utilities.VariablesContainer{Float64},
+    MOI.Utilities.ObjectiveContainer{T},
+    MOI.Utilities.VariablesContainer{T},
     MOI.Utilities.MatrixOfConstraints{
-        Float64,
+        T,
         MOI.Utilities.MutableSparseMatrixCSC{
-            Float64,
+            T,
             Int,
             # We use `OneBasedIndexing` as it is the same indexing as used
             # by `SparseMatrixCSC` so we can do an allocation-free conversion to
             # `SparseMatrixCSC`.
             MOI.Utilities.OneBasedIndexing,
         },
-        Vector{Float64},
-        ProductOfSets{Float64},
+        Vector{T},
+        ProductOfSets{T},
     },
 }
 
@@ -60,10 +60,6 @@ function MOI.supports_constraint(model::ConicDiff, F::Type{MOI.VectorAffineFunct
         push!(model.model.constraints.caches, Tuple{F,S}[])
         push!(model.model.constraints.are_indices_mapped, BitSet())
     end
-    return MOI.supports_constraint(model.model, F, S)
-end
-
-function MOI.supports_constraint(model::ConicDiff, ::Type{F}, ::Type{S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
     return MOI.supports_constraint(model.model, F, S)
 end
 
