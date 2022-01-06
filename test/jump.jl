@@ -190,16 +190,13 @@ end
     @test moi_function(MOI.get(model, DiffOpt.BackwardOutObjective())) ≈ moi_function(expected)  atol=ATOL rtol=RTOL
 
     dh = [0.35714284; 0.4285714]
-    # This ws already broken
-    # @test_broken dl_dG ≈ [0.05102035   0.30612245  0.255102;
-    #                0.06122443   0.36734694  0.3061224] atol=ATOL rtol=RTOL
     dG = -[0.05102035   0.30612245  0.255102;
            0.06122443   0.36734694  0.3061224]
     for (j,jc) in enumerate([c1, c2])
         grad = MOI.get(model, DiffOpt.BackwardOutConstraint(), jc)
         @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(z)
-            @test_broken JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
+            @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
         end
     end
 end

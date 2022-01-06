@@ -194,7 +194,7 @@ function qp_test(
         @_test(-dhb ./ λ, ∇λb)
     end
     if ∇λb !== nothing
-        @_test(Diagonal(λ) * (∇λb * z' + λ * ∇zb'), dGb)
+        @_test(Diagonal(λ) * ∇λb * z' + λ * ∇zb', dGb)
     end
 
     # Test against [AK17, eq. (7)]
