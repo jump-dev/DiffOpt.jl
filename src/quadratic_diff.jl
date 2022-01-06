@@ -26,20 +26,36 @@ const QPForm{T} = MOI.Utilities.GenericModel{
                 Int,
                 MOI.Utilities.OneBasedIndexing,
             },
-            Vector{T},
-            MOI.Utilities.Hyperrectangle{Float64},
+            MOI.Utilities.Hyperrectangle{T},
+            Equalities{T},
         },
         MOI.Utilities.MatrixOfConstraints{
+            T,
             MOI.Utilities.MutableSparseMatrixCSC{
                 T,
                 Int,
                 MOI.Utilities.OneBasedIndexing,
             },
-            Vector{T},
-            MOI.Utilities.Hyperrectangle{Float64},
+            MOI.Utilities.Hyperrectangle{T},
+            Inequalities{T},
         },
     },
 }
+
+function _equalities(model::QPDiff)
+    return MOI.Utilities.constraints(
+        model.model.constraints,
+        MOI.ScalarAffineFunction{Float64},
+        MOI.EqualTo{Float64},
+    )
+end
+function _inequalities(model::QPDiff)
+    return MOI.Utilities.constraints(
+        model.model.constraints,
+        MOI.ScalarAffineFunction{Float64},
+        MOI.LessThan{Float64},
+    )
+end
 
 mutable struct QPDiff <: DiffModel
     # storage for problem data in matrix form
@@ -64,7 +80,7 @@ mutable struct QPDiff <: DiffModel
     ν::Vector{Float64} # Dual of equalities
 end
 function QPDiff()
-    return QPDiff(QPForm{Float64}(), nothing, nothing, nothing, nothing, DiffInputCache(), Float64[], Float64[], Float64[])
+    return QPDiff(QPForm{Float64}(), nothing, nothing, nothing, DiffInputCache(), Float64[], Float64[], Float64[])
 end
 
 function MOI.empty!(model::QPDiff)
@@ -97,24 +113,22 @@ end
 # as in the paper.
 function MOI.set(model::QPDiff, ::MOI.ConstraintDualStart, ci::EQ, value)
     MOI.throw_if_not_valid(model, ci)
-    _enlarge_set(model.ν, MOI.Utilities.rows(model.model.equalto.constraints, ci), -value)
+    _enlarge_set(model.ν, MOI.Utilities.rows(_equalities(model), ci), -value)
 end
 
 function MOI.set(model::QPDiff, ::MOI.ConstraintDualStart, ci::LE, value)
     MOI.throw_if_not_valid(model, ci)
-    _enlarge_set(model.λ, MOI.Utilities.rows(model.model.lessthan.constraints, ci), value)
+    _enlarge_set(model.λ, MOI.Utilities.rows(_inequalities(model), ci), value)
 end
 
 function _gradient_cache(model::QPDiff)
     if model.gradient_cache !== nothing
         return model.gradient_cache
     end
-
-
-    A = convert(SparseMatrixCSC{Float64, Int}, model.model.constraints.equalto.coefficients)
-    b = model.model.constraints.equalto.constants.upper
-    G = convert(SparseMatrixCSC{Float64, Int}, model.model.constraints.lessthan.coefficients)
-    h = model.model.constraints.lessthan.constants.upper
+    A = convert(SparseMatrixCSC{Float64, Int}, _equalities(model).coefficients)
+    b = _equalities(model).constants.upper
+    G = convert(SparseMatrixCSC{Float64, Int}, _inequalities(model).coefficients)
+    h = _inequalities(model).constants.upper
 
     nz = size(A, 2)
     objective_function = MOI.get(model.model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
