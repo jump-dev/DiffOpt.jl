@@ -42,21 +42,6 @@ const QPForm{T} = MOI.Utilities.GenericModel{
     },
 }
 
-function _equalities(model::QPDiff)
-    return MOI.Utilities.constraints(
-        model.model.constraints,
-        MOI.ScalarAffineFunction{Float64},
-        MOI.EqualTo{Float64},
-    )
-end
-function _inequalities(model::QPDiff)
-    return MOI.Utilities.constraints(
-        model.model.constraints,
-        MOI.ScalarAffineFunction{Float64},
-        MOI.LessThan{Float64},
-    )
-end
-
 mutable struct QPDiff <: DiffModel
     # storage for problem data in matrix form
     model::QPForm{Float64}
@@ -141,6 +126,21 @@ function _gradient_cache(model::QPDiff)
     model.gradient_cache = QPCache(LHS)
 
     return model.gradient_cache
+end
+
+function _equalities(model::QPDiff)
+    return MOI.Utilities.constraints(
+        model.model.constraints,
+        MOI.ScalarAffineFunction{Float64},
+        MOI.EqualTo{Float64},
+    )
+end
+function _inequalities(model::QPDiff)
+    return MOI.Utilities.constraints(
+        model.model.constraints,
+        MOI.ScalarAffineFunction{Float64},
+        MOI.LessThan{Float64},
+    )
 end
 
 # TODO: create test functions for the methods
