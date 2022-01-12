@@ -32,6 +32,8 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
+      - name: MOI#master
+        run: julia -e 'using Pkg; Pkg.add(PackageSpec(name="MathOptInterface", rev="master"))'
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         env:
