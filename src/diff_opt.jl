@@ -196,6 +196,10 @@ MOI.supports_incremental_interface(::DiffModel) = true
 
 MOI.is_valid(model::DiffModel, idx::MOI.Index) = MOI.is_valid(model.model, idx)
 
+function MOI.add_variable(model::DiffModel)
+    return MOI.add_variable(model.model)
+end
+
 function MOI.add_variables(model::DiffModel, n)
     return MOI.add_variables(model.model, n)
 end
@@ -227,8 +231,8 @@ function _enlarge_set(vec::Vector, idx, value)
         n = length(vec)
         resize!(vec, m)
         fill!(view(vec, (n+1):m), NaN)
-        vec[idx] = value
     end
+    vec[idx] = value
     return
 end
 

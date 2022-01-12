@@ -17,7 +17,7 @@ MOI.Utilities.@struct_of_constraints_by_set_types(
 const QPForm{T} = MOI.Utilities.GenericModel{
     T,
     MOI.Utilities.ObjectiveContainer{T},
-    MOI.Utilities.VariablesContainer{T},
+    FreeVariables,
     EqualitiesOrInequalities{T}{
         MOI.Utilities.MatrixOfConstraints{
             T,
@@ -103,7 +103,7 @@ end
 
 function MOI.set(model::QPDiff, ::MOI.ConstraintDualStart, ci::LE, value)
     MOI.throw_if_not_valid(model, ci)
-    _enlarge_set(model.λ, MOI.Utilities.rows(_inequalities(model), ci), value)
+    _enlarge_set(model.λ, MOI.Utilities.rows(_inequalities(model), ci), -value)
 end
 
 function _gradient_cache(model::QPDiff)
@@ -279,7 +279,7 @@ function backward(model::QPDiff)
 
     dz = partial_grads[1:nv]
     dλ = partial_grads[nv+1:nv+nineq]
-    dν = partial_grads[nv+neq+1:end]
+    dν = partial_grads[nv+nineq+1:end]
 
     model.back_grad_cache = QPForwBackCache(dz, dλ, dν)
     return

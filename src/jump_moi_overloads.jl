@@ -38,7 +38,7 @@ function MOI.get(model::JuMP.Model, attr::ForwardOutVariablePrimal, var_ref::JuM
     JuMP.check_belongs_to_model(var_ref, model)
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
- 
+
 """
     abstract type AbstractLazyScalarFunction <: MOI.AbstractScalarFunction end
 
@@ -106,6 +106,10 @@ function Base.convert(::Type{MOI.ScalarAffineFunction{T}}, func::VectorScalarAff
 end
 function standard_form(func::VectorScalarAffineFunction{T}) where {T}
     return convert(MOI.ScalarAffineFunction{T}, func)
+end
+
+function MOI.Utilities.operate(::typeof(-), ::Type{T}, func::VectorScalarAffineFunction{T}) where {T}
+    return VectorScalarAffineFunction(LazyArrays.ApplyArray(-, func.terms), -func.constant)
 end
 
 """

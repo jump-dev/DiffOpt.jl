@@ -498,6 +498,12 @@ function _diff(model::Optimizer)
             _check_termination_status(model)
             model.diff = MOI.Bridges.full_bridge_optimizer(ConicDiff(), Float64)
         end
+        # If `ZerosBridge` is used, `MOI.Bridges.unbridged_function` does not work.
+        # This is in fact expected: since `ZerosBridge` drops the variable, we dont
+        # compute the derivative of the value of this variable as a function of its fixed value.
+        # This could be easily determined as the same as the derivative of the value but
+        # since the variable was also dropped from other constraints, we would ignore its impact on the other constraints.
+        MOI.Bridges.remove_bridge(model.diff, MOI.Bridges.Variable.ZerosBridge{Float64})
         model.index_map = MOI.copy_to(model.diff, model.optimizer)
         vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
         MOI.set(model.diff, MOI.VariablePrimalStart(), getindex.(Ref(model.index_map), vis_src), MOI.get(model.optimizer, MOI.VariablePrimal(), vis_src))
