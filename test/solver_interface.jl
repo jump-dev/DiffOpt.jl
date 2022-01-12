@@ -121,6 +121,8 @@ end
 @testset "contconic.jl tests" begin
     model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
+    # Needed for `lin2v`
+    MOI.Bridges.remove_bridge(model.optimizer.optimizer, MOI.Bridges.Variable.ZerosBridge{Float64})
     # linear tests
     for (name, test) in MOIDT.lintests
         test(model, MOIDT.Config())
