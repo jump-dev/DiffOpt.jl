@@ -273,6 +273,13 @@ function backward(model::ConicDiff)
     # return dA, db, dc
 end
 
+function MOI.get(model::ConicDiff, ::BackwardOutObjective)
+    g = model.back_grad_cache.g
+    πz = model.back_grad_cache.πz
+    dc = lazy_combination(-, πz, g, length(g))
+    return VectorScalarAffineFunction(dc, 0.0)
+end
+
 function MOI.get(model::ConicDiff, ::ForwardOutVariablePrimal, vi::MOI.VariableIndex)
     i = vi.value
     du = model.forw_grad_cache.du

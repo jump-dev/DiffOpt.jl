@@ -116,6 +116,7 @@ function _gradient_cache(model::QPDiff)
     h = _inequalities(model).constants.upper
 
     nz = size(A, 2)
+    # TODO ideally, the objective should be stored in matrix form in `model.model`
     objective_function = MOI.get(model.model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
     sparse_array_obj = sparse_array_representation(objective_function, nz)
     Q = sparse_array_obj.quadratic_terms
@@ -261,22 +262,24 @@ function backward(model::QPDiff)
     neq = length(model.ν)
     nineq = length(model.λ)
 
-    dl_dz = zeros(length(model.z))
+    dl_dz = zeros(length(model.x))
     for (vi, value) in model.input_cache.dx
         dl_dz[vi.value] = value
     end
 
     RHS = [dl_dz; zeros(nineq + neq)]
 
+    nv = length(model.x)
+    Q = view(LHS, 1:nv, 1:nv)
     partial_grads = if norm(Q) ≈ 0
         -lsqr(LHS, RHS)
     else
         -LHS \ RHS
     end
 
-    dz = partial_grads[1:nz]
-    dλ = partial_grads[nz+1:nz+nineq]
-    dν = partial_grads[nz+neq+1:end]
+    dz = partial_grads[1:nv]
+    dλ = partial_grads[nv+1:nv+nineq]
+    dν = partial_grads[nv+neq+1:end]
 
     model.back_grad_cache = QPForwBackCache(dz, dλ, dν)
     return
@@ -304,8 +307,11 @@ function forward(model::QPDiff)
     gradient_cache = _gradient_cache(model)
     LHS = gradient_cache.lhs
 
+    z = model.x
+    nv = length(z)
+
     objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
-    sparse_array_obj = sparse_array_representation(objective_function, LinearAlgebra.checksquare(Q))
+    sparse_array_obj = sparse_array_representation(objective_function, nv)
     dQ = sparse_array_obj.quadratic_terms
     dq = sparse_array_obj.affine_terms
 
@@ -317,8 +323,6 @@ function forward(model::QPDiff)
     _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, gradient_cache, model.input_cache, _QPSets(), db)
     dh = zero(model.λ)
     _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dh)
-
-    nv = length(z)
 
     dAi = zeros(Int, 0)
     dAj = zeros(Int, 0)
@@ -333,12 +337,15 @@ function forward(model::QPDiff)
     dG = sparse(dGi, dGj, dGv, length(model.λ), nv)
 
 
+    λ = model.λ
+    ν = model.ν
     RHS = [
         dQ * z + dq + dG' * λ + dA' * ν
         λ .* (dG * z) - λ .* dh
         dA * z - db
     ]
 
+    Q = view(LHS, 1:nv, 1:nv)
     partial_grads = if norm(Q) ≈ 0
         -lsqr(LHS', RHS)
     else
@@ -354,18 +361,29 @@ function forward(model::QPDiff)
     return
 end
 
+function MOI.get(model::QPDiff, ::BackwardOutObjective)
+    ∇z = model.back_grad_cache.dz
+    z = model.x
+    # `∇z * z' + z * ∇z'` doesn't work, see
+    # https://github.com/JuliaArrays/LazyArrays.jl/issues/178
+    dQ = LazyArrays.@~ (∇z .* z' + z .* ∇z') / 2.0
+    return MatrixScalarQuadraticFunction(
+        VectorScalarAffineFunction(∇z, 0.0),
+        dQ,
+    )
+end
 
 # quadratic matrix indexes are split by type either == or <=
 function _get_dA(model::QPDiff, ci::EQ)
     i = ci.value
     dz = model.back_grad_cache.dz
     dν = model.back_grad_cache.dν
-    return lazy_combination(+, dν[i], model.z, model.ν[i], dz)
+    return lazy_combination(+, dν[i], model.x, model.ν[i], dz)
 end
 function _get_dA(model::QPDiff, ci::LE)
     i = ci.value
     dz = model.back_grad_cache.dz
     dλ = model.back_grad_cache.dλ
     l = model.λ[i]
-    return lazy_combination(+, l * dλ[i], model.z, l, dz)
+    return lazy_combination(+, l * dλ[i], model.x, l, dz)
 end

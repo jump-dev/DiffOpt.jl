@@ -285,27 +285,6 @@ function lazy_combination(op::F, a, b, i::UnitRange, I::UnitRange) where {F<:Fun
     return lazy_combination(op, _view(a, i), b, _view(b, i), a, I)
 end
 
-function MOI.get(model::DiffModel, ::BackwardOutObjective)
-    return _back_obj(model.back_grad_cache, model.gradient_cache)
-end
-function _back_obj(b_cache::ConicBackCache, g_cache::ConicCache)
-    g = b_cache.g
-    πz = b_cache.πz
-    dc = lazy_combination(-, πz, g, length(g))
-    return VectorScalarAffineFunction(dc, 0.0)
-end
-function _back_obj(b_cache::QPForwBackCache, g_cache::QPCache)
-    ∇z = b_cache.dz
-    z = g_cache.var_primals
-    # `∇z * z' + z * ∇z'` doesn't work, see
-    # https://github.com/JuliaArrays/LazyArrays.jl/issues/178
-    dQ = LazyArrays.@~ (∇z .* z' + z .* ∇z') / 2.0
-    return MatrixScalarQuadraticFunction(
-        VectorScalarAffineFunction(b_cache.dz, 0.0),
-        dQ,
-    )
-end
-
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
 function MOI.get(model::DiffModel, ::BackwardOutConstraint, ci::CI)
