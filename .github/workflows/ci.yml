@@ -32,9 +32,9 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
-      - name: MOI#master
-        run: julia -e 'using Pkg; Pkg.add(PackageSpec(name="MathOptInterface", rev="master"))'
       - uses: julia-actions/julia-buildpkg@v1
+      - name: MOI#bl/diffopt
+        run: julia -e 'using Pkg; Pkg.add(PackageSpec(name="MathOptInterface", rev="bl/diffopt"))'
       - uses: julia-actions/julia-runtest@v1
         env:
           DATADEPS_ALWAYS_ACCEPT: true # For MLDatasets.MNIST
