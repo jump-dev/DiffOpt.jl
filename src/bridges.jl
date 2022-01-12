@@ -15,6 +15,14 @@ function MOI.get(
 end
 function MOI.get(
     model::MOI.ModelLike,
+    attr::DiffOpt.ForwardInConstraint,
+    bridge::MOI.Bridges.Constraint.SetMapBridge,
+)
+    func = MOI.get(model, attr, bridge.constraint)
+    return MOI.Bridges.map_function(typeof(bridge), func)
+end
+function MOI.get(
+    model::MOI.ModelLike,
     attr::DiffOpt.BackwardOutConstraint,
     bridge::MOI.Bridges.Constraint.SetMapBridge,
 )
