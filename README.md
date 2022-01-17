@@ -13,7 +13,8 @@ DiffOpt is a package for differentiating convex optimization programs with respe
 DiffOpt can be installed via the Julia package manager:
 
 ```
-(v1.3) pkg> add https://github.com/jump-dev/DiffOpt.jl
+julia> ]
+(v1.7) pkg> add DiffOpt
 ```
 
 ## Example
