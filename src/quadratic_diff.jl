@@ -17,7 +17,7 @@ MOI.Utilities.@struct_of_constraints_by_set_types(
 const QPForm{T} = MOI.Utilities.GenericModel{
     T,
     MOI.Utilities.ObjectiveContainer{T},
-    FreeVariables,
+    MOI.Utilities.FreeVariables,
     EqualitiesOrInequalities{T}{
         MOI.Utilities.MatrixOfConstraints{
             T,

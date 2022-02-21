@@ -1,7 +1,7 @@
 const GeometricConicForm{T} = MOI.Utilities.GenericModel{
     T,
     MOI.Utilities.ObjectiveContainer{T},
-    FreeVariables,
+    MOI.Utilities.FreeVariables,
     MOI.Utilities.MatrixOfConstraints{
         T,
         MOI.Utilities.MutableSparseMatrixCSC{

@@ -32,11 +32,6 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
-      - name: MOI#bl/diffopt
-        shell: julia --project=@. {0}
-        run: |
-          using Pkg
-          Pkg.add(PackageSpec(name="MathOptInterface", rev="bl/diffopt"))
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         env:
@@ -56,11 +51,6 @@ jobs:
       - uses: julia-actions/setup-julia@v1
         with:
           version: '1'
-      - name: MOI#bl/diffopt
-        shell: julia --project=docs {0}
-        run: |
-          using Pkg
-          Pkg.add(PackageSpec(name="MathOptInterface", rev="bl/diffopt"))
       - shell: bash
         run: julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd()))"
       - shell: bash

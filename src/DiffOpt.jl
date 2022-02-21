@@ -51,7 +51,6 @@ const SUPPORTED_VECTOR_SETS = Union{
 }
 
 include("utils.jl")
-include("free_variables.jl")
 include("product_of_sets.jl")
 include("diff_opt.jl")
 include("conic_diff.jl")
