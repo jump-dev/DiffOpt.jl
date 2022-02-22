@@ -84,7 +84,7 @@ end
 
 
 @testset "Unit" begin
-    MOIDT.unittest(DiffOpt.diff_optimizer(GLPK.Optimizer), MOIDT.Config(), [
+    MOIDT.unittest(DiffOpt.diff_optimizer(GLPK.Optimizer), MOIDT.Config(atol=ATOL, rtol=RTOL), [
         "number_threads", # might not work on all solvers
 
         # not testing integer constraints
@@ -107,7 +107,7 @@ end
     ])
     model = DiffOpt.diff_optimizer(SCS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
-    MOIDT.solve_duplicate_terms_obj(model, MOIDT.Config())
+    MOIDT.solve_duplicate_terms_obj(model, MOIDT.Config(atol=ATOL, rtol=RTOL))
 end
 
 @testset "basic_constraint_tests" begin
@@ -125,7 +125,7 @@ end
     MOI.Bridges.remove_bridge(model.optimizer.optimizer, MOI.Bridges.Variable.ZerosBridge{Float64})
     # linear tests
     for (name, test) in MOIDT.lintests
-        test(model, MOIDT.Config())
+        test(model, MOIDT.Config(atol=ATOL, rtol=RTOL))
     end
 
     CONFIG_LOW_TOL = MOIDT.Config(atol = 1e-3, rtol = 1e-2, duals = false, infeas_certificates = false)
