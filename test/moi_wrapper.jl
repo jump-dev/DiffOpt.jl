@@ -964,7 +964,7 @@ end
     # dx, dy, ds = backward(model, dA, db, dc)
     DiffOpt.forward(model)
 
-    @test model.diff.model.x ≈ [1.0] atol=ATOL rtol=RTOL
+    @test model.diff.model.x ≈ [1.0] atol=10ATOL rtol=10RTOL
     @test model.diff.model.s ≈ ones(6) atol=ATOL rtol=RTOL
     @test model.diff.model.y ≈ [1/3, -1/6, 1/3, -1/6, -1/6, 1/3]  atol=ATOL rtol=RTOL
 
@@ -1122,7 +1122,7 @@ end
     # dx, dy, ds = _backward_conic(model, dA, db, dc)
     DiffOpt.forward(model)
 
-    @test model.diff.model.x ≈ [1.0] atol=ATOL rtol=RTOL
+    @test model.diff.model.x ≈ [1.0] atol=10ATOL rtol=10RTOL
     @test model.diff.model.s ≈ ones(6) atol=ATOL rtol=RTOL
     @test model.diff.model.y ≈ [1/3,  -1/6,  1/3,  -1/6,  -1/6,  1/3]  atol=ATOL rtol=RTOL
 
