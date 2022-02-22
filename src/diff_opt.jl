@@ -7,15 +7,12 @@ Currently supports differentiating linear and quadratic programs only.
 """
 
 Base.@kwdef struct QPCache
-    inequality_duals::Vector{Float64}
-    equality_duals::Vector{Float64}
-    var_primals::Vector{Float64}
     lhs::SparseMatrixCSC{Float64, Int}
 end
 
 Base.@kwdef struct ConicCache
     M::SparseMatrixCSC{Float64, Int}
-    vp::Vector
+    vp::Vector{Float64}
     Dπv::BlockDiagonals.BlockDiagonal{Float64, Matrix{Float64}}
     A::SparseMatrixCSC{Float64, Int}
     b::Vector{Float64}
@@ -199,6 +196,10 @@ MOI.supports_incremental_interface(::DiffModel) = true
 
 MOI.is_valid(model::DiffModel, idx::MOI.Index) = MOI.is_valid(model.model, idx)
 
+function MOI.add_variable(model::DiffModel)
+    return MOI.add_variable(model.model)
+end
+
 function MOI.add_variables(model::DiffModel, n)
     return MOI.add_variables(model.model, n)
 end
@@ -216,6 +217,10 @@ function MOI.Utilities.final_touch(model::DiffModel, index_map)
     MOI.Utilities.final_touch(model.model, index_map)
 end
 
+function MOI.supports_constraint(model::DiffModel, ::Type{F}, ::Type{S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+    return MOI.supports_constraint(model.model, F, S)
+end
+
 function MOI.add_constraint(model::DiffModel, func::MOI.AbstractFunction, set::MOI.AbstractSet)
     return MOI.add_constraint(model.model, func, set)
 end
@@ -226,8 +231,8 @@ function _enlarge_set(vec::Vector, idx, value)
         n = length(vec)
         resize!(vec, m)
         fill!(view(vec, (n+1):m), NaN)
-        vec[idx] = value
     end
+    vec[idx] = value
     return
 end
 
@@ -282,27 +287,6 @@ function lazy_combination(op::F, a, b, i::Integer, args::Vararg{Any,N}) where {F
 end
 function lazy_combination(op::F, a, b, i::UnitRange, I::UnitRange) where {F<:Function}
     return lazy_combination(op, _view(a, i), b, _view(b, i), a, I)
-end
-
-function MOI.get(model::DiffModel, ::BackwardOutObjective)
-    return _back_obj(model.back_grad_cache, model.gradient_cache)
-end
-function _back_obj(b_cache::ConicBackCache, g_cache::ConicCache)
-    g = b_cache.g
-    πz = b_cache.πz
-    dc = lazy_combination(-, πz, g, length(g))
-    return VectorScalarAffineFunction(dc, 0.0)
-end
-function _back_obj(b_cache::QPForwBackCache, g_cache::QPCache)
-    ∇z = b_cache.dz
-    z = g_cache.var_primals
-    # `∇z * z' + z * ∇z'` doesn't work, see
-    # https://github.com/JuliaArrays/LazyArrays.jl/issues/178
-    dQ = LazyArrays.@~ (∇z .* z' + z .* ∇z') / 2.0
-    return MatrixScalarQuadraticFunction(
-        VectorScalarAffineFunction(b_cache.dz, 0.0),
-        dQ,
-    )
 end
 
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)

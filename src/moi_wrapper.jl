@@ -21,7 +21,17 @@ julia> _backward_quad(model)  # for convex conic models
 ```
 """
 function diff_optimizer(optimizer_constructor)::Optimizer
-    return Optimizer(MOI.instantiate(optimizer_constructor, with_bridge_type=Float64))
+    optimizer = MOI.instantiate(optimizer_constructor, with_bridge_type=Float64)
+    # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
+    # the model information from `optimizer`. However, 1) `optimizer` may not
+    # implement some getters or it may be inefficient and 2) the getters may be
+    # unimplemented or inefficient through some bridges.
+    # For this reason we add a cache layer, the same cache JuMP adds.
+    caching_opt = MOIU.CachingOptimizer(
+        MOIU.UniversalFallback(MOIU.Model{Float64}()),
+        optimizer,
+    )
+    return Optimizer(caching_opt)
 end
 
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
@@ -29,7 +39,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
 
     program_class::ProgramClassCode
 
-    diff::Union{Nothing,QPDiff,MOI.Bridges.LazyBridgeOptimizer{ConicDiff}}
+    diff::Union{Nothing,MOI.Bridges.LazyBridgeOptimizer{QPDiff},MOI.Bridges.LazyBridgeOptimizer{ConicDiff}}
 
     index_map::Union{Nothing,MOI.Utilities.IndexMap}
 
@@ -483,21 +493,27 @@ end
 function _diff(model::Optimizer)
     if model.diff === nothing
         if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-            model.diff = QPDiff()
+            diff = QPDiff()
         else
             _check_termination_status(model)
-            model.diff = MOI.Bridges.full_bridge_optimizer(ConicDiff(), Float64)
+            diff = ConicDiff()
         end
+        model.diff = MOI.Bridges.LazyBridgeOptimizer(diff)
+        # We don't add any variable bridge here because:
+        # 1) If `ZerosBridge` is used, `MOI.Bridges.unbridged_function` does not work.
+        #    This is in fact expected: since `ZerosBridge` drops the variable, we dont
+        #    compute the derivative of the value of this variable as a function of its fixed value.
+        #    This could be easily determined as the same as the derivative of the value but
+        #    since the variable was also dropped from other constraints, we would ignore its impact on the other constraints.
+        # 2) For affine variable bridges, `bridged_function` and `unbridged_function` don't treat the function as a derivative hence they will add constants
+        MOI.Bridges.Constraint.add_all_bridges(model.diff, Float64)
+        MOI.Bridges.Objective.add_all_bridges(model.diff, Float64)
         model.index_map = MOI.copy_to(model.diff, model.optimizer)
-        if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-            # TODO
-        else
-            vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
-            MOI.set(model.diff, MOI.VariablePrimalStart(), getindex.(Ref(model.index_map), vis_src), MOI.get(model.optimizer, MOI.VariablePrimal(), vis_src))
-            for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
-                _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintPrimalStart(), MOI.ConstraintPrimal())
-                _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintDualStart(), MOI.ConstraintDual())
-            end
+        vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
+        MOI.set(model.diff, MOI.VariablePrimalStart(), getindex.(Ref(model.index_map), vis_src), MOI.get(model.optimizer, MOI.VariablePrimal(), vis_src))
+        for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
+            _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintPrimalStart(), MOI.ConstraintPrimal())
+            _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintDualStart(), MOI.ConstraintDual())
         end
     end
     return model.diff
