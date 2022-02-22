@@ -493,17 +493,21 @@ end
 function _diff(model::Optimizer)
     if model.diff === nothing
         if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-            model.diff = MOI.Bridges.full_bridge_optimizer(QPDiff(), Float64)
+            diff = QPDiff()
         else
             _check_termination_status(model)
-            model.diff = MOI.Bridges.full_bridge_optimizer(ConicDiff(), Float64)
+            diff = ConicDiff()
         end
-        # If `ZerosBridge` is used, `MOI.Bridges.unbridged_function` does not work.
-        # This is in fact expected: since `ZerosBridge` drops the variable, we dont
-        # compute the derivative of the value of this variable as a function of its fixed value.
-        # This could be easily determined as the same as the derivative of the value but
-        # since the variable was also dropped from other constraints, we would ignore its impact on the other constraints.
-        MOI.Bridges.remove_bridge(model.diff, MOI.Bridges.Variable.ZerosBridge{Float64})
+        model.diff = MOI.Bridges.LazyBridgeOptimizer(diff)
+        # We don't add any variable bridge here because:
+        # 1) If `ZerosBridge` is used, `MOI.Bridges.unbridged_function` does not work.
+        #    This is in fact expected: since `ZerosBridge` drops the variable, we dont
+        #    compute the derivative of the value of this variable as a function of its fixed value.
+        #    This could be easily determined as the same as the derivative of the value but
+        #    since the variable was also dropped from other constraints, we would ignore its impact on the other constraints.
+        # 2) For affine variable bridges, `bridged_function` and `unbridged_function` don't treat the function as a derivative hence they will add constants
+        MOI.Bridges.Constraint.add_all_bridges(model.diff, Float64)
+        MOI.Bridges.Objective.add_all_bridges(model.diff, Float64)
         model.index_map = MOI.copy_to(model.diff, model.optimizer)
         vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
         MOI.set(model.diff, MOI.VariablePrimalStart(), getindex.(Ref(model.index_map), vis_src), MOI.get(model.optimizer, MOI.VariablePrimal(), vis_src))
