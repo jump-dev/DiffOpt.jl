@@ -6,7 +6,7 @@ const MOI = MathOptInterface
 import LinearAlgebra: dot, ⋅, Diagonal
 import SparseArrays: sparse
 
-const ATOL = 1e-4
+const ATOL = 2e-4
 const RTOL = 1e-4
 
 macro _test(computed, expected::Symbol)
