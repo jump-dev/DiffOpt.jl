@@ -5,7 +5,6 @@ const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 import DelimitedFiles
 import Ipopt
-import Ipopt
 import HiGHS
 import SCS
 
@@ -15,13 +14,11 @@ _vaf(c::Vector{Float64}) = VAF(MOI.ScalarAffineTerm{Float64}[], c)
 @testset "MOI Unit" begin
     function test_runtests()
         model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
+        # `Variable.ZerosBridge` makes dual needed by some tests fail.
+        MOI.Bridges.remove_bridge(model.optimizer.optimizer, MOI.Bridges.Variable.ZerosBridge{Float64})
         MOI.set(model, MOI.Silent(), true)
-        MOI.Test.runtests(model, MOI.Test.Config(),
-            exclude = [
-                "test_conic_linear_VectorOfVariables_2",
-                "test_attribute_SolverVersion",
-            ]
-        )
+        config = MOI.Test.Config(exclude = Any[MOI.SolverVersion])
+        MOI.Test.runtests(model, config),
         return
     end
     test_runtests()
