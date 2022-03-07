@@ -18,7 +18,6 @@ _vaf(c::Vector{Float64}) = VAF(MOI.ScalarAffineTerm{Float64}[], c)
         MOI.set(model, MOI.Silent(), true)
         MOI.Test.runtests(model, MOI.Test.Config(),
             exclude = [
-                "test_model_copy_to_UnsupportedAttribute",
                 "test_conic_linear_VectorOfVariables_2",
                 "test_attribute_SolverVersion",
             ]
