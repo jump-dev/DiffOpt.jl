@@ -116,20 +116,20 @@ d = 0.0:0.1:80
 d_size = length(d)
 c_g = [1.0, 3.0, 5.0]
 c_ϕ = 10.0
+;
 
 # Generate models for each demand `d`
-models = generate_model.(d; g_sup = g_sup, c_g = c_g, c_ϕ = c_ϕ)
+models = generate_model.(d; g_sup = g_sup, c_g = c_g, c_ϕ = c_ϕ);
 
 # Get the results of models with the DiffOpt Forward and Backward context
 
 result_forward = diff_forward.(models)
-
 optimize!.(models)
-result_backward = diff_backward.(models)
+result_backward = diff_backward.(models);
 
 # Organization of results to plot
 # Initialize data_results that will contain every result
-data_results = Array{Float64,3}(undef, 2, d_size, 2*(I+1))
+data_results = Array{Float64,3}(undef, 2, d_size, 2*(I+1));
 
 # Populate the data_results array
 for k in 1:d_size
