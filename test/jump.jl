@@ -6,7 +6,7 @@ const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 import LinearAlgebra: dot, ⋅, I
 import Ipopt
-import OSQP
+import Ipopt
 import HiGHS
 import SCS
 import DelimitedFiles
@@ -153,9 +153,7 @@ end
     #     x +  y      >= 1 (c2)
     #     x, y, z \in R
 
-    model = JuMP.direct_model(DiffOpt.diff_optimizer(OSQP.Optimizer))
-    MOI.set(JuMP.backend(model).optimizer, MOI.RawOptimizerAttribute("eps_prim_inf"), 1e-7)
-    MOI.set(JuMP.backend(model).optimizer, MOI.RawOptimizerAttribute("eps_dual_inf"), 1e-7)
+    model = JuMP.direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variables(model, begin
         x

@@ -4,7 +4,7 @@ import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 import DelimitedFiles
-import OSQP
+import Ipopt
 import Ipopt
 import HiGHS
 import SCS
@@ -53,7 +53,7 @@ end
     G = [1.0 1.0]
     h = [-1.0]
 
-    model = DiffOpt.diff_optimizer(OSQP.Optimizer)
+    model = DiffOpt.diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 2)
 
@@ -80,7 +80,7 @@ end
 #     G = [1.0 1.0;]
 #     h = [-1.0;]
 
-#     model = DiffOpt.diff_optimizer(OSQP.Optimizer)
+#     model = DiffOpt.diff_optimizer(Ipopt.Optimizer)
 #     x = MOI.add_variables(model, 2)
 
 #     # define objective
@@ -191,7 +191,7 @@ end
     dh = [-0.35714284; -0.4285714]
 
     qp_test_with_solutions(
-        OSQP.Optimizer;
+        Ipopt.Optimizer;
         Q = Q,
         q = q,
         G = G,

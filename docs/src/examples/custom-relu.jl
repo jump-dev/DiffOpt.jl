@@ -11,7 +11,7 @@
 
 using JuMP
 import DiffOpt
-import OSQP
+import Ipopt
 import ChainRulesCore
 import Flux
 import Statistics
@@ -23,7 +23,7 @@ import Base.Iterators: repeated
 # Return the solution of the problem.
 function matrix_relu(
     y::AbstractArray{T};
-    model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
 ) where T
     _x = zeros(size(y))
     N = length(y[:, 1])
@@ -47,7 +47,7 @@ end
 function ChainRulesCore.rrule(
     ::typeof(matrix_relu),
     y::AbstractArray{T};
-    model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
 ) where T
     pv = matrix_relu(y, model = model)
     function pullback_matrix_relu(dl_dx)
