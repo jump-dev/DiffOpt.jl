@@ -7,7 +7,7 @@ const MOIU = MOI.Utilities
 import LinearAlgebra: dot, ⋅, I
 import Ipopt
 import OSQP
-import GLPK
+import HiGHS
 import SCS
 import DelimitedFiles
 
@@ -333,7 +333,7 @@ end
     # s.t. x >= 0
     #      x >= 3
 
-    model = direct_model(DiffOpt.diff_optimizer(GLPK.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
 
     @variable(model, x[1:1])
@@ -362,7 +362,7 @@ end
     end
 
 
-    model = direct_model(DiffOpt.diff_optimizer(GLPK.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
 
     @variable(model, x[1:1])
@@ -450,7 +450,7 @@ end
     #      x,y,z >= 0
     # variant of previous test with same solution
 
-    model = direct_model(DiffOpt.diff_optimizer(GLPK.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, v[1:3] ≥ 0)
     (x, y, z) = v

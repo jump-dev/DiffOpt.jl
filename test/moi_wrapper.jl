@@ -4,6 +4,9 @@ import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 import DelimitedFiles
+import OSQP
+import Ipopt
+import HiGHS
 
 const VAF = MOI.VectorAffineFunction{Float64}
 _vaf(c::Vector{Float64}) = VAF(MOI.ScalarAffineTerm{Float64}[], c)
@@ -328,7 +331,7 @@ end
     #      x >= 3
     nz = 1
     qp_test_with_solutions(
-        GLPK.Optimizer;
+        HiGHS.Optimizer;
         q = ones(nz),
         G = -ones(2, nz),
         h = [0.0, -3.0],
@@ -403,7 +406,7 @@ end
     # variant of previous test with same solution
     nz = 3
     qp_test_with_solutions(
-        GLPK.Optimizer;
+        HiGHS.Optimizer;
         q = [-2.0, -3.0, -4.0],
         G = [
             3.0  2.0  1.0
@@ -437,7 +440,7 @@ end
 @testset "Differentiating LP with variable bounds 2" begin
     nz = 3
     qp_test_with_solutions(
-        GLPK.Optimizer;
+        HiGHS.Optimizer;
         q = [-2.0, -3.0, -4.0],
         G = [
             3.0  2.0  1.0
@@ -475,7 +478,7 @@ end
     """
     nz = 3
     qp_test_with_solutions(
-        GLPK.Optimizer;
+        HiGHS.Optimizer;
         q = [-2.0, -3.0, -4.0],
         G = [
             3.0  2.0  1.0

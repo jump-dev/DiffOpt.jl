@@ -1,7 +1,8 @@
 using JuMP
+import HiGHS
 
 function DiffOptModel()
-    model = DiffOpt.diff_optimizer(GLPK.Optimizer)
+    model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
     MOI.set(model, DiffOpt.ProgramClass(), DiffOpt.QUADRATIC)
     return model
 end

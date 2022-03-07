@@ -27,7 +27,7 @@ using Test
 using JuMP
 import DiffOpt
 import LinearAlgebra: dot
-import GLPK
+import HiGHS
 import MathOptInterface
 import Plots
 const MOI = MathOptInterface
@@ -36,7 +36,7 @@ const MOI = MathOptInterface
 
 function generate_model(d::Float64; g_sup::Vector{Float64}, c_g::Vector{Float64}, c_ϕ::Float64)
     ## Creation of the Model and Parameters
-    model = Model(() -> DiffOpt.diff_optimizer(GLPK.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     I = length(g_sup)
 

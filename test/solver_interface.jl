@@ -1,5 +1,7 @@
+import HiGHS
+
 @testset "FEASIBILITY_SENSE zeros objective" begin
-    model = DiffOpt.diff_optimizer(GLPK.Optimizer)
+    model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variable(model)
     MOI.add_constraint(model, x, MOI.GreaterThan(1.0))

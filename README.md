@@ -23,9 +23,9 @@ julia> ]
 ```julia
 using JuMP
 import DiffOpt
-import GLPK
+import HiGHS
 
-model = JuMP.Model(() -> DiffOpt.diff_optimizer(GLPK.Optimizer))
+model = JuMP.Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
 ```
 
 2. Define your model and solve it a single line.

@@ -1,8 +1,5 @@
 using Test
 import DiffOpt
-import OSQP
-import Ipopt
-import GLPK
 import Random
 import SCS
 import LinearAlgebra
