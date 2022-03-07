@@ -12,6 +12,22 @@ import SCS
 const VAF = MOI.VectorAffineFunction{Float64}
 _vaf(c::Vector{Float64}) = VAF(MOI.ScalarAffineTerm{Float64}[], c)
 
+@testset "MOI Unit" begin
+    function test_runtests()
+        model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
+        MOI.set(model, MOI.Silent(), true)
+        MOI.Test.runtests(model, MOI.Test.Config(),
+            exclude = [
+                "test_model_copy_to_UnsupportedAttribute",
+                "test_conic_linear_VectorOfVariables_2",
+                "test_attribute_SolverVersion",
+            ]
+        )
+        return
+    end
+    test_runtests()
+end
+
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
     Q = [
