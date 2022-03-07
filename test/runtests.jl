@@ -15,8 +15,8 @@ const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 const MOIT = MathOptInterface.Test
 
-const ATOL = 1e-4
-const RTOL = 1e-4
+const ATOL = 2e-4
+const RTOL = 2e-4
 
 @testset "MOI_wrapper" begin
     @testset "Utils" begin

@@ -18,10 +18,10 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 BlockDiagonals = "0.1"
 ChainRulesCore = "1"
 IterativeSolvers = "0.9"
-JuMP = "0.22"
+JuMP = "0.23"
 LazyArrays = "0.21, 0.22"
-MathOptInterface = "0.10.8"
-MathOptSetDistances = "0.1"
+MathOptInterface = "1"
+MathOptSetDistances = "0.2"
 julia = "1.6"
 
 [extras]
