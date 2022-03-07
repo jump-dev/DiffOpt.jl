@@ -1,7 +1,6 @@
 using Test
 import DiffOpt
 import Random
-import SCS
 import LinearAlgebra
 import DelimitedFiles
 

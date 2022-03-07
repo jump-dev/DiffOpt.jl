@@ -7,6 +7,7 @@ import DelimitedFiles
 import OSQP
 import Ipopt
 import HiGHS
+import SCS
 
 const VAF = MOI.VectorAffineFunction{Float64}
 _vaf(c::Vector{Float64}) = VAF(MOI.ScalarAffineTerm{Float64}[], c)
