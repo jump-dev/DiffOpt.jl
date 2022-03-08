@@ -26,7 +26,7 @@
 
 using JuMP     # The mathematical programming modelling language
 import DiffOpt # JuMP extension for differentiable optimization
-import OSQP    # Optimization solver that handles quadratic programs
+import Ipopt    # Optimization solver that handles quadratic programs
 import Plots   # Graphing tool
 import LinearAlgebra: norm, dot
 import Random
@@ -66,7 +66,7 @@ function fit_ridge(model, X, y, α)
         dot(err_term, err_term) / (2 * N * D) + α * dot(w, w) / (2 * D),
     )
     optimize!(model)
-    @assert termination_status(model) == MOI.OPTIMAL
+    @assert termination_status(model) in [MOI.OPTIMAL, MOI.LOCALLY_SOLVED, MOI.ALMOST_LOCALLY_SOLVED]
     return w
 end
 
@@ -76,7 +76,7 @@ end
 αs = 0.00:0.01:0.50
 mse_test = Float64[]
 mse_train = Float64[]
-model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
+model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
 (Ntest, D) = size(X_test)
 (Ntrain, D) = size(X_train)
 for α in αs
@@ -146,7 +146,7 @@ function descent(α0, max_iters=100; fixed_step = 0.01, grad_tol=1e-3)
     test_loss = Float64[]
     α = α0
     N, D = size(X_test)
-    model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     for iter in 1:max_iters
         w = fit_ridge(model, X_train, y_train, α)
         ŵ = value.(w)

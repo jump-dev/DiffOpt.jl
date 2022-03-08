@@ -6,8 +6,8 @@ const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 import LinearAlgebra: dot, ⋅, I
 import Ipopt
-import OSQP
-import GLPK
+import Ipopt
+import HiGHS
 import SCS
 import DelimitedFiles
 
@@ -153,9 +153,7 @@ end
     #     x +  y      >= 1 (c2)
     #     x, y, z \in R
 
-    model = JuMP.direct_model(DiffOpt.diff_optimizer(OSQP.Optimizer))
-    MOI.set(JuMP.backend(model).optimizer, MOI.RawOptimizerAttribute("eps_prim_inf"), 1e-7)
-    MOI.set(JuMP.backend(model).optimizer, MOI.RawOptimizerAttribute("eps_dual_inf"), 1e-7)
+    model = JuMP.direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variables(model, begin
         x
@@ -333,7 +331,7 @@ end
     # s.t. x >= 0
     #      x >= 3
 
-    model = direct_model(DiffOpt.diff_optimizer(GLPK.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
 
     @variable(model, x[1:1])
@@ -362,7 +360,7 @@ end
     end
 
 
-    model = direct_model(DiffOpt.diff_optimizer(GLPK.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
 
     @variable(model, x[1:1])
@@ -450,7 +448,7 @@ end
     #      x,y,z >= 0
     # variant of previous test with same solution
 
-    model = direct_model(DiffOpt.diff_optimizer(GLPK.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, v[1:3] ≥ 0)
     (x, y, z) = v

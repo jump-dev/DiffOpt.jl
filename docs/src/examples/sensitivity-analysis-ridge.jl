@@ -35,7 +35,7 @@
 using JuMP
 import DiffOpt
 import Random
-import OSQP
+import Ipopt
 import Plots
 import LinearAlgebra: normalize!, dot
 
@@ -55,13 +55,13 @@ Y = w * X .+ b + 0.8 * randn(N);
 # The helper method `fit_ridge` defines and solves the corresponding model.
 # The ridge regression is modeled with quadratic programming
 # (quadratic objective and linear constraints) and solved in generic methods
-# of OSQP. This is not the standard way of solving the ridge regression problem
+# of Ipopt. This is not the standard way of solving the ridge regression problem
 # this is done here for didactic purposes.
 
 function fit_ridge(X, Y, alpha = 0.1)
     N = length(Y)
-    ## Initialize a JuMP Model with OSQP solver
-    model = Model(() -> DiffOpt.diff_optimizer(OSQP.Optimizer))
+    ## Initialize a JuMP Model with Ipopt solver
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
     @variable(model, w) # angular coefficient
     @variable(model, b) # linear coefficient

@@ -4,9 +4,25 @@ import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MOI.Utilities
 import DelimitedFiles
+import Ipopt
+import HiGHS
+import SCS
 
 const VAF = MOI.VectorAffineFunction{Float64}
 _vaf(c::Vector{Float64}) = VAF(MOI.ScalarAffineTerm{Float64}[], c)
+
+@testset "MOI Unit" begin
+    function test_runtests()
+        model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
+        # `Variable.ZerosBridge` makes dual needed by some tests fail.
+        MOI.Bridges.remove_bridge(model.optimizer.optimizer, MOI.Bridges.Variable.ZerosBridge{Float64})
+        MOI.set(model, MOI.Silent(), true)
+        config = MOI.Test.Config(exclude = Any[MOI.SolverVersion])
+        MOI.Test.runtests(model, config),
+        return
+    end
+    test_runtests()
+end
 
 @testset "Testing forward on trivial QP" begin
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
@@ -49,7 +65,7 @@ end
     G = [1.0 1.0]
     h = [-1.0]
 
-    model = DiffOpt.diff_optimizer(OSQP.Optimizer)
+    model = DiffOpt.diff_optimizer(Ipopt.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 2)
 
@@ -76,7 +92,7 @@ end
 #     G = [1.0 1.0;]
 #     h = [-1.0;]
 
-#     model = DiffOpt.diff_optimizer(OSQP.Optimizer)
+#     model = DiffOpt.diff_optimizer(Ipopt.Optimizer)
 #     x = MOI.add_variables(model, 2)
 
 #     # define objective
@@ -187,7 +203,7 @@ end
     dh = [-0.35714284; -0.4285714]
 
     qp_test_with_solutions(
-        OSQP.Optimizer;
+        Ipopt.Optimizer;
         Q = Q,
         q = q,
         G = G,
@@ -328,7 +344,7 @@ end
     #      x >= 3
     nz = 1
     qp_test_with_solutions(
-        GLPK.Optimizer;
+        HiGHS.Optimizer;
         q = ones(nz),
         G = -ones(2, nz),
         h = [0.0, -3.0],
@@ -403,7 +419,7 @@ end
     # variant of previous test with same solution
     nz = 3
     qp_test_with_solutions(
-        GLPK.Optimizer;
+        HiGHS.Optimizer;
         q = [-2.0, -3.0, -4.0],
         G = [
             3.0  2.0  1.0
@@ -437,7 +453,7 @@ end
 @testset "Differentiating LP with variable bounds 2" begin
     nz = 3
     qp_test_with_solutions(
-        GLPK.Optimizer;
+        HiGHS.Optimizer;
         q = [-2.0, -3.0, -4.0],
         G = [
             3.0  2.0  1.0
@@ -475,7 +491,7 @@ end
     """
     nz = 3
     qp_test_with_solutions(
-        GLPK.Optimizer;
+        HiGHS.Optimizer;
         q = [-2.0, -3.0, -4.0],
         G = [
             3.0  2.0  1.0

@@ -9,9 +9,9 @@ by querying the internal optimizer instantiated using the
 One define a differentiable model by using any solver of choice. Example:
 
 ```julia
-julia> import DiffOpt, GLPK
+julia> import DiffOpt, HiGHS
 
-julia> model = DiffOpt.diff_optimizer(GLPK.Optimizer)
+julia> model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
 julia> model.add_variable(x)
 julia> model.add_constraint(...)
 
@@ -88,7 +88,7 @@ function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJE
     MOI.set(model.optimizer, attr, f)
 end
 
-MOI.supports(::Optimizer, ::MOI.ObjectiveSense) = true
+MOI.supports(model::Optimizer, attr::MOI.ObjectiveSense) = MOI.supports(model.optimizer, attr)
 
 function MOI.set(model::Optimizer, attr::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
     model.diff = nothing
@@ -99,80 +99,111 @@ function MOI.get(model::Optimizer, attr::MOI.AbstractModelAttribute)
     return MOI.get(model.optimizer, attr)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.get(
+    model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}
+) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     return MOI.get(model.optimizer, attr)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.get(
+    model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}
+) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     return MOI.get(model.optimizer, attr, ci)
 end
 
-function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.set(
+    model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S
+) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, s)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.get(
+    model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}
+) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     return MOI.get(model.optimizer, attr, ci)
 end
 
-function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.set(
+    model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F
+) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, f)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+function MOI.get(
+    model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}
+) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
     return MOI.get(model.optimizer, attr)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+function MOI.get(
+    model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}
+) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
     return MOI.get(model.optimizer, attr, ci)
 end
 
-function MOI.set(model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+function MOI.set(
+    model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S
+) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
     model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, s)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+function MOI.get(
+    model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}
+) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
     return MOI.get(model.optimizer, attr, ci)
 end
 
-function MOI.set(model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+function MOI.set(
+    model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F
+) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
     model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, f)
 end
 
 # `MOI.supports` methods
 
-function MOI.supports(::Optimizer,
-    ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}})
-    return true
+function MOI.supports(model::Optimizer, attr::MOI.AbstractModelAttribute)
+    return MOI.supports(model.optimizer, attr)
 end
 
-function MOI.supports(::Optimizer,
-    ::MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}})
-    return true
+function MOI.supports(
+    model::Optimizer,
+    attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES}
+)
+    return MOI.supports(model.optimizer, attr)
 end
 
-function MOI.supports(::Optimizer, ::MOI.AbstractModelAttribute)
-    return true
+function MOI.supports_constraint(
+    model::Optimizer,
+    ::Type{F},
+    ::Type{S}
+) where {
+    F <: SUPPORTED_SCALAR_FUNCTIONS,
+    S <: SUPPORTED_SCALAR_SETS,
+}
+    MOI.supports_constraint(model.optimizer, F, S)
 end
-
-function MOI.supports(::Optimizer, ::MOI.ObjectiveFunction)
-    return false
+function MOI.supports_constraint(
+    model::Optimizer,
+    ::Type{F},
+    ::Type{S}
+) where {
+    F <: SUPPORTED_VECTOR_FUNCTIONS,
+    S <: SUPPORTED_VECTOR_SETS,
+}
+    MOI.supports_constraint(model.optimizer, F, S)
 end
-
-function MOI.supports(::Optimizer, ::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES})
-    return true
-end
-
-MOI.supports_constraint(::Optimizer, ::Type{<: SUPPORTED_SCALAR_FUNCTIONS}, ::Type{<: SUPPORTED_SCALAR_SETS}) = true
-MOI.supports_constraint(::Optimizer, ::Type{<: SUPPORTED_VECTOR_FUNCTIONS}, ::Type{<: SUPPORTED_VECTOR_SETS}) = true
-function MOI.supports(model::Optimizer, attr::MOI.ConstraintName, ::Type{CI{F, S}}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.supports(
+    model::Optimizer, attr::MOI.ConstraintName, ::Type{CI{F, S}}
+) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
     return MOI.supports(model.optimizer, attr, CI{F,S})
 end
-function MOI.supports(model::Optimizer, attr::MOI.ConstraintName, ::Type{CI{F, S}}) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+function MOI.supports(
+    model::Optimizer, attr::MOI.ConstraintName, ::Type{CI{F, S}}
+) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
     return MOI.supports(model.optimizer, attr, CI{F,S})
 end
 
@@ -191,8 +222,15 @@ function MOI.is_empty(model::Optimizer)
            model.diff === nothing
 end
 
-# now supports name too
-MOI.supports_incremental_interface(::Optimizer) = true
+function MOI.supports_incremental_interface(model::Optimizer)
+    if !MOI.supports_incremental_interface(model.optimizer)
+        error(
+            "DiffOpt requires a solver that " *
+            "`MOI.supports_incremental_interface`, which is not the case for " *
+            "$(model.optimizer)")
+    end
+    return true
+end
 
 function MOI.copy_to(model::Optimizer, src::MOI.ModelLike)
     model.diff = nothing
@@ -352,7 +390,9 @@ function MOI.get(model::Optimizer, ::Type{CI{VF, VS}}, name::String) where {VF<:
     return MOI.get(model.optimizer, CI{VF,VS}, name)
 end
 
-MOI.supports(::Optimizer, ::MOI.TimeLimitSec) = true
+function MOI.supports(model::Optimizer, attr::MOI.TimeLimitSec)
+    MOI.supports(model.optimizer, attr)
+end
 function MOI.set(model::Optimizer, ::MOI.TimeLimitSec, value::Union{Real, Nothing})
     MOI.set(model.optimizer, MOI.TimeLimitSec(), value)
 end
