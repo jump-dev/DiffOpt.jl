@@ -27,7 +27,7 @@ using Test
 using JuMP
 import DiffOpt
 import LinearAlgebra: dot
-import GLPK
+import HiGHS
 import MathOptInterface
 import Plots
 const MOI = MathOptInterface
@@ -36,7 +36,7 @@ const MOI = MathOptInterface
 
 function generate_model(d::Float64; g_sup::Vector{Float64}, c_g::Vector{Float64}, c_ϕ::Float64)
     ## Creation of the Model and Parameters
-    model = Model(() -> DiffOpt.diff_optimizer(GLPK.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     I = length(g_sup)
 
@@ -116,20 +116,20 @@ d = 0.0:0.1:80
 d_size = length(d)
 c_g = [1.0, 3.0, 5.0]
 c_ϕ = 10.0
+;
 
 # Generate models for each demand `d`
-models = generate_model.(d; g_sup = g_sup, c_g = c_g, c_ϕ = c_ϕ)
+models = generate_model.(d; g_sup = g_sup, c_g = c_g, c_ϕ = c_ϕ);
 
 # Get the results of models with the DiffOpt Forward and Backward context
 
 result_forward = diff_forward.(models)
-
 optimize!.(models)
-result_backward = diff_backward.(models)
+result_backward = diff_backward.(models);
 
 # Organization of results to plot
 # Initialize data_results that will contain every result
-data_results = Array{Float64,3}(undef, 2, d_size, 2*(I+1))
+data_results = Array{Float64,3}(undef, 2, d_size, 2*(I+1));
 
 # Populate the data_results array
 for k in 1:d_size
