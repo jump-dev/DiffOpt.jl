@@ -43,14 +43,14 @@ function sparse_array_representation(func::MOI.ScalarAffineFunction, num_variabl
     )
 end
 struct SparseScalarQuadraticFunction{T}
-    affine_terms::SparseVector{T,Int64}
     quadratic_terms::SparseMatrixCSC{T,Int64}
+    affine_terms::SparseVector{T,Int64}
     constant::T
 end
 function sparse_array_representation(func::MOI.ScalarQuadraticFunction, num_variables, index_map)
     return SparseScalarQuadraticFunction(
-        sparse_array_representation(func.affine_terms, num_variables, index_map),
         sparse_array_representation(func.quadratic_terms, num_variables, index_map),
+        sparse_array_representation(func.affine_terms, num_variables, index_map),
         func.constant,
     )
 end
