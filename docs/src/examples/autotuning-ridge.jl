@@ -1,7 +1,6 @@
 # # Auto-tuning Hyperparameters
 
 #md # [![](https://img.shields.io/badge/show-github-579ACA.svg)](@__REPO_ROOT_URL__/docs/src/examples/autotuning-ridge.jl)
-#md # [![](https://img.shields.io/badge/show-nbviewer-579ACA.svg)](@__NBVIEWER_ROOT_URL__/generated/autotuning-ridge.ipynb)
 
 # This example shows how to learn a hyperparameter in Ridge Regression using a gradient descent routine.
 # Let the regularized regression problem be formulated as:

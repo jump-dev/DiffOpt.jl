@@ -1,7 +1,6 @@
 # # Sensitivity Analysis of Ridge Regression
 
 #md # [![](https://img.shields.io/badge/show-github-579ACA.svg)](@__REPO_ROOT_URL__/docs/src/examples/sensitivity-analysis-ridge.jl)
-#md # [![](https://img.shields.io/badge/show-nbviewer-579ACA.svg)](@__NBVIEWER_ROOT_URL__/generated/sensitivity-analysis-ridge.ipynb)
 
 # This example illustrates the sensitivity analysis of data points in a
 # [Ridge Regression](https://en.wikipedia.org/wiki/Ridge_regression) problem.
