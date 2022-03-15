@@ -1,8 +1,6 @@
 # # Differentiating a QP wrt a single variable
 
 #md # [![](https://img.shields.io/badge/show-github-579ACA.svg)](@__REPO_ROOT_URL__/docs/src/examples/matrix-inversion-manual.jl)
-#md # [![](https://img.shields.io/badge/show-nbviewer-579ACA.svg)](@__NBVIEWER_ROOT_URL__/generated/matrix-inversion-manual.ipynb)
-
 
 # Consider the quadratic program
 
