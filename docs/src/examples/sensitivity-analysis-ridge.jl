@@ -85,7 +85,7 @@ mi, ma = minimum(X), maximum(X)
 Plots.title!("Fitted lines and points")
 
 for alpha in 0.5:0.5:1.5
-    model, w, b = fit_ridge(X, Y, alpha)
+    local model, w, b = fit_ridge(X, Y, alpha)
     ŵ = value(w)
     b̂ = value(b)
     Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], label="alpha=$alpha", width=2)
@@ -152,7 +152,7 @@ p = Plots.scatter(
 )
 mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :red, label = "")
-title!("Regression slope sensitivity with respect to x")
+Plots.title!("Regression slope sensitivity with respect to x")
 
 p = Plots.scatter(
     X, Y,
@@ -162,7 +162,7 @@ p = Plots.scatter(
 )
 mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :blue, label = "")
-title!("Regression slope sensitivity with respect to y")
+Plots.title!("Regression slope sensitivity with respect to y")
 
 # Note the points with less central `x` values induce a greater y sensitivity of the slope,
 # while points further away from the regression line (with greater absolute error) induce more sensitivity
