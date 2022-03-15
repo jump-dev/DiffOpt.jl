@@ -1,7 +1,6 @@
 # # ChainRules integration demo: Relaxed Unit Commitment
 
 #md # [![](https://img.shields.io/badge/show-github-579ACA.svg)](@__REPO_ROOT_URL__/docs/src/examples/chainrules_unit.jl)
-#md # [![](https://img.shields.io/badge/show-nbviewer-579ACA.svg)](@__NBVIEWER_ROOT_URL__/generated/chainrules_unit.ipynb)
 
 
 # In this example, we will demonstrate the integration of DiffOpt with
