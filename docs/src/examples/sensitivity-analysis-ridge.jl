@@ -65,76 +65,105 @@ function fit_ridge(X, Y, alpha = 0.1)
     set_silent(model)
     @variable(model, w) # angular coefficient
     @variable(model, b) # linear coefficient
-    @variable(model, e[1:N]) # approximation error
-    ## constraint defining approximation error
-    @constraint(model, cons[i=1:N], e[i] == Y[i] - w * X[i] - b)
+    ## expression defining approximation error
+    @expression(model, e[i=1:N], Y[i] - w * X[i] - b)
     ## objective minimizing squared error and ridge penalty
     @objective(
         model,
         Min,
-        dot(e, e) + alpha * (sum(w * w) + sum(b * b)),
+        1 / N * dot(e, e) + alpha * (w^2 + b^2),
     )
     optimize!(model)
-    return model, w, b, cons # return model, variables and constraints references
+    return model, w, b # return model & variables
 end
 
 
-# Train on the data generated.
+# Plot the data points and the fitted line for different alpha values
 
-model, w, b, cons = fit_ridge(X, Y)
-ŵ, b̂ = value(w), value(b)
-
-# We can visualize the approximating line.
-
-p = Plots.scatter(X, Y, label="")
+p = Plots.scatter(X, Y, label=nothing, legend=:topleft)
 mi, ma = minimum(X), maximum(X)
-Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color=:red, label="")
+Plots.title!("Fitted lines and points")
 
+for alpha in 0.5:0.5:1.5
+    model, w, b = fit_ridge(X, Y, alpha)
+    ŵ = value(w)
+    b̂ = value(b)
+    Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], label="alpha=$alpha", width=2)
+end
+p
 
 # ## Differentiate
 
 # Now that we've solved the problem, we can compute the sensitivity of optimal
-# values of the angular coefficient `w` with
+# values of the slope `w` with
 # respect to perturbations in the data points (`x`,`y`).
 
-# Begin differentiating the model.
-# analogous to varying θ in the expression:
-# ```math
-# e_i = (y_{i} + \theta_{y_i}) - w (x_{i} + \theta_{x_{i}}) - b
-# ```
+alpha = 0.8
+model, w, b = fit_ridge(X, Y, alpha)
+ŵ = value(w)
+b̂ = value(b)
 
-∇ = zero(X)
+# We first compute sensitivity of the slope with respect to a perturbation of the independent
+# variable `x`.
+
+# Recalling that the points $(x_i, y_i)$ appear in the objective function as:
+# `(yi - b - w*xi)^2`, the `DiffOpt.ForwardInObjective` attribute must be set accordingly,
+# with the terms multiplying the parameter in the objective.
+
+∇x = zero(X)
 for i in 1:N
-    for j in 1:N
-        MOI.set(
-            model,
-            DiffOpt.ForwardInConstraint(),
-            cons[j],
-            i == j ? index(w) + 1.0 : 0.0 * index(w)
-        )
-    end
+    MOI.set(
+        model,
+        DiffOpt.ForwardInObjective(),
+        (w^2 * X[i] + 2b * w - 2 * w * Y[i])
+    )
     DiffOpt.forward(model)
     dw = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
         w
     )
-    ∇[i] = abs(dw)
+    ∇x[i] = abs(dw)
 end
 
-normalize!(∇);
+∇y = zero(X)
+for i in 1:N
+    MOI.set(
+        model,
+        DiffOpt.ForwardInObjective(),
+        (Y[i] - 2b - 2w * X[i]),
+    )
+    DiffOpt.forward(model)
+    dw = MOI.get(
+        model,
+        DiffOpt.ForwardOutVariablePrimal(),
+        w
+    )
+    ∇y[i] = abs(dw)
+end
 
-# Visualize point sensitivities with respect to regressing line.
-# Note that the gradients are normalized.
+# Visualize point sensitivities with respect to regression points.
 
 p = Plots.scatter(
     X, Y,
-    color = [x > 0 ? :red : :blue for x in ∇],
-    markersize = [25 * abs(x) for x in ∇],
+    color = :blue,
+    markersize = [5 * dw for dw in ∇x],
     label = ""
 )
 mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :red, label = "")
+title!("Regression slope sensitivity with respect to x")
 
-# Note the points in the extremes of the line segment are larger because
-# moving those points has a stronger effect on the angular coefficient of the line.
+p = Plots.scatter(
+    X, Y,
+    color = :green,
+    markersize = [5 * dw for dw in ∇y],
+    label = ""
+)
+mi, ma = minimum(X), maximum(X)
+Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :blue, label = "")
+title!("Regression slope sensitivity with respect to y")
+
+# Note the points with less central `x` values induce a greater y sensitivity of the slope,
+# while points further away from the regression line (with greater absolute error) induce more sensitivity
+# in the x direction.
