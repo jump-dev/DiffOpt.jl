@@ -150,6 +150,8 @@ mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :blue, label = "")
 Plots.title!("Regression slope sensitivity with respect to x")
 
+#
+
 p = Plots.scatter(
     X, Y,
     color = [dw < 0 ? :blue : :red for dw in ∇y],
