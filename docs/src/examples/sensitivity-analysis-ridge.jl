@@ -112,8 +112,8 @@ b̂ = value(b)
 ∇x = zero(X)
 ∇y = zero(X)
 
+# Sensitivity with respect to x and y
 for i in 1:N
-    # x sensitivity
     MOI.set(
         model,
         DiffOpt.ForwardInObjective(),
