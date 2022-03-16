@@ -97,7 +97,7 @@ p
 # values of the slope `w` with
 # respect to perturbations in the data points (`x`,`y`).
 
-alpha = 0.8
+alpha = 0.4
 model, w, b = fit_ridge(X, Y, alpha)
 ŵ = value(w)
 b̂ = value(b)
@@ -110,53 +110,52 @@ b̂ = value(b)
 # with the terms multiplying the parameter in the objective.
 
 ∇x = zero(X)
+∇y = zero(X)
+
+# Sensitivity with respect to x and y
 for i in 1:N
     MOI.set(
         model,
         DiffOpt.ForwardInObjective(),
-        (w^2 * X[i] + 2b * w - 2 * w * Y[i])
+        -(w^2 * X[i] + 2b * w - 2 * w * Y[i])
     )
     DiffOpt.forward(model)
-    dw = MOI.get(
+    ∇x[i] = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
         w
     )
-    ∇x[i] = abs(dw)
-end
-
-∇y = zero(X)
-for i in 1:N
     MOI.set(
         model,
         DiffOpt.ForwardInObjective(),
         (Y[i] - 2b - 2w * X[i]),
     )
     DiffOpt.forward(model)
-    dw = MOI.get(
+    ∇y[i] = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
         w
     )
-    ∇y[i] = abs(dw)
 end
 
 # Visualize point sensitivities with respect to regression points.
 
 p = Plots.scatter(
     X, Y,
-    color = :blue,
-    markersize = [5 * dw for dw in ∇x],
+    color = [dw < 0 ? :blue : :red for dw in ∇x],
+    markersize = [5 * abs(dw) + 1.2 for dw in ∇x],
     label = ""
 )
 mi, ma = minimum(X), maximum(X)
-Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :red, label = "")
+Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :blue, label = "")
 Plots.title!("Regression slope sensitivity with respect to x")
+
+#
 
 p = Plots.scatter(
     X, Y,
-    color = :green,
-    markersize = [5 * dw for dw in ∇y],
+    color = [dw < 0 ? :blue : :red for dw in ∇y],
+    markersize = [5 * abs(dw) + 1.2 for dw in ∇y],
     label = ""
 )
 mi, ma = minimum(X), maximum(X)
