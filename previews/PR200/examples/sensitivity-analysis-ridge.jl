@@ -36,7 +36,7 @@ import DiffOpt
 import Random
 import Ipopt
 import Plots
-import LinearAlgebra: normalize!, dot
+using LinearAlgebra: dot
 
 # ## Define and solve the problem
 
@@ -109,15 +109,15 @@ b̂ = value(b)
 # `(yi - b - w*xi)^2`, the `DiffOpt.ForwardInObjective` attribute must be set accordingly,
 # with the terms multiplying the parameter in the objective.
 
-∇x = zero(X)
-∇y = zero(X)
 
 # Sensitivity with respect to x and y
+∇y = zero(X)
+∇x = zero(X)
 for i in 1:N
     MOI.set(
         model,
         DiffOpt.ForwardInObjective(),
-        -(w^2 * X[i] + 2b * w - 2 * w * Y[i])
+        2w^2 * X[i] + 2b * w - 2 * w * Y[i]
     )
     DiffOpt.forward(model)
     ∇x[i] = MOI.get(
@@ -128,7 +128,7 @@ for i in 1:N
     MOI.set(
         model,
         DiffOpt.ForwardInObjective(),
-        (Y[i] - 2b - 2w * X[i]),
+        (2Y[i] - 2b - 2w * X[i]),
     )
     DiffOpt.forward(model)
     ∇y[i] = MOI.get(
