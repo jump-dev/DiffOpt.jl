@@ -44,7 +44,7 @@ using LinearAlgebra: dot
 
 Random.seed!(42)
 
-N = 100
+N = 150
 
 w = 2 * abs(randn())
 b = rand()
@@ -108,9 +108,13 @@ b̂ = value(b)
 # Recalling that the points $(x_i, y_i)$ appear in the objective function as:
 # `(yi - b - w*xi)^2`, the `DiffOpt.ForwardInObjective` attribute must be set accordingly,
 # with the terms multiplying the parameter in the objective.
-
+# When considering the perturbation of a parameter θ, `DiffOpt.ForwardInObjective()` takes in the expression in the
+# objective that multiplies θ.
+# If θ appears with a quadratic and a linear form: `θ^2 a x + θ b y`, then the expression to pass to
+# `ForwardInObjective` is `2θ a x + b y`.
 
 # Sensitivity with respect to x and y
+
 ∇y = zero(X)
 ∇x = zero(X)
 for i in 1:N
@@ -162,6 +166,4 @@ mi, ma = minimum(X), maximum(X)
 Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :blue, label = "")
 Plots.title!("Regression slope sensitivity with respect to y")
 
-# Note the points with less central `x` values induce a greater y sensitivity of the slope,
-# while points further away from the regression line (with greater absolute error) induce more sensitivity
-# in the x direction.
+# Note the points with less central `x` values induce a greater y sensitivity of the slope.
