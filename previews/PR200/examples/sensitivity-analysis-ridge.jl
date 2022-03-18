@@ -22,7 +22,7 @@
 # ```math
 # \begin{split}
 # \begin{array} {ll}
-# \mbox{minimize} & e^{\top}e + \alpha (w^2 + b^2) \\
+# \mbox{minimize} & e^{\top}e + \alpha (w^2) \\
 # \mbox{s.t.} & e_{i} = y_{i} - w x_{i} - b \quad \quad i=1..N  \\
 # \end{array}
 # \end{split}
@@ -70,7 +70,7 @@ function fit_ridge(X, Y, alpha = 0.1)
     @objective(
         model,
         Min,
-        1 / N * dot(e, e) + alpha * (w^2 + b^2),
+        1 / N * dot(e, e) + alpha * (w^2),
     )
     optimize!(model)
     return model, w, b # return model & variables
