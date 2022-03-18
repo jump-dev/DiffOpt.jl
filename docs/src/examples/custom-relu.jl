@@ -15,6 +15,7 @@ import ChainRulesCore
 import Flux
 import Statistics
 import Base.Iterators: repeated
+using LinearAlgebra
 
 # ## The ReLU and its derivative
 
