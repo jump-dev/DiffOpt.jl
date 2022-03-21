@@ -3,7 +3,7 @@
 #md # [![](https://img.shields.io/badge/show-github-579ACA.svg)](@__REPO_ROOT_URL__/docs/src/examples/custom-relu.jl)
 
 # We demonstrate how DiffOpt can be used to generate a simple neural network
-# unit - the ReLU layer. A neural network is created using Flux.jl which is
+# unit - the ReLU layer. A neural network is created using Flux.jl and
 # trained on the MNIST dataset.
 
 # This tutorial uses the following packages
@@ -15,6 +15,7 @@ import ChainRulesCore
 import Flux
 import Statistics
 import Base.Iterators: repeated
+using LinearAlgebra
 
 # ## The ReLU and its derivative
 
@@ -33,7 +34,7 @@ function matrix_relu(
         @objective(
             model,
             Min,
-            x'x -2y[:, i]'x  # x' Q x + q'x with Q = I, q = -2y
+            dot(x, x) -2dot(y[:, i], x)
         )
         optimize!(model)
         _x[:, i] = value.(x)
@@ -52,23 +53,26 @@ function ChainRulesCore.rrule(
     function pullback_matrix_relu(dl_dx)
         ## some value from the backpropagation (e.g., loss) is denoted by `l`
         ## so `dl_dy` is the derivative of `l` wrt `y`
-        x = model[:x] # load decision variable `x` into scope
+        x = model[:x] ## load decision variable `x` into scope
         dl_dy = zeros(T, size(dl_dx))
-        dl_dq = zeros(T, size(dl_dx)) # for step-by-step explanation
+        dl_dq = zeros(T, size(dl_dx)) ## for step-by-step explanation
         for i in 1:size(y, 2)
+            ## set sensitivities
             MOI.set.(
                 model,
                 DiffOpt.BackwardInVariablePrimal(),
                 x,
                 dl_dx[:, i]
-            ) # set sensitivities
-            DiffOpt.backward(model) # compute grad
+            )
+            ## compute grad
+            DiffOpt.backward(model)
+            ## return gradient wrt objective function parameters
             obj_exp = MOI.get(
                 model,
                 DiffOpt.BackwardOutObjective()
-            ) # return gradient wrt objective function parameters
-            dl_dq[:, i] = JuMP.coefficient.(obj_exp, x) # coeff of `x` in q'x = -2y'x
-            dq_dy = -2 # ∵ dq/dy = -2
+            )
+            dl_dq[:, i] = JuMP.coefficient.(obj_exp, x) ## coeff of `x` in q'x = -2y'x
+            dq_dy = -2 ## dq/dy = -2
             dl_dy[:, i] = dl_dq[:, i] * dq_dy
         end
         return (ChainRulesCore.NoTangent(), dl_dy,)
@@ -84,8 +88,8 @@ imgs = MLDatasets.MNIST.traintensor(1:N)
 labels = MLDatasets.MNIST.trainlabels(1:N);
 
 # Preprocessing
-train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), N)) #stack all the images
-train_Y = Flux.onehotbatch(labels, 0:9); # just a common way to encode categorical variables
+train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), N)) ## stack all the images
+train_Y = Flux.onehotbatch(labels, 0:9);
 
 test_imgs = MLDatasets.MNIST.testtensor(1:N)
 test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), N))
@@ -114,9 +118,10 @@ dataset = repeated((train_X, train_Y), epochs);
 
 # Parameters for the network training
 
-custom_loss(x, y) = Flux.crossentropy(m(x), y) # training loss function
-opt = Flux.ADAM(); # stochastic gradient descent variant to optimize weights of the neral network
-evalcb = () -> @show(custom_loss(train_X, train_Y)); # callback to show loss
+# training loss function, Flux optimizer
+custom_loss(x, y) = Flux.crossentropy(m(x), y)
+opt = Flux.ADAM()
+evalcb = () -> @show(custom_loss(train_X, train_Y))
 
 # Train to optimize network parameters
 
@@ -125,9 +130,10 @@ evalcb = () -> @show(custom_loss(train_X, train_Y)); # callback to show loss
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.
 
-accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y)); # average of correct guesses
+# Average of correct guesses
+accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y));
 
-# Train accuracy
+# Training accuracy
 
 accuracy(train_X, train_Y)
 

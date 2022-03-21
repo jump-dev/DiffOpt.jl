@@ -22,7 +22,7 @@
 # ```math
 # \begin{split}
 # \begin{array} {ll}
-# \mbox{minimize} & e^{\top}e + \alpha (w^2 + b^2) \\
+# \mbox{minimize} & e^{\top}e + \alpha (w^2) \\
 # \mbox{s.t.} & e_{i} = y_{i} - w x_{i} - b \quad \quad i=1..N  \\
 # \end{array}
 # \end{split}
@@ -36,7 +36,7 @@ import DiffOpt
 import Random
 import Ipopt
 import Plots
-import LinearAlgebra: normalize!, dot
+using LinearAlgebra: dot
 
 # ## Define and solve the problem
 
@@ -44,7 +44,7 @@ import LinearAlgebra: normalize!, dot
 
 Random.seed!(42)
 
-N = 100
+N = 150
 
 w = 2 * abs(randn())
 b = rand()
@@ -64,76 +64,106 @@ function fit_ridge(X, Y, alpha = 0.1)
     set_silent(model)
     @variable(model, w) # angular coefficient
     @variable(model, b) # linear coefficient
-    @variable(model, e[1:N]) # approximation error
-    ## constraint defining approximation error
-    @constraint(model, cons[i=1:N], e[i] == Y[i] - w * X[i] - b)
+    ## expression defining approximation error
+    @expression(model, e[i=1:N], Y[i] - w * X[i] - b)
     ## objective minimizing squared error and ridge penalty
     @objective(
         model,
         Min,
-        dot(e, e) + alpha * (sum(w * w) + sum(b * b)),
+        1 / N * dot(e, e) + alpha * (w^2),
     )
     optimize!(model)
-    return model, w, b, cons # return model, variables and constraints references
+    return model, w, b # return model & variables
 end
 
 
-# Train on the data generated.
+# Plot the data points and the fitted line for different alpha values
 
-model, w, b, cons = fit_ridge(X, Y)
-ŵ, b̂ = value(w), value(b)
-
-# We can visualize the approximating line.
-
-p = Plots.scatter(X, Y, label="")
+p = Plots.scatter(X, Y, label=nothing, legend=:topleft)
 mi, ma = minimum(X), maximum(X)
-Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color=:red, label="")
+Plots.title!("Fitted lines and points")
 
+for alpha in 0.5:0.5:1.5
+    local model, w, b = fit_ridge(X, Y, alpha)
+    ŵ = value(w)
+    b̂ = value(b)
+    Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], label="alpha=$alpha", width=2)
+end
+p
 
 # ## Differentiate
 
 # Now that we've solved the problem, we can compute the sensitivity of optimal
-# values of the angular coefficient `w` with
+# values of the slope `w` with
 # respect to perturbations in the data points (`x`,`y`).
 
-# Begin differentiating the model.
-# analogous to varying θ in the expression:
-# ```math
-# e_i = (y_{i} + \theta_{y_i}) - w (x_{i} + \theta_{x_{i}}) - b
-# ```
+alpha = 0.4
+model, w, b = fit_ridge(X, Y, alpha)
+ŵ = value(w)
+b̂ = value(b)
 
-∇ = zero(X)
+# We first compute sensitivity of the slope with respect to a perturbation of the independent
+# variable `x`.
+
+# Recalling that the points $(x_i, y_i)$ appear in the objective function as:
+# `(yi - b - w*xi)^2`, the `DiffOpt.ForwardInObjective` attribute must be set accordingly,
+# with the terms multiplying the parameter in the objective.
+# When considering the perturbation of a parameter θ, `DiffOpt.ForwardInObjective()` takes in the expression in the
+# objective that multiplies θ.
+# If θ appears with a quadratic and a linear form: `θ^2 a x + θ b y`, then the expression to pass to
+# `ForwardInObjective` is `2θ a x + b y`.
+
+# Sensitivity with respect to x and y
+
+∇y = zero(X)
+∇x = zero(X)
 for i in 1:N
-    for j in 1:N
-        MOI.set(
-            model,
-            DiffOpt.ForwardInConstraint(),
-            cons[j],
-            i == j ? index(w) + 1.0 : 0.0 * index(w)
-        )
-    end
+    MOI.set(
+        model,
+        DiffOpt.ForwardInObjective(),
+        2w^2 * X[i] + 2b * w - 2 * w * Y[i]
+    )
     DiffOpt.forward(model)
-    dw = MOI.get(
+    ∇x[i] = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
         w
     )
-    ∇[i] = abs(dw)
+    MOI.set(
+        model,
+        DiffOpt.ForwardInObjective(),
+        (2Y[i] - 2b - 2w * X[i]),
+    )
+    DiffOpt.forward(model)
+    ∇y[i] = MOI.get(
+        model,
+        DiffOpt.ForwardOutVariablePrimal(),
+        w
+    )
 end
 
-normalize!(∇);
-
-# Visualize point sensitivities with respect to regressing line.
-# Note that the gradients are normalized.
+# Visualize point sensitivities with respect to regression points.
 
 p = Plots.scatter(
     X, Y,
-    color = [x > 0 ? :red : :blue for x in ∇],
-    markersize = [25 * abs(x) for x in ∇],
+    color = [dw < 0 ? :blue : :red for dw in ∇x],
+    markersize = [5 * abs(dw) + 1.2 for dw in ∇x],
     label = ""
 )
 mi, ma = minimum(X), maximum(X)
-Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :red, label = "")
+Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :blue, label = "")
+Plots.title!("Regression slope sensitivity with respect to x")
 
-# Note the points in the extremes of the line segment are larger because
-# moving those points has a stronger effect on the angular coefficient of the line.
+#
+
+p = Plots.scatter(
+    X, Y,
+    color = [dw < 0 ? :blue : :red for dw in ∇y],
+    markersize = [5 * abs(dw) + 1.2 for dw in ∇y],
+    label = ""
+)
+mi, ma = minimum(X), maximum(X)
+Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :blue, label = "")
+Plots.title!("Regression slope sensitivity with respect to y")
+
+# Note the points with less central `x` values induce a greater y sensitivity of the slope.
