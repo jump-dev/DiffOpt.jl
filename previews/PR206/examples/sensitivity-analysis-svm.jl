@@ -51,15 +51,12 @@ MOI.set(model, MOI.Silent(), true)
 
 # Add the variables
 
-@variable(model, ξ[1:N])
+@variable(model, ξ[1:N] >= 0)
 @variable(model, w[1:D])
 @variable(model, b);
 
-# Add the constraints.
+# Add the loss constraints.
 
-@constraint(model, [i in 1:N],
-    ξ[i] >= 0
-)
 @constraint(model, con[i in 1:N],
     y[i] * (dot(X[i, :], w) + b) >= 1 - ξ[i]
 );
