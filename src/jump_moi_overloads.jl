@@ -2,11 +2,13 @@ function MOI.set(model::JuMP.Model, attr::ForwardInObjective, func::JuMP.Abstrac
     JuMP.check_belongs_to_model(func, model)
     return MOI.set(model, attr, JuMP.moi_function(func))
 end
+MOI.set(model::JuMP.Model, attr::ForwardInObjective, func::Number) = MOI.set(model, attr, JuMP.AffExpr(func))
 
 function MOI.set(model::JuMP.Model, attr::ForwardInConstraint, con_ref::JuMP.ConstraintRef, func::JuMP.AbstractJuMPScalar)
     JuMP.check_belongs_to_model(func, model)
     return MOI.set(model, attr, con_ref, JuMP.moi_function(func))
 end
+MOI.set(model::JuMP.Model, attr::ForwardInConstraint, con_ref::JuMP.ConstraintRef, func::Number) = MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
 
 function MOI.get(model::JuMP.Model, attr::BackwardOutObjective)
     func = MOI.get(JuMP.backend(model), attr)
