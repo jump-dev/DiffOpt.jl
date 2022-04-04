@@ -57,24 +57,18 @@ MOI.set(model, MOI.Silent(), true)
 
 # Add the constraints.
 
-@constraint(
-    model,
-    [i in 1:N],
+@constraint(model, [i in 1:N],
     ξ[i] >= 0
-);
-@constraint(
-    model,
-    cons[i in 1:N],
+)
+@constraint(model, con[i in 1:N],
     y[i] * (dot(X[i, :], w) + b) >= 1 - ξ[i]
 );
 
 
 # Define the objective and solve
 
-@objective(
-    model,
-    Min,
-    λ * dot(w, w) + sum(ξ),
+@objective(model,
+    Min, λ * dot(w, w) + sum(ξ),
 )
 
 optimize!(model)
@@ -114,27 +108,14 @@ for i in 1:N
     for j in 1:N
         if i == j
             ## we consider identical perturbations on all x_i coordinates
-            MOI.set(
-                model,
-                DiffOpt.ForwardInConstraint(),
-                cons[j],
-                y[j] * sum(w),
-            )
+            MOI.set(model, DiffOpt.ForwardInConstraint(), con[j], y[j] * sum(w))
         else
-            MOI.set(model, DiffOpt.ForwardInConstraint(), cons[j], 0.0 * sum(w))
+            MOI.set(model, DiffOpt.ForwardInConstraint(), con[j], 0.0 * sum(w))
         end
     end
     DiffOpt.forward(model)
-    dw = MOI.get.(
-        model,
-        DiffOpt.ForwardOutVariablePrimal(),
-        w,
-    )
-    db = MOI.get(
-        model,
-        DiffOpt.ForwardOutVariablePrimal(),
-        b,
-    )
+    dw = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), w)
+    db = MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), b)
     ∇[i] = norm(dw) + norm(db)
 end
 
