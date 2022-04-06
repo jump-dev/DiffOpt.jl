@@ -13,6 +13,7 @@ import DiffOpt
 import Ipopt
 import ChainRulesCore
 import Flux
+import MLDatasets
 import Statistics
 import Base.Iterators: repeated
 using LinearAlgebra
@@ -22,59 +23,39 @@ using LinearAlgebra
 # Define a relu through an optimization problem solved by a quadratic solver.
 # Return the solution of the problem.
 function matrix_relu(
-    y::AbstractArray{T};
+    y::Matrix;
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
-) where T
-    _x = zeros(size(y))
-    N = length(y[:, 1])
+)
+    N, M = size(y)
     empty!(model)
     set_silent(model)
-    @variable(model, x[1:N] >= 0)
-    for i in 1:size(y, 2)
-        @objective(
-            model,
-            Min,
-            dot(x, x) -2dot(y[:, i], x)
-        )
-        optimize!(model)
-        _x[:, i] = value.(x)
-    end
-    return _x
+    @variable(model, x[1:N, 1:M] >= 0)
+    @objective(model, Min, x[:]'x[:] -2y[:]'x[:])
+    optimize!(model)
+    return value.(x)
 end
 
 
 # Define the backward differentiation rule, for the function we defined above.
-function ChainRulesCore.rrule(
-    ::typeof(matrix_relu),
-    y::AbstractArray{T};
+function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where T
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
-) where T
     pv = matrix_relu(y, model = model)
     function pullback_matrix_relu(dl_dx)
         ## some value from the backpropagation (e.g., loss) is denoted by `l`
         ## so `dl_dy` is the derivative of `l` wrt `y`
         x = model[:x] ## load decision variable `x` into scope
         dl_dy = zeros(T, size(dl_dx))
-        dl_dq = zeros(T, size(dl_dx)) ## for step-by-step explanation
-        for i in 1:size(y, 2)
-            ## set sensitivities
-            MOI.set.(
-                model,
-                DiffOpt.BackwardInVariablePrimal(),
-                x,
-                dl_dx[:, i]
-            )
-            ## compute grad
-            DiffOpt.backward(model)
-            ## return gradient wrt objective function parameters
-            obj_exp = MOI.get(
-                model,
-                DiffOpt.BackwardOutObjective()
-            )
-            dl_dq[:, i] = JuMP.coefficient.(obj_exp, x) ## coeff of `x` in q'x = -2y'x
-            dq_dy = -2 ## dq/dy = -2
-            dl_dy[:, i] = dl_dq[:, i] * dq_dy
-        end
+        dl_dq = zeros(T, size(dl_dx))
+        ## set sensitivities
+        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x[:], dl_dx[:])
+        ## compute grad
+        DiffOpt.backward(model)
+        ## return gradient wrt objective function parameters
+        obj_exp = MOI.get(model, DiffOpt.BackwardOutObjective())
+        ## coeff of `x` in q'x = -2y'x
+        dl_dq[:] .= JuMP.coefficient.(obj_exp, x[:])
+        dq_dy = -2 ## dq/dy = -2
+        dl_dy[:] .= dl_dq[:] * dq_dy
         return (ChainRulesCore.NoTangent(), dl_dy,)
     end
     return pv, pullback_matrix_relu
@@ -82,7 +63,6 @@ end
 
 # For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
 # ## prepare data
-import MLDatasets
 N = 1000
 imgs = MLDatasets.MNIST.traintensor(1:N)
 labels = MLDatasets.MNIST.trainlabels(1:N);
@@ -99,7 +79,7 @@ test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:N), 0:9);
 
 # Network structure
 
-inner = 15
+inner = 10
 
 m = Flux.Chain(
     Flux.Dense(784, inner), #784 being image linear dimension (28 x 28)
@@ -112,7 +92,8 @@ m = Flux.Chain(
 # The original data is repeated `epochs` times because `Flux.train!` only
 # loops through the data set once
 
-epochs = 5
+epochs = 50 # ~1 minute (i7 8th gen with 16gb RAM)
+## epochs = 100 # leads to 77.8% in about 2 minutes
 
 dataset = repeated((train_X, train_Y), epochs);
 
