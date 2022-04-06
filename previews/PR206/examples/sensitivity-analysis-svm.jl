@@ -55,7 +55,7 @@ MOI.set(model, MOI.Silent(), true)
 @variable(model, w[1:D])
 @variable(model, b);
 
-# Add the loss constraints.
+# Add the constraints.
 
 @constraint(model, con[i in 1:N],
     y[i] * (dot(X[i, :], w) + b) >= 1 - ξ[i]
@@ -107,7 +107,7 @@ for i in 1:N
             ## we consider identical perturbations on all x_i coordinates
             MOI.set(model, DiffOpt.ForwardInConstraint(), con[j], y[j] * sum(w))
         else
-            MOI.set(model, DiffOpt.ForwardInConstraint(), con[j], 0.0 * sum(w))
+            MOI.set(model, DiffOpt.ForwardInConstraint(), con[j], 0.0)
         end
     end
     DiffOpt.forward(model)
