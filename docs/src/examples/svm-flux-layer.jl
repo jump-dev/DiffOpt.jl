@@ -36,38 +36,66 @@ D = size(train_X, 1);
 
 # ## SVM implementation
 
-function SVM(X::AbstractMatrix{T}; model = Model(() -> diff_optimizer(Ipopt.Optimizer))) where {T}
-    D, N = size(X)
-    
-    ## model init
-    empty!(model)
+"""
+Represents a SVM layer with weights `w`, bias `b`, and training regularizer `α`.
+"""
+mutable struct SVM{WT, BT, AT}
+    w::WT
+    b::BT
+    α::AT
+    model::JuMP.Model
+    trained::Bool
+end
+
+# We indicate to Flux that only the `α` parameter is trainable by backpropagation
+# since the others are obtained by optimization
+Flux.@functor SVM (α,)
+
+function SVM(n::Integer)
+    model = JuMP.Model(Ipopt.Optimizer)
     set_optimizer_attribute(model, MOI.Silent(), true)
+    
+    SVM(randn(n), randn(), rand(), model, false)
+end
+
+function (svm::SVM)(X::AbstractMatrix)
+    ## don't optimize and used the trained values directly
+    if svm.trained
+        return X' * svm.w .+ svm.b
+    end
+    model = svm.model
+    D, N = size(X)
+    @assert length(train_Y) == N
+    empty!(model)
     
     ## add variables
     @variable(model, l[1:N] >= 0)
-    @variable(model, w[1:D])
-    @variable(model, b)
+    @variable(model, w[1:D], start_value = svm.w)
+    @variable(model, b, start_value = svm.b)
     
     @constraint(
         model,
         cons[i in 1:N],
         (2train_Y[i] - 1) * (dot(X[:, i], w) + b) >= 1 - l[i]
     )
-        
-    @objective(
-        model,
-        Min,
-        sum(l),
-    )
-
+    @objective(model, Min, sum(l) + α * dot(w, w))
     optimize!(model)
-
-    wv = value.(w)
-    bv = value(b)
-    
-    return X'*wv .+ bv
+    svm.w .= JuMP.value.(w)
+    svm.b = JuMP.value(b)
+    return X' * svm.w .+ svm.b
 end
 
+function ChainRulesCore.rrule(svm::SVM, X::AbstractMatrix)
+    y_res = svm(X)
+    @assert !svm.trained
+    function svm_pullback(dy)
+        svm_diff = Tangent{SVM}(;
+            w = 
+        )
+        X̄ = svm.w * dy'
+        return TODO, 
+    end
+end
 
 # ## Define the classic and DiffOpt-augmented networks
 
