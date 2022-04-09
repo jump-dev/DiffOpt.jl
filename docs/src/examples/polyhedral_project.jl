@@ -25,7 +25,7 @@ struct MaxOfN{N}
     b::Vector{Float64}
 end
 
-MaxOfN(w::NTuple{N, Matrix{Float64}}) = MaxOfN{N}(w, randn(N))
+MaxOfN(w::NTuple{N, Matrix{Float64}}) where {N} = MaxOfN{N}(w, randn(N))
 
 Flux.@functor MaxOfN
 
@@ -45,6 +45,7 @@ function ChainRulesCore.rrule(maxofn::MaxOfN, y::AbstractMatrix)
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     xv = maxofn(y; model = model)
     function pullback_matrix_projection(dl_dx)
+        dl_dx = ChainRulesCore.unthunk(dl_dx)
         ##  `dl_dy` is the derivative of `l` wrt `y`
         x = model[:x]
         ## grad wrt input parameters
@@ -62,15 +63,19 @@ function ChainRulesCore.rrule(maxofn::MaxOfN, y::AbstractMatrix)
         greater_than_cons = model[:greater_than_cons]
         for idx in eachindex(dl_dw)
             cons_expr = MOI.get(model, DiffOpt.BackwardOutConstraint(), greater_than_cons[idx])
+            dl_db[idx] = -JuMP.constant(cons_expr)
             # TODO check maths
-            dl_db[idx] = JuMP.constant(cons_expr)
-            dl_dw[idx][:] .= dl_dx[:] .* JuMP.coefficient.(cons_expr, x[:])
+            dl_dw[idx] .= dl_dx * JuMP.coefficient.(cons_expr, x)
         end
         dself = ChainRulesCore.Tangent{typeof(maxofn)}(; w = dl_dw, b = dl_db)
         return (dself, dl_dy)
     end
     return xv, pullback_matrix_projection
 end
+
+# TODO fix here
+using ChainRulesTestUtils
+ChainRulesTestUtils.test_rrule(maxofn, y, atol=1e-5)
 
 # For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
 # ## prepare data
