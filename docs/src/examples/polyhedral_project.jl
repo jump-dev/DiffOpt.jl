@@ -15,7 +15,7 @@ import ChainRulesCore
 import Flux
 import MLDatasets
 import Statistics
-import Base.Iterators: repeated
+using Base.Iterators: repeated
 using LinearAlgebra
 
 # ## The ReLU and its derivative
@@ -32,7 +32,7 @@ Flux.@functor MaxOfN
 function (maxofn::MaxOfN)(y::AbstractMatrix; model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer)))
     N, M = size(y)
     empty!(model)
-    set_silent(model)
+    # set_silent(model)
     @variable(model, x[1:N, 1:M])
     @constraint(model, greater_than_cons[idx in 1:length(maxofn.w)], dot(maxofn.w[idx], x) ≥ maxofn.b[idx])
     @objective(model, Min, dot(x - y, x - y))
@@ -64,18 +64,13 @@ function ChainRulesCore.rrule(maxofn::MaxOfN, y::AbstractMatrix)
         for idx in eachindex(dl_dw)
             cons_expr = MOI.get(model, DiffOpt.BackwardOutConstraint(), greater_than_cons[idx])
             dl_db[idx] = -JuMP.constant(cons_expr)
-            # TODO check maths
-            dl_dw[idx] .= dl_dx * JuMP.coefficient.(cons_expr, x)
+            dl_dw[idx] .= JuMP.coefficient.(cons_expr, x)
         end
         dself = ChainRulesCore.Tangent{typeof(maxofn)}(; w = dl_dw, b = dl_db)
         return (dself, dl_dy)
     end
     return xv, pullback_matrix_projection
 end
-
-# TODO fix here
-using ChainRulesTestUtils
-ChainRulesTestUtils.test_rrule(maxofn, y, atol=1e-5)
 
 # For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
 # ## prepare data
@@ -95,11 +90,11 @@ test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:N), 0:9);
 
 # Network structure
 
-inner = 10
+inner = 100
 
 m = Flux.Chain(
     Flux.Dense(784, inner), #784 being image linear dimension (28 x 28)
-    matrix_relu,
+    MaxOfN((randn(inner,1000), randn(inner,1000), randn(inner,1000))),
     Flux.Dense(inner, 10), # 10 beinf the number of outcomes (0 to 9)
     Flux.softmax,
 )
