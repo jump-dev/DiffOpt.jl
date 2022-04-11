@@ -134,7 +134,7 @@ For instance, to get the tangent of the objective function corresponding to
 the tangent given to `BackwardInVariablePrimal`, do the
 following:
 ```julia
-func = MOI.get(model, DiffOpt.BackwardOutObjective)
+func = MOI.get(model, DiffOpt.BackwardOutObjective())
 ```
 Then, to get the sensitivity of the linear term with variable `x`, do
 ```julia

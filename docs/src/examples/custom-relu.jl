@@ -82,9 +82,9 @@ test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:N), 0:9);
 inner = 10
 
 m = Flux.Chain(
-    Flux.Dense(784, inner), #784 being image linear dimension (28 x 28)
+    Flux.Dense(784, inner), ## 784 being image linear dimension (28 x 28)
     matrix_relu,
-    Flux.Dense(inner, 10), # 10 beinf the number of outcomes (0 to 9)
+    Flux.Dense(inner, 10), ## 10 being the number of outcomes (0 to 9)
     Flux.softmax,
 )
 
