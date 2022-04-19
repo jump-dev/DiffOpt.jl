@@ -358,7 +358,7 @@ function forward_differentiate!(model::QPDiff)
     return
 end
 
-function MOI.get(model::QPDiff, ::BackwardOutObjective)
+function MOI.get(model::QPDiff, ::ReverseObjective)
     ∇z = model.back_grad_cache.dz
     z = model.x
     # `∇z * z' + z * ∇z'` doesn't work, see

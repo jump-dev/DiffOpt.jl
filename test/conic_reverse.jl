@@ -49,7 +49,7 @@ import SCS
 
     DiffOpt.reverse_differentiate!(model)
 
-    db = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
+    db = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), c))
 
     @test db ≈ [-1.0]  atol=ATOL rtol=RTOL
 end

@@ -59,7 +59,7 @@ function Base.empty!(cache::DiffInputCache)
 end
 
 """
-    ForwardInObjective <: MOI.AbstractModelAttribute
+    ForwardObjective <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to set input data to forward differentiation, that
 is, problem input data.
@@ -70,14 +70,14 @@ quadratic models.
 For instance, if the objective contains `θ * (x + 2y)`, for the purpose of
 computing the derivative with respect to `θ`, the following should be set:
 ```julia
-MOI.set(model, DiffOpt.ForwardInObjective(), 1.0 * x + 2.0 * y)
+MOI.set(model, DiffOpt.ForwardObjective(), 1.0 * x + 2.0 * y)
 ```
 where `x` and `y` are the relevant `MOI.VariableIndex`.
 """
-struct ForwardInObjective <: MOI.AbstractModelAttribute end
+struct ForwardObjective <: MOI.AbstractModelAttribute end
 
 """
-    ForwardInConstraint <: MOI.AbstractConstraintAttribute
+    ForwardConstraintPrimal <: MOI.AbstractConstraintAttribute
 
 A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
 is, problem input data.
@@ -86,12 +86,12 @@ For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y) <= 
 for the purpose of computing the derivative with respect to `θ`, the following
 should be set:
 ```julia
-MOI.set(model, DiffOpt.ForwardInConstraint(), ci, 1.0 * x + 2.0 * y - 5.0)
+MOI.set(model, DiffOpt.ForwardConstraintPrimal(), ci, 1.0 * x + 2.0 * y - 5.0)
 ```
-Note that we use `-5` as the `ForwardInConstraint` sets the tangent of the
+Note that we use `-5` as the `ForwardConstraintPrimal` sets the tangent of the
 ConstraintFunction so we consider the expression `θ * (x + 2y - 5)`.
 """
-struct ForwardInConstraint <: MOI.AbstractConstraintAttribute end
+struct ForwardConstraintPrimal <: MOI.AbstractConstraintAttribute end
 
 
 """
@@ -101,7 +101,7 @@ A `MOI.AbstractVariableAttribute` to get output data from forward
 differentiation, that is, problem solution.
 
 For instance, to get the tangent of the variable of index `vi` corresponding to
-the tangents given to `ForwardInObjective` and `ForwardInConstraint`, do the
+the tangents given to `ForwardObjective` and `ForwardConstraintPrimal`, do the
 following:
 ```julia
 MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi)
@@ -125,7 +125,7 @@ MOI.set(model, DiffOpt.ReverseVariablePrimal(), x)
 struct ReverseVariablePrimal <: MOI.AbstractVariableAttribute end
 
 """
-    BackwardOutObjective <: MOI.AbstractModelAttribute
+    ReverseObjective <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to get output data to reverse differentiation,
 that is, problem input data.
@@ -134,7 +134,7 @@ For instance, to get the tangent of the objective function corresponding to
 the tangent given to `ReverseVariablePrimal`, do the
 following:
 ```julia
-func = MOI.get(model, DiffOpt.BackwardOutObjective())
+func = MOI.get(model, DiffOpt.ReverseObjective())
 ```
 Then, to get the sensitivity of the linear term with variable `x`, do
 ```julia
@@ -155,11 +155,11 @@ DiffOpt.quad_sym_half(func, x, y)
     [`quad_sym_half`](@ref) for the details on the difference between these two
     functions.
 """
-struct BackwardOutObjective <: MOI.AbstractModelAttribute end
-MOI.is_set_by_optimize(::BackwardOutObjective) = true
+struct ReverseObjective <: MOI.AbstractModelAttribute end
+MOI.is_set_by_optimize(::ReverseObjective) = true
 
 """
-    BackwardOutConstraint
+    ReverseConstraintPrimal
 
 An `MOI.AbstractConstraintAttribute` to get output data to reverse differentiation, that
 is, problem input data.
@@ -170,11 +170,11 @@ coefficient of `y` and `5` for the function constant.
 If the constraint is of the form `func == constant` or `func <= constant`,
 the tangent for the constant on the right-hand side is `-5`.
 ```julia
-MOI.get(model, DiffOpt.BackwardOutConstraint(), ci)
+MOI.get(model, DiffOpt.ReverseConstraintPrimal(), ci)
 ```
 """
-struct BackwardOutConstraint <: MOI.AbstractConstraintAttribute end
-MOI.is_set_by_optimize(::BackwardOutConstraint) = true
+struct ReverseConstraintPrimal <: MOI.AbstractConstraintAttribute end
+MOI.is_set_by_optimize(::ReverseConstraintPrimal) = true
 
 """
     @enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
@@ -241,7 +241,7 @@ function MOI.set(model::DiffModel, ::MOI.VariablePrimalStart, vi::MOI.VariableIn
     _enlarge_set(model.x, vi.value, value)
 end
 
-function MOI.set(model::DiffModel, ::ForwardInObjective, objective)
+function MOI.set(model::DiffModel, ::ForwardObjective, objective)
     model.input_cache.objective = objective
     return
 end
@@ -250,7 +250,7 @@ function MOI.set(model::DiffModel, ::ReverseVariablePrimal, vi::VI, val)
     return
 end
 function MOI.set(model::DiffModel,
-    ::ForwardInConstraint,
+    ::ForwardConstraintPrimal,
     ci::CI{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
@@ -258,7 +258,7 @@ function MOI.set(model::DiffModel,
     return
 end
 function MOI.set(model::DiffModel,
-    ::ForwardInConstraint,
+    ::ForwardConstraintPrimal,
     ci::CI{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}
@@ -291,7 +291,7 @@ end
 
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
-function MOI.get(model::DiffModel, ::BackwardOutConstraint, ci::CI)
+function MOI.get(model::DiffModel, ::ReverseConstraintPrimal, ci::CI)
     return _lazy_affine(_get_dA(model, ci), _get_db(model, ci))
 end
 

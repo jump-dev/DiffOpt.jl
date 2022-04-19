@@ -61,7 +61,7 @@ DiffOpt.reverse_differentiate!(model) # differentiate
 
 grad_exp = MOI.get(   # -3 x - 1
     model,
-    DiffOpt.BackwardOutConstraint(),
+    DiffOpt.ReverseConstraintPrimal(),
     cons
 )
 JuMP.constant(grad_exp)  # -1

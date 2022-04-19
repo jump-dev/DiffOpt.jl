@@ -1,6 +1,6 @@
 function MOI.set(
     model::MOI.ModelLike,
-    attr::ForwardInConstraint,
+    attr::ForwardConstraintPrimal,
     bridge::MOI.Bridges.Constraint.VectorizeBridge{T},
     value,
 ) where {T}
@@ -8,14 +8,14 @@ function MOI.set(
 end
 function MOI.get(
     model::MOI.ModelLike,
-    attr::DiffOpt.BackwardOutConstraint,
+    attr::DiffOpt.ReverseConstraintPrimal,
     bridge::MOI.Bridges.Constraint.AbstractFunctionConversionBridge,
 )
     return MOI.get(model, attr, bridge.constraint)
 end
 function MOI.set(
     model::MOI.ModelLike,
-    attr::DiffOpt.ForwardInConstraint,
+    attr::DiffOpt.ForwardConstraintPrimal,
     bridge::MOI.Bridges.Constraint.SetMapBridge,
     func,
 )
@@ -24,7 +24,7 @@ function MOI.set(
 end
 function MOI.get(
     model::MOI.ModelLike,
-    attr::DiffOpt.BackwardOutConstraint,
+    attr::DiffOpt.ReverseConstraintPrimal,
     bridge::MOI.Bridges.Constraint.SetMapBridge,
 )
     func = MOI.get(model, attr, bridge.constraint)

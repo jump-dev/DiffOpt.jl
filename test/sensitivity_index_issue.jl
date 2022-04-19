@@ -144,11 +144,11 @@ end
     dprimal_dcons = Array{Float64, 2}(undef, length(yRef), length(xRef))
     for i in 1:length(xRef)
         constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, 1.0)
-        MOI.set(testModel, DiffOpt.ForwardInConstraint(), xRef[i], constraint_equation)
+        MOI.set(testModel, DiffOpt.ForwardConstraintPrimal(), xRef[i], constraint_equation)
         DiffOpt.forward_differentiate!(testModel)
         dprimal_dcons[:,i] .= MOI.get.(testModel, DiffOpt.ForwardOutVariablePrimal(), yRef)
         constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, 0.0)
-        MOI.set(testModel, DiffOpt.ForwardInConstraint(), xRef[i], constraint_equation)
+        MOI.set(testModel, DiffOpt.ForwardConstraintPrimal(), xRef[i], constraint_equation)
     end
 
     @testset "Sensitivities Result" begin

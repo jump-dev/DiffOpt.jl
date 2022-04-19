@@ -78,11 +78,11 @@ function ChainRulesCore.rrule(polytope::Polytope, y::AbstractMatrix)
         ## compute grad
         DiffOpt.reverse_differentiate!(model)
         ## compute gradient wrt objective function parameter y
-        obj_expr = MOI.get(model, DiffOpt.BackwardOutObjective())
+        obj_expr = MOI.get(model, DiffOpt.ReverseObjective())
         dl_dy .= -2 * JuMP.coefficient.(obj_expr, x)
         greater_than_cons = model[:greater_than_cons]
         for idx in eachindex(dl_dw)
-            cons_expr = MOI.get(model, DiffOpt.BackwardOutConstraint(), greater_than_cons[idx])
+            cons_expr = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), greater_than_cons[idx])
             dl_db[idx] = -JuMP.constant(cons_expr)
             dl_dw[idx] .= JuMP.coefficient.(cons_expr, x)
         end

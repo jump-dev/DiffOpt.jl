@@ -153,7 +153,7 @@ function qp_test(
 
         DiffOpt.reverse_differentiate!(model)
 
-        dobjb = MOI.get(model, DiffOpt.BackwardOutObjective())
+        dobjb = MOI.get(model, DiffOpt.ReverseObjective())
         spb = DiffOpt.sparse_array_representation(
             DiffOpt.standard_form(dobjb),
             n,
@@ -163,20 +163,20 @@ function qp_test(
         @_test(spb.affine_terms, dqb)
 
         # FIXME should multiply by -1 if lt is false
-        funcs = MOI.get.(model, DiffOpt.BackwardOutConstraint(), cle)
+        funcs = MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), cle)
         if !iszero(nub)
-            funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), cub))
+            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), cub))
         end
         if !iszero(nlb)
             # FIXME should multiply by -1
-            funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), clb))
+            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), clb))
         end
         @_test(convert(Vector{Float64}, _sign(MOI.constant.(funcs), true)), dhb)
         @_test(Float64[_sign(JuMP.coefficient(funcs[i], vi), false) for i in eachindex(funcs), vi in v], dGb)
 
-        funcs = MOI.get.(model, DiffOpt.BackwardOutConstraint(), ceq)
+        funcs = MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), ceq)
         if !iszero(nfix)
-            funcs = vcat(funcs, MOI.get.(model, DiffOpt.BackwardOutConstraint(), cfix))
+            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), cfix))
         end
         @_test(convert(Vector{Float64}, -MOI.constant.(funcs)), dbb)
         @_test(Float64[JuMP.coefficient(funcs[i], vi) for i in eachindex(funcs), vi in v], dAb)
@@ -208,19 +208,19 @@ function qp_test(
     deqf = dAf * v .- dbf
 
     @testset "Forward pass" begin
-        MOI.set(model, DiffOpt.ForwardInObjective(), dobjf)
+        MOI.set(model, DiffOpt.ForwardObjective(), dobjf)
         for (j, jc) in enumerate(cle)
             func = dlef[j]
             canonicalize && MOI.Utilities.canonicalize!(func)
             if set_zero || !MOI.iszero(dlef[j])
-                MOI.set(model, DiffOpt.ForwardInConstraint(), jc, _sign(func, false))
+                MOI.set(model, DiffOpt.ForwardConstraintPrimal(), jc, _sign(func, false))
             end
         end
         for (j, jc) in enumerate(ceq)
             func = deqf[j]
             canonicalize && MOI.Utilities.canonicalize!(func)
             if set_zero || !MOI.iszero(func)
-                MOI.set(model, DiffOpt.ForwardInConstraint(), jc, func)
+                MOI.set(model, DiffOpt.ForwardConstraintPrimal(), jc, func)
             end
         end
         if !iszero(nfix)
@@ -229,7 +229,7 @@ function qp_test(
                 canonicalize && MOI.Utilities.canonicalize!(func)
                 if set_zero || !MOI.iszero(func)
                     # TODO FIXME should work if we drop support for `VariableIndex` and we let the Functionize bridge do the work
-                    @test_throws MOI.UnsupportedAttribute MOI.set(model, DiffOpt.ForwardInConstraint(), jc, func)
+                    @test_throws MOI.UnsupportedAttribute MOI.set(model, DiffOpt.ForwardConstraintPrimal(), jc, func)
                 end
             end
         end

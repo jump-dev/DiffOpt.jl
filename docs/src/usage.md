@@ -34,8 +34,8 @@ we can use the `reverse_differentiate!` method
 MOI.set.(model,
     DiffOpt.ReverseVariablePrimal(), x, ones(2))
 DiffOpt.reverse_differentiate!(model)
-grad_obj = MOI.get(model, DiffOpt.BackwardOutObjective())
-grad_con = MOI.get.(model, DiffOpt.BackwardOutConstraint(), c)
+grad_obj = MOI.get(model, DiffOpt.ReverseObjective())
+grad_con = MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), c)
 ```
 
 2. To differentiate convex conic program
@@ -52,7 +52,7 @@ grad_con = MOI.get.(model, DiffOpt.BackwardOutConstraint(), c)
 we can use the `forward_differentiate!` method with perturbations in matrices `A`, `b`, `c`:
 ```julia
 import LinearAlgebra: ⋅
-MOI.set(model, DiffOpt.ForwardInObjective(), ones(2) ⋅ x)
+MOI.set(model, DiffOpt.ForwardObjective(), ones(2) ⋅ x)
 DiffOpt.forward_differentiate!(model)
 grad_x = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), x)
 ```

@@ -139,7 +139,7 @@ dual.(cons)
 
 MOI.set(
     model,
-    DiffOpt.ForwardInConstraint(),
+    DiffOpt.ForwardConstraintPrimal(),
     cons[1],
     0.0 * index(x[1]) - 1.0,  # to indicate the direction vector to get directional derivatives
 )
