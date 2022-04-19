@@ -155,7 +155,7 @@ DiffOpt.forward_differentiate!(model)
 
 dx = MOI.get.(
     model,
-    DiffOpt.ForwardOutVariablePrimal(),
+    DiffOpt.ForwardVariablePrimal(),
     x,
 )
 

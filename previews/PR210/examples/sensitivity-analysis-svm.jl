@@ -111,8 +111,8 @@ for i in 1:N
         end
     end
     DiffOpt.forward_differentiate!(model)
-    dw = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), w)
-    db = MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), b)
+    dw = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), w)
+    db = MOI.get(model, DiffOpt.ForwardVariablePrimal(), b)
     ∇[i] = norm(dw) + norm(db)
 end
 

@@ -170,7 +170,7 @@ function ChainRulesCore.frule(
     MOI.set(model, DiffOpt.ForwardObjective(), Δobj)
     DiffOpt.forward_differentiate!(JuMP.backend(model))
     ## querying the corresponding perturbation of the decision
-    Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)
+    Δp = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), p)
     return (pv, Δp.data)
 end
 

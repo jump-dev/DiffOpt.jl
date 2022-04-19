@@ -74,7 +74,7 @@ function diff_forward(model::Model, ϵ::Float64 = 1.0)
     DiffOpt.forward_differentiate!(model)
     
     ## Get the derivative of the model
-    dvect = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), vect_ref)
+    dvect = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), vect_ref)
     
     ## Return the values as a vector
     return [vect; dvect]
