@@ -70,7 +70,7 @@ function diff_forward(model::Model, ϵ::Float64 = 1.0)
      
     ## Pass the perturbation to the DiffOpt Framework and set the context to Forward
     constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, ϵ)
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), model[:demand_constraint], constraint_equation)
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), model[:demand_constraint], constraint_equation)
     DiffOpt.forward_differentiate!(model)
     
     ## Get the derivative of the model

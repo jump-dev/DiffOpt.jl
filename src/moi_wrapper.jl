@@ -488,7 +488,7 @@ end
 
 function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
     for (index, value) in constraints
-        MOI.set(diff, ForwardConstraintPrimal(), con_map[index], MOI.Utilities.map_indices(index_map, value))
+        MOI.set(diff, ForwardConstraintFunction(), con_map[index], MOI.Utilities.map_indices(index_map, value))
     end
 end
 
@@ -498,7 +498,7 @@ end
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and
 differentials with respect to problem data set with
-the [`ForwardObjective`](@ref) and  [`ForwardConstraintPrimal`](@ref) attributes.
+the [`ForwardObjective`](@ref) and  [`ForwardConstraintFunction`](@ref) attributes.
 The output solution differentials can be queried with the attribute
 [`ForwardVariablePrimal`](@ref).
 """
@@ -605,12 +605,12 @@ function MOI.get(model::Optimizer, attr::ReverseConstraintPrimal, ci::MOI.Constr
     )
 end
 function MOI.get(model::Optimizer,
-    ::ForwardConstraintPrimal, ci::CI{MOI.ScalarAffineFunction{T},S}
+    ::ForwardConstraintFunction, ci::CI{MOI.ScalarAffineFunction{T},S}
 ) where {T,S}
     return get(model.input_cache.scalar_constraints, ci, zero(MOI.ScalarAffineFunction{T}))
 end
 function MOI.get(model::Optimizer,
-    ::ForwardConstraintPrimal, ci::CI{MOI.VectorAffineFunction{T},S}
+    ::ForwardConstraintFunction, ci::CI{MOI.VectorAffineFunction{T},S}
 ) where {T,S}
     func = get(model.input_cache.vector_constraints, ci, nothing)
     if func === nothing
@@ -622,7 +622,7 @@ function MOI.get(model::Optimizer,
     end
 end
 function MOI.set(model::Optimizer,
-    ::ForwardConstraintPrimal,
+    ::ForwardConstraintFunction,
     ci::CI{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
@@ -630,7 +630,7 @@ function MOI.set(model::Optimizer,
     return
 end
 function MOI.set(model::Optimizer,
-    ::ForwardConstraintPrimal,
+    ::ForwardConstraintFunction,
     ci::CI{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}

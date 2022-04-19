@@ -77,7 +77,7 @@ where `x` and `y` are the relevant `MOI.VariableIndex`.
 struct ForwardObjective <: MOI.AbstractModelAttribute end
 
 """
-    ForwardConstraintPrimal <: MOI.AbstractConstraintAttribute
+    ForwardConstraintFunction <: MOI.AbstractConstraintAttribute
 
 A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
 is, problem input data.
@@ -86,12 +86,12 @@ For instance, if the scalar constraint of index `ci` contains `θ * (x + 2y) <= 
 for the purpose of computing the derivative with respect to `θ`, the following
 should be set:
 ```julia
-MOI.set(model, DiffOpt.ForwardConstraintPrimal(), ci, 1.0 * x + 2.0 * y - 5.0)
+MOI.set(model, DiffOpt.ForwardConstraintFunction(), ci, 1.0 * x + 2.0 * y - 5.0)
 ```
-Note that we use `-5` as the `ForwardConstraintPrimal` sets the tangent of the
+Note that we use `-5` as the `ForwardConstraintFunction` sets the tangent of the
 ConstraintFunction so we consider the expression `θ * (x + 2y - 5)`.
 """
-struct ForwardConstraintPrimal <: MOI.AbstractConstraintAttribute end
+struct ForwardConstraintFunction <: MOI.AbstractConstraintAttribute end
 
 
 """
@@ -101,7 +101,7 @@ A `MOI.AbstractVariableAttribute` to get output data from forward
 differentiation, that is, problem solution.
 
 For instance, to get the tangent of the variable of index `vi` corresponding to
-the tangents given to `ForwardObjective` and `ForwardConstraintPrimal`, do the
+the tangents given to `ForwardObjective` and `ForwardConstraintFunction`, do the
 following:
 ```julia
 MOI.get(model, DiffOpt.ForwardVariablePrimal(), vi)
@@ -250,7 +250,7 @@ function MOI.set(model::DiffModel, ::ReverseVariablePrimal, vi::VI, val)
     return
 end
 function MOI.set(model::DiffModel,
-    ::ForwardConstraintPrimal,
+    ::ForwardConstraintFunction,
     ci::CI{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
@@ -258,7 +258,7 @@ function MOI.set(model::DiffModel,
     return
 end
 function MOI.set(model::DiffModel,
-    ::ForwardConstraintPrimal,
+    ::ForwardConstraintFunction,
     ci::CI{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}

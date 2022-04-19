@@ -1,6 +1,6 @@
 function MOI.set(
     model::MOI.ModelLike,
-    attr::ForwardConstraintPrimal,
+    attr::ForwardConstraintFunction,
     bridge::MOI.Bridges.Constraint.VectorizeBridge{T},
     value,
 ) where {T}
@@ -15,7 +15,7 @@ function MOI.get(
 end
 function MOI.set(
     model::MOI.ModelLike,
-    attr::DiffOpt.ForwardConstraintPrimal,
+    attr::DiffOpt.ForwardConstraintFunction,
     bridge::MOI.Bridges.Constraint.SetMapBridge,
     func,
 )

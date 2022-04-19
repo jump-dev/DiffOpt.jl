@@ -105,9 +105,9 @@ for i in 1:N
     for j in 1:N
         if i == j
             ## we consider identical perturbations on all x_i coordinates
-            MOI.set(model, DiffOpt.ForwardConstraintPrimal(), con[j], y[j] * sum(w))
+            MOI.set(model, DiffOpt.ForwardConstraintFunction(), con[j], y[j] * sum(w))
         else
-            MOI.set(model, DiffOpt.ForwardConstraintPrimal(), con[j], 0.0)
+            MOI.set(model, DiffOpt.ForwardConstraintFunction(), con[j], 0.0)
         end
     end
     DiffOpt.forward_differentiate!(model)

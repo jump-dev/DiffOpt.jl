@@ -213,14 +213,14 @@ function qp_test(
             func = dlef[j]
             canonicalize && MOI.Utilities.canonicalize!(func)
             if set_zero || !MOI.iszero(dlef[j])
-                MOI.set(model, DiffOpt.ForwardConstraintPrimal(), jc, _sign(func, false))
+                MOI.set(model, DiffOpt.ForwardConstraintFunction(), jc, _sign(func, false))
             end
         end
         for (j, jc) in enumerate(ceq)
             func = deqf[j]
             canonicalize && MOI.Utilities.canonicalize!(func)
             if set_zero || !MOI.iszero(func)
-                MOI.set(model, DiffOpt.ForwardConstraintPrimal(), jc, func)
+                MOI.set(model, DiffOpt.ForwardConstraintFunction(), jc, func)
             end
         end
         if !iszero(nfix)
@@ -229,7 +229,7 @@ function qp_test(
                 canonicalize && MOI.Utilities.canonicalize!(func)
                 if set_zero || !MOI.iszero(func)
                     # TODO FIXME should work if we drop support for `VariableIndex` and we let the Functionize bridge do the work
-                    @test_throws MOI.UnsupportedAttribute MOI.set(model, DiffOpt.ForwardConstraintPrimal(), jc, func)
+                    @test_throws MOI.UnsupportedAttribute MOI.set(model, DiffOpt.ForwardConstraintFunction(), jc, func)
                 end
             end
         end

@@ -6,5 +6,5 @@
 @deprecate BackwardOutObjective() ReverseObjective() false
 
 @deprecate ForwardOutVariablePrimal() ForwardVariablePrimal() false
-@deprecate ForwardInConstraint() ForwardConstraintPrimal() false
+@deprecate ForwardInConstraint() ForwardConstraintFunction() false
 @deprecate ForwardInObjective() ForwardObjective() false

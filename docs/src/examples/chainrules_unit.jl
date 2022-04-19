@@ -158,7 +158,7 @@ function ChainRulesCore.frule(
     ]
     MOI.set.(
         model,
-        DiffOpt.ForwardConstraintPrimal(), energy_balance_cons,
+        DiffOpt.ForwardConstraintFunction(), energy_balance_cons,
         Δenergy_balance,
     )
 

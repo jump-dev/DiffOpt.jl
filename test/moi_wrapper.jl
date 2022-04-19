@@ -558,12 +558,12 @@ function test_simple_socp(eq_vec::Bool)
     MOI.optimize!(model)
 
     if eq_vec
-        MOI.set(model, DiffOpt.ForwardConstraintPrimal(), ceq, MOIU.vectorize([1.0 * x]))
+        MOI.set(model, DiffOpt.ForwardConstraintFunction(), ceq, MOIU.vectorize([1.0 * x]))
     else
-        MOI.set(model, DiffOpt.ForwardConstraintPrimal(), ceq, 1.0 * x)
+        MOI.set(model, DiffOpt.ForwardConstraintFunction(), ceq, 1.0 * x)
     end
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), cnon, MOIU.vectorize([1.0 * y]))
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), csoc, MOIU.operate(vcat, Float64, 1.0 * t, 0.0, 0.0))
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), cnon, MOIU.vectorize([1.0 * y]))
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), csoc, MOIU.operate(vcat, Float64, 1.0 * t, 0.0, 0.0))
 
     DiffOpt.forward_differentiate!(model)
 
@@ -647,7 +647,7 @@ function simple_psd(solver)
     # @test y ≈ [2.0, 1.0, -1.0, 1.0]  atol=ATOL rtol=RTOL
 
     # test1: changing the constant in `c`, i.e. changing value of X[2]
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), c, _vaf([1.0]))
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), c, _vaf([1.0]))
 
     DiffOpt.forward_differentiate!(model)
 
@@ -660,7 +660,7 @@ function simple_psd(solver)
     # @test ds[2:4] ≈ -ones(3)  atol=ATOL rtol=RTOL  # will affect PSD constraint too
 
     # test2: changing X[1], X[3] but keeping the objective (their sum) same
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), c, MOIU.zero_with_output_dimension(MOI.VectorAffineFunction{Float64}, 1))
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), c, MOIU.zero_with_output_dimension(MOI.VectorAffineFunction{Float64}, 1))
     MOI.set(model, DiffOpt.ForwardObjective(), -1.0X[1] + 1.0X[3])
 
     DiffOpt.forward_differentiate!(model)
@@ -800,7 +800,7 @@ end
     # ]  atol=ATOL rtol=RTOL
 
     # test c_extra
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), c_extra, _vaf([1.0]))
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), c_extra, _vaf([1.0]))
 
     DiffOpt.forward_differentiate!(model)
 
@@ -879,13 +879,13 @@ end
     # db = ones(11)
     # dA = ones(11, 7)
     MOI.set(model,
-        DiffOpt.ForwardConstraintPrimal(), c1, MOIU.vectorize(ones(1, 7) * x + ones(1)))
+        DiffOpt.ForwardConstraintFunction(), c1, MOIU.vectorize(ones(1, 7) * x + ones(1)))
     MOI.set(model,
-        DiffOpt.ForwardConstraintPrimal(), c2, MOIU.vectorize(ones(6, 7) * x + ones(6)))
+        DiffOpt.ForwardConstraintFunction(), c2, MOIU.vectorize(ones(6, 7) * x + ones(6)))
     MOI.set(model,
-        DiffOpt.ForwardConstraintPrimal(), c3, MOIU.vectorize(ones(3, 7) * x + ones(3)))
+        DiffOpt.ForwardConstraintFunction(), c3, MOIU.vectorize(ones(3, 7) * x + ones(3)))
     MOI.set(model,
-        DiffOpt.ForwardConstraintPrimal(), c4, MOIU.vectorize(ones(1, 7) * x + ones(1)))
+        DiffOpt.ForwardConstraintFunction(), c4, MOIU.vectorize(ones(1, 7) * x + ones(1)))
 
     DiffOpt.forward_differentiate!(model)
 
@@ -916,13 +916,13 @@ end
     # dA = zeros(11, 7)
     # dA[3:8, 1:6] = Matrix{Float64}(LinearAlgebra.I, 6, 6)  # differentiating only wrt POS constraint c2
     MOI.set(model,
-        DiffOpt.ForwardConstraintPrimal(), c1, MOIU.zero_with_output_dimension(VAF, 1))
+        DiffOpt.ForwardConstraintFunction(), c1, MOIU.zero_with_output_dimension(VAF, 1))
     MOI.set(model,
-        DiffOpt.ForwardConstraintPrimal(), c2, MOIU.vectorize(ones(6) .* x[1:6]))
+        DiffOpt.ForwardConstraintFunction(), c2, MOIU.vectorize(ones(6) .* x[1:6]))
     MOI.set(model,
-        DiffOpt.ForwardConstraintPrimal(), c3, MOIU.zero_with_output_dimension(VAF, 3))
+        DiffOpt.ForwardConstraintFunction(), c3, MOIU.zero_with_output_dimension(VAF, 3))
     MOI.set(model,
-        DiffOpt.ForwardConstraintPrimal(), c4, MOIU.zero_with_output_dimension(VAF, 1))
+        DiffOpt.ForwardConstraintFunction(), c4, MOIU.zero_with_output_dimension(VAF, 1))
 
     DiffOpt.forward_differentiate!(model)
 
@@ -972,7 +972,7 @@ end
 
     # dA = zeros(6, 1)
     # db = ones(6)
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), c, _vaf(ones(6)))
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), c, _vaf(ones(6)))
     # dc = zeros(1)
 
 
@@ -992,7 +992,7 @@ end
     # test 2
     dA = zeros(6, 1)
     db = zeros(6)
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), c, MOIU.zero_with_output_dimension(VAF, 6))
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), c, MOIU.zero_with_output_dimension(VAF, 6))
     MOI.set(model, DiffOpt.ForwardObjective(), 1.0 * x)
 
     DiffOpt.forward_differentiate!(model)
@@ -1125,7 +1125,7 @@ end
 
     dA = zeros(6, 1)
     db = ones(6)
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), c, _vaf(ones(6)))
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), c, _vaf(ones(6)))
     dc = zeros(1)
 
     DiffOpt.forward_differentiate!(model)
@@ -1145,7 +1145,7 @@ end
         DiffOpt.ForwardVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
     # test 2
-    MOI.set(model, DiffOpt.ForwardConstraintPrimal(), c, _vaf(zeros(6)))
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), c, _vaf(zeros(6)))
     MOI.set(model, DiffOpt.ForwardObjective(), 1.0 * x)
 
     DiffOpt.forward_differentiate!(model)
