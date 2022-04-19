@@ -417,13 +417,6 @@ end
 function MOI.optimize!(model::Optimizer)
     model.diff = nothing
     MOI.optimize!(model.optimizer)
-
-    # do not fail. interferes with MOI.Tests.linear12test
-    if !in(MOI.get(model.optimizer, MOI.TerminationStatus()),  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
-        @warn "problem status: $(MOI.get(model.optimizer, MOI.TerminationStatus()))"
-        return
-    end
-
     return
 end
 
@@ -486,6 +479,10 @@ The output problem data differentials can be queried with the
 attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
 function backward(model::Optimizer)
+    st = MOI.get(model.optimizer, MOI.TerminationStatus())
+    if !in(st,  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
+        error("Trying to compute the forward differentiation on a model with termination status $(st)")
+    end
     diff = _diff(model)
     for (vi, value) in model.input_cache.dx
         MOI.set(diff, BackwardInVariablePrimal(), model.index_map[vi], value)
@@ -510,6 +507,10 @@ The output solution differentials can be queried with the attribute
 [`ForwardOutVariablePrimal`](@ref).
 """
 function forward(model::Optimizer)
+    st = MOI.get(model.optimizer, MOI.TerminationStatus())
+    if !in(st,  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
+        error("Trying to compute the forward differentiation on a model with termination status $(st)")
+    end
     diff = _diff(model)
     if model.input_cache.objective !== nothing
         MOI.set(diff, ForwardInObjective(), MOI.Utilities.map_indices(model.index_map, model.input_cache.objective))
