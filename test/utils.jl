@@ -149,9 +149,9 @@ function qp_test(
     #deqb = dAb * v .+ dbb
     @assert dzb !== nothing
     @testset "Backward pass" begin
-        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), v, dzb)
+        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), v, dzb)
 
-        DiffOpt.backward(model)
+        DiffOpt.reverse_differentiate!(model)
 
         dobjb = MOI.get(model, DiffOpt.BackwardOutObjective())
         spb = DiffOpt.sparse_array_representation(
@@ -234,7 +234,7 @@ function qp_test(
             end
         end
 
-        DiffOpt.forward(model)
+        DiffOpt.forward_differentiate!(model)
 
         @_test(MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), v), dzf)
     end

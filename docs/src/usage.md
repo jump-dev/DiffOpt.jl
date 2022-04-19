@@ -29,11 +29,11 @@ Finally differentiate the model (primal and dual variables specifically) to obta
 \end{align*}
 ```
 
-we can use the `backward` method
+we can use the `reverse_differentiate!` method
 ```julia
 MOI.set.(model,
-    DiffOpt.BackwardInVariablePrimal(), x, ones(2))
-DiffOpt.backward(model)
+    DiffOpt.ReverseVariablePrimal(), x, ones(2))
+DiffOpt.reverse_differentiate!(model)
 grad_obj = MOI.get(model, DiffOpt.BackwardOutObjective())
 grad_con = MOI.get.(model, DiffOpt.BackwardOutConstraint(), c)
 ```
@@ -49,10 +49,10 @@ grad_con = MOI.get.(model, DiffOpt.BackwardOutConstraint(), c)
 \end{align*}
 ```
 
-we can use the `forward` method with perturbations in matrices `A`, `b`, `c`
+we can use the `forward_differentiate!` method with perturbations in matrices `A`, `b`, `c`:
 ```julia
 import LinearAlgebra: ⋅
 MOI.set(model, DiffOpt.ForwardInObjective(), ones(2) ⋅ x)
-DiffOpt.forward(model)
+DiffOpt.forward_differentiate!(model)
 grad_x = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), x)
 ```

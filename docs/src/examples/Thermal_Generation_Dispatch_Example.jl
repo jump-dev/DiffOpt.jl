@@ -66,12 +66,12 @@ function diff_forward(model::Model, ϵ::Float64 = 1.0)
     I = length(model[:g])
 
     ## Get the primal solution of the model
-    vect =  MOI.get.(model, MOI.VariablePrimal(), vect_ref)
+    vect = MOI.get.(model, MOI.VariablePrimal(), vect_ref)
      
     ## Pass the perturbation to the DiffOpt Framework and set the context to Forward
     constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, ϵ)
     MOI.set(model, DiffOpt.ForwardInConstraint(), model[:demand_constraint], constraint_equation)
-    DiffOpt.forward(model)
+    DiffOpt.forward_differentiate!(model)
     
     ## Get the derivative of the model
     dvect = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), vect_ref)
@@ -80,13 +80,13 @@ function diff_forward(model::Model, ϵ::Float64 = 1.0)
     return [vect; dvect]
 end
 
-function diff_backward(model::Model, ϵ::Float64 = 1.0)
+function diff_reverse(model::Model, ϵ::Float64 = 1.0)
     ## Initialization of parameters and references to simplify the notation
     vect_ref = [model[:g]; model[:ϕ]]
     I = length(model[:g])
 
     ## Get the primal solution of the model
-    vect =  MOI.get.(model, MOI.VariablePrimal(), vect_ref)
+    vect = MOI.get.(model, MOI.VariablePrimal(), vect_ref)
 
     ## Set variables needed for the DiffOpt Backward Framework
     dvect = Array{Float64, 1}(undef, I + 1)
@@ -96,8 +96,8 @@ function diff_backward(model::Model, ϵ::Float64 = 1.0)
     for i in 1:I+1
         ## Set the perturbation in the Primal Variables and set the context to Backward
         perturbation[i] = ϵ
-        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), vect_ref, perturbation)
-        DiffOpt.backward(model)
+        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), vect_ref, perturbation)
+        DiffOpt.reverse_differentiate!(model)
 
         ## Get the value of the derivative of the model
         dvect[i] = JuMP.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), model[:demand_constraint]))
@@ -125,7 +125,7 @@ models = generate_model.(d; g_sup = g_sup, c_g = c_g, c_ϕ = c_ϕ);
 
 result_forward = diff_forward.(models)
 optimize!.(models)
-result_backward = diff_backward.(models);
+result_reverse = diff_reverse.(models);
 
 # Organization of results to plot
 # Initialize data_results that will contain every result
@@ -134,7 +134,7 @@ data_results = Array{Float64,3}(undef, 2, d_size, 2*(I+1));
 # Populate the data_results array
 for k in 1:d_size
     data_results[1,k,:] = result_forward[k]
-    data_results[2,k,:] = result_backward[k]
+    data_results[2,k,:] = result_reverse[k]
 end
 
 # ## Results with Plot graphs
@@ -151,7 +151,7 @@ Plots.plot(d,data_results[1,:,I+2:2*(I+1)],
     xlabel="Demand [unit]",ylabel= "Sensitivity [-]"
 )
 
-# ### Results for the backward context
+# ### Results for the reverse context
 # Result Primal Values:
 Plots.plot(d,data_results[2,:,1:I+1],
     title="Generation by Demand",label=["Thermal Generation 1" "Thermal Generation 2" "Thermal Generation 3" "Generation Deficit"],

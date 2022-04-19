@@ -265,13 +265,13 @@ function JuMP.function_string(mode, func::MOItoJuMP)
 end
 
 # JuMP
-backward(model::JuMP.Model) = backward(JuMP.backend(model))
-forward(model::JuMP.Model) = forward(JuMP.backend(model))
+reverse_differentiate!(model::JuMP.Model) = reverse_differentiate!(JuMP.backend(model))
+forward_differentiate!(model::JuMP.Model) = forward_differentiate!(JuMP.backend(model))
 
 # MOIU
-backward(model::MOI.Utilities.CachingOptimizer) = backward(model.optimizer)
-forward(model::MOI.Utilities.CachingOptimizer) = forward(model.optimizer)
+reverse_differentiate!(model::MOI.Utilities.CachingOptimizer) = reverse_differentiate!(model.optimizer)
+forward_differentiate!(model::MOI.Utilities.CachingOptimizer) = forward_differentiate!(model.optimizer)
 
 # MOIB
-backward(model::MOI.Bridges.AbstractBridgeOptimizer) = backward(model.model)
-forward(model::MOI.Bridges.AbstractBridgeOptimizer) = forward(model.model)
+reverse_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer) = reverse_differentiate!(model.model)
+forward_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer) = forward_differentiate!(model.model)

@@ -123,7 +123,7 @@ for i in 1:N
         DiffOpt.ForwardInObjective(),
         2w^2 * X[i] + 2b * w - 2 * w * Y[i]
     )
-    DiffOpt.forward(model)
+    DiffOpt.forward_differentiate!(model)
     ∇x[i] = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),
@@ -134,7 +134,7 @@ for i in 1:N
         DiffOpt.ForwardInObjective(),
         (2Y[i] - 2b - 2w * X[i]),
     )
-    DiffOpt.forward(model)
+    DiffOpt.forward_differentiate!(model)
     ∇y[i] = MOI.get(
         model,
         DiffOpt.ForwardOutVariablePrimal(),

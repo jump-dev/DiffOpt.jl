@@ -145,15 +145,14 @@ function _gradient_cache(model::ConicDiff)
 end
 
 """
-    forward(model::ConicDiff)
+    forward_differentiate!(model::ConicDiff)
 
 Method to compute the product of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c`  to the perturbations `dA`, `db`, `dc`.
-This is similar to [`forward`](@ref).
+conic program parameters `A`, `b`, `c` to the perturbations `dA`, `db`, `dc`.
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function forward(model::ConicDiff)
+function forward_differentiate!(model::ConicDiff)
     gradient_cache = _gradient_cache(model)
     M = gradient_cache.M
     vp = gradient_cache.vp
@@ -207,15 +206,14 @@ function forward(model::ConicDiff)
 end
 
 """
-    backward(model::ConicDiff)
+    reverse_differentiate!(model::ConicDiff)
 
 Method to compute the product of the transpose of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c`  to the perturbations `dx`, `dy`, `ds`.
-This is similar to [`backward`](@ref).
+conic program parameters `A`, `b`, `c` to the perturbations `dx`, `dy`, `ds`.
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function backward(model::ConicDiff)
+function reverse_differentiate!(model::ConicDiff)
     gradient_cache = _gradient_cache(model)
     M = gradient_cache.M
     vp = gradient_cache.vp

@@ -5,7 +5,7 @@
 [![Coverage](https://codecov.io/gh/jump-dev/DiffOpt.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jump-dev/DiffOpt.jl)
 
 
-DiffOpt is a package for differentiating convex optimization programs with respect to the program parameters. It currently supports linear, quadratic and conic programs. Refer to [the  documentation](https://jump.dev/DiffOpt.jl/dev) for examples. Powered by [JuMP.jl](https://jump.dev/DiffOpt.jl/dev), DiffOpt allows creating a differentiable optimization model from many
+DiffOpt is a package for differentiating convex optimization programs with respect to the program parameters. It currently supports linear, quadratic and conic programs. Refer to [the documentation](https://jump.dev/DiffOpt.jl/dev) for examples. Powered by [JuMP.jl](https://jump.dev/DiffOpt.jl/dev), DiffOpt allows creating a differentiable optimization model from many
 [existing optimizers](https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers).
 
 
@@ -49,7 +49,7 @@ optimize!(model) # solve
 ```julia
 MOI.set.(  # set pertubations / gradient inputs
     model, 
-    DiffOpt.BackwardInVariablePrimal(),
+    DiffOpt.ReverseVariablePrimal(),
     x,
     1.0,
 )
@@ -57,7 +57,7 @@ MOI.set.(  # set pertubations / gradient inputs
 
 4. Differentiate the model (primal, dual variables specifically) and fetch the gradients
 ```julia
-DiffOpt.backward(model) # differentiate
+DiffOpt.reverse_differentiate!(model) # differentiate
 
 grad_exp = MOI.get(   # -3 x - 1
     model,
@@ -67,32 +67,6 @@ grad_exp = MOI.get(   # -3 x - 1
 JuMP.constant(grad_exp)  # -1
 JuMP.coefficient(grad_exp, x)  # -3
 ```
-
-<!-- Currently, DiffOpt supports two backends. If the optimization problem is of quadratic form i.e.
-```
-minimize_z z^T Q z / 2 + q^T z
-subject to: Az = b,
-            Gz ≤ h
-```
-then one can compute gradients by providing a backward pass vector
-```julia
-bpv = [1.0, 1.0]
-grads = backward(diff, ["Q", "q", "h"], bpv)
-```
-
-Secondly, for a conic problem of the format:
-```
-minimize_x c^T x
-subject to: Ax + b in K
-```
-where
-- the objective is linear
-- `K` is a Cartesian product of linear, semidefinite, second-order cones
-then one can compute gradients by providing perturbations
-```julia
-grads = backward(diff, dA, db, dc)
-``` -->
-
 
 ## Note
 

@@ -113,7 +113,7 @@ set_silent(model)
 @constraint(
     model,
     cons[j in 1:1],
-    sum(G[j, i] * x[i] for i in 1:2)  <= h[j]
+    sum(G[j, i] * x[i] for i in 1:2) <= h[j]
 );
 
 @objective(
@@ -149,7 +149,7 @@ MOI.set(
 
 # Compute derivatives
 
-DiffOpt.forward(model)
+DiffOpt.forward_differentiate!(model)
 
 # Query derivative
 

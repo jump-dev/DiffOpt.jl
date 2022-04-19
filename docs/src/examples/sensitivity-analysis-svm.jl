@@ -110,7 +110,7 @@ for i in 1:N
             MOI.set(model, DiffOpt.ForwardInConstraint(), con[j], 0.0)
         end
     end
-    DiffOpt.forward(model)
+    DiffOpt.forward_differentiate!(model)
     dw = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), w)
     db = MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), b)
     ∇[i] = norm(dw) + norm(db)

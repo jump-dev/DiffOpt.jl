@@ -169,7 +169,7 @@ end
 
 Inverse matrix specified on RHS of eqn(7) in https://arxiv.org/pdf/1703.00443.pdf
 
-Helper method while calling `_backward_quad`
+Helper method while calling `reverse_differentiate!`
 """
 function create_LHS_matrix(z, λ, Q, G, h, A=nothing)::AbstractMatrix{Float64}
     if (A === nothing || size(A)[1] == 0) && (G === nothing || size(G)[1] == 0)
@@ -240,7 +240,7 @@ function _get_db(model::QPDiff, ci::EQ)
 end
 
 """
-    backward(model::QPDiff)
+    reverse_differentiate!(model::QPDiff)
 
 Method to differentiate optimal solution `z` and return
 product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
@@ -248,14 +248,14 @@ the backward pass vector `dl / dz`
 
 The method computes the product of
 1. jacobian of problem solution `z*` with respect to
-    problem parameters set with the [`BackwardInVariablePrimal`](@ref)
+    problem parameters set with the [`ReverseVariablePrimal`](@ref)
 2. a backward pass vector `dl / dz`, where `l` can be a loss function
 
 Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function backward(model::QPDiff)
+function reverse_differentiate!(model::QPDiff)
     gradient_cache = _gradient_cache(model)
     LHS = gradient_cache.lhs
 
@@ -300,10 +300,7 @@ _linsolve(A, b::SparseVector) = A \ Vector(b)
 struct _QPSets end
 MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
-"""
-    forward(model::QPDiff)
-"""
-function forward(model::QPDiff)
+function forward_differentiate!(model::QPDiff)
     gradient_cache = _gradient_cache(model)
     LHS = gradient_cache.lhs
 

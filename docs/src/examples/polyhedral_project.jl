@@ -74,9 +74,9 @@ function ChainRulesCore.rrule(polytope::Polytope, y::AbstractMatrix)
         dl_dw = zero.(polytope.w)
         dl_db = zero(polytope.b)
         ## set sensitivities
-        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, dl_dx)
+        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, dl_dx)
         ## compute grad
-        DiffOpt.backward(model)
+        DiffOpt.reverse_differentiate!(model)
         ## compute gradient wrt objective function parameter y
         obj_expr = MOI.get(model, DiffOpt.BackwardOutObjective())
         dl_dy .= -2 * JuMP.coefficient.(obj_expr, x)

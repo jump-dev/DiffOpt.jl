@@ -112,7 +112,7 @@ function compute_dw_dα(model, w)
         DiffOpt.ForwardInObjective(),
         dot(w, w)  / (2 * D),
     )
-    DiffOpt.forward(model)
+    DiffOpt.forward_differentiate!(model)
     for i in 1:D
         dw_dα[i] = MOI.get(
             model,

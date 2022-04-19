@@ -12,12 +12,8 @@ One define a differentiable model by using any solver of choice. Example:
 julia> import DiffOpt, HiGHS
 
 julia> model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
-julia> model.add_variable(x)
-julia> model.add_constraint(...)
-
-julia> _backward_quad(model)  # for convex quadratic models
-
-julia> _backward_quad(model)  # for convex conic models
+julia> x = model.add_variable(model)
+julia> model.add_constraint(model, ...)
 ```
 """
 function diff_optimizer(optimizer_constructor)::Optimizer
@@ -477,20 +473,20 @@ end
 
 
 """
-    backward(model::Optimizer)
+    reverse_differentiate!(model::Optimizer)
 
 Wrapper method for the backward pass.
 This method will consider as input a currently solved problem and differentials
-with respect to the solution set with the [`BackwardInVariablePrimal`](@ref) attribute.
+with respect to the solution set with the [`ReverseVariablePrimal`](@ref) attribute.
 The output problem data differentials can be queried with the
 attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
 """
-function backward(model::Optimizer)
+function reverse_differentiate!(model::Optimizer)
     diff = _diff(model)
     for (vi, value) in model.input_cache.dx
-        MOI.set(diff, BackwardInVariablePrimal(), model.index_map[vi], value)
+        MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
     end
-    backward(diff)
+    return reverse_differentiate!(diff)
 end
 
 function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
@@ -500,7 +496,7 @@ function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
 end
 
 """
-    forward(model::Optimizer)
+    forward_differentiate!(model::Optimizer)
 
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and
@@ -509,7 +505,7 @@ the [`ForwardInObjective`](@ref) and  [`ForwardInConstraint`](@ref) attributes.
 The output solution differentials can be queried with the attribute
 [`ForwardOutVariablePrimal`](@ref).
 """
-function forward(model::Optimizer)
+function forward_differentiate!(model::Optimizer)
     diff = _diff(model)
     if model.input_cache.objective !== nothing
         MOI.set(diff, ForwardInObjective(), MOI.Utilities.map_indices(model.index_map, model.input_cache.objective))
@@ -520,7 +516,7 @@ function forward(model::Optimizer)
     for (F, S) in keys(model.input_cache.vector_constraints.dict)
         _copy_forward_in_constraint(diff, model.index_map, model.index_map.con_map[F, S], model.input_cache.vector_constraints[F, S])
     end
-    forward(diff)
+    forward_differentiate!(diff)
 end
 
 function _copy_constraint_start(dest, src, index_map::MOIU.DoubleDicts.IndexDoubleDictInner{F, S}, dest_attr, src_attr) where {F, S}
@@ -569,7 +565,7 @@ end
 
 # DiffOpt attributes redirected to `diff`
 
-function _checked_diff(model::Optimizer, attr::MOI.AnyAttribute, call)
+function _checked_diff(model::Optimizer, ::MOI.AnyAttribute, call)
     if model.diff === nothing
         error("Cannot get attribute `attr`. First call `DiffOpt.$call`.")
     end
@@ -578,7 +574,7 @@ end
 
 function MOI.get(model::Optimizer, attr::BackwardOutObjective)
     return IndexMappedFunction(
-        MOI.get(_checked_diff(model, attr, :backward), attr),
+        MOI.get(_checked_diff(model, attr, :reverse), attr),
         model.index_map,
     )
 end
@@ -593,17 +589,17 @@ end
 function MOI.get(model::Optimizer, attr::ForwardOutVariablePrimal, vi::MOI.VariableIndex)
     return MOI.get(_checked_diff(model, attr, :forward), attr, model.index_map[vi])
 end
-function MOI.get(model::Optimizer, ::BackwardInVariablePrimal, vi::VI)
+function MOI.get(model::Optimizer, ::ReverseVariablePrimal, vi::VI)
     return get(model.input_cache.dx, vi, 0.0)
 end
-function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
+function MOI.set(model::Optimizer, ::ReverseVariablePrimal, vi::VI, val)
     model.input_cache.dx[vi] = val
     return
 end
 
 function MOI.get(model::Optimizer, attr::BackwardOutConstraint, ci::MOI.ConstraintIndex)
     return IndexMappedFunction(
-        MOI.get(_checked_diff(model, attr, :backward), attr, model.index_map[ci]),
+        MOI.get(_checked_diff(model, attr, :reverse), attr, model.index_map[ci]),
         model.index_map,
     )
 end

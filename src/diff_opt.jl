@@ -1,6 +1,6 @@
 """
 Constructs a Differentiable Optimizer model from a MOI Optimizer.
-Supports `forward` and `backward` methods for solving and differentiating the model respectectively.
+Supports `forward_differentiate!` and `reverse_differentiate!` methods for solving and differentiating the model respectectively.
 
 ## Note
 Currently supports differentiating linear and quadratic programs only.
@@ -111,27 +111,27 @@ struct ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute end
 MOI.is_set_by_optimize(::ForwardOutVariablePrimal) = true
 
 """
-    BackwardInVariablePrimal <: MOI.AbstractVariableAttribute
+    ReverseVariablePrimal <: MOI.AbstractVariableAttribute
 
-A `MOI.AbstractVariableAttribute` to set input data to backward
-differentiation, that is, problem solution.
+A `MOI.AbstractVariableAttribute` to set input data to
+reverse differentiation, that is, problem solution.
 
 For instance, to set the tangent of the variable of index `vi`, do the
 following:
 ```julia
-MOI.set(model, DiffOpt.BackwardInVariablePrimal(), x)
+MOI.set(model, DiffOpt.ReverseVariablePrimal(), x)
 ```
 """
-struct BackwardInVariablePrimal <: MOI.AbstractVariableAttribute end
+struct ReverseVariablePrimal <: MOI.AbstractVariableAttribute end
 
 """
     BackwardOutObjective <: MOI.AbstractModelAttribute
 
-A `MOI.AbstractModelAttribute` to get output data to backward differentiation,
+A `MOI.AbstractModelAttribute` to get output data to reverse differentiation,
 that is, problem input data.
 
 For instance, to get the tangent of the objective function corresponding to
-the tangent given to `BackwardInVariablePrimal`, do the
+the tangent given to `ReverseVariablePrimal`, do the
 following:
 ```julia
 func = MOI.get(model, DiffOpt.BackwardOutObjective())
@@ -161,7 +161,7 @@ MOI.is_set_by_optimize(::BackwardOutObjective) = true
 """
     BackwardOutConstraint
 
-An `MOI.AbstractConstraintAttribute` to get output data to backward differentiation, that
+An `MOI.AbstractConstraintAttribute` to get output data to reverse differentiation, that
 is, problem input data.
 
 For instance, if the following returns `x + 2y + 5`, it means that the tangent
@@ -245,7 +245,7 @@ function MOI.set(model::DiffModel, ::ForwardInObjective, objective)
     model.input_cache.objective = objective
     return
 end
-function MOI.set(model::DiffModel, ::BackwardInVariablePrimal, vi::VI, val)
+function MOI.set(model::DiffModel, ::ReverseVariablePrimal, vi::VI, val)
     model.input_cache.dx[vi] = val
     return
 end

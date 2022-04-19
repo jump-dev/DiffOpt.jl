@@ -45,11 +45,10 @@ MOI.optimize!(model)
 @test MOI.get(model, MOI.VariablePrimal(), x) ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
 
 @test model.diff === nothing
-MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
-DiffOpt.backward(model)
+MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, ones(2))
+DiffOpt.reverse_differentiate!(model)
 
 grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
-# grad_wrt_h = backward(model, ["h"], ones(2))[1]
 @test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
 @test model.diff !== nothing
 
@@ -61,11 +60,10 @@ end
 @test model.diff === nothing
 MOI.optimize!(model)
 
-MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x, ones(2))
-DiffOpt.backward(model)
+MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, ones(2))
+DiffOpt.reverse_differentiate!(model)
 
 grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
 
-# grad_wrt_h = backward(model, ["h"], ones(2))[1]
 @test grad_wrt_h ≈ -1.0 atol=1e-3
 @test model.diff !== nothing
