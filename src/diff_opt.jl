@@ -95,7 +95,7 @@ struct ForwardConstraintPrimal <: MOI.AbstractConstraintAttribute end
 
 
 """
-    ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute
+    ForwardVariablePrimal <: MOI.AbstractVariableAttribute
 
 A `MOI.AbstractVariableAttribute` to get output data from forward
 differentiation, that is, problem solution.
@@ -104,11 +104,11 @@ For instance, to get the tangent of the variable of index `vi` corresponding to
 the tangents given to `ForwardObjective` and `ForwardConstraintPrimal`, do the
 following:
 ```julia
-MOI.get(model, DiffOpt.ForwardOutVariablePrimal(), vi)
+MOI.get(model, DiffOpt.ForwardVariablePrimal(), vi)
 ```
 """
-struct ForwardOutVariablePrimal <: MOI.AbstractVariableAttribute end
-MOI.is_set_by_optimize(::ForwardOutVariablePrimal) = true
+struct ForwardVariablePrimal <: MOI.AbstractVariableAttribute end
+MOI.is_set_by_optimize(::ForwardVariablePrimal) = true
 
 """
     ReverseVariablePrimal <: MOI.AbstractVariableAttribute

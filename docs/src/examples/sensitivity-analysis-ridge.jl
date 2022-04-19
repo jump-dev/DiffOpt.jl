@@ -126,7 +126,7 @@ for i in 1:N
     DiffOpt.forward_differentiate!(model)
     ∇x[i] = MOI.get(
         model,
-        DiffOpt.ForwardOutVariablePrimal(),
+        DiffOpt.ForwardVariablePrimal(),
         w
     )
     MOI.set(
@@ -137,7 +137,7 @@ for i in 1:N
     DiffOpt.forward_differentiate!(model)
     ∇y[i] = MOI.get(
         model,
-        DiffOpt.ForwardOutVariablePrimal(),
+        DiffOpt.ForwardVariablePrimal(),
         w
     )
 end

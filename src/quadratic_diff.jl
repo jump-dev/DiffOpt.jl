@@ -226,7 +226,7 @@ function _qp_supported(model::MOI.AbstractOptimizer)
     return all(FS -> _qp_supported(FS...), MOI.get(model, MOI.ListOfConstraintTypesPresent()))
 end
 
-function MOI.get(model::QPDiff, ::ForwardOutVariablePrimal, vi::VI)
+function MOI.get(model::QPDiff, ::ForwardVariablePrimal, vi::VI)
     return model.forw_grad_cache.dz[vi.value]
 end
 

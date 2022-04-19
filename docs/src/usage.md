@@ -54,5 +54,5 @@ we can use the `forward_differentiate!` method with perturbations in matrices `A
 import LinearAlgebra: ⋅
 MOI.set(model, DiffOpt.ForwardObjective(), ones(2) ⋅ x)
 DiffOpt.forward_differentiate!(model)
-grad_x = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), x)
+grad_x = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), x)
 ```

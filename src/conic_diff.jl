@@ -278,7 +278,7 @@ function MOI.get(model::ConicDiff, ::ReverseObjective)
     return VectorScalarAffineFunction(dc, 0.0)
 end
 
-function MOI.get(model::ConicDiff, ::ForwardOutVariablePrimal, vi::MOI.VariableIndex)
+function MOI.get(model::ConicDiff, ::ForwardVariablePrimal, vi::MOI.VariableIndex)
     i = vi.value
     du = model.forw_grad_cache.du
     dw = model.forw_grad_cache.dw

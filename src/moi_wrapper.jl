@@ -503,7 +503,7 @@ This method will consider as input a currently solved problem and
 differentials with respect to problem data set with
 the [`ForwardObjective`](@ref) and  [`ForwardConstraintPrimal`](@ref) attributes.
 The output solution differentials can be queried with the attribute
-[`ForwardOutVariablePrimal`](@ref).
+[`ForwardVariablePrimal`](@ref).
 """
 function forward_differentiate!(model::Optimizer)
     diff = _diff(model)
@@ -586,7 +586,7 @@ function MOI.set(model::Optimizer, ::ForwardObjective, objective)
     return
 end
 
-function MOI.get(model::Optimizer, attr::ForwardOutVariablePrimal, vi::MOI.VariableIndex)
+function MOI.get(model::Optimizer, attr::ForwardVariablePrimal, vi::MOI.VariableIndex)
     return MOI.get(_checked_diff(model, attr, :forward), attr, model.index_map[vi])
 end
 function MOI.get(model::Optimizer, ::ReverseVariablePrimal, vi::VI)

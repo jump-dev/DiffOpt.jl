@@ -146,7 +146,7 @@ end
         constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, 1.0)
         MOI.set(testModel, DiffOpt.ForwardConstraintPrimal(), xRef[i], constraint_equation)
         DiffOpt.forward_differentiate!(testModel)
-        dprimal_dcons[:,i] .= MOI.get.(testModel, DiffOpt.ForwardOutVariablePrimal(), yRef)
+        dprimal_dcons[:,i] .= MOI.get.(testModel, DiffOpt.ForwardVariablePrimal(), yRef)
         constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, 0.0)
         MOI.set(testModel, DiffOpt.ForwardConstraintPrimal(), xRef[i], constraint_equation)
     end

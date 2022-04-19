@@ -116,7 +116,7 @@ function compute_dw_dα(model, w)
     for i in 1:D
         dw_dα[i] = MOI.get(
             model,
-            DiffOpt.ForwardOutVariablePrimal(), 
+            DiffOpt.ForwardVariablePrimal(), 
             w[i],
         )
     end

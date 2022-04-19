@@ -236,7 +236,7 @@ function qp_test(
 
         DiffOpt.forward_differentiate!(model)
 
-        @_test(MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), v), dzf)
+        @_test(MOI.get.(model, DiffOpt.ForwardVariablePrimal(), v), dzf)
     end
 
     # Test against [AK17, eq. (6)]
