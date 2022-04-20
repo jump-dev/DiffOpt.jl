@@ -71,7 +71,7 @@ end
     grad_constraint = JuMP.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), ctr_le[]))
     @test grad_constraint ≈ -1.0  atol=ATOL rtol=RTOL
 
-    # Test some overloads. Better place elsewhere? 
+    # Test some overloads from https://github.com/jump-dev/DiffOpt.jl/issues/211
     grad_obj = MOI.get(model, DiffOpt.BackwardOutObjective())
     @test JuMP.coefficient(grad_obj, x[1], x[2]) ≈ 
         DiffOpt.quad_sym_half.(grad_obj, x[1], x[2]) atol=ATOL rtol=RTOL
