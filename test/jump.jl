@@ -68,7 +68,7 @@ end
 
     DiffOpt.reverse_differentiate!(model)
 
-    grad_constraint = JuMP.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), ctr_le[]))
+    grad_constraint = JuMP.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), ctr_le[]))
     @test grad_constraint ≈ -1.0  atol=ATOL rtol=RTOL
 
     # Test some overloads from https://github.com/jump-dev/DiffOpt.jl/issues/211
@@ -127,7 +127,7 @@ end
     db = [1.0]
     dA = [0.0 -0.5 0.0]
     for (j,jc) in enumerate(ctr_eq)
-        grad = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), jc)
+        grad = MOI.get(model, DiffOpt.ReverseConstraintFunction(), jc)
         @test JuMP.constant(grad) ≈ -db[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(x)
             @test JuMP.coefficient(grad, iv) ≈ dA[j,i] atol=ATOL rtol=RTOL
@@ -138,7 +138,7 @@ end
     dh = zeros(6,1)
     dG = zeros(6,3)
     for (j,jc) in enumerate(ctr_le)
-        grad = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), jc)
+        grad = MOI.get(model, DiffOpt.ReverseConstraintFunction(), jc)
         @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(x)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
@@ -194,7 +194,7 @@ end
     dG = -[0.05102035   0.30612245  0.255102;
            0.06122443   0.36734694  0.3061224]
     for (j,jc) in enumerate([c1, c2])
-        grad = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), jc)
+        grad = MOI.get(model, DiffOpt.ReverseConstraintFunction(), jc)
         @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(z)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
@@ -231,7 +231,7 @@ end
     expected = dl_dq' * z + z' * (dl_dQ / 2.0) * z
     @test moi_function(MOI.get(model, DiffOpt.ReverseObjective())) ≈ moi_function(expected)  atol=ATOL rtol=RTOL
 
-    func = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), c1)
+    func = MOI.get(model, DiffOpt.ReverseConstraintFunction(), c1)
     @test -0.7 ≈ JuMP.constant(func) atol=ATOL rtol=RTOL
 
     dl_dA = [0.375 -1.075]
@@ -244,7 +244,7 @@ end
     dl_dh = [1e-8; 1e-8]
     dl_dG = [1e-8  1e-8; 1e-8 1e-8]
     for (j,jc) in enumerate(c_le)
-        grad = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), jc)
+        grad = MOI.get(model, DiffOpt.ReverseConstraintFunction(), jc)
         @test JuMP.constant(grad) ≈ dl_dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(z)
             @test JuMP.coefficient(grad, iv) ≈ dl_dG[j,i] atol=ATOL rtol=RTOL
@@ -310,12 +310,12 @@ end
 
     for (i, ci) in enumerate(c_le)
         @test -dh[i] ≈ JuMP.constant(MOI.get(model,
-            DiffOpt.ReverseConstraintPrimal(), ci)) atol=1e-2 rtol=1e-2
+            DiffOpt.ReverseConstraintFunction(), ci)) atol=1e-2 rtol=1e-2
     end
 
     for (i, ci) in enumerate(c_eq)
         @test -db[i] ≈ JuMP.constant(MOI.get(model,
-            DiffOpt.ReverseConstraintPrimal(), ci)) atol=1e-2 rtol=1e-2
+            DiffOpt.ReverseConstraintFunction(), ci)) atol=1e-2 rtol=1e-2
     end
 
     # # testing differences
@@ -351,7 +351,7 @@ end
     dh = [0.0, 1.0]
     dG = [0.0, -3.0]
     for (j,jc) in enumerate(c_le)
-        grad = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), jc)
+        grad = MOI.get(model, DiffOpt.ReverseConstraintFunction(), jc)
         @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(x)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
@@ -379,7 +379,7 @@ end
     dh = [0.0, 1.0]
     dG = [0.0, -3.0]
     for (j,jc) in enumerate(c_le)
-        grad = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), jc)
+        grad = MOI.get(model, DiffOpt.ReverseConstraintFunction(), jc)
         @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(x)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
@@ -428,7 +428,7 @@ end
     @test moi_function(grad) ≈ moi_function(expected) atol=ATOL rtol=RTOL
 
     for (j,jc) in enumerate(ctrs)
-        grad = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), jc)
+        grad = MOI.get(model, DiffOpt.ReverseConstraintFunction(), jc)
         @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(v)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL
@@ -486,7 +486,7 @@ end
     @test moi_function(grad) ≈ moi_function(expected) atol=ATOL rtol=RTOL
 
     for (j,jc) in enumerate(ctrs)
-        grad = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), jc)
+        grad = MOI.get(model, DiffOpt.ReverseConstraintFunction(), jc)
         @test JuMP.constant(grad) ≈ -dh[j] atol=ATOL rtol=RTOL
         for (i,iv) in enumerate(v)
             @test JuMP.coefficient(grad, iv) ≈ dG[j,i] atol=ATOL rtol=RTOL

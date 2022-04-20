@@ -464,7 +464,6 @@ function MOI.get(model::Optimizer, ::ProgramClassUsed)
 end
 
 
-
 """
     reverse_differentiate!(model::Optimizer)
 
@@ -472,7 +471,7 @@ Wrapper method for the backward pass.
 This method will consider as input a currently solved problem and differentials
 with respect to the solution set with the [`ReverseVariablePrimal`](@ref) attribute.
 The output problem data differentials can be queried with the
-attributes [`ReverseObjective`](@ref) and [`ReverseConstraintPrimal`](@ref).
+attributes [`ReverseObjective`](@ref) and [`ReverseConstraintFunction`](@ref).
 """
 function reverse_differentiate!(model::Optimizer)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
@@ -598,7 +597,7 @@ function MOI.set(model::Optimizer, ::ReverseVariablePrimal, vi::VI, val)
     return
 end
 
-function MOI.get(model::Optimizer, attr::ReverseConstraintPrimal, ci::MOI.ConstraintIndex)
+function MOI.get(model::Optimizer, attr::ReverseConstraintFunction, ci::MOI.ConstraintIndex)
     return IndexMappedFunction(
         MOI.get(_checked_diff(model, attr, :reverse), attr, model.index_map[ci]),
         model.index_map,

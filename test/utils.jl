@@ -163,20 +163,20 @@ function qp_test(
         @_test(spb.affine_terms, dqb)
 
         # FIXME should multiply by -1 if lt is false
-        funcs = MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), cle)
+        funcs = MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cle)
         if !iszero(nub)
-            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), cub))
+            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cub))
         end
         if !iszero(nlb)
             # FIXME should multiply by -1
-            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), clb))
+            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintFunction(), clb))
         end
         @_test(convert(Vector{Float64}, _sign(MOI.constant.(funcs), true)), dhb)
         @_test(Float64[_sign(JuMP.coefficient(funcs[i], vi), false) for i in eachindex(funcs), vi in v], dGb)
 
-        funcs = MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), ceq)
+        funcs = MOI.get.(model, DiffOpt.ReverseConstraintFunction(), ceq)
         if !iszero(nfix)
-            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintPrimal(), cfix))
+            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cfix))
         end
         @_test(convert(Vector{Float64}, -MOI.constant.(funcs)), dbb)
         @_test(Float64[JuMP.coefficient(funcs[i], vi) for i in eachindex(funcs), vi in v], dAb)

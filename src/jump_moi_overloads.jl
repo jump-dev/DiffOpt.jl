@@ -15,7 +15,7 @@ function MOI.get(model::JuMP.Model, attr::ReverseObjective)
     return JuMP.jump_function(model, func)
 end
 
-function MOI.get(model::JuMP.Model, attr::ReverseConstraintPrimal, con_ref::JuMP.ConstraintRef)
+function MOI.get(model::JuMP.Model, attr::ReverseConstraintFunction, con_ref::JuMP.ConstraintRef)
     JuMP.check_belongs_to_model(con_ref, model)
     moi_func = MOI.get(JuMP.backend(model), attr, JuMP.index(con_ref))
     return JuMP.jump_function(model, moi_func)

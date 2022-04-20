@@ -100,7 +100,7 @@ function diff_reverse(model::Model, ϵ::Float64 = 1.0)
         DiffOpt.reverse_differentiate!(model)
 
         ## Get the value of the derivative of the model
-        dvect[i] = JuMP.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), model[:demand_constraint]))
+        dvect[i] = JuMP.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), model[:demand_constraint]))
         perturbation[i] = 0.0
     end
 

@@ -8,7 +8,7 @@ function MOI.set(
 end
 function MOI.get(
     model::MOI.ModelLike,
-    attr::DiffOpt.ReverseConstraintPrimal,
+    attr::DiffOpt.ReverseConstraintFunction,
     bridge::MOI.Bridges.Constraint.AbstractFunctionConversionBridge,
 )
     return MOI.get(model, attr, bridge.constraint)
@@ -24,7 +24,7 @@ function MOI.set(
 end
 function MOI.get(
     model::MOI.ModelLike,
-    attr::DiffOpt.ReverseConstraintPrimal,
+    attr::DiffOpt.ReverseConstraintFunction,
     bridge::MOI.Bridges.Constraint.SetMapBridge,
 )
     func = MOI.get(model, attr, bridge.constraint)

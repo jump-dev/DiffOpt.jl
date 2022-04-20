@@ -48,7 +48,7 @@ MOI.optimize!(model)
 MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, ones(2))
 DiffOpt.reverse_differentiate!(model)
 
-grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), c))
+grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
 @test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
 @test model.diff !== nothing
 
@@ -63,7 +63,7 @@ MOI.optimize!(model)
 MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, ones(2))
 DiffOpt.reverse_differentiate!(model)
 
-grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), c))
+grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
 
 @test grad_wrt_h ≈ -1.0 atol=1e-3
 @test model.diff !== nothing

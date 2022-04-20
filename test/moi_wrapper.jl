@@ -1052,7 +1052,7 @@ end
     @test model.diff === nothing
     DiffOpt.reverse_differentiate!(model)
 
-    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), c))
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
     @test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
 
     # adding two variables invalidates the cache
@@ -1065,7 +1065,7 @@ end
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, ones(2))
     DiffOpt.reverse_differentiate!(model)
 
-    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), c))
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
     @test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
 
     # adding single variable invalidates the cache
@@ -1078,7 +1078,7 @@ end
 
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, ones(2))
     DiffOpt.reverse_differentiate!(model)
-    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), c))
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
     @test grad_wrt_h ≈ -1.0 atol=5e-3 rtol=RTOL
     @test model.diff.model.gradient_cache isa DiffOpt.QPCache
 
@@ -1094,10 +1094,10 @@ end
 
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, ones(2))
     DiffOpt.reverse_differentiate!(model)
-    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), c))
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
     @test grad_wrt_h ≈ -1.0 atol=5e-3 rtol=RTOL
     # second constraint inactive
-    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), c2))
+    grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c2))
     @test grad_wrt_h ≈ 0.0 atol=5e-3 rtol=RTOL
     @test model.diff.model.gradient_cache isa DiffOpt.QPCache
 end

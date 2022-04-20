@@ -159,7 +159,7 @@ struct ReverseObjective <: MOI.AbstractModelAttribute end
 MOI.is_set_by_optimize(::ReverseObjective) = true
 
 """
-    ReverseConstraintPrimal
+    ReverseConstraintFunction
 
 An `MOI.AbstractConstraintAttribute` to get output data to reverse differentiation, that
 is, problem input data.
@@ -170,11 +170,11 @@ coefficient of `y` and `5` for the function constant.
 If the constraint is of the form `func == constant` or `func <= constant`,
 the tangent for the constant on the right-hand side is `-5`.
 ```julia
-MOI.get(model, DiffOpt.ReverseConstraintPrimal(), ci)
+MOI.get(model, DiffOpt.ReverseConstraintFunction(), ci)
 ```
 """
-struct ReverseConstraintPrimal <: MOI.AbstractConstraintAttribute end
-MOI.is_set_by_optimize(::ReverseConstraintPrimal) = true
+struct ReverseConstraintFunction <: MOI.AbstractConstraintAttribute end
+MOI.is_set_by_optimize(::ReverseConstraintFunction) = true
 
 """
     @enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
@@ -291,7 +291,7 @@ end
 
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
-function MOI.get(model::DiffModel, ::ReverseConstraintPrimal, ci::CI)
+function MOI.get(model::DiffModel, ::ReverseConstraintFunction, ci::CI)
     return _lazy_affine(_get_dA(model, ci), _get_db(model, ci))
 end
 
