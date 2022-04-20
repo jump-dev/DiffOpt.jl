@@ -82,7 +82,7 @@ function ChainRulesCore.rrule(polytope::Polytope, y::AbstractMatrix)
         dl_dy .= -2 * JuMP.coefficient.(obj_expr, x)
         greater_than_cons = model[:greater_than_cons]
         for idx in eachindex(dl_dw)
-            cons_expr = MOI.get(model, DiffOpt.ReverseConstraintPrimal(), greater_than_cons[idx])
+            cons_expr = MOI.get(model, DiffOpt.ReverseConstraintFunction(), greater_than_cons[idx])
             dl_db[idx] = -JuMP.constant(cons_expr)
             dl_dw[idx] .= JuMP.coefficient.(cons_expr, x)
         end
