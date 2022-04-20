@@ -66,8 +66,18 @@ end
 
     DiffOpt.reverse_differentiate!(model)
 
-    grad = JuMP.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), ctr_le[]))
-    @test grad ≈ -1.0  atol=ATOL rtol=RTOL
+    DiffOpt.reverse_differentiate!(model)
+
+    grad_constraint = JuMP.constant(MOI.get(model, DiffOpt.ReverseConstraintPrimal(), ctr_le[]))
+    @test grad_constraint ≈ -1.0  atol=ATOL rtol=RTOL
+
+    # Test some overloads from https://github.com/jump-dev/DiffOpt.jl/issues/211
+    grad_obj = MOI.get(model, DiffOpt.ReverseObjective())
+    @test JuMP.coefficient(grad_obj, x[1], x[2]) ≈ 
+        DiffOpt.quad_sym_half.(grad_obj, x[1], x[2]) atol=ATOL rtol=RTOL
+
+    @test DiffOpt.quad_sym_half(grad_obj, x[1], x[1]) ≈ 
+        2 * JuMP.coefficient(grad_obj, x[1], x[1]) atol=ATOL rtol=RTOL
 
     # TODO: this simple show fails
     @show ctr_le

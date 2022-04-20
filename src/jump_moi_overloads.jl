@@ -240,12 +240,12 @@ function JuMP.coefficient(func::MOItoJuMP, var_ref::JuMP.VariableRef)
     return JuMP.coefficient(func.func, JuMP.index(var_ref))
 end
 function quad_sym_half(func::MOItoJuMP, var1_ref::JuMP.VariableRef, var2_ref::JuMP.VariableRef)
-    check_belongs_to_model(var1_ref, func.model)
-    return quad_sym_half(func.func, JuMP.index(vi1), JuMP.index(var2_ref))
+    check_belongs_to_model.([var1_ref, var2_ref], Ref(func.model))
+    return quad_sym_half(func.func, JuMP.index(var1_ref), JuMP.index(var2_ref))
 end
 function JuMP.coefficient(func::MOItoJuMP, var1_ref::JuMP.VariableRef, var2_ref::JuMP.VariableRef)
-    check_belongs_to_model(var2_ref, func.model)
-    return JuMP.coefficient(func.func, JuMP.index(vi1), JuMP.index(var2_ref))
+    check_belongs_to_model.([var1_ref, var2_ref], Ref(func.model))
+    return JuMP.coefficient(func.func, JuMP.index(var1_ref), JuMP.index(var2_ref))
 end
 function Base.convert(::Type{JuMP.GenericAffExpr{T,JuMP.VariableRef}}, func::MOItoJuMP) where {T}
     return JuMP.GenericAffExpr{T,JuMP.VariableRef}(func.model, convert(MOI.ScalarAffineFunction{T}, func.func))
