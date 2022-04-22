@@ -10,16 +10,16 @@ MOI.optimize!(model)</code></pre><p>Finally differentiate the model (primal and 
 &amp; \min_{x \in \mathbb{R}^n} &amp; \frac{1}{2} x^T Q x + q^T x  &amp; \\
 &amp; \text{s.t.}               &amp; A x = b        \qquad        &amp; b \in \mathbb{R}^m \\
 &amp;                           &amp; G x \leq h     \qquad        &amp; h \in \mathbb{R}^p
-\end{align*}\]</p><p>we can use the <code>backward</code> method</p><pre><code class="language-julia hljs">MOI.set.(model,
-    DiffOpt.BackwardInVariablePrimal(), x, ones(2))
-DiffOpt.backward(model)
-grad_obj = MOI.get(model, DiffOpt.BackwardOutObjective())
-grad_con = MOI.get.(model, DiffOpt.BackwardOutConstraint(), c)</code></pre><ol><li>To differentiate convex conic program</li></ol><p class="math-container">\[\begin{align*}
+\end{align*}\]</p><p>we can use the <code>reverse_differentiate!</code> method</p><pre><code class="language-julia hljs">MOI.set.(model,
+    DiffOpt.ReverseVariablePrimal(), x, ones(2))
+DiffOpt.reverse_differentiate!(model)
+grad_obj = MOI.get(model, DiffOpt.ReverseObjective())
+grad_con = MOI.get.(model, DiffOpt.ReverseConstraintFunction(), c)</code></pre><ol><li>To differentiate convex conic program</li></ol><p class="math-container">\[\begin{align*}
 &amp; \min_{x \in \mathbb{R}^n} &amp; c^T x \\
 &amp; \text{s.t.}               &amp; A x + s = b  \\
 &amp;                           &amp; b \in \mathbb{R}^m  \\
 &amp;                           &amp; s \in \mathcal{K}
-\end{align*}\]</p><p>we can use the <code>forward</code> method with perturbations in matrices <code>A</code>, <code>b</code>, <code>c</code></p><pre><code class="language-julia hljs">import LinearAlgebra: ⋅
-MOI.set(model, DiffOpt.ForwardInObjective(), ones(2) ⋅ x)
-DiffOpt.forward(model)
-grad_x = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), x)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../manual/">« Manual</a><a class="docs-footer-nextpage" href="../reference/">Reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.16 on <span class="colophon-date" title="Wednesday 20 April 2022 12:27">Wednesday 20 April 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+\end{align*}\]</p><p>we can use the <code>forward_differentiate!</code> method with perturbations in matrices <code>A</code>, <code>b</code>, <code>c</code>:</p><pre><code class="language-julia hljs">import LinearAlgebra: ⋅
+MOI.set(model, DiffOpt.ForwardObjective(), ones(2) ⋅ x)
+DiffOpt.forward_differentiate!(model)
+grad_x = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), x)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../manual/">« Manual</a><a class="docs-footer-nextpage" href="../reference/">Reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.16 on <span class="colophon-date" title="Friday 22 April 2022 10:12">Friday 22 April 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

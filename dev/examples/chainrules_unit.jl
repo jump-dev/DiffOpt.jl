@@ -158,7 +158,7 @@ function ChainRulesCore.frule(
     ]
     MOI.set.(
         model,
-        DiffOpt.ForwardInConstraint(), energy_balance_cons,
+        DiffOpt.ForwardConstraintFunction(), energy_balance_cons,
         Δenergy_balance,
     )
 
@@ -167,10 +167,10 @@ function ChainRulesCore.frule(
 
     ## setting the perturbation of the linear objective
     Δobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
-    MOI.set(model, DiffOpt.ForwardInObjective(), Δobj)
-    DiffOpt.forward(JuMP.backend(model))
+    MOI.set(model, DiffOpt.ForwardObjective(), Δobj)
+    DiffOpt.forward_differentiate!(JuMP.backend(model))
     ## querying the corresponding perturbation of the decision
-    Δp = MOI.get.(model, DiffOpt.ForwardOutVariablePrimal(), p)
+    Δp = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), p)
     return (pv, Δp.data)
 end
 
@@ -223,10 +223,10 @@ function ChainRulesCore.rrule(
         u = model[:u]
         energy_balance_cons = model[:energy_balance_cons]
 
-        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), p, pb)
-        DiffOpt.backward(JuMP.backend(model))
+        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), p, pb)
+        DiffOpt.reverse_differentiate!(JuMP.backend(model))
 
-        obj = MOI.get(model, DiffOpt.BackwardOutObjective())
+        obj = MOI.get(model, DiffOpt.ReverseObjective())
 
         ## computing derivative wrt linear objective costs
         dgen_costs = similar(gen_costs)
@@ -239,7 +239,7 @@ function ChainRulesCore.rrule(
 
         ## computing derivative wrt constraint constant
         dload1_demand = JuMP.constant.(
-            MOI.get.(model, DiffOpt.BackwardOutConstraint(), energy_balance_cons))
+            MOI.get.(model, DiffOpt.ReverseConstraintFunction(), energy_balance_cons))
         dload2_demand = copy(dload1_demand)
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
     end
