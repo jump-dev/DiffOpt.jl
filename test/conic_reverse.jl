@@ -45,11 +45,11 @@ import SCS
 
     @test x ≈ ones(3) atol=ATOL rtol=RTOL
 
-    MOI.set(model, DiffOpt.BackwardInVariablePrimal(), X[1], 1.0)
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), X[1], 1.0)
 
-    DiffOpt.backward(model)
+    DiffOpt.reverse_differentiate!(model)
 
-    db = MOI.constant(MOI.get(model, DiffOpt.BackwardOutConstraint(), c))
+    db = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
 
     @test db ≈ [-1.0]  atol=ATOL rtol=RTOL
 end

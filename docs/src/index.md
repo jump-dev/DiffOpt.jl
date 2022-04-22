@@ -1,6 +1,7 @@
 # DiffOpt.jl
 
-[DiffOpt.jl](https://github.com/jump-dev/DiffOpt.jl) is a package for differentiating convex optimization program ([JuMP.jl](https://github.com/jump-dev/JuMP.jl) or [MathOptInterface.jl](https://github.com/jump-dev/MathOptInterface.jl) models) with respect to program parameters. Note that this package does not contain any solver. This package has two major backends, available via `backward` and `forward` methods, to differentiate models (quadratic or conic) with optimal solutions.
+[DiffOpt.jl](https://github.com/jump-dev/DiffOpt.jl) is a package for differentiating convex optimization program ([JuMP.jl](https://github.com/jump-dev/JuMP.jl) or [MathOptInterface.jl](https://github.com/jump-dev/MathOptInterface.jl) models) with respect to program parameters. Note that this package does not contain any solver.
+This package has two major backends, available via the `reverse_differentiate!` and `forward_differentiate!` methods, to differentiate models (quadratic or conic) with optimal solutions.
 
 !!! note
     Currently supports *linear programs* (LP), *convex quadratic programs* (QP) and *convex conic programs* (SDP, SOCP constraints only). 

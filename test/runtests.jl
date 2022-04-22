@@ -24,8 +24,8 @@ const RTOL = 2e-4
     @testset "QP fwd" begin
         include("qp_forward.jl")
     end
-    @testset "Conic bck" begin
-        include("conic_backward.jl")
+    @testset "Conic reverse" begin
+        include("conic_reverse.jl")
     end
 end
 

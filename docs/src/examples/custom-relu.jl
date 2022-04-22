@@ -36,7 +36,7 @@ function matrix_relu(
 end
 
 
-# Define the backward differentiation rule, for the function we defined above.
+# Define the reverse differentiation rule, for the function we defined above.
 function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where T
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     pv = matrix_relu(y, model = model)
@@ -47,11 +47,11 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where T
         dl_dy = zeros(T, size(dl_dx))
         dl_dq = zeros(T, size(dl_dx))
         ## set sensitivities
-        MOI.set.(model, DiffOpt.BackwardInVariablePrimal(), x[:], dl_dx[:])
+        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x[:], dl_dx[:])
         ## compute grad
-        DiffOpt.backward(model)
+        DiffOpt.reverse_differentiate!(model)
         ## return gradient wrt objective function parameters
-        obj_exp = MOI.get(model, DiffOpt.BackwardOutObjective())
+        obj_exp = MOI.get(model, DiffOpt.ReverseObjective())
         ## coeff of `x` in q'x = -2y'x
         dl_dq[:] .= JuMP.coefficient.(obj_exp, x[:])
         dq_dy = -2 ## dq/dy = -2

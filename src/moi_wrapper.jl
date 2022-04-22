@@ -12,12 +12,8 @@ One define a differentiable model by using any solver of choice. Example:
 julia> import DiffOpt, HiGHS
 
 julia> model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
-julia> model.add_variable(x)
-julia> model.add_constraint(...)
-
-julia> _backward_quad(model)  # for convex quadratic models
-
-julia> _backward_quad(model)  # for convex conic models
+julia> x = model.add_variable(model)
+julia> model.add_constraint(model, ...)
 ```
 """
 function diff_optimizer(optimizer_constructor)::Optimizer
@@ -468,52 +464,51 @@ function MOI.get(model::Optimizer, ::ProgramClassUsed)
 end
 
 
-
 """
-    backward(model::Optimizer)
+    reverse_differentiate!(model::Optimizer)
 
 Wrapper method for the backward pass.
 This method will consider as input a currently solved problem and differentials
-with respect to the solution set with the [`BackwardInVariablePrimal`](@ref) attribute.
+with respect to the solution set with the [`ReverseVariablePrimal`](@ref) attribute.
 The output problem data differentials can be queried with the
-attributes [`BackwardOutObjective`](@ref) and [`BackwardOutConstraint`](@ref).
+attributes [`ReverseObjective`](@ref) and [`ReverseConstraintFunction`](@ref).
 """
-function backward(model::Optimizer)
+function reverse_differentiate!(model::Optimizer)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st,  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
-        error("Trying to compute the forward differentiation on a model with termination status $(st)")
+        error("Trying to compute the reverse differentiation on a model with termination status $(st)")
     end
     diff = _diff(model)
     for (vi, value) in model.input_cache.dx
-        MOI.set(diff, BackwardInVariablePrimal(), model.index_map[vi], value)
+        MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
     end
-    backward(diff)
+    return reverse_differentiate!(diff)
 end
 
 function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
     for (index, value) in constraints
-        MOI.set(diff, ForwardInConstraint(), con_map[index], MOI.Utilities.map_indices(index_map, value))
+        MOI.set(diff, ForwardConstraintFunction(), con_map[index], MOI.Utilities.map_indices(index_map, value))
     end
 end
 
 """
-    forward(model::Optimizer)
+    forward_differentiate!(model::Optimizer)
 
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and
 differentials with respect to problem data set with
-the [`ForwardInObjective`](@ref) and  [`ForwardInConstraint`](@ref) attributes.
+the [`ForwardObjective`](@ref) and  [`ForwardConstraintFunction`](@ref) attributes.
 The output solution differentials can be queried with the attribute
-[`ForwardOutVariablePrimal`](@ref).
+[`ForwardVariablePrimal`](@ref).
 """
-function forward(model::Optimizer)
+function forward_differentiate!(model::Optimizer)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st,  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
         error("Trying to compute the forward differentiation on a model with termination status $(st)")
     end
     diff = _diff(model)
     if model.input_cache.objective !== nothing
-        MOI.set(diff, ForwardInObjective(), MOI.Utilities.map_indices(model.index_map, model.input_cache.objective))
+        MOI.set(diff, ForwardObjective(), MOI.Utilities.map_indices(model.index_map, model.input_cache.objective))
     end
     for (F, S) in keys(model.input_cache.scalar_constraints.dict)
         _copy_forward_in_constraint(diff, model.index_map, model.index_map.con_map[F, S], model.input_cache.scalar_constraints[F, S])
@@ -521,7 +516,7 @@ function forward(model::Optimizer)
     for (F, S) in keys(model.input_cache.vector_constraints.dict)
         _copy_forward_in_constraint(diff, model.index_map, model.index_map.con_map[F, S], model.input_cache.vector_constraints[F, S])
     end
-    forward(diff)
+    forward_differentiate!(diff)
 end
 
 function _copy_constraint_start(dest, src, index_map::MOIU.DoubleDicts.IndexDoubleDictInner{F, S}, dest_attr, src_attr) where {F, S}
@@ -570,51 +565,51 @@ end
 
 # DiffOpt attributes redirected to `diff`
 
-function _checked_diff(model::Optimizer, attr::MOI.AnyAttribute, call)
+function _checked_diff(model::Optimizer, ::MOI.AnyAttribute, call)
     if model.diff === nothing
         error("Cannot get attribute `attr`. First call `DiffOpt.$call`.")
     end
     return model.diff
 end
 
-function MOI.get(model::Optimizer, attr::BackwardOutObjective)
+function MOI.get(model::Optimizer, attr::ReverseObjective)
     return IndexMappedFunction(
-        MOI.get(_checked_diff(model, attr, :backward), attr),
+        MOI.get(_checked_diff(model, attr, :reverse), attr),
         model.index_map,
     )
 end
-function MOI.get(model::Optimizer, ::ForwardInObjective)
+function MOI.get(model::Optimizer, ::ForwardObjective)
     return model.input_cache.objective
 end
-function MOI.set(model::Optimizer, ::ForwardInObjective, objective)
+function MOI.set(model::Optimizer, ::ForwardObjective, objective)
     model.input_cache.objective = objective
     return
 end
 
-function MOI.get(model::Optimizer, attr::ForwardOutVariablePrimal, vi::MOI.VariableIndex)
+function MOI.get(model::Optimizer, attr::ForwardVariablePrimal, vi::MOI.VariableIndex)
     return MOI.get(_checked_diff(model, attr, :forward), attr, model.index_map[vi])
 end
-function MOI.get(model::Optimizer, ::BackwardInVariablePrimal, vi::VI)
+function MOI.get(model::Optimizer, ::ReverseVariablePrimal, vi::VI)
     return get(model.input_cache.dx, vi, 0.0)
 end
-function MOI.set(model::Optimizer, ::BackwardInVariablePrimal, vi::VI, val)
+function MOI.set(model::Optimizer, ::ReverseVariablePrimal, vi::VI, val)
     model.input_cache.dx[vi] = val
     return
 end
 
-function MOI.get(model::Optimizer, attr::BackwardOutConstraint, ci::MOI.ConstraintIndex)
+function MOI.get(model::Optimizer, attr::ReverseConstraintFunction, ci::MOI.ConstraintIndex)
     return IndexMappedFunction(
-        MOI.get(_checked_diff(model, attr, :backward), attr, model.index_map[ci]),
+        MOI.get(_checked_diff(model, attr, :reverse), attr, model.index_map[ci]),
         model.index_map,
     )
 end
 function MOI.get(model::Optimizer,
-    ::ForwardInConstraint, ci::CI{MOI.ScalarAffineFunction{T},S}
+    ::ForwardConstraintFunction, ci::CI{MOI.ScalarAffineFunction{T},S}
 ) where {T,S}
     return get(model.input_cache.scalar_constraints, ci, zero(MOI.ScalarAffineFunction{T}))
 end
 function MOI.get(model::Optimizer,
-    ::ForwardInConstraint, ci::CI{MOI.VectorAffineFunction{T},S}
+    ::ForwardConstraintFunction, ci::CI{MOI.VectorAffineFunction{T},S}
 ) where {T,S}
     func = get(model.input_cache.vector_constraints, ci, nothing)
     if func === nothing
@@ -626,7 +621,7 @@ function MOI.get(model::Optimizer,
     end
 end
 function MOI.set(model::Optimizer,
-    ::ForwardInConstraint,
+    ::ForwardConstraintFunction,
     ci::CI{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
@@ -634,7 +629,7 @@ function MOI.set(model::Optimizer,
     return
 end
 function MOI.set(model::Optimizer,
-    ::ForwardInConstraint,
+    ::ForwardConstraintFunction,
     ci::CI{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}

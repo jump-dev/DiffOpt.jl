@@ -1,21 +1,21 @@
-function MOI.set(model::JuMP.Model, attr::ForwardInObjective, func::JuMP.AbstractJuMPScalar)
+function MOI.set(model::JuMP.Model, attr::ForwardObjective, func::JuMP.AbstractJuMPScalar)
     JuMP.check_belongs_to_model(func, model)
     return MOI.set(model, attr, JuMP.moi_function(func))
 end
-MOI.set(model::JuMP.Model, attr::ForwardInObjective, func::Number) = MOI.set(model, attr, JuMP.AffExpr(func))
+MOI.set(model::JuMP.Model, attr::ForwardObjective, func::Number) = MOI.set(model, attr, JuMP.AffExpr(func))
 
-function MOI.set(model::JuMP.Model, attr::ForwardInConstraint, con_ref::JuMP.ConstraintRef, func::JuMP.AbstractJuMPScalar)
+function MOI.set(model::JuMP.Model, attr::ForwardConstraintFunction, con_ref::JuMP.ConstraintRef, func::JuMP.AbstractJuMPScalar)
     JuMP.check_belongs_to_model(func, model)
     return MOI.set(model, attr, con_ref, JuMP.moi_function(func))
 end
-MOI.set(model::JuMP.Model, attr::ForwardInConstraint, con_ref::JuMP.ConstraintRef, func::Number) = MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
+MOI.set(model::JuMP.Model, attr::ForwardConstraintFunction, con_ref::JuMP.ConstraintRef, func::Number) = MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
 
-function MOI.get(model::JuMP.Model, attr::BackwardOutObjective)
+function MOI.get(model::JuMP.Model, attr::ReverseObjective)
     func = MOI.get(JuMP.backend(model), attr)
     return JuMP.jump_function(model, func)
 end
 
-function MOI.get(model::JuMP.Model, attr::BackwardOutConstraint, con_ref::JuMP.ConstraintRef)
+function MOI.get(model::JuMP.Model, attr::ReverseConstraintFunction, con_ref::JuMP.ConstraintRef)
     JuMP.check_belongs_to_model(con_ref, model)
     moi_func = MOI.get(JuMP.backend(model), attr, JuMP.index(con_ref))
     return JuMP.jump_function(model, moi_func)
@@ -36,7 +36,7 @@ function _moi_get_result(model::MOIU.CachingOptimizer, args...)
     end
     return MOI.get(model, args...)
 end
-function MOI.get(model::JuMP.Model, attr::ForwardOutVariablePrimal, var_ref::JuMP.VariableRef)
+function MOI.get(model::JuMP.Model, attr::ForwardVariablePrimal, var_ref::JuMP.VariableRef)
     JuMP.check_belongs_to_model(var_ref, model)
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
@@ -265,13 +265,13 @@ function JuMP.function_string(mode, func::MOItoJuMP)
 end
 
 # JuMP
-backward(model::JuMP.Model) = backward(JuMP.backend(model))
-forward(model::JuMP.Model) = forward(JuMP.backend(model))
+reverse_differentiate!(model::JuMP.Model) = reverse_differentiate!(JuMP.backend(model))
+forward_differentiate!(model::JuMP.Model) = forward_differentiate!(JuMP.backend(model))
 
 # MOIU
-backward(model::MOI.Utilities.CachingOptimizer) = backward(model.optimizer)
-forward(model::MOI.Utilities.CachingOptimizer) = forward(model.optimizer)
+reverse_differentiate!(model::MOI.Utilities.CachingOptimizer) = reverse_differentiate!(model.optimizer)
+forward_differentiate!(model::MOI.Utilities.CachingOptimizer) = forward_differentiate!(model.optimizer)
 
 # MOIB
-backward(model::MOI.Bridges.AbstractBridgeOptimizer) = backward(model.model)
-forward(model::MOI.Bridges.AbstractBridgeOptimizer) = forward(model.model)
+reverse_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer) = reverse_differentiate!(model.model)
+forward_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer) = forward_differentiate!(model.model)

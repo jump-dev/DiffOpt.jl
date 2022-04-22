@@ -24,11 +24,11 @@ end
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     MOI.set(model, MOI.ObjectiveFunction{MOI.VariableIndex}(), x)
     # do not optimize, just try to differentiate
-    @test_throws ErrorException DiffOpt.forward(model)
-    @test_throws ErrorException DiffOpt.backward(model)
+    @test_throws ErrorException DiffOpt.forward_differentiate!(model)
+    @test_throws ErrorException DiffOpt.reverse_differentiate!(model)
     # impossible constraint
     MOI.add_constraint(model, x, MOI.LessThan(0.5))
     MOI.optimize!(model)
-    @test_throws ErrorException DiffOpt.forward(model)
-    @test_throws ErrorException DiffOpt.backward(model)
+    @test_throws ErrorException DiffOpt.forward_differentiate!(model)
+    @test_throws ErrorException DiffOpt.reverse_differentiate!(model)
 end
