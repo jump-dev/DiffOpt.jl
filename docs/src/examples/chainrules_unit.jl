@@ -226,7 +226,7 @@ function ChainRulesCore.rrule(
         MOI.set.(model, DiffOpt.ReverseVariablePrimal(), p, pb)
         DiffOpt.reverse_differentiate!(JuMP.backend(model))
 
-        obj = MOI.get(model, DiffOpt.ReverseObjective())
+        obj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
 
         ## computing derivative wrt linear objective costs
         dgen_costs = similar(gen_costs)

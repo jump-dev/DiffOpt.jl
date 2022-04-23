@@ -271,7 +271,7 @@ function reverse_differentiate!(model::ConicDiff)
     # return dA, db, dc
 end
 
-function MOI.get(model::ConicDiff, ::ReverseObjective)
+function MOI.get(model::ConicDiff, ::ReverseObjectiveFunction)
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
     dc = lazy_combination(-, πz, g, length(g))

@@ -125,7 +125,7 @@ MOI.set(model, DiffOpt.ReverseVariablePrimal(), x)
 struct ReverseVariablePrimal <: MOI.AbstractVariableAttribute end
 
 """
-    ReverseObjective <: MOI.AbstractModelAttribute
+    ReverseObjectiveFunction <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to get output data to reverse differentiation,
 that is, problem input data.
@@ -134,7 +134,7 @@ For instance, to get the tangent of the objective function corresponding to
 the tangent given to `ReverseVariablePrimal`, do the
 following:
 ```julia
-func = MOI.get(model, DiffOpt.ReverseObjective())
+func = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
 ```
 Then, to get the sensitivity of the linear term with variable `x`, do
 ```julia
@@ -155,8 +155,8 @@ DiffOpt.quad_sym_half(func, x, y)
     [`quad_sym_half`](@ref) for the details on the difference between these two
     functions.
 """
-struct ReverseObjective <: MOI.AbstractModelAttribute end
-MOI.is_set_by_optimize(::ReverseObjective) = true
+struct ReverseObjectiveFunction <: MOI.AbstractModelAttribute end
+MOI.is_set_by_optimize(::ReverseObjectiveFunction) = true
 
 """
     ReverseConstraintFunction

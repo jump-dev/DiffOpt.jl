@@ -72,7 +72,7 @@ end
     @test grad_constraint ≈ -1.0  atol=ATOL rtol=RTOL
 
     # Test some overloads from https://github.com/jump-dev/DiffOpt.jl/issues/211
-    grad_obj = MOI.get(model, DiffOpt.ReverseObjective())
+    grad_obj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
     @test JuMP.coefficient(grad_obj, x[1], x[2]) ≈ 
         DiffOpt.quad_sym_half.(grad_obj, x[1], x[2]) atol=ATOL rtol=RTOL
 
@@ -122,7 +122,7 @@ end
 
     DiffOpt.reverse_differentiate!(model)
 
-    @test MOIU.isapprox_zero(moi_function(MOI.get(model, DiffOpt.ReverseObjective())), ATOL)
+    @test MOIU.isapprox_zero(moi_function(MOI.get(model, DiffOpt.ReverseObjectiveFunction())), ATOL)
 
     db = [1.0]
     dA = [0.0 -0.5 0.0]
@@ -188,7 +188,7 @@ end
               0.01530609  0.09183674  0.07653058;
              -0.11224488  0.07653058 -0.06122449]
     expected = dl_dq' * z + z' * (dl_dQ / 2.0) * z
-    @test moi_function(MOI.get(model, DiffOpt.ReverseObjective())) ≈ moi_function(expected)  atol=ATOL rtol=RTOL
+    @test moi_function(MOI.get(model, DiffOpt.ReverseObjectiveFunction())) ≈ moi_function(expected)  atol=ATOL rtol=RTOL
 
     dh = [0.35714284; 0.4285714]
     dG = -[0.05102035   0.30612245  0.255102;
@@ -229,7 +229,7 @@ end
     dl_dQ = [-0.05   -0.05;
              -0.05    0.15]
     expected = dl_dq' * z + z' * (dl_dQ / 2.0) * z
-    @test moi_function(MOI.get(model, DiffOpt.ReverseObjective())) ≈ moi_function(expected)  atol=ATOL rtol=RTOL
+    @test moi_function(MOI.get(model, DiffOpt.ReverseObjectiveFunction())) ≈ moi_function(expected)  atol=ATOL rtol=RTOL
 
     func = MOI.get(model, DiffOpt.ReverseConstraintFunction(), c1)
     @test -0.7 ≈ JuMP.constant(func) atol=ATOL rtol=RTOL
@@ -305,7 +305,7 @@ end
     dh = grads_actual[4]
     db = grads_actual[6]
 
-    grad = MOI.get(model, DiffOpt.ReverseObjective())
+    grad = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
     @test moi_function(grad) ≈ moi_function(dq ⋅ x) atol=1e-2 rtol=1e-2
 
     for (i, ci) in enumerate(c_le)
@@ -424,7 +424,7 @@ end
     ctrs = vcat(cc, cb)#, cc)
 
     expected = dc' * v + v' * dQ * v
-    grad = MOI.get(model, DiffOpt.ReverseObjective())
+    grad = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
     @test moi_function(grad) ≈ moi_function(expected) atol=ATOL rtol=RTOL
 
     for (j,jc) in enumerate(ctrs)
@@ -482,7 +482,7 @@ end
     ctrs = vcat(cc, cb)
 
     expected = dc' * v + v' * dQ * v
-    grad = MOI.get(model, DiffOpt.ReverseObjective())
+    grad = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
     @test moi_function(grad) ≈ moi_function(expected) atol=ATOL rtol=RTOL
 
     for (j,jc) in enumerate(ctrs)
