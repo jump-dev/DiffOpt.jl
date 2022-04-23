@@ -3,7 +3,7 @@
 
 @deprecate BackwardInVariablePrimal() ReverseVariablePrimal() false
 @deprecate BackwardOutConstraint() ReverseConstraintFunction() false
-@deprecate BackwardOutObjective() ReverseObjective() false
+@deprecate BackwardOutObjective() ReverseObjectiveFunction() false
 
 @deprecate ForwardOutVariablePrimal() ForwardVariablePrimal() false
 @deprecate ForwardInConstraint() ForwardConstraintFunction() false

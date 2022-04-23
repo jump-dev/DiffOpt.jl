@@ -34,7 +34,7 @@ we can use the `reverse_differentiate!` method
 MOI.set.(model,
     DiffOpt.ReverseVariablePrimal(), x, ones(2))
 DiffOpt.reverse_differentiate!(model)
-grad_obj = MOI.get(model, DiffOpt.ReverseObjective())
+grad_obj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
 grad_con = MOI.get.(model, DiffOpt.ReverseConstraintFunction(), c)
 ```
 

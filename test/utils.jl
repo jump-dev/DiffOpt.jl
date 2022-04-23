@@ -153,7 +153,7 @@ function qp_test(
 
         DiffOpt.reverse_differentiate!(model)
 
-        dobjb = MOI.get(model, DiffOpt.ReverseObjective())
+        dobjb = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
         spb = DiffOpt.sparse_array_representation(
             DiffOpt.standard_form(dobjb),
             n,

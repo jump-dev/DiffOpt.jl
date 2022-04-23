@@ -51,7 +51,7 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where T
         ## compute grad
         DiffOpt.reverse_differentiate!(model)
         ## return gradient wrt objective function parameters
-        obj_exp = MOI.get(model, DiffOpt.ReverseObjective())
+        obj_exp = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
         ## coeff of `x` in q'x = -2y'x
         dl_dq[:] .= JuMP.coefficient.(obj_exp, x[:])
         dq_dy = -2 ## dq/dy = -2

@@ -10,7 +10,7 @@ function MOI.set(model::JuMP.Model, attr::ForwardConstraintFunction, con_ref::Ju
 end
 MOI.set(model::JuMP.Model, attr::ForwardConstraintFunction, con_ref::JuMP.ConstraintRef, func::Number) = MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
 
-function MOI.get(model::JuMP.Model, attr::ReverseObjective)
+function MOI.get(model::JuMP.Model, attr::ReverseObjectiveFunction)
     func = MOI.get(JuMP.backend(model), attr)
     return JuMP.jump_function(model, func)
 end
