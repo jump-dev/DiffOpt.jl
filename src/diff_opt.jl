@@ -1,12 +1,10 @@
-"""
-Constructs a Differentiable Optimizer model from a MOI Optimizer.
-Supports `forward_differentiate!` and `reverse_differentiate!` methods for solving and differentiating the model respectectively.
+# Constructs a Differentiable Optimizer model from a MOI Optimizer.
+# Supports `forward_differentiate!` and `reverse_differentiate!` methods for solving and differentiating the model respectectively.
 
-## Note
-Currently supports differentiating linear and quadratic programs only.
-"""
+# ## Note
+# Currently supports differentiating linear and quadratic programs only.
 
-Base.@kwdef struct QPCache
+struct QPCache
     lhs::SparseMatrixCSC{Float64, Int}
 end
 
