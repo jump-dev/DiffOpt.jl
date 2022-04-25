@@ -14,7 +14,7 @@ MOI.Utilities.@struct_of_constraints_by_set_types(
     MOI.LessThan{T},
 )
 
-const QPForm{T} = MOI.Utilities.GenericModel{
+const QuadraticProblemForm{T} = MOI.Utilities.GenericModel{
     T,
     MOI.Utilities.ObjectiveContainer{T},
     MOI.Utilities.FreeVariables,
@@ -44,18 +44,18 @@ const QPForm{T} = MOI.Utilities.GenericModel{
 
 mutable struct QuadraticDiffProblem <: DiffModel
     # storage for problem data in matrix form
-    model::QPForm{Float64}
+    model::QuadraticProblemForm{Float64}
     # includes maps from matrix indices to problem data held in `optimizer`
     # also includes KKT matrices
     # also includes the solution
-    gradient_cache::Union{Nothing,QPCache}
+    gradient_cache::Union{Nothing,QuadraticCache}
 
     # caches for sensitivity output
     # result from solving KKT/residualmap linear systems
     # this allows keeping the same `gradient_cache`
     # if only sensitivy input changes
-    forw_grad_cache::Union{Nothing,QPForwRevCache}
-    back_grad_cache::Union{Nothing,QPForwRevCache}
+    forw_grad_cache::Union{Nothing,QuadraticForwardReverseCache}
+    back_grad_cache::Union{Nothing,QuadraticForwardReverseCache}
 
     # sensitivity input cache using MOI like sparse format
     input_cache::DiffInputCache
@@ -65,7 +65,7 @@ mutable struct QuadraticDiffProblem <: DiffModel
     ν::Vector{Float64} # Dual of equalities
 end
 function QuadraticDiffProblem()
-    return QuadraticDiffProblem(QPForm{Float64}(), nothing, nothing, nothing, DiffInputCache(), Float64[], Float64[], Float64[])
+    return QuadraticDiffProblem(QuadraticProblemForm{Float64}(), nothing, nothing, nothing, DiffInputCache(), Float64[], Float64[], Float64[])
 end
 
 function MOI.empty!(model::QuadraticDiffProblem)
@@ -124,7 +124,7 @@ function _gradient_cache(model::QuadraticDiffProblem)
 
     LHS = create_LHS_matrix(model.x, model.λ, Q, G, h, A)
 
-    model.gradient_cache = QPCache(LHS)
+    model.gradient_cache = QuadraticCache(LHS)
 
     return model.gradient_cache
 end
@@ -281,7 +281,7 @@ function reverse_differentiate!(model::QuadraticDiffProblem)
     dλ = partial_grads[nv+1:nv+nineq]
     dν = partial_grads[nv+nineq+1:end]
 
-    model.back_grad_cache = QPForwRevCache(dz, dλ, dν)
+    model.back_grad_cache = QuadraticForwardReverseCache(dz, dλ, dν)
     return
     # dQ = 0.5 * (dz * z' + z * dz')
     # dq = dz
@@ -354,7 +354,7 @@ function forward_differentiate!(model::QuadraticDiffProblem)
     dλ = partial_grads[nv+1:nv+length(λ)]
     dν = partial_grads[nv+length(λ)+1:end]
 
-    model.forw_grad_cache = QPForwRevCache(dz, dλ, dν)
+    model.forw_grad_cache = QuadraticForwardReverseCache(dz, dλ, dν)
     return
 end
 

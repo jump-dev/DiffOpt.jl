@@ -30,7 +30,7 @@ mutable struct ConicDiffProblem <: DiffModel
     # this allows keeping the same `gradient_cache`
     # if only sensitivy input changes
     forw_grad_cache::Union{Nothing,ConicForwCache}
-    back_grad_cache::Union{Nothing,ConicRevCache}
+    back_grad_cache::Union{Nothing,ConicReverseCache}
 
     # sensitivity input cache using MOI like sparse format
     input_cache::DiffInputCache
@@ -262,7 +262,7 @@ function reverse_differentiate!(model::ConicDiffProblem)
     # http://reports-archive.adm.cs.cmu.edu/anon/2019/CMU-CS-19-109.pdf
     # pg 97, cap 7.4.2
 
-    model.back_grad_cache = ConicRevCache(g, πz)
+    model.back_grad_cache = ConicReverseCache(g, πz)
     return nothing
     # dQ = - g * πz'
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]

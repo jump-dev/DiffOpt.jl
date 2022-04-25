@@ -4,7 +4,7 @@
 # ## Note
 # Currently supports differentiating linear and quadratic programs only.
 
-struct QPCache
+struct QuadraticCache
     lhs::SparseMatrixCSC{Float64, Int}
 end
 
@@ -17,7 +17,7 @@ Base.@kwdef struct ConicCache
     c::Vector{Float64}
 end
 
-Base.@kwdef struct QPForwRevCache
+Base.@kwdef struct QuadraticForwardReverseCache
     dz::Vector{Float64}
     dλ::Vector{Float64}
     dν::Vector{Float64}
@@ -27,7 +27,7 @@ Base.@kwdef struct ConicForwCache
     dv::Vector{Float64}
     dw::Vector{Float64}
 end
-Base.@kwdef struct ConicRevCache
+Base.@kwdef struct ConicReverseCache
     g::Vector{Float64}
     πz::Vector{Float64}
 end

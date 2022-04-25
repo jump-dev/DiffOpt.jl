@@ -1080,7 +1080,7 @@ end
     DiffOpt.reverse_differentiate!(model)
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
     @test grad_wrt_h ≈ -1.0 atol=5e-3 rtol=RTOL
-    @test model.diff.model.gradient_cache isa DiffOpt.QPCache
+    @test model.diff.model.gradient_cache isa DiffOpt.QuadraticCache
 
     # adding constraint invalidates the cache
     c2 = MOI.add_constraint(
@@ -1099,7 +1099,7 @@ end
     # second constraint inactive
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c2))
     @test grad_wrt_h ≈ 0.0 atol=5e-3 rtol=RTOL
-    @test model.diff.model.gradient_cache isa DiffOpt.QPCache
+    @test model.diff.model.gradient_cache isa DiffOpt.QuadraticCache
 end
 
 @testset "Verifying cache on a PSD" begin
