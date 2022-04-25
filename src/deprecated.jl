@@ -8,3 +8,10 @@
 @deprecate ForwardOutVariablePrimal() ForwardVariablePrimal() false
 @deprecate ForwardInConstraint() ForwardConstraintFunction() false
 @deprecate ForwardInObjective() ForwardObjective() false
+
+@deprecate QPForwBackCache(args...) QuadraticForwardReverseCache(args...) false
+@deprecate ConicBackCache(args...) ConicReverseCache(args...) false
+
+@deprecate QPDiff(args...) QuadraticDiffProblem(args...) false
+@deprecate ConicDiff(args...) ConicDiffProblem(args...) false
+@deprecate QPForm(args...) QuadraticProblemForm(args...) false

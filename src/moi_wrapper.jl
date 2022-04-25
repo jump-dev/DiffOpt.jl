@@ -35,7 +35,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
 
     program_class::ProgramClassCode
 
-    diff::Union{Nothing,MOI.Bridges.LazyBridgeOptimizer{QPDiff},MOI.Bridges.LazyBridgeOptimizer{ConicDiff}}
+    diff::Union{Nothing,MOI.Bridges.LazyBridgeOptimizer{QuadraticDiffProblem},MOI.Bridges.LazyBridgeOptimizer{ConicDiffProblem}}
 
     index_map::Union{Nothing,MOI.Utilities.IndexMap}
 
@@ -529,10 +529,10 @@ end
 function _diff(model::Optimizer)
     if model.diff === nothing
         if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-            diff = QPDiff()
+            diff = QuadraticDiffProblem()
         else
             _check_termination_status(model)
-            diff = ConicDiff()
+            diff = ConicDiffProblem()
         end
         model.diff = MOI.Bridges.LazyBridgeOptimizer(diff)
         # We don't add any variable bridge here because:

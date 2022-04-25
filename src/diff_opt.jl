@@ -1,12 +1,10 @@
-"""
-Constructs a Differentiable Optimizer model from a MOI Optimizer.
-Supports `forward_differentiate!` and `reverse_differentiate!` methods for solving and differentiating the model respectectively.
+# Constructs a Differentiable Optimizer model from a MOI Optimizer.
+# Supports `forward_differentiate!` and `reverse_differentiate!` methods for solving and differentiating the model respectectively.
 
-## Note
-Currently supports differentiating linear and quadratic programs only.
-"""
+# ## Note
+# Currently supports differentiating linear and quadratic programs only.
 
-Base.@kwdef struct QPCache
+struct QuadraticCache
     lhs::SparseMatrixCSC{Float64, Int}
 end
 
@@ -19,7 +17,7 @@ Base.@kwdef struct ConicCache
     c::Vector{Float64}
 end
 
-Base.@kwdef struct QPForwBackCache
+Base.@kwdef struct QuadraticForwardReverseCache
     dz::Vector{Float64}
     dλ::Vector{Float64}
     dν::Vector{Float64}
@@ -29,7 +27,7 @@ Base.@kwdef struct ConicForwCache
     dv::Vector{Float64}
     dw::Vector{Float64}
 end
-Base.@kwdef struct ConicBackCache
+Base.@kwdef struct ConicReverseCache
     g::Vector{Float64}
     πz::Vector{Float64}
 end
