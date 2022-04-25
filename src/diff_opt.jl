@@ -19,7 +19,7 @@ Base.@kwdef struct ConicCache
     c::Vector{Float64}
 end
 
-Base.@kwdef struct QPForwBackCache
+Base.@kwdef struct QPForwRevCache
     dz::Vector{Float64}
     dλ::Vector{Float64}
     dν::Vector{Float64}
@@ -29,7 +29,7 @@ Base.@kwdef struct ConicForwCache
     dv::Vector{Float64}
     dw::Vector{Float64}
 end
-Base.@kwdef struct ConicBackCache
+Base.@kwdef struct ConicRevCache
     g::Vector{Float64}
     πz::Vector{Float64}
 end
