@@ -17,7 +17,7 @@ _vaf(c::Vector{Float64}) = VAF(MOI.ScalarAffineTerm{Float64}[], c)
         # `Variable.ZerosBridge` makes dual needed by some tests fail.
         MOI.Bridges.remove_bridge(model.optimizer.optimizer, MOI.Bridges.Variable.ZerosBridge{Float64})
         MOI.set(model, MOI.Silent(), true)
-        config = MOI.Test.Config(exclude = Any[MOI.SolverVersion], atol = 1e-7)
+        config = MOI.Test.Config(atol = 1e-7)
         MOI.Test.runtests(model, config),
         return
     end
