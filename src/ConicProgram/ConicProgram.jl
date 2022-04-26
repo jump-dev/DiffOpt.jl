@@ -1,4 +1,36 @@
-const GeometricConicForm{T} = MOI.Utilities.GenericModel{
+module ConicProgram
+
+using LinearAlgebra, SparseArrays
+
+using MathOptInterface
+const MOI = MathOptInterface
+
+import BlockDiagonals
+import IterativeSolvers
+
+import DiffOpt
+
+Base.@kwdef struct Cache
+    M::SparseMatrixCSC{Float64, Int}
+    vp::Vector{Float64}
+    Dπv::BlockDiagonals.BlockDiagonal{Float64, Matrix{Float64}}
+    A::SparseMatrixCSC{Float64, Int}
+    b::Vector{Float64}
+    c::Vector{Float64}
+end
+
+Base.@kwdef struct ForwCache
+    du::Vector{Float64}
+    dv::Vector{Float64}
+    dw::Vector{Float64}
+end
+Base.@kwdef struct ReverseCache
+    g::Vector{Float64}
+    πz::Vector{Float64}
+end
+
+# Geometric conic standard form
+const Form{T} = MOI.Utilities.GenericModel{
     T,
     MOI.Utilities.ObjectiveContainer{T},
     MOI.Utilities.FreeVariables,
@@ -13,37 +45,37 @@ const GeometricConicForm{T} = MOI.Utilities.GenericModel{
             MOI.Utilities.OneBasedIndexing,
         },
         Vector{T},
-        ProductOfSets{T},
+        DiffOpt.ProductOfSets{T},
     },
 }
 
-mutable struct ConicDiffProblem <: DiffModel
+mutable struct Model <: DiffOpt.AbstractModel
     # storage for problem data in matrix form
-    model::GeometricConicForm{Float64}
+    model::Form{Float64}
     # includes maps from matrix indices to problem data held in `optimizer`
     # also includes KKT matrices
     # also includes the solution
-    gradient_cache::Union{Nothing,ConicCache}
+    gradient_cache::Union{Nothing,Cache}
 
     # caches for sensitivity output
     # result from solving KKT/residualmap linear systems
     # this allows keeping the same `gradient_cache`
     # if only sensitivy input changes
-    forw_grad_cache::Union{Nothing,ConicForwCache}
-    back_grad_cache::Union{Nothing,ConicReverseCache}
+    forw_grad_cache::Union{Nothing,ForwCache}
+    back_grad_cache::Union{Nothing,ReverseCache}
 
     # sensitivity input cache using MOI like sparse format
-    input_cache::DiffInputCache
+    input_cache::DiffOpt.InputCache
 
     x::Vector{Float64} # Primal
     s::Vector{Float64} # Slack
     y::Vector{Float64} # Dual
 end
-function ConicDiffProblem()
-    return ConicDiffProblem(GeometricConicForm{Float64}(), nothing, nothing, nothing, DiffInputCache(), Float64[], Float64[], Float64[])
+function Model()
+    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[])
 end
 
-function MOI.empty!(model::ConicDiffProblem)
+function MOI.empty!(model::Model)
     MOI.empty!(model.model)
     model.gradient_cache = nothing
     model.forw_grad_cache = nothing
@@ -55,25 +87,25 @@ function MOI.empty!(model::ConicDiffProblem)
     return
 end
 
-function MOI.supports_constraint(model::ConicDiffProblem, F::Type{MOI.VectorAffineFunction{Float64}}, ::Type{S}) where {S<:MOI.AbstractVectorSet}
-    if add_set_types(model.model.constraints.sets, S)
+function MOI.supports_constraint(model::Model, F::Type{MOI.VectorAffineFunction{Float64}}, ::Type{S}) where {S<:MOI.AbstractVectorSet}
+    if DiffOpt.add_set_types(model.model.constraints.sets, S)
         push!(model.model.constraints.caches, Tuple{F,S}[])
         push!(model.model.constraints.are_indices_mapped, BitSet())
     end
     return MOI.supports_constraint(model.model, F, S)
 end
 
-function MOI.set(model::ConicDiffProblem, ::MOI.ConstraintPrimalStart, ci::MOI.ConstraintIndex, value)
+function MOI.set(model::Model, ::MOI.ConstraintPrimalStart, ci::MOI.ConstraintIndex, value)
     MOI.throw_if_not_valid(model, ci)
-    _enlarge_set(model.s, MOI.Utilities.rows(model.model.constraints, ci), value)
+    DiffOpt._enlarge_set(model.s, MOI.Utilities.rows(model.model.constraints, ci), value)
 end
 
-function MOI.set(model::ConicDiffProblem, ::MOI.ConstraintDualStart, ci::MOI.ConstraintIndex, value)
+function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::MOI.ConstraintIndex, value)
     MOI.throw_if_not_valid(model, ci)
-    _enlarge_set(model.y, MOI.Utilities.rows(model.model.constraints, ci), value)
+    DiffOpt._enlarge_set(model.y, MOI.Utilities.rows(model.model.constraints, ci), value)
 end
 
-function _gradient_cache(model::ConicDiffProblem)
+function _gradient_cache(model::Model)
     if model.gradient_cache !== nothing
         return model.gradient_cache
     end
@@ -87,7 +119,7 @@ function _gradient_cache(model::ConicDiffProblem)
         c = spzeros(size(A, 2))
     else
         obj = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
-        c = sparse_array_representation(obj, size(A, 2)).terms
+        c = DiffOpt.sparse_array_representation(obj, size(A, 2)).terms
         if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
             c = -c
         end
@@ -106,7 +138,7 @@ function _gradient_cache(model::ConicDiffProblem)
 
 
     # find gradient of projections on dual of the cones
-    Dπv = Dπ(v, model.model, model.model.constraints.sets)
+    Dπv = DiffOpt.Dπ(v, model.model, model.model.constraints.sets)
 
     # Q = [
     #      0   A'   c;
@@ -130,9 +162,9 @@ function _gradient_cache(model::ConicDiffProblem)
         -c'              -b' * Dπv     0.0
     ]
     # find projections on dual of the cones
-    vp = π(v, model.model, model.model.constraints.sets)
+    vp = DiffOpt.π(v, model.model, model.model.constraints.sets)
 
-    model.gradient_cache = ConicCache(
+    model.gradient_cache = Cache(
         M = M,
         vp = vp,
         Dπv = Dπv,
@@ -145,14 +177,14 @@ function _gradient_cache(model::ConicDiffProblem)
 end
 
 """
-    forward_differentiate!(model::ConicDiffProblem)
+    forward_differentiate!(model::Diffopt.ConicProgram.Model)
 
 Method to compute the product of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c` to the perturbations `dA`, `db`, `dc`.
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function forward_differentiate!(model::ConicDiffProblem)
+function DiffOpt.forward_differentiate!(model::Model)
     gradient_cache = _gradient_cache(model)
     M = gradient_cache.M
     vp = gradient_cache.vp
@@ -164,12 +196,12 @@ function forward_differentiate!(model::ConicDiffProblem)
     b = gradient_cache.b
     c = gradient_cache.c
 
-    objective_function = _convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
-    sparse_array_obj = sparse_array_representation(objective_function, length(c))
+    objective_function = DiffOpt._convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
+    sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, length(c))
     dc = sparse_array_obj.terms
 
     db = zeros(length(b))
-    _fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, db)
+    DiffOpt._fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, db)
     (lines, cols) = size(A)
     nz = nnz(A)
     dAi = zeros(Int, 0)
@@ -178,7 +210,7 @@ function forward_differentiate!(model::ConicDiffProblem)
     sizehint!(dAi, nz)
     sizehint!(dAj, nz)
     sizehint!(dAv, nz)
-    _fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, dAi, dAj, dAv)
+    DiffOpt._fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, lines, cols)
 
     m = size(A, 1)
@@ -193,11 +225,11 @@ function forward_differentiate!(model::ConicDiffProblem)
     dz = if norm(RHS) <= 1e-400 # TODO: parametrize or remove
         RHS .= 0 # because M is square
     else
-        lsqr(M, RHS)
+        IterativeSolvers.lsqr(M, RHS)
     end
 
     du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
-    model.forw_grad_cache = ConicForwCache(du, dv, [dw])
+    model.forw_grad_cache = ForwCache(du, dv, [dw])
     return nothing
     # dx = du - x * dw
     # dy = Dπv * dv - y * dw
@@ -206,14 +238,14 @@ function forward_differentiate!(model::ConicDiffProblem)
 end
 
 """
-    reverse_differentiate!(model::ConicDiffProblem)
+    reverse_differentiate!(model::Diffopt.ConicProgram.Model)
 
 Method to compute the product of the transpose of the derivative (Jacobian) at the
 conic program parameters `A`, `b`, `c` to the perturbations `dx`, `dy`, `ds`.
 
 For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 """
-function reverse_differentiate!(model::ConicDiffProblem)
+function DiffOpt.reverse_differentiate!(model::Model)
     gradient_cache = _gradient_cache(model)
     M = gradient_cache.M
     vp = gradient_cache.vp
@@ -248,7 +280,7 @@ function reverse_differentiate!(model::ConicDiffProblem)
     g = if norm(dz) <= 1e-4 # TODO: parametrize or remove
         dz .= 0 # because M is square
     else
-        lsqr(M, dz)
+        IterativeSolvers.lsqr(M, dz)
     end
 
     πz = [
@@ -262,7 +294,7 @@ function reverse_differentiate!(model::ConicDiffProblem)
     # http://reports-archive.adm.cs.cmu.edu/anon/2019/CMU-CS-19-109.pdf
     # pg 97, cap 7.4.2
 
-    model.back_grad_cache = ConicReverseCache(g, πz)
+    model.back_grad_cache = ReverseCache(g, πz)
     return nothing
     # dQ = - g * πz'
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
@@ -271,20 +303,20 @@ function reverse_differentiate!(model::ConicDiffProblem)
     # return dA, db, dc
 end
 
-function MOI.get(model::ConicDiffProblem, ::ReverseObjectiveFunction)
+function MOI.get(model::Model, ::DiffOpt.ReverseObjectiveFunction)
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
-    dc = lazy_combination(-, πz, g, length(g))
-    return VectorScalarAffineFunction(dc, 0.0)
+    dc = DiffOpt.lazy_combination(-, πz, g, length(g))
+    return DiffOpt.VectorScalarAffineFunction(dc, 0.0)
 end
 
-function MOI.get(model::ConicDiffProblem, ::ForwardVariablePrimal, vi::MOI.VariableIndex)
+function MOI.get(model::Model, ::DiffOpt.ForwardVariablePrimal, vi::MOI.VariableIndex)
     i = vi.value
     du = model.forw_grad_cache.du
     dw = model.forw_grad_cache.dw
-    return - (du[i] - model.x[i] * dw[])
+    return -(du[i] - model.x[i] * dw[])
 end
-function _get_db(model::ConicDiffProblem, ci::CI{F,S}
+function DiffOpt._get_db(model::Model, ci::MOI.ConstraintIndex{F,S}
 ) where {F<:MOI.AbstractVectorFunction,S}
     i = MOI.Utilities.rows(model.model.constraints, ci) # vector
     # i = ci.value
@@ -292,9 +324,9 @@ function _get_db(model::ConicDiffProblem, ci::CI{F,S}
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
-    return lazy_combination(-, πz, g, length(g), n .+ i)
+    return DiffOpt.lazy_combination(-, πz, g, length(g), n .+ i)
 end
-function _get_dA(model::ConicDiffProblem, ci::CI{<:MOI.AbstractVectorFunction})
+function DiffOpt._get_dA(model::Model, ci::MOI.ConstraintIndex{<:MOI.AbstractVectorFunction})
     i = MOI.Utilities.rows(model.model.constraints, ci) # vector
     # i = ci.value
     n = length(model.x) # columns in A
@@ -302,5 +334,7 @@ function _get_dA(model::ConicDiffProblem, ci::CI{<:MOI.AbstractVectorFunction})
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
-    return lazy_combination(-, g, πz, i, n .+ (1:n))
+    return DiffOpt.lazy_combination(-, g, πz, i, n .+ (1:n))
+end
+
 end

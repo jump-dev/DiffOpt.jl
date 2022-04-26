@@ -3,7 +3,6 @@ module DiffOpt
 using LinearAlgebra
 import LinearAlgebra: ⋅, dot, Diagonal
 using SparseArrays
-using IterativeSolvers: lsqr
 using JuMP
 
 import LazyArrays
@@ -53,8 +52,8 @@ const SUPPORTED_VECTOR_SETS = Union{
 include("utils.jl")
 include("product_of_sets.jl")
 include("diff_opt.jl")
-include("conic_diff.jl")
-include("quadratic_diff.jl")
+include("QuadraticProgram/QuadraticProgram.jl")
+include("ConicProgram/ConicProgram.jl")
 include("moi_wrapper.jl")
 include("jump_moi_overloads.jl")
 

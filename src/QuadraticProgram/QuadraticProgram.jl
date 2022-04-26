@@ -1,9 +1,24 @@
 module QuadraticProgram
 
+using LinearAlgebra, SparseArrays
+
 using MathOptInterface
 const MOI = MathOptInterface
 
+import LazyArrays
+import IterativeSolvers
+
 import DiffOpt
+
+struct Cache
+    lhs::SparseMatrixCSC{Float64, Int}
+end
+
+Base.@kwdef struct ForwardReverseCache
+    dz::Vector{Float64}
+    dλ::Vector{Float64}
+    dν::Vector{Float64}
+end
 
 MOI.Utilities.@product_of_sets(
     Equalities,
@@ -49,7 +64,7 @@ const Form{T} = MOI.Utilities.GenericModel{
     },
 }
 
-mutable struct Model <: DiffOpt.Model
+mutable struct Model <: DiffOpt.AbstractModel
     # storage for problem data in matrix form
     model::Form{Float64}
     # includes maps from matrix indices to problem data held in `optimizer`
@@ -72,7 +87,7 @@ mutable struct Model <: DiffOpt.Model
     ν::Vector{Float64} # Dual of equalities
 end
 function Model()
-    return Model(Form{Float64}(), nothing, nothing, nothing, DiffInputCache(), Float64[], Float64[], Float64[])
+    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[])
 end
 
 function MOI.empty!(model::Model)
@@ -105,12 +120,12 @@ end
 # as in the paper.
 function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::EQ, value)
     MOI.throw_if_not_valid(model, ci)
-    _enlarge_set(model.ν, MOI.Utilities.rows(_equalities(model), ci), -value)
+    DiffOpt._enlarge_set(model.ν, MOI.Utilities.rows(_equalities(model), ci), -value)
 end
 
 function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::LE, value)
     MOI.throw_if_not_valid(model, ci)
-    _enlarge_set(model.λ, MOI.Utilities.rows(_inequalities(model), ci), -value)
+    DiffOpt._enlarge_set(model.λ, MOI.Utilities.rows(_inequalities(model), ci), -value)
 end
 
 function _gradient_cache(model::Model)
@@ -125,7 +140,7 @@ function _gradient_cache(model::Model)
     nz = size(A, 2)
     # TODO ideally, the objective should be stored in matrix form in `model.model`
     objective_function = MOI.get(model.model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
-    sparse_array_obj = sparse_array_representation(objective_function, nz)
+    sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, nz)
     Q = sparse_array_obj.quadratic_terms
     q = sparse_array_obj.affine_terms
 
@@ -215,39 +230,21 @@ end
 #     end
 # end
 
-const _QP_SET_TYPES = Union{
-    MOI.GreaterThan{Float64},
-    MOI.LessThan{Float64},
-    MOI.EqualTo{Float64},
-    # MOI.Interval{Float64},
-}
-
-const _QP_FUNCTION_TYPES = Union{
-    MOI.VariableIndex,
-    MOI.ScalarAffineFunction{Float64},
-}
-
-_qp_supported(::Type{F}, ::Type{S}) where {F <: _QP_FUNCTION_TYPES, S <: _QP_SET_TYPES} = true
-_qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
-function _qp_supported(model::MOI.AbstractOptimizer)
-    return all(FS -> _qp_supported(FS...), MOI.get(model, MOI.ListOfConstraintTypesPresent()))
-end
-
-function MOI.get(model::Model, ::ForwardVariablePrimal, vi::MOI.VariableIndex)
+function MOI.get(model::Model, ::DiffOpt.ForwardVariablePrimal, vi::MOI.VariableIndex)
     return model.forw_grad_cache.dz[vi.value]
 end
 
-function _get_db(model::Model, ci::LE)
+function DiffOpt._get_db(model::Model, ci::LE)
     i = ci.value
     # dh = -Diagonal(λ) * dλ
     return model.λ[i] * model.back_grad_cache.dλ[i]
 end
-function _get_db(model::Model, ci::EQ)
+function DiffOpt._get_db(model::Model, ci::EQ)
     return model.back_grad_cache.dν[ci.value]
 end
 
 """
-    reverse_differentiate!(model::Model)
+    reverse_differentiate!(model::DiffOpt.QuadraticProgram.Model)
 
 Method to differentiate optimal solution `z` and return
 product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
@@ -255,14 +252,14 @@ the backward pass vector `dl / dz`
 
 The method computes the product of
 1. jacobian of problem solution `z*` with respect to
-    problem parameters set with the [`ReverseVariablePrimal`](@ref)
+    problem parameters set with the [`DiffOpt.ReverseVariablePrimal`](@ref)
 2. a backward pass vector `dl / dz`, where `l` can be a loss function
 
 Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function reverse_differentiate!(model::Model)
+function DiffOpt.reverse_differentiate!(model::Model)
     gradient_cache = _gradient_cache(model)
     LHS = gradient_cache.lhs
 
@@ -279,7 +276,7 @@ function reverse_differentiate!(model::Model)
     nv = length(model.x)
     Q = view(LHS, 1:nv, 1:nv)
     partial_grads = if norm(Q) ≈ 0
-        -lsqr(LHS, RHS)
+        -IterativeSolvers.lsqr(LHS, RHS)
     else
         -LHS \ RHS
     end
@@ -307,14 +304,14 @@ _linsolve(A, b::SparseVector) = A \ Vector(b)
 struct _QPSets end
 MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
-function forward_differentiate!(model::Model)
+function DiffOpt.forward_differentiate!(model::Model)
     gradient_cache = _gradient_cache(model)
     LHS = gradient_cache.lhs
 
     z = model.x
     nv = length(z)
 
-    objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
+    objective_function = DiffOpt._convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
     sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, nv)
     dQ = sparse_array_obj.quadratic_terms
     dq = sparse_array_obj.affine_terms
@@ -324,20 +321,20 @@ function forward_differentiate!(model::Model)
     # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
     # multiply by `-1` to transform it to `LessThan` so it cancels out.
     db = zero(model.ν)
-    _fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, gradient_cache, model.input_cache, _QPSets(), db)
+    DiffOpt._fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, gradient_cache, model.input_cache, _QPSets(), db)
     dh = zero(model.λ)
-    _fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dh)
+    DiffOpt._fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dh)
 
     dAi = zeros(Int, 0)
     dAj = zeros(Int, 0)
     dAv = zeros(Float64, 0)
-    _fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dAi, dAj, dAv)
+    DiffOpt._fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dAi, dAj, dAv)
     dA = sparse(dAi, dAj, dAv, length(model.ν), nv)
 
     dGi = zeros(Int, 0)
     dGj = zeros(Int, 0)
     dGv = zeros(Float64, 0)
-    _fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dGi, dGj, dGv)
+    DiffOpt._fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dGi, dGj, dGv)
     dG = sparse(dGi, dGj, dGv, length(model.λ), nv)
 
 
@@ -351,7 +348,7 @@ function forward_differentiate!(model::Model)
 
     Q = view(LHS, 1:nv, 1:nv)
     partial_grads = if norm(Q) ≈ 0
-        -lsqr(LHS', RHS)
+        -IterativeSolvers.lsqr(LHS', RHS)
     else
         -_linsolve(LHS', RHS)
     end
@@ -365,31 +362,31 @@ function forward_differentiate!(model::Model)
     return
 end
 
-function MOI.get(model::Model, ::ReverseObjectiveFunction)
+function MOI.get(model::Model, ::DiffOpt.ReverseObjectiveFunction)
     ∇z = model.back_grad_cache.dz
     z = model.x
     # `∇z * z' + z * ∇z'` doesn't work, see
     # https://github.com/JuliaArrays/LazyArrays.jl/issues/178
     dQ = LazyArrays.@~ (∇z .* z' + z .* ∇z') / 2.0
-    return MatrixScalarQuadraticFunction(
-        VectorScalarAffineFunction(∇z, 0.0),
+    return DiffOpt.MatrixScalarQuadraticFunction(
+        DiffOpt.VectorScalarAffineFunction(∇z, 0.0),
         dQ,
     )
 end
 
 # quadratic matrix indexes are split by type either == or <=
-function _get_dA(model::Model, ci::EQ)
+function DiffOpt._get_dA(model::Model, ci::EQ)
     i = ci.value
     dz = model.back_grad_cache.dz
     dν = model.back_grad_cache.dν
-    return lazy_combination(+, dν[i], model.x, model.ν[i], dz)
+    return DiffOpt.lazy_combination(+, dν[i], model.x, model.ν[i], dz)
 end
-function _get_dA(model::Model, ci::LE)
+function DiffOpt._get_dA(model::Model, ci::LE)
     i = ci.value
     dz = model.back_grad_cache.dz
     dλ = model.back_grad_cache.dλ
     l = model.λ[i]
-    return lazy_combination(+, l * dλ[i], model.x, l, dz)
+    return DiffOpt.lazy_combination(+, l * dλ[i], model.x, l, dz)
 end
 
 end

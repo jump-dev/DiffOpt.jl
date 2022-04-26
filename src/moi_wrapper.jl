@@ -35,12 +35,12 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
 
     program_class::ProgramClassCode
 
-    diff::Union{Nothing,MOI.Bridges.LazyBridgeOptimizer{QuadraticDiffProblem},MOI.Bridges.LazyBridgeOptimizer{ConicDiffProblem}}
+    diff::Union{Nothing,MOI.Bridges.LazyBridgeOptimizer{QuadraticProgram.Model},MOI.Bridges.LazyBridgeOptimizer{ConicProgram.Model}}
 
     index_map::Union{Nothing,MOI.Utilities.IndexMap}
 
     # sensitivity input cache using MOI like sparse format
-    input_cache::DiffInputCache
+    input_cache::InputCache
 
     function Optimizer(optimizer::OT) where {OT <: MOI.ModelLike}
         new{OT}(
@@ -48,7 +48,7 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
             AUTOMATIC,
             nothing,
             nothing,
-            DiffInputCache(),
+            InputCache(),
         )
     end
 end
@@ -451,6 +451,24 @@ is read-only, it cannot be set, set [`ProgramClass`](@ref) instead.
 """
 struct ProgramClassUsed <: MOI.AbstractOptimizerAttribute end
 
+function _qp_supported(::Type{F}, ::Type{S}) where {
+    F<:Union{
+        MOI.GreaterThan{Float64},
+        MOI.LessThan{Float64},
+        MOI.EqualTo{Float64},
+    },
+    S<:Union{
+        MOI.VariableIndex,
+        MOI.ScalarAffineFunction{Float64},
+    },
+}
+    return true
+end
+_qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
+function _qp_supported(model::MOI.AbstractOptimizer)
+    return all(FS -> _qp_supported(FS...), MOI.get(model, MOI.ListOfConstraintTypesPresent()))
+end
+
 function MOI.get(model::Optimizer, ::ProgramClassUsed)
     if model.program_class == AUTOMATIC
         if _qp_supported(model.optimizer)
@@ -463,16 +481,6 @@ function MOI.get(model::Optimizer, ::ProgramClassUsed)
     end
 end
 
-
-"""
-    reverse_differentiate!(model::Optimizer)
-
-Wrapper method for the backward pass.
-This method will consider as input a currently solved problem and differentials
-with respect to the solution set with the [`ReverseVariablePrimal`](@ref) attribute.
-The output problem data differentials can be queried with the
-attributes [`ReverseObjectiveFunction`](@ref) and [`ReverseConstraintFunction`](@ref).
-"""
 function reverse_differentiate!(model::Optimizer)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st,  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
@@ -491,16 +499,6 @@ function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
     end
 end
 
-"""
-    forward_differentiate!(model::Optimizer)
-
-Wrapper method for the forward pass.
-This method will consider as input a currently solved problem and
-differentials with respect to problem data set with
-the [`ForwardObjectiveFunction`](@ref) and  [`ForwardConstraintFunction`](@ref) attributes.
-The output solution differentials can be queried with the attribute
-[`ForwardVariablePrimal`](@ref).
-"""
 function forward_differentiate!(model::Optimizer)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st,  (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
@@ -529,10 +527,10 @@ end
 function _diff(model::Optimizer)
     if model.diff === nothing
         if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-            diff = QuadraticDiffProblem()
+            diff = QuadraticProgram.Model()
         else
             _check_termination_status(model)
-            diff = ConicDiffProblem()
+            diff = ConicProgram.Model()
         end
         model.diff = MOI.Bridges.LazyBridgeOptimizer(diff)
         # We don't add any variable bridge here because:
