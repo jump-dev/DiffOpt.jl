@@ -406,8 +406,8 @@ function MOI.get(model::Optimizer, ::MOI.Silent)
     return MOI.get(model.optimizer, MOI.Silent())
 end
 
-function MOI.get(model::Optimizer, ::MOI.SolverName)
-    return MOI.get(model.optimizer, MOI.SolverName())
+function MOI.get(model::Optimizer, attr::A) where {A <: Union{MOI.SolverName, MOI.SolverVersion}}
+    return MOI.get(model.optimizer, attr)
 end
 
 function MOI.optimize!(model::Optimizer)
