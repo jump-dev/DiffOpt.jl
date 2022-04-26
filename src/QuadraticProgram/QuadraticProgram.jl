@@ -1,3 +1,10 @@
+module QuadraticProgram
+
+using MathOptInterface
+const MOI = MathOptInterface
+
+import DiffOpt
+
 MOI.Utilities.@product_of_sets(
     Equalities,
     MOI.EqualTo{T},
@@ -14,7 +21,7 @@ MOI.Utilities.@struct_of_constraints_by_set_types(
     MOI.LessThan{T},
 )
 
-const QuadraticProblemForm{T} = MOI.Utilities.GenericModel{
+const Form{T} = MOI.Utilities.GenericModel{
     T,
     MOI.Utilities.ObjectiveContainer{T},
     MOI.Utilities.FreeVariables,
@@ -42,33 +49,33 @@ const QuadraticProblemForm{T} = MOI.Utilities.GenericModel{
     },
 }
 
-mutable struct QuadraticDiffProblem <: DiffModel
+mutable struct Model <: DiffOpt.Model
     # storage for problem data in matrix form
-    model::QuadraticProblemForm{Float64}
+    model::Form{Float64}
     # includes maps from matrix indices to problem data held in `optimizer`
     # also includes KKT matrices
     # also includes the solution
-    gradient_cache::Union{Nothing,QuadraticCache}
+    gradient_cache::Union{Nothing,Cache}
 
     # caches for sensitivity output
     # result from solving KKT/residualmap linear systems
     # this allows keeping the same `gradient_cache`
     # if only sensitivy input changes
-    forw_grad_cache::Union{Nothing,QuadraticForwardReverseCache}
-    back_grad_cache::Union{Nothing,QuadraticForwardReverseCache}
+    forw_grad_cache::Union{Nothing,ForwardReverseCache}
+    back_grad_cache::Union{Nothing,ForwardReverseCache}
 
     # sensitivity input cache using MOI like sparse format
-    input_cache::DiffInputCache
+    input_cache::DiffOpt.InputCache
 
     x::Vector{Float64} # Primal
     λ::Vector{Float64} # Dual of inequalities
     ν::Vector{Float64} # Dual of equalities
 end
-function QuadraticDiffProblem()
-    return QuadraticDiffProblem(QuadraticProblemForm{Float64}(), nothing, nothing, nothing, DiffInputCache(), Float64[], Float64[], Float64[])
+function Model()
+    return Model(Form{Float64}(), nothing, nothing, nothing, DiffInputCache(), Float64[], Float64[], Float64[])
 end
 
-function MOI.empty!(model::QuadraticDiffProblem)
+function MOI.empty!(model::Model)
     MOI.empty!(model.model)
     model.gradient_cache = nothing
     model.forw_grad_cache = nothing
@@ -83,7 +90,7 @@ end
 const EQ = MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.EqualTo{Float64}}
 const LE = MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.LessThan{Float64}}
 
-function MOI.set(model::QuadraticDiffProblem, ::MOI.ConstraintPrimalStart, ci::MOI.ConstraintIndex, value)
+function MOI.set(model::Model, ::MOI.ConstraintPrimalStart, ci::MOI.ConstraintIndex, value)
     MOI.throw_if_not_valid(model, ci)
     return # Ignored
 end
@@ -96,17 +103,17 @@ end
 # `- ν ⋅ (Az - b)`
 # so the we should reverse the sign if we want to use the same equations
 # as in the paper.
-function MOI.set(model::QuadraticDiffProblem, ::MOI.ConstraintDualStart, ci::EQ, value)
+function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::EQ, value)
     MOI.throw_if_not_valid(model, ci)
     _enlarge_set(model.ν, MOI.Utilities.rows(_equalities(model), ci), -value)
 end
 
-function MOI.set(model::QuadraticDiffProblem, ::MOI.ConstraintDualStart, ci::LE, value)
+function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::LE, value)
     MOI.throw_if_not_valid(model, ci)
     _enlarge_set(model.λ, MOI.Utilities.rows(_inequalities(model), ci), -value)
 end
 
-function _gradient_cache(model::QuadraticDiffProblem)
+function _gradient_cache(model::Model)
     if model.gradient_cache !== nothing
         return model.gradient_cache
     end
@@ -124,19 +131,19 @@ function _gradient_cache(model::QuadraticDiffProblem)
 
     LHS = create_LHS_matrix(model.x, model.λ, Q, G, h, A)
 
-    model.gradient_cache = QuadraticCache(LHS)
+    model.gradient_cache = Cache(LHS)
 
     return model.gradient_cache
 end
 
-function _equalities(model::QuadraticDiffProblem)
+function _equalities(model::Model)
     return MOI.Utilities.constraints(
         model.model.constraints,
         MOI.ScalarAffineFunction{Float64},
         MOI.EqualTo{Float64},
     )
 end
-function _inequalities(model::QuadraticDiffProblem)
+function _inequalities(model::Model)
     return MOI.Utilities.constraints(
         model.model.constraints,
         MOI.ScalarAffineFunction{Float64},
@@ -226,21 +233,21 @@ function _qp_supported(model::MOI.AbstractOptimizer)
     return all(FS -> _qp_supported(FS...), MOI.get(model, MOI.ListOfConstraintTypesPresent()))
 end
 
-function MOI.get(model::QuadraticDiffProblem, ::ForwardVariablePrimal, vi::VI)
+function MOI.get(model::Model, ::ForwardVariablePrimal, vi::MOI.VariableIndex)
     return model.forw_grad_cache.dz[vi.value]
 end
 
-function _get_db(model::QuadraticDiffProblem, ci::LE)
+function _get_db(model::Model, ci::LE)
     i = ci.value
     # dh = -Diagonal(λ) * dλ
     return model.λ[i] * model.back_grad_cache.dλ[i]
 end
-function _get_db(model::QuadraticDiffProblem, ci::EQ)
+function _get_db(model::Model, ci::EQ)
     return model.back_grad_cache.dν[ci.value]
 end
 
 """
-    reverse_differentiate!(model::QuadraticDiffProblem)
+    reverse_differentiate!(model::Model)
 
 Method to differentiate optimal solution `z` and return
 product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
@@ -255,7 +262,7 @@ Note that this method *does not returns* the actual jacobians.
 
 For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
 """
-function reverse_differentiate!(model::QuadraticDiffProblem)
+function reverse_differentiate!(model::Model)
     gradient_cache = _gradient_cache(model)
     LHS = gradient_cache.lhs
 
@@ -281,7 +288,7 @@ function reverse_differentiate!(model::QuadraticDiffProblem)
     dλ = partial_grads[nv+1:nv+nineq]
     dν = partial_grads[nv+nineq+1:end]
 
-    model.back_grad_cache = QuadraticForwardReverseCache(dz, dλ, dν)
+    model.back_grad_cache = ForwardReverseCache(dz, dλ, dν)
     return
     # dQ = 0.5 * (dz * z' + z * dz')
     # dq = dz
@@ -296,11 +303,11 @@ _linsolve(A, b) = A \ b
 # See https://github.com/JuliaLang/julia/issues/32668
 _linsolve(A, b::SparseVector) = A \ Vector(b)
 
-# Just a hack that will be removed once we use `MOIU.MatrixOfConstraints`
+# Just a hack that will be removed once we use `MOI.Utilities.MatrixOfConstraints`
 struct _QPSets end
 MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
-function forward_differentiate!(model::QuadraticDiffProblem)
+function forward_differentiate!(model::Model)
     gradient_cache = _gradient_cache(model)
     LHS = gradient_cache.lhs
 
@@ -308,7 +315,7 @@ function forward_differentiate!(model::QuadraticDiffProblem)
     nv = length(z)
 
     objective_function = _convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
-    sparse_array_obj = sparse_array_representation(objective_function, nv)
+    sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, nv)
     dQ = sparse_array_obj.quadratic_terms
     dq = sparse_array_obj.affine_terms
 
@@ -354,11 +361,11 @@ function forward_differentiate!(model::QuadraticDiffProblem)
     dλ = partial_grads[nv+1:nv+length(λ)]
     dν = partial_grads[nv+length(λ)+1:end]
 
-    model.forw_grad_cache = QuadraticForwardReverseCache(dz, dλ, dν)
+    model.forw_grad_cache = ForwardReverseCache(dz, dλ, dν)
     return
 end
 
-function MOI.get(model::QuadraticDiffProblem, ::ReverseObjectiveFunction)
+function MOI.get(model::Model, ::ReverseObjectiveFunction)
     ∇z = model.back_grad_cache.dz
     z = model.x
     # `∇z * z' + z * ∇z'` doesn't work, see
@@ -371,16 +378,18 @@ function MOI.get(model::QuadraticDiffProblem, ::ReverseObjectiveFunction)
 end
 
 # quadratic matrix indexes are split by type either == or <=
-function _get_dA(model::QuadraticDiffProblem, ci::EQ)
+function _get_dA(model::Model, ci::EQ)
     i = ci.value
     dz = model.back_grad_cache.dz
     dν = model.back_grad_cache.dν
     return lazy_combination(+, dν[i], model.x, model.ν[i], dz)
 end
-function _get_dA(model::QuadraticDiffProblem, ci::LE)
+function _get_dA(model::Model, ci::LE)
     i = ci.value
     dz = model.back_grad_cache.dz
     dλ = model.back_grad_cache.dλ
     l = model.λ[i]
     return lazy_combination(+, l * dλ[i], model.x, l, dz)
+end
+
 end
