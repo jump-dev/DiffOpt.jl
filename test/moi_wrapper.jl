@@ -634,7 +634,7 @@ function simple_psd(solver)
     x = MOI.get(model, MOI.VariablePrimal(), X)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
-    conic_form = DiffOpt.GeometricConicForm{Float64}()
+    conic_form = DiffOpt.ConicProgram.Form{Float64}()
     cones = conic_form.constraints.sets
     DiffOpt.set_set_types(cones, cone_types)
     index_map = MOI.copy_to(conic_form, model)
@@ -769,7 +769,7 @@ end
     _X = MOI.get(model, MOI.VariablePrimal(), X)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
-    conic_form = DiffOpt.GeometricConicForm{Float64}()
+    conic_form = DiffOpt.ConicProgram.Form{Float64}()
     cones = conic_form.constraints.sets
     DiffOpt.set_set_types(cones, cone_types)
     index_map = MOI.copy_to(conic_form, model)

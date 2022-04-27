@@ -90,6 +90,10 @@ function Model()
     return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[])
 end
 
+function MOI.is_empty(model::Model)
+    return MOI.is_empty(model.model)
+end
+
 function MOI.empty!(model::Model)
     MOI.empty!(model.model)
     model.gradient_cache = nothing

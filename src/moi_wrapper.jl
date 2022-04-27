@@ -33,9 +33,10 @@ end
 mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     optimizer::OT
 
-    program_class::ProgramClassCode
+    model_constructors::Vector{Any}
+    model_constructor::Any
 
-    diff::Union{Nothing,MOI.Bridges.LazyBridgeOptimizer{QuadraticProgram.Model},MOI.Bridges.LazyBridgeOptimizer{ConicProgram.Model}}
+    diff::Any
 
     index_map::Union{Nothing,MOI.Utilities.IndexMap}
 
@@ -43,14 +44,21 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
     input_cache::InputCache
 
     function Optimizer(optimizer::OT) where {OT <: MOI.ModelLike}
-        new{OT}(
+        output = new{OT}(
             optimizer,
-            AUTOMATIC,
+            Any[],
+            nothing,
             nothing,
             nothing,
             InputCache(),
         )
+        add_all_model_constructors(output)
+        return output
     end
+end
+function add_model_constructor(optimizer::Optimizer, model_constructor)
+    push!(optimizer.model_constructors, model_constructor)
+    return
 end
 
 function MOI.add_variable(model::Optimizer)
@@ -64,22 +72,17 @@ function MOI.add_variables(model::Optimizer, N::Int)
     return VI[MOI.add_variable(model) for i in 1:N]
 end
 
-function MOI.add_constraint(model::Optimizer, f::SUPPORTED_SCALAR_FUNCTIONS, s::SUPPORTED_SCALAR_SETS)
+function MOI.add_constraint(model::Optimizer, f::MOI.AbstractFunction, s::MOI.AbstractSet)
     model.diff = nothing
     return MOI.add_constraint(model.optimizer, f, s)
 end
 
-function MOI.add_constraint(model::Optimizer, vf::SUPPORTED_VECTOR_FUNCTIONS, s::SUPPORTED_VECTOR_SETS)
-    model.diff = nothing
-    return MOI.add_constraint(model.optimizer, vf, s)
-end
-
-function MOI.add_constraints(model::Optimizer, f::AbstractVector{F}, s::AbstractVector{S}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+function MOI.add_constraints(model::Optimizer, f::AbstractVector{F}, s::AbstractVector{S}) where {F<:MOI.AbstractFunction, S<: MOI.AbstractSet}
     model.diff = nothing
     return CI{F, S}[MOI.add_constraint(model, f[i], s[i]) for i in eachindex(f)]
 end
 
-function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES}, f::SUPPORTED_OBJECTIVES)
+function MOI.set(model::Optimizer, attr::MOI.ObjectiveFunction{F}, f::F) where {F<:MOI.AbstractFunction}
     model.diff = nothing
     MOI.set(model.optimizer, attr, f)
 end
@@ -95,66 +98,30 @@ function MOI.get(model::Optimizer, attr::MOI.AbstractModelAttribute)
     return MOI.get(model.optimizer, attr)
 end
 
-function MOI.get(
-    model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}
-) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices)
     return MOI.get(model.optimizer, attr)
 end
 
-function MOI.get(
-    model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}
-) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI)
     return MOI.get(model.optimizer, attr, ci)
 end
 
 function MOI.set(
     model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S
-) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+) where {F,S}
     model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, s)
 end
 
 function MOI.get(
     model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}
-) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+) where {F,S}
     return MOI.get(model.optimizer, attr, ci)
 end
 
 function MOI.set(
     model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F
-) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
-    model.diff = nothing
-    return MOI.set(model.optimizer, attr, ci, f)
-end
-
-function MOI.get(
-    model::Optimizer, attr::MOI.ListOfConstraintIndices{F, S}
-) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    return MOI.get(model.optimizer, attr)
-end
-
-function MOI.get(
-    model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}
-) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    return MOI.get(model.optimizer, attr, ci)
-end
-
-function MOI.set(
-    model::Optimizer, attr::MOI.ConstraintSet, ci::CI{F, S}, s::S
-) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    model.diff = nothing
-    return MOI.set(model.optimizer, attr, ci, s)
-end
-
-function MOI.get(
-    model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}
-) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
-    return MOI.get(model.optimizer, attr, ci)
-end
-
-function MOI.set(
-    model::Optimizer, attr::MOI.ConstraintFunction, ci::CI{F, S}, f::F
-) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+) where {F,S}
     model.diff = nothing
     return MOI.set(model.optimizer, attr, ci, f)
 end
@@ -165,41 +132,18 @@ function MOI.supports(model::Optimizer, attr::MOI.AbstractModelAttribute)
     return MOI.supports(model.optimizer, attr)
 end
 
-function MOI.supports(
-    model::Optimizer,
-    attr::MOI.ObjectiveFunction{<: SUPPORTED_OBJECTIVES}
-)
+function MOI.supports(model::Optimizer, attr::MOI.ObjectiveFunction)
     return MOI.supports(model.optimizer, attr)
 end
 
 function MOI.supports_constraint(
-    model::Optimizer,
-    ::Type{F},
-    ::Type{S}
-) where {
-    F <: SUPPORTED_SCALAR_FUNCTIONS,
-    S <: SUPPORTED_SCALAR_SETS,
-}
-    MOI.supports_constraint(model.optimizer, F, S)
-end
-function MOI.supports_constraint(
-    model::Optimizer,
-    ::Type{F},
-    ::Type{S}
-) where {
-    F <: SUPPORTED_VECTOR_FUNCTIONS,
-    S <: SUPPORTED_VECTOR_SETS,
-}
+    model::Optimizer, ::Type{F}, ::Type{S},
+) where {F<:MOI.AbstractFunction,S<:MOI.AbstractSet}
     MOI.supports_constraint(model.optimizer, F, S)
 end
 function MOI.supports(
     model::Optimizer, attr::MOI.ConstraintName, ::Type{CI{F, S}}
-) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
-    return MOI.supports(model.optimizer, attr, CI{F,S})
-end
-function MOI.supports(
-    model::Optimizer, attr::MOI.ConstraintName, ::Type{CI{F, S}}
-) where {F<:SUPPORTED_VECTOR_FUNCTIONS, S<:SUPPORTED_VECTOR_SETS}
+) where {F,S}
     return MOI.supports(model.optimizer, attr, CI{F,S})
 end
 
@@ -256,21 +200,12 @@ function MOI.get(model::Optimizer, attr::MOI.AbstractVariableAttribute, vi::MOI.
     return MOI.get(model.optimizer, attr, vi)
 end
 
-function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F,S}
     model.diff = nothing
     MOI.delete(model.optimizer, ci)
 end
 
-function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
-    model.diff = nothing
-    MOI.delete(model.optimizer, ci)
-end
-
-function MOI.get(model::Optimizer, attr::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
-    return MOI.get(model.optimizer, attr, ci)
-end
-
-function MOI.get(model::Optimizer, attr::MOI.ConstraintPrimal, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
+function MOI.get(model::Optimizer, attr::MOI.ConstraintPrimal, ci::CI{F,S}) where {F,S}
     return MOI.get(model.optimizer, attr, ci)
 end
 
@@ -280,34 +215,30 @@ end
 
 MOI.is_valid(model::Optimizer, con::CI) = MOI.is_valid(model.optimizer, con)
 
-function MOI.get(model::Optimizer, attr::MOI.ConstraintDual, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+function MOI.get(model::Optimizer, attr::MOI.ConstraintDual, ci::CI{F,S}) where {F,S}
     return MOI.get(model.optimizer, attr, ci)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.ConstraintDual, ci::CI{F,S}) where {F <: SUPPORTED_VECTOR_FUNCTIONS, S <: SUPPORTED_VECTOR_SETS}
-    return MOI.get(model.optimizer, attr, ci)
-end
-
-function MOI.get(model::Optimizer, ::MOI.ConstraintBasisStatus, ci::CI{F,S}) where {F <: SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+function MOI.get(model::Optimizer, ::MOI.ConstraintBasisStatus, ci::CI{F,S}) where {F,S}
     return MOI.get(model.optimizer, MOI.ConstraintBasisStatus(), ci)
 end
 
 # helper methods to check if a constraint contains a Variable
-function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VariableIndex, S}) where {S <: SUPPORTED_SCALAR_SETS}
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VariableIndex})
     return v == MOI.get(model, MOI.ConstraintFunction(), ci)
 end
 
-function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.ScalarAffineFunction{Float64}, S}) where {S <: SUPPORTED_SCALAR_SETS}
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.ScalarAffineFunction{Float64}})
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
     return any(term -> v == term.variable, func.terms)
 end
 
-function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VectorOfVariables, S}) where {S <: SUPPORTED_VECTOR_SETS}
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VectorOfVariables})
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
     return v in func.variables
 end
 
-function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VectorAffineFunction{Float64}, S}) where {S <: SUPPORTED_VECTOR_SETS}
+function _constraint_contains(model::Optimizer, v::VI, ci::CI{MOI.VectorAffineFunction{Float64}})
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
     return any(term -> v == term.scalar_term.variable, func.terms)
 end
@@ -339,16 +270,10 @@ function MOI.modify(
     )
 end
 
-function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S <: SUPPORTED_SCALAR_SETS}
+function MOI.modify(model::Optimizer, ci::CI, chg::MOI.AbstractFunctionModification)
     model.diff = nothing
     MOI.modify(model.optimizer, ci, chg)
 end
-
-function MOI.modify(model::Optimizer, ci::CI{F, S}, chg::MOI.AbstractFunctionModification) where {F<:MOI.VectorAffineFunction{Float64}, S <: SUPPORTED_VECTOR_SETS}
-    model.diff = nothing
-    MOI.modify(model.optimizer, ci, chg)
-end
-
 
 function MOI.get(model::Optimizer, ::Type{MOI.VariableIndex}, name::String)
     return MOI.get(model.optimizer, MOI.VariableIndex, name)
@@ -366,24 +291,16 @@ function MOI.get(model::Optimizer, ::MOI.ConstraintName, con::CI)
     return MOI.get(model.optimizer, MOI.ConstraintName(), con)
 end
 
-function MOI.get(model::Optimizer, ::MOI.ConstraintName, ::Type{CI{F, S}}) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.get(model::Optimizer, ::MOI.ConstraintName, ::Type{CI{F, S}}) where {F,S}
     return MOI.get(model.optimizer, MOI.ConstraintName(), CI{F,S})
-end
-
-function MOI.get(model::Optimizer, ::MOI.ConstraintName, ::Type{CI{VF, VS}}) where {VF<:SUPPORTED_VECTOR_FUNCTIONS, VS<:SUPPORTED_VECTOR_SETS}
-    return MOI.get(model.optimizer, MOI.ConstraintName(), CI{VF,VS})
 end
 
 function MOI.set(model::Optimizer, ::MOI.Name, name::String)
     MOI.set(model.optimizer, MOI.Name(), name)
 end
 
-function MOI.get(model::Optimizer, ::Type{CI{F, S}}, name::String) where {F<:SUPPORTED_SCALAR_FUNCTIONS, S<:SUPPORTED_SCALAR_SETS}
+function MOI.get(model::Optimizer, ::Type{CI{F, S}}, name::String) where {F,S}
     return MOI.get(model.optimizer, CI{F,S}, name)
-end
-
-function MOI.get(model::Optimizer, ::Type{CI{VF, VS}}, name::String) where {VF<:SUPPORTED_VECTOR_FUNCTIONS, VS<:SUPPORTED_VECTOR_SETS}
-    return MOI.get(model.optimizer, CI{VF,VS}, name)
 end
 
 function MOI.supports(model::Optimizer, attr::MOI.TimeLimitSec)
@@ -417,68 +334,18 @@ function MOI.optimize!(model::Optimizer)
 end
 
 """
-    ProgramClass <: MOI.AbstractOptimizerAttribute
+    ModelConstructor <: MOI.AbstractOptimizerAttribute
 
-Determines which program class to used from [`ProgramClassCode`](@ref). The
-default is `AUTOMATIC`.
-
-One important advantage of setting the class explicitly is that it will allow
-necessary bridges to be used. If the class is `AUTOMATIC` then
-`DiffOpt.Optimizer` will report that it supports both objective and constraints
-of the QP and CP classes. For instance, it will reports that is supports both
-quadratic objective and conic constraints. However, at the differentiation
-stage, we won't be able to differentiate since QP does not support conic
-constraints and CP does not support quadratic objective. On the other hand, if
-the `ProgramClass` is set to `CONIC` then `DiffOpt.Optimizer` will report that
-it does not support quadratic objective hence it will be bridged to second-order
-cone constraints and we will be able to use CP to differentiate.
+Determines which subtype of [`DiffOpt.AbstractModel`](@ref) to use for
+differentiation. When set to `nothing`, the first one out of
+`model.model_constructors` that support the problem is used.
 """
-struct ProgramClass <: MOI.AbstractOptimizerAttribute end
+struct ModelConstructor <: MOI.AbstractOptimizerAttribute end
 
-MOI.supports(::Optimizer, ::ProgramClass) = true
-MOI.get(model::Optimizer, ::ProgramClass) = model.program_class
-function MOI.set(model::Optimizer, ::ProgramClass, class::ProgramClassCode)
-    model.program_class = class
-end
-
-
-"""
-    ProgramClassUsed <: MOI.AbstractOptimizerAttribute
-
-Program class actually used, same as [`ProgramClass`](@ref) except that it does
-not return `AUTOMATIC` but the class automatically chosen instead. This attribute
-is read-only, it cannot be set, set [`ProgramClass`](@ref) instead.
-"""
-struct ProgramClassUsed <: MOI.AbstractOptimizerAttribute end
-
-function _qp_supported(::Type{F}, ::Type{S}) where {
-    F<:Union{
-        MOI.GreaterThan{Float64},
-        MOI.LessThan{Float64},
-        MOI.EqualTo{Float64},
-    },
-    S<:Union{
-        MOI.VariableIndex,
-        MOI.ScalarAffineFunction{Float64},
-    },
-}
-    return true
-end
-_qp_supported(::Type{F}, ::Type{S}) where {F, S} = false
-function _qp_supported(model::MOI.AbstractOptimizer)
-    return all(FS -> _qp_supported(FS...), MOI.get(model, MOI.ListOfConstraintTypesPresent()))
-end
-
-function MOI.get(model::Optimizer, ::ProgramClassUsed)
-    if model.program_class == AUTOMATIC
-        if _qp_supported(model.optimizer)
-            return QUADRATIC
-        else
-            return CONIC
-        end
-    else
-        return model.program_class
-    end
+MOI.supports(::Optimizer, ::ModelConstructor) = true
+MOI.get(model::Optimizer, ::ModelConstructor) = model.model_constructor
+function MOI.set(model::Optimizer, ::ModelConstructor, model_constructor)
+    model.model_constructor = model_constructor
 end
 
 function reverse_differentiate!(model::Optimizer)
@@ -524,25 +391,50 @@ function _copy_constraint_start(dest, src, index_map::MOIU.DoubleDicts.IndexDoub
     end
 end
 
+function _instantiate_with_bridges(model_constructor)
+    model = MOI.Bridges.LazyBridgeOptimizer(
+        MOI.instantiate(model_constructor)
+    )
+    # We don't add any variable bridge here because:
+    # 1) If `ZerosBridge` is used, `MOI.Bridges.unbridged_function` does not work.
+    #    This is in fact expected: since `ZerosBridge` drops the variable, we dont
+    #    compute the derivative of the value of this variable as a function of its fixed value.
+    #    This could be easily determined as the same as the derivative of the value but
+    #    since the variable was also dropped from other constraints, we would ignore its impact on the other constraints.
+    # 2) For affine variable bridges, `bridged_function` and `unbridged_function` don't treat the function as a derivative hence they will add constants
+    MOI.Bridges.Constraint.add_all_bridges(model, Float64)
+    MOI.Bridges.Objective.add_all_bridges(model, Float64)
+    return model
+end
+
 function _diff(model::Optimizer)
     if model.diff === nothing
-        if MOI.get(model, ProgramClassUsed()) == QUADRATIC
-            diff = QuadraticProgram.Model()
+        _check_termination_status(model)
+        model_constructor = MOI.get(model, ModelConstructor())
+        if isnothing(model_constructor)
+            model.diff = nothing
+            for constructor in model.model_constructors
+                model.diff = _instantiate_with_bridges(constructor)
+                try
+                    model.index_map = MOI.copy_to(model.diff, model.optimizer)
+                catch err
+                    if err isa MOI.UnsupportedConstraint || err isa MOI.UnsupportedAttribute
+                        model.diff = nothing
+                    else
+                        rethrow(err)
+                    end
+                end
+                if !isnothing(model.diff)
+                    break
+                end
+            end
+            if isnothing(model.diff)
+                error("No differentiation model supports the problem. If you believe it should be supported, say by `DiffOpt.QuadraticProgram.Model`, use `MOI.set(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model)` and try again to see an error indicating why it is not supported.")
+            end
         else
-            _check_termination_status(model)
-            diff = ConicProgram.Model()
+            model.diff = _instantiate_with_bridges(model_constructor)
+            model.index_map = MOI.copy_to(model.diff, model.optimizer)
         end
-        model.diff = MOI.Bridges.LazyBridgeOptimizer(diff)
-        # We don't add any variable bridge here because:
-        # 1) If `ZerosBridge` is used, `MOI.Bridges.unbridged_function` does not work.
-        #    This is in fact expected: since `ZerosBridge` drops the variable, we dont
-        #    compute the derivative of the value of this variable as a function of its fixed value.
-        #    This could be easily determined as the same as the derivative of the value but
-        #    since the variable was also dropped from other constraints, we would ignore its impact on the other constraints.
-        # 2) For affine variable bridges, `bridged_function` and `unbridged_function` don't treat the function as a derivative hence they will add constants
-        MOI.Bridges.Constraint.add_all_bridges(model.diff, Float64)
-        MOI.Bridges.Objective.add_all_bridges(model.diff, Float64)
-        model.index_map = MOI.copy_to(model.diff, model.optimizer)
         vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
         MOI.set(model.diff, MOI.VariablePrimalStart(), getindex.(Ref(model.index_map), vis_src), MOI.get(model.optimizer, MOI.VariablePrimal(), vis_src))
         for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())

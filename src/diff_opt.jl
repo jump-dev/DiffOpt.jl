@@ -169,20 +169,6 @@ MOI.get(model, DiffOpt.ReverseConstraintFunction(), ci)
 struct ReverseConstraintFunction <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::ReverseConstraintFunction) = true
 
-"""
-    @enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
-
-Program class used by DiffOpt. DiffOpt implements differentiation of two
-different program class:
-1) Quadratic Program (QP): quadratic objective and linear constraints and
-2) Conic Program (CP): linear objective and conic constraints.
-
-`AUTOMATIC` which means that the class will be automatically selected given the
-problem data: if any constraint is conic, CP is used and QP is used otherwise.
-See [`ProgramClass`](@ref).
-"""
-@enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
-
 abstract type AbstractModel <: MOI.ModelLike end
 
 MOI.supports_incremental_interface(::AbstractModel) = true
