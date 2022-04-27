@@ -4,5 +4,5 @@
 ```
 
 ```@autodocs
-Modules = [DiffOpt]
+Modules = [DiffOpt, DiffOpt.QuadraticProgram, DiffOpt.ConicProgram]
 ```

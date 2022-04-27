@@ -169,6 +169,12 @@ MOI.get(model, DiffOpt.ReverseConstraintFunction(), ci)
 struct ReverseConstraintFunction <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::ReverseConstraintFunction) = true
 
+"""
+    abstract type AbstractModel <: MOI.ModelLike end
+
+Model supporting [`forward_differentiate!`](@ref) and
+[`reverse_differentiate!`](@ref).
+"""
 abstract type AbstractModel <: MOI.ModelLike end
 
 MOI.supports_incremental_interface(::AbstractModel) = true
