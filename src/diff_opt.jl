@@ -31,7 +31,7 @@ end
 """
     reverse_differentiate!(model::MOI.ModelLike)
 
-Wrapper method for the backward pass.
+Wrapper method for the backward pass / reverse differentiation.
 This method will consider as input a currently solved problem and differentials
 with respect to the solution set with the [`ReverseVariablePrimal`](@ref) attribute.
 The output problem data differentials can be queried with the

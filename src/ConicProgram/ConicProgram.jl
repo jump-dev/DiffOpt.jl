@@ -49,6 +49,19 @@ const Form{T} = MOI.Utilities.GenericModel{
     },
 }
 
+"""
+    Diffopt.ConicProgram.Model <: DiffOpt.AbstractModel
+
+Model to differentiate conic programs.
+
+The forward differentiation computes the product of the derivative (Jacobian) at the
+conic program parameters `A`, `b`, `c` to the perturbations `dA`, `db`, `dc`.
+
+The reverse differentiation computes the product of the transpose of the derivative (Jacobian) at the
+conic program parameters `A`, `b`, `c` to the perturbations `dx`, `dy`, `ds`.
+
+For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
+"""
 mutable struct Model <: DiffOpt.AbstractModel
     # storage for problem data in matrix form
     model::Form{Float64}
@@ -180,14 +193,6 @@ function _gradient_cache(model::Model)
     return model.gradient_cache
 end
 
-"""
-    forward_differentiate!(model::Diffopt.ConicProgram.Model)
-
-Method to compute the product of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c` to the perturbations `dA`, `db`, `dc`.
-
-For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
-"""
 function DiffOpt.forward_differentiate!(model::Model)
     gradient_cache = _gradient_cache(model)
     M = gradient_cache.M
@@ -241,14 +246,6 @@ function DiffOpt.forward_differentiate!(model::Model)
     # return -dx, -dy, -ds
 end
 
-"""
-    reverse_differentiate!(model::Diffopt.ConicProgram.Model)
-
-Method to compute the product of the transpose of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c` to the perturbations `dx`, `dy`, `ds`.
-
-For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
-"""
 function DiffOpt.reverse_differentiate!(model::Model)
     gradient_cache = _gradient_cache(model)
     M = gradient_cache.M

@@ -64,6 +64,24 @@ const Form{T} = MOI.Utilities.GenericModel{
     },
 }
 
+"""
+    DiffOpt.QuadraticProgram.Model <: DiffOpt.AbstractModel
+
+Model to differentiate quadratic programs.
+
+For the reverse differentiation, it differentiates the optimal solution `z` and return
+product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
+the backward pass vector `dl / dz`
+
+The method computes the product of
+1. jacobian of problem solution `z*` with respect to
+    problem parameters set with the [`DiffOpt.ReverseVariablePrimal`](@ref)
+2. a backward pass vector `dl / dz`, where `l` can be a loss function
+
+Note that this method *does not returns* the actual jacobians.
+
+For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
+"""
 mutable struct Model <: DiffOpt.AbstractModel
     # storage for problem data in matrix form
     model::Form{Float64}
@@ -247,22 +265,6 @@ function DiffOpt._get_db(model::Model, ci::EQ)
     return model.back_grad_cache.dν[ci.value]
 end
 
-"""
-    reverse_differentiate!(model::DiffOpt.QuadraticProgram.Model)
-
-Method to differentiate optimal solution `z` and return
-product of jacobian matrices (`dz / dQ`, `dz / dq`, etc) with
-the backward pass vector `dl / dz`
-
-The method computes the product of
-1. jacobian of problem solution `z*` with respect to
-    problem parameters set with the [`DiffOpt.ReverseVariablePrimal`](@ref)
-2. a backward pass vector `dl / dz`, where `l` can be a loss function
-
-Note that this method *does not returns* the actual jacobians.
-
-For more info refer eqn(7) and eqn(8) of https://arxiv.org/pdf/1703.00443.pdf
-"""
 function DiffOpt.reverse_differentiate!(model::Model)
     gradient_cache = _gradient_cache(model)
     LHS = gradient_cache.lhs
