@@ -42,7 +42,7 @@ Polytope(w::NTuple{N}) where {N} = Polytope{N}(w, randn(N))
 function (polytope::Polytope{N})(
     y::AbstractMatrix;
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
-) where {N}
+) where N
     layer_size, batch_size = size(y)
     empty!(model)
     set_silent(model)
