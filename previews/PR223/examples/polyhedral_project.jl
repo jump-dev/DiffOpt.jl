@@ -39,16 +39,16 @@ Polytope(w::NTuple{N}) where {N} = Polytope{N}(w, randn(N))
 
 # We define a "call" operation on the polytope, making it a so-called functor.
 # Calling the polytope with a matrix `y` operates an Euclidean projection of this matrix onto the polytope.
-function (polytope::Polytope)(
+function (polytope::Polytope{N})(
     y::AbstractMatrix;
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
-)
+) where N
     layer_size, batch_size = size(y)
     empty!(model)
     set_silent(model)
     @variable(model, x[1:layer_size, 1:batch_size])
     @constraint(model,
-        greater_than_cons[idx in 1:length(polytope.w), sample in 1:batch_size],
+        greater_than_cons[idx in 1:N, sample in 1:batch_size],
         dot(polytope.w[idx], x[:, sample]) ≥ polytope.b[idx]
     )
     @objective(model, Min, dot(x - y, x - y))
@@ -67,7 +67,7 @@ Flux.@functor Polytope
 # which is used to represent derivatives with respect to structs.
 # For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
 
-function ChainRulesCore.rrule(polytope::Polytope, y::AbstractMatrix)
+function ChainRulesCore.rrule(polytope::Polytope{N}, y::AbstractMatrix) where N
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     xv = polytope(y; model = model)
     function pullback_matrix_projection(dl_dx)
@@ -88,31 +88,31 @@ function ChainRulesCore.rrule(polytope::Polytope, y::AbstractMatrix)
         obj_expr = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
         dl_dy .= -2 * JuMP.coefficient.(obj_expr, x)
         greater_than_cons = model[:greater_than_cons]
-        for idx in eachindex(dl_dw), sample in 1:batch_size
+        for idx in 1:N, sample in 1:batch_size
             cons_expr = MOI.get(model,
                 DiffOpt.ReverseConstraintFunction(),
                 greater_than_cons[idx, sample])
             dl_db[idx] -= JuMP.constant(cons_expr)/batch_size
             dl_dw[idx] .+= JuMP.coefficient.(cons_expr, x[:,sample])/batch_size
         end
-        dself = ChainRulesCore.Tangent{typeof(polytope)}(; w = dl_dw, b = dl_db)
+        dself = ChainRulesCore.Tangent{Polytope{N}}(; w = dl_dw, b = dl_db)
         return (dself, dl_dy)
     end
     return xv, pullback_matrix_projection
 end
 
 # ## Prepare data
-N = 500 ## batch size
-imgs = MLDatasets.MNIST.traintensor(1:N)
-labels = MLDatasets.MNIST.trainlabels(1:N);
+M = 500 ## batch size
+imgs = MLDatasets.MNIST.traintensor(1:M)
+labels = MLDatasets.MNIST.trainlabels(1:M);
 
 # Preprocessing
-train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), N)) ## stack all the images
+train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), M)) ## stack all the images
 train_Y = Flux.onehotbatch(labels, 0:9);
 
-test_imgs = MLDatasets.MNIST.testtensor(1:N)
-test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), N))
-test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:N), 0:9);
+test_imgs = MLDatasets.MNIST.testtensor(1:M)
+test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), M))
+test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:M), 0:9);
 
 # ## Define the Network
 

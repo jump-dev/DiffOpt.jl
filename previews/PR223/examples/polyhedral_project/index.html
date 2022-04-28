@@ -15,22 +15,22 @@ Random.seed!(42)</code></pre><pre class="documenter-example-output"><code class=
     b::Vector{Float64}
 end
 
-Polytope(w::NTuple{N}) where {N} = Polytope{N}(w, randn(N))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Main.Polytope</code></pre><p>We define a &quot;call&quot; operation on the polytope, making it a so-called functor. Calling the polytope with a matrix <code>y</code> operates an Euclidean projection of this matrix onto the polytope.</p><pre><code class="language-julia hljs">function (polytope::Polytope)(
+Polytope(w::NTuple{N}) where {N} = Polytope{N}(w, randn(N))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Main.Polytope</code></pre><p>We define a &quot;call&quot; operation on the polytope, making it a so-called functor. Calling the polytope with a matrix <code>y</code> operates an Euclidean projection of this matrix onto the polytope.</p><pre><code class="language-julia hljs">function (polytope::Polytope{N})(
     y::AbstractMatrix;
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
-)
+) where N
     layer_size, batch_size = size(y)
     empty!(model)
     set_silent(model)
     @variable(model, x[1:layer_size, 1:batch_size])
     @constraint(model,
-        greater_than_cons[idx in 1:length(polytope.w), sample in 1:batch_size],
+        greater_than_cons[idx in 1:N, sample in 1:batch_size],
         dot(polytope.w[idx], x[:, sample]) ≥ polytope.b[idx]
     )
     @objective(model, Min, dot(x - y, x - y))
     optimize!(model)
     return JuMP.value.(x)
-end</code></pre><p>The <code>@functor</code> macro from Flux implements auxiliary functions for collecting the parameters of our custom layer and operating backpropagation.</p><pre><code class="language-julia hljs">Flux.@functor Polytope</code></pre><p>Define the reverse differentiation rule, for the function we defined above. Flux uses ChainRules primitives to implement reverse-mode differentiation of the whole network. To learn the current layer (the polytope the layer contains), the gradient is computed with respect to the <code>Polytope</code> fields in a ChainRulesCore.Tangent type which is used to represent derivatives with respect to structs. For more details about backpropagation, visit <a href="https://juliadiff.org/ChainRulesCore.jl/dev/">Introduction, ChainRulesCore.jl</a>.</p><pre><code class="language-julia hljs">function ChainRulesCore.rrule(polytope::Polytope, y::AbstractMatrix)
+end</code></pre><p>The <code>@functor</code> macro from Flux implements auxiliary functions for collecting the parameters of our custom layer and operating backpropagation.</p><pre><code class="language-julia hljs">Flux.@functor Polytope</code></pre><p>Define the reverse differentiation rule, for the function we defined above. Flux uses ChainRules primitives to implement reverse-mode differentiation of the whole network. To learn the current layer (the polytope the layer contains), the gradient is computed with respect to the <code>Polytope</code> fields in a ChainRulesCore.Tangent type which is used to represent derivatives with respect to structs. For more details about backpropagation, visit <a href="https://juliadiff.org/ChainRulesCore.jl/dev/">Introduction, ChainRulesCore.jl</a>.</p><pre><code class="language-julia hljs">function ChainRulesCore.rrule(polytope::Polytope{N}, y::AbstractMatrix) where N
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     xv = polytope(y; model = model)
     function pullback_matrix_projection(dl_dx)
@@ -51,25 +51,25 @@ end</code></pre><p>The <code>@functor</code> macro from Flux implements auxiliar
         obj_expr = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
         dl_dy .= -2 * JuMP.coefficient.(obj_expr, x)
         greater_than_cons = model[:greater_than_cons]
-        for idx in eachindex(dl_dw), sample in 1:batch_size
+        for idx in 1:N, sample in 1:batch_size
             cons_expr = MOI.get(model,
                 DiffOpt.ReverseConstraintFunction(),
                 greater_than_cons[idx, sample])
             dl_db[idx] -= JuMP.constant(cons_expr)/batch_size
             dl_dw[idx] .+= JuMP.coefficient.(cons_expr, x[:,sample])/batch_size
         end
-        dself = ChainRulesCore.Tangent{typeof(polytope)}(; w = dl_dw, b = dl_db)
+        dself = ChainRulesCore.Tangent{Polytope{N}}(; w = dl_dw, b = dl_db)
         return (dself, dl_dy)
     end
     return xv, pullback_matrix_projection
-end</code></pre><h2 id="Prepare-data"><a class="docs-heading-anchor" href="#Prepare-data">Prepare data</a><a id="Prepare-data-1"></a><a class="docs-heading-anchor-permalink" href="#Prepare-data" title="Permalink"></a></h2><pre><code class="language-julia hljs">N = 500 ## batch size
-imgs = MLDatasets.MNIST.traintensor(1:N)
-labels = MLDatasets.MNIST.trainlabels(1:N);</code></pre><p>Preprocessing</p><pre><code class="language-julia hljs">train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), N)) ## stack all the images
+end</code></pre><h2 id="Prepare-data"><a class="docs-heading-anchor" href="#Prepare-data">Prepare data</a><a id="Prepare-data-1"></a><a class="docs-heading-anchor-permalink" href="#Prepare-data" title="Permalink"></a></h2><pre><code class="language-julia hljs">M = 500 ## batch size
+imgs = MLDatasets.MNIST.traintensor(1:M)
+labels = MLDatasets.MNIST.trainlabels(1:M);</code></pre><p>Preprocessing</p><pre><code class="language-julia hljs">train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), M)) ## stack all the images
 train_Y = Flux.onehotbatch(labels, 0:9);
 
-test_imgs = MLDatasets.MNIST.testtensor(1:N)
-test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), N))
-test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:N), 0:9);</code></pre><h2 id="Define-the-Network"><a class="docs-heading-anchor" href="#Define-the-Network">Define the Network</a><a id="Define-the-Network-1"></a><a class="docs-heading-anchor-permalink" href="#Define-the-Network" title="Permalink"></a></h2><pre><code class="language-julia hljs">layer_size = 20
+test_imgs = MLDatasets.MNIST.testtensor(1:M)
+test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), M))
+test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:M), 0:9);</code></pre><h2 id="Define-the-Network"><a class="docs-heading-anchor" href="#Define-the-Network">Define the Network</a><a id="Define-the-Network-1"></a><a class="docs-heading-anchor-permalink" href="#Define-the-Network" title="Permalink"></a></h2><pre><code class="language-julia hljs">layer_size = 20
 
 m = Flux.Chain(
     Flux.Dense(784, layer_size), ## 784 being image linear dimension (28 x 28)
@@ -85,14 +85,13 @@ m = Flux.Chain(
 
 dataset = repeated((train_X, train_Y), epochs);</code></pre><p>Parameters for the network training</p><p>training loss function, Flux optimizer</p><pre><code class="language-julia hljs">custom_loss(x, y) = Flux.crossentropy(m(x), y)
 opt = Flux.ADAM()
-evalcb = () -&gt; @show(custom_loss(train_X, train_Y))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">#9 (generic function with 1 method)</code></pre><p>Train to optimize network parameters</p><pre><code class="language-julia hljs">Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">custom_loss(train_X, train_Y) = 2.3216230023895426
-custom_loss(train_X, train_Y) = 1.8995358071402233
-custom_loss(train_X, train_Y) = 1.5656887984851273
-custom_loss(train_X, train_Y) = 1.3102242593234374
-custom_loss(train_X, train_Y) = 1.1158038737582177
-custom_loss(train_X, train_Y) = 0.9647584204566253
-custom_loss(train_X, train_Y) = 0.8446109566464006
-custom_loss(train_X, train_Y) = 0.7652301964076544
-custom_loss(train_X, train_Y) = 0.681846426030915
-custom_loss(train_X, train_Y) = 0.6251910575592773
-custom_loss(train_X, train_Y) = 0.5757948565588883</code></pre><p>Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.</p><p>Average of correct guesses</p><pre><code class="language-julia hljs">accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y));</code></pre><p>Training accuracy</p><pre><code class="language-julia hljs">accuracy(train_X, train_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9</code></pre><p>Test accuracy</p><pre><code class="language-julia hljs">accuracy(test_X, test_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.744</code></pre><p>Note that the accuracy is low due to simplified training. It is possible to increase the number of samples <code>N</code>, the number of epochs <code>epoch</code> and the connectivity <code>inner</code>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.16 on <span class="colophon-date" title="Thursday 28 April 2022 06:53">Thursday 28 April 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+evalcb = () -&gt; @show(custom_loss(train_X, train_Y))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">#9 (generic function with 1 method)</code></pre><p>Train to optimize network parameters</p><pre><code class="language-julia hljs">Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">custom_loss(train_X, train_Y) = 2.3216230060951983
+custom_loss(train_X, train_Y) = 1.899535805068823
+custom_loss(train_X, train_Y) = 1.565688804825976
+custom_loss(train_X, train_Y) = 1.310224258404654
+custom_loss(train_X, train_Y) = 1.1158038841423674
+custom_loss(train_X, train_Y) = 0.964758421975038
+custom_loss(train_X, train_Y) = 0.8446109644766401
+custom_loss(train_X, train_Y) = 0.7472690673400528
+custom_loss(train_X, train_Y) = 0.6669287605361144
+custom_loss(train_X, train_Y) = 0.5996539210479592</code></pre><p>Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.</p><p>Average of correct guesses</p><pre><code class="language-julia hljs">accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y));</code></pre><p>Training accuracy</p><pre><code class="language-julia hljs">accuracy(train_X, train_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9</code></pre><p>Test accuracy</p><pre><code class="language-julia hljs">accuracy(test_X, test_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.744</code></pre><p>Note that the accuracy is low due to simplified training. It is possible to increase the number of samples <code>N</code>, the number of epochs <code>epoch</code> and the connectivity <code>inner</code>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.16 on <span class="colophon-date" title="Thursday 28 April 2022 07:00">Thursday 28 April 2022</span>. Using Julia version 1.7.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
