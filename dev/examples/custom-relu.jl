@@ -26,10 +26,10 @@ function matrix_relu(
     y::Matrix;
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
 )
-    N, M = size(y)
+    layer_size, batch_size = size(y)
     empty!(model)
     set_silent(model)
-    @variable(model, x[1:N, 1:M] >= 0)
+    @variable(model, x[1:layer_size, 1:batch_size] >= 0)
     @objective(model, Min, x[:]'x[:] -2y[:]'x[:])
     optimize!(model)
     return value.(x)
@@ -63,7 +63,7 @@ end
 
 # For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
 # ## prepare data
-N = 1000
+N = 1000 ## batch size
 imgs = MLDatasets.MNIST.traintensor(1:N)
 labels = MLDatasets.MNIST.trainlabels(1:N);
 
@@ -79,12 +79,12 @@ test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:N), 0:9);
 
 # Network structure
 
-inner = 10
+layer_size = 10
 
 m = Flux.Chain(
-    Flux.Dense(784, inner), ## 784 being image linear dimension (28 x 28)
+    Flux.Dense(784, layer_size), ## 784 being image linear dimension (28 x 28)
     matrix_relu,
-    Flux.Dense(inner, 10), ## 10 being the number of outcomes (0 to 9)
+    Flux.Dense(layer_size, 10), ## 10 being the number of outcomes (0 to 9)
     Flux.softmax,
 )
 
