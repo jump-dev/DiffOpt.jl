@@ -167,7 +167,7 @@ function ChainRulesCore.frule(
 
     ## setting the perturbation of the linear objective
     Δobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
-    MOI.set(model, DiffOpt.ForwardObjective(), Δobj)
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), Δobj)
     DiffOpt.forward_differentiate!(JuMP.backend(model))
     ## querying the corresponding perturbation of the decision
     Δp = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), p)
