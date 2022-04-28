@@ -42,7 +42,7 @@ Polytope(w::NTuple{N}) where {N} = Polytope{N}(w, randn(N))
 function (polytope::Polytope{N})(
     y::AbstractMatrix;
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
-) where N
+) where {N}
     layer_size, batch_size = size(y)
     empty!(model)
     set_silent(model)
@@ -67,7 +67,7 @@ Flux.@functor Polytope
 # which is used to represent derivatives with respect to structs.
 # For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
 
-function ChainRulesCore.rrule(polytope::Polytope{N}, y::AbstractMatrix) where N
+function ChainRulesCore.rrule(polytope::Polytope{N}, y::AbstractMatrix) where {N}
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     xv = polytope(y; model = model)
     function pullback_matrix_projection(dl_dx)
