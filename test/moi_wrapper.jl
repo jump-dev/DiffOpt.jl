@@ -661,7 +661,7 @@ function simple_psd(solver)
 
     # test2: changing X[1], X[3] but keeping the objective (their sum) same
     MOI.set(model, DiffOpt.ForwardConstraintFunction(), c, MOIU.zero_with_output_dimension(MOI.VectorAffineFunction{Float64}, 1))
-    MOI.set(model, DiffOpt.ForwardObjective(), -1.0X[1] + 1.0X[3])
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), -1.0X[1] + 1.0X[3])
 
     DiffOpt.forward_differentiate!(model)
 
@@ -875,7 +875,7 @@ end
     MOI.optimize!(model)
 
     # dc = ones(7)
-    MOI.set(model, DiffOpt.ForwardObjective(), MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(7), x), 0.0))
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(7), x), 0.0))
     # db = ones(11)
     # dA = ones(11, 7)
     MOI.set(model,
@@ -993,7 +993,7 @@ end
     dA = zeros(6, 1)
     db = zeros(6)
     MOI.set(model, DiffOpt.ForwardConstraintFunction(), c, MOIU.zero_with_output_dimension(VAF, 6))
-    MOI.set(model, DiffOpt.ForwardObjective(), 1.0 * x)
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), 1.0 * x)
 
     DiffOpt.forward_differentiate!(model)
 
@@ -1146,7 +1146,7 @@ end
 
     # test 2
     MOI.set(model, DiffOpt.ForwardConstraintFunction(), c, _vaf(zeros(6)))
-    MOI.set(model, DiffOpt.ForwardObjective(), 1.0 * x)
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), 1.0 * x)
 
     DiffOpt.forward_differentiate!(model)
 

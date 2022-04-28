@@ -208,7 +208,7 @@ function qp_test(
     deqf = dAf * v .- dbf
 
     @testset "Forward pass" begin
-        MOI.set(model, DiffOpt.ForwardObjective(), dobjf)
+        MOI.set(model, DiffOpt.ForwardObjectiveFunction(), dobjf)
         for (j, jc) in enumerate(cle)
             func = dlef[j]
             canonicalize && MOI.Utilities.canonicalize!(func)

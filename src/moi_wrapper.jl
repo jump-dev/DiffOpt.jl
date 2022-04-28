@@ -497,7 +497,7 @@ end
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and
 differentials with respect to problem data set with
-the [`ForwardObjective`](@ref) and  [`ForwardConstraintFunction`](@ref) attributes.
+the [`ForwardObjectiveFunction`](@ref) and  [`ForwardConstraintFunction`](@ref) attributes.
 The output solution differentials can be queried with the attribute
 [`ForwardVariablePrimal`](@ref).
 """
@@ -508,7 +508,7 @@ function forward_differentiate!(model::Optimizer)
     end
     diff = _diff(model)
     if model.input_cache.objective !== nothing
-        MOI.set(diff, ForwardObjective(), MOI.Utilities.map_indices(model.index_map, model.input_cache.objective))
+        MOI.set(diff, ForwardObjectiveFunction(), MOI.Utilities.map_indices(model.index_map, model.input_cache.objective))
     end
     for (F, S) in keys(model.input_cache.scalar_constraints.dict)
         _copy_forward_in_constraint(diff, model.index_map, model.index_map.con_map[F, S], model.input_cache.scalar_constraints[F, S])
@@ -578,10 +578,10 @@ function MOI.get(model::Optimizer, attr::ReverseObjectiveFunction)
         model.index_map,
     )
 end
-function MOI.get(model::Optimizer, ::ForwardObjective)
+function MOI.get(model::Optimizer, ::ForwardObjectiveFunction)
     return model.input_cache.objective
 end
-function MOI.set(model::Optimizer, ::ForwardObjective, objective)
+function MOI.set(model::Optimizer, ::ForwardObjectiveFunction, objective)
     model.input_cache.objective = objective
     return
 end

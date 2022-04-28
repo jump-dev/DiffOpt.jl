@@ -7,7 +7,7 @@
 
 @deprecate ForwardOutVariablePrimal() ForwardVariablePrimal() false
 @deprecate ForwardInConstraint() ForwardConstraintFunction() false
-@deprecate ForwardInObjective() ForwardObjective() false
+@deprecate ForwardInObjective() ForwardObjectiveFunction() false
 
 @deprecate QPForwBackCache(args...) QuadraticForwardReverseCache(args...) false
 @deprecate ConicBackCache(args...) ConicReverseCache(args...) false

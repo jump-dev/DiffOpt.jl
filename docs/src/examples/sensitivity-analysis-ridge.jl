@@ -106,12 +106,12 @@ b̂ = value(b)
 # variable `x`.
 
 # Recalling that the points $(x_i, y_i)$ appear in the objective function as:
-# `(yi - b - w*xi)^2`, the `DiffOpt.ForwardObjective` attribute must be set accordingly,
+# `(yi - b - w*xi)^2`, the `DiffOpt.ForwardObjectiveFunction` attribute must be set accordingly,
 # with the terms multiplying the parameter in the objective.
-# When considering the perturbation of a parameter θ, `DiffOpt.ForwardObjective()` takes in the expression in the
+# When considering the perturbation of a parameter θ, `DiffOpt.ForwardObjectiveFunction()` takes in the expression in the
 # objective that multiplies θ.
 # If θ appears with a quadratic and a linear form: `θ^2 a x + θ b y`, then the expression to pass to
-# `ForwardObjective` is `2θ a x + b y`.
+# `ForwardObjectiveFunction` is `2θ a x + b y`.
 
 # Sensitivity with respect to x and y
 
@@ -120,7 +120,7 @@ b̂ = value(b)
 for i in 1:N
     MOI.set(
         model,
-        DiffOpt.ForwardObjective(),
+        DiffOpt.ForwardObjectiveFunction(),
         2w^2 * X[i] + 2b * w - 2 * w * Y[i]
     )
     DiffOpt.forward_differentiate!(model)
@@ -131,7 +131,7 @@ for i in 1:N
     )
     MOI.set(
         model,
-        DiffOpt.ForwardObjective(),
+        DiffOpt.ForwardObjectiveFunction(),
         (2Y[i] - 2b - 2w * X[i]),
     )
     DiffOpt.forward_differentiate!(model)
