@@ -52,7 +52,7 @@ grad_con = MOI.get.(model, DiffOpt.ReverseConstraintFunction(), c)
 we can use the `forward_differentiate!` method with perturbations in matrices `A`, `b`, `c`:
 ```julia
 import LinearAlgebra: ⋅
-MOI.set(model, DiffOpt.ForwardObjective(), ones(2) ⋅ x)
+MOI.set(model, DiffOpt.ForwardObjectiveFunction(), ones(2) ⋅ x)
 DiffOpt.forward_differentiate!(model)
 grad_x = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), x)
 ```
