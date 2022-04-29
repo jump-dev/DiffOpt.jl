@@ -26,10 +26,10 @@ function matrix_relu(
     y::Matrix;
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
 )
-    N, M = size(y)
+    layer_size, batch_size = size(y)
     empty!(model)
     set_silent(model)
-    @variable(model, x[1:N, 1:M] >= 0)
+    @variable(model, x[1:layer_size, 1:batch_size] >= 0)
     @objective(model, Min, x[:]'x[:] -2y[:]'x[:])
     optimize!(model)
     return value.(x)
@@ -43,7 +43,7 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where T
     function pullback_matrix_relu(dl_dx)
         ## some value from the backpropagation (e.g., loss) is denoted by `l`
         ## so `dl_dy` is the derivative of `l` wrt `y`
-        x = model[:x] ## load decision variable `x` into scope
+        x = model[:x] # load decision variable `x` into scope
         dl_dy = zeros(T, size(dl_dx))
         dl_dq = zeros(T, size(dl_dx))
         ## set sensitivities
@@ -54,7 +54,7 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where T
         obj_exp = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
         ## coeff of `x` in q'x = -2y'x
         dl_dq[:] .= JuMP.coefficient.(obj_exp, x[:])
-        dq_dy = -2 ## dq/dy = -2
+        dq_dy = -2 # dq/dy = -2
         dl_dy[:] .= dl_dq[:] * dq_dy
         return (ChainRulesCore.NoTangent(), dl_dy,)
     end
@@ -62,31 +62,30 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where T
 end
 
 # For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
-# ## prepare data
-N = 1000
-imgs = MLDatasets.MNIST.traintensor(1:N)
-labels = MLDatasets.MNIST.trainlabels(1:N);
 
-# Preprocessing
-train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), N)) ## stack all the images
-train_Y = Flux.onehotbatch(labels, 0:9);
+# ## Define the network
 
-test_imgs = MLDatasets.MNIST.testtensor(1:N)
-test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), N))
-test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:N), 0:9);
-
-# ## Define the Network
-
-# Network structure
-
-inner = 10
-
+layer_size = 10
 m = Flux.Chain(
-    Flux.Dense(784, inner), ## 784 being image linear dimension (28 x 28)
+    Flux.Dense(784, layer_size), # 784 being image linear dimension (28 x 28)
     matrix_relu,
-    Flux.Dense(inner, 10), ## 10 being the number of outcomes (0 to 9)
+    Flux.Dense(layer_size, 10), # 10 being the number of outcomes (0 to 9)
     Flux.softmax,
 )
+
+# ## Prepare data
+
+N = 1000 # batch size
+## Preprocessing train data
+imgs = MLDatasets.MNIST.traintensor(1:N)
+labels = MLDatasets.MNIST.trainlabels(1:N)
+train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), N)) # stack images
+train_Y = Flux.onehotbatch(labels, 0:9);
+## Preprocessing test data
+test_imgs = MLDatasets.MNIST.testtensor(1:N)
+test_labels = MLDatasets.MNIST.testlabels(1:N)
+test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), N))
+test_Y = Flux.onehotbatch(test_labels, 0:9);
 
 # Define input data
 # The original data is repeated `epochs` times because `Flux.train!` only
@@ -94,10 +93,9 @@ m = Flux.Chain(
 
 epochs = 50 # ~1 minute (i7 8th gen with 16gb RAM)
 ## epochs = 100 # leads to 77.8% in about 2 minutes
-
 dataset = repeated((train_X, train_Y), epochs);
 
-# Parameters for the network training
+# ## Network training
 
 # training loss function, Flux optimizer
 custom_loss(x, y) = Flux.crossentropy(m(x), y)
@@ -111,7 +109,10 @@ evalcb = () -> @show(custom_loss(train_X, train_Y))
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.
 
+# ## Accuracy results
+
 # Average of correct guesses
+
 accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y));
 
 # Training accuracy
