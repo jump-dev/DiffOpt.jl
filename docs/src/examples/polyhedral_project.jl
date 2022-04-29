@@ -101,39 +101,38 @@ function ChainRulesCore.rrule(polytope::Polytope{N}, y::AbstractMatrix) where {N
     return xv, pullback_matrix_projection
 end
 
-# ## Prepare data
-M = 500 ## batch size
-imgs = MLDatasets.MNIST.traintensor(1:M)
-labels = MLDatasets.MNIST.trainlabels(1:M);
-
-# Preprocessing
-train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), M)) ## stack all the images
-train_Y = Flux.onehotbatch(labels, 0:9);
-
-test_imgs = MLDatasets.MNIST.testtensor(1:M)
-test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), M))
-test_Y = Flux.onehotbatch(MLDatasets.MNIST.testlabels(1:M), 0:9);
-
 # ## Define the Network
 
 layer_size = 20
-
 m = Flux.Chain(
-    Flux.Dense(784, layer_size), ## 784 being image linear dimension (28 x 28)
+    Flux.Dense(784, layer_size), # 784 being image linear dimension (28 x 28)
     Polytope((randn(layer_size), randn(layer_size), randn(layer_size))),
-    Flux.Dense(layer_size, 10), ## 10 being the number of outcomes (0 to 9)
+    Flux.Dense(layer_size, 10), # 10 being the number of outcomes (0 to 9)
     Flux.softmax,
 )
+
+# ## Prepare data
+
+M = 500 # batch size
+## Preprocessing train data
+imgs = MLDatasets.MNIST.traintensor(1:M)
+labels = MLDatasets.MNIST.trainlabels(1:M);
+train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), M)) # stack images
+train_Y = Flux.onehotbatch(labels, 0:9);
+## Preprocessing test data
+test_imgs = MLDatasets.MNIST.testtensor(1:M)
+test_labels = MLDatasets.MNIST.testlabels(1:M)
+test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), M))
+test_Y = Flux.onehotbatch(test_labels, 0:9);
 
 # Define input data
 # The original data is repeated `epochs` times because `Flux.train!` only
 # loops through the data set once
 
 epochs = 50
-
 dataset = repeated((train_X, train_Y), epochs);
 
-# Parameters for the network training
+# ## Network training
 
 # training loss function, Flux optimizer
 custom_loss(x, y) = Flux.crossentropy(m(x), y)
@@ -142,10 +141,12 @@ evalcb = () -> @show(custom_loss(train_X, train_Y))
 
 # Train to optimize network parameters
 
-Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));
+@time Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));
 
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.
+
+# ## Accuracy results
 
 # Average of correct guesses
 accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y));
