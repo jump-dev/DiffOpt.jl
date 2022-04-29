@@ -258,15 +258,15 @@ function lazy_combination(op::F, α, a, β, b) where {F<:Function}
         LazyArrays.@~(β .* b),
     )
 end
-_view(x, I) = view(x, I)
+
 function lazy_combination(op::F, α, a, β, b, I::UnitRange) where {F<:Function}
-    return lazy_combination(op, α, _view(a, I), β, _view(b, I))
+    return lazy_combination(op, α, view(a, I), β, view(b, I))
 end
 function lazy_combination(op::F, a, b, i::Integer, args::Vararg{Any,N}) where {F<:Function,N}
     return lazy_combination(op, a[i], b, b[i], a, args...)
 end
 function lazy_combination(op::F, a, b, i::UnitRange, I::UnitRange) where {F<:Function}
-    return lazy_combination(op, _view(a, i), b, _view(b, i), a, I)
+    return lazy_combination(op, view(a, i), b, view(b, i), a, I)
 end
 
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
