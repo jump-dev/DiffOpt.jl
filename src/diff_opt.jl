@@ -63,11 +63,11 @@ quadratic models.
 For instance, if the objective contains `θ * (x + 2y)`, for the purpose of
 computing the derivative with respect to `θ`, the following should be set:
 ```julia
-MOI.set(model, DiffOpt.ForwardObjectiveFunctionFunction(), 1.0 * x + 2.0 * y)
+MOI.set(model, DiffOpt.ForwardObjectiveFunction(), 1.0 * x + 2.0 * y)
 ```
 where `x` and `y` are the relevant `MOI.VariableIndex`.
 """
-struct ForwardObjectiveFunctionFunction <: MOI.AbstractModelAttribute end
+struct ForwardObjectiveFunction <: MOI.AbstractModelAttribute end
 
 """
     ForwardConstraintFunction <: MOI.AbstractConstraintAttribute
@@ -94,7 +94,7 @@ A `MOI.AbstractVariableAttribute` to get output data from forward
 differentiation, that is, problem solution.
 
 For instance, to get the tangent of the variable of index `vi` corresponding to
-the tangents given to `ForwardObjectiveFunctionFunction` and `ForwardConstraintFunction`, do the
+the tangents given to `ForwardObjectiveFunction` and `ForwardConstraintFunction`, do the
 following:
 ```julia
 MOI.get(model, DiffOpt.ForwardVariablePrimal(), vi)
