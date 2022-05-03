@@ -58,7 +58,7 @@ function fit_ridge(model, X, y, α)
     set_silent(model)
     N, D = size(X)
     @variable(model, w[1:D])
-    err_term = X * w - y
+    @expression(model, err_term, X * w - y)
     @objective(
         model,
         Min,
