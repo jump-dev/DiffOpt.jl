@@ -507,7 +507,13 @@ function MOI.get(model::Optimizer,
 ) where {T,S}
     return get(model.input_cache.scalar_constraints, ci, zero(MOI.ScalarAffineFunction{T}))
 end
-MOI.supports(::Optimizer, ::ForwardConstraintFunction, ::Type{<:CI}) = true
+function MOI.supports(
+    ::Optimizer,
+    ::ForwardConstraintFunction,
+    ::Type{CI{F,S}}
+) where {F<:Union{MOI.ScalarAffineFunction,MOI.VectorAffineFunction},S}
+    return true
+end
 function MOI.get(model::Optimizer,
     ::ForwardConstraintFunction, ci::CI{MOI.VectorAffineFunction{T},S}
 ) where {T,S}
