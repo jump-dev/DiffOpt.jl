@@ -4,37 +4,9 @@
 # ## Note
 # Currently supports differentiating linear and quadratic programs only.
 
-struct QuadraticCache
-    lhs::SparseMatrixCSC{Float64, Int}
-end
-
-Base.@kwdef struct ConicCache
-    M::SparseMatrixCSC{Float64, Int}
-    vp::Vector{Float64}
-    Dπv::BlockDiagonals.BlockDiagonal{Float64, Matrix{Float64}}
-    A::SparseMatrixCSC{Float64, Int}
-    b::Vector{Float64}
-    c::Vector{Float64}
-end
-
-Base.@kwdef struct QuadraticForwardReverseCache
-    dz::Vector{Float64}
-    dλ::Vector{Float64}
-    dν::Vector{Float64}
-end
-Base.@kwdef struct ConicForwCache
-    du::Vector{Float64}
-    dv::Vector{Float64}
-    dw::Vector{Float64}
-end
-Base.@kwdef struct ConicReverseCache
-    g::Vector{Float64}
-    πz::Vector{Float64}
-end
-
 const MOIDD = MOI.Utilities.DoubleDicts
 
-Base.@kwdef mutable struct DiffInputCache
+Base.@kwdef mutable struct InputCache
     dx::Dict{VI, Float64} = Dict{VI, Float64}()# dz for QP
     # ds
     # dy #= [d\lambda, d\nu] for QP
@@ -48,13 +20,36 @@ Base.@kwdef mutable struct DiffInputCache
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
 end
 
-function Base.empty!(cache::DiffInputCache)
+function Base.empty!(cache::InputCache)
     empty!(cache.dx)
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
     return
 end
+
+"""
+    reverse_differentiate!(model::MOI.ModelLike)
+
+Wrapper method for the backward pass / reverse differentiation.
+This method will consider as input a currently solved problem and differentials
+with respect to the solution set with the [`ReverseVariablePrimal`](@ref) attribute.
+The output problem data differentials can be queried with the
+attributes [`ReverseObjectiveFunction`](@ref) and [`ReverseConstraintFunction`](@ref).
+"""
+function reverse_differentiate! end
+
+"""
+    forward_differentiate!(model::Optimizer)
+
+Wrapper method for the forward pass.
+This method will consider as input a currently solved problem and
+differentials with respect to problem data set with
+the [`ForwardObjectiveFunction`](@ref) and  [`ForwardConstraintFunction`](@ref) attributes.
+The output solution differentials can be queried with the attribute
+[`ForwardVariablePrimal`](@ref).
+"""
+function forward_differentiate! end
 
 """
     ForwardObjectiveFunction <: MOI.AbstractModelAttribute
@@ -175,35 +170,27 @@ struct ReverseConstraintFunction <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::ReverseConstraintFunction) = true
 
 """
-    @enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
+    abstract type AbstractModel <: MOI.ModelLike end
 
-Program class used by DiffOpt. DiffOpt implements differentiation of two
-different program class:
-1) Quadratic Program (QP): quadratic objective and linear constraints and
-2) Conic Program (CP): linear objective and conic constraints.
-
-`AUTOMATIC` which means that the class will be automatically selected given the
-problem data: if any constraint is conic, CP is used and QP is used otherwise.
-See [`ProgramClass`](@ref).
+Model supporting [`forward_differentiate!`](@ref) and
+[`reverse_differentiate!`](@ref).
 """
-@enum ProgramClassCode QUADRATIC CONIC AUTOMATIC
+abstract type AbstractModel <: MOI.ModelLike end
 
-abstract type DiffModel <: MOI.ModelLike end
+MOI.supports_incremental_interface(::AbstractModel) = true
 
-MOI.supports_incremental_interface(::DiffModel) = true
+MOI.is_valid(model::AbstractModel, idx::MOI.Index) = MOI.is_valid(model.model, idx)
 
-MOI.is_valid(model::DiffModel, idx::MOI.Index) = MOI.is_valid(model.model, idx)
-
-function MOI.add_variable(model::DiffModel)
+function MOI.add_variable(model::AbstractModel)
     return MOI.add_variable(model.model)
 end
 
-function MOI.add_variables(model::DiffModel, n)
+function MOI.add_variables(model::AbstractModel, n)
     return MOI.add_variables(model.model, n)
 end
 
 function MOI.Utilities.pass_nonvariable_constraints(
-    dest::DiffModel,
+    dest::AbstractModel,
     src::MOI.ModelLike,
     idxmap::MOIU.IndexMap,
     constraint_types,
@@ -211,15 +198,15 @@ function MOI.Utilities.pass_nonvariable_constraints(
     MOI.Utilities.pass_nonvariable_constraints(dest.model, src, idxmap, constraint_types)
 end
 
-function MOI.Utilities.final_touch(model::DiffModel, index_map)
+function MOI.Utilities.final_touch(model::AbstractModel, index_map)
     MOI.Utilities.final_touch(model.model, index_map)
 end
 
-function MOI.supports_constraint(model::DiffModel, ::Type{F}, ::Type{S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+function MOI.supports_constraint(model::AbstractModel, ::Type{F}, ::Type{S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
     return MOI.supports_constraint(model.model, F, S)
 end
 
-function MOI.add_constraint(model::DiffModel, func::MOI.AbstractFunction, set::MOI.AbstractSet)
+function MOI.add_constraint(model::AbstractModel, func::MOI.AbstractFunction, set::MOI.AbstractSet)
     return MOI.add_constraint(model.model, func, set)
 end
 
@@ -234,20 +221,20 @@ function _enlarge_set(vec::Vector, idx, value)
     return
 end
 
-function MOI.set(model::DiffModel, ::MOI.VariablePrimalStart, vi::MOI.VariableIndex, value)
+function MOI.set(model::AbstractModel, ::MOI.VariablePrimalStart, vi::MOI.VariableIndex, value)
     MOI.throw_if_not_valid(model, vi)
     _enlarge_set(model.x, vi.value, value)
 end
 
-function MOI.set(model::DiffModel, ::ForwardObjectiveFunction, objective)
+function MOI.set(model::AbstractModel, ::ForwardObjectiveFunction, objective)
     model.input_cache.objective = objective
     return
 end
-function MOI.set(model::DiffModel, ::ReverseVariablePrimal, vi::VI, val)
+function MOI.set(model::AbstractModel, ::ReverseVariablePrimal, vi::VI, val)
     model.input_cache.dx[vi] = val
     return
 end
-function MOI.set(model::DiffModel,
+function MOI.set(model::AbstractModel,
     ::ForwardConstraintFunction,
     ci::CI{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
@@ -255,7 +242,7 @@ function MOI.set(model::DiffModel,
     model.input_cache.scalar_constraints[ci] = func
     return
 end
-function MOI.set(model::DiffModel,
+function MOI.set(model::AbstractModel,
     ::ForwardConstraintFunction,
     ci::CI{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
@@ -271,25 +258,22 @@ function lazy_combination(op::F, α, a, β, b) where {F<:Function}
         LazyArrays.@~(β .* b),
     )
 end
-# Workaround for Julia v1.0
-@static if VERSION < v"1.6"
-    _view(x, I) = x[I]
-else
-    _view(x, I) = view(x, I)
-end
+
 function lazy_combination(op::F, α, a, β, b, I::UnitRange) where {F<:Function}
-    return lazy_combination(op, α, _view(a, I), β, _view(b, I))
+    return lazy_combination(op, α, view(a, I), β, view(b, I))
 end
 function lazy_combination(op::F, a, b, i::Integer, args::Vararg{Any,N}) where {F<:Function,N}
     return lazy_combination(op, a[i], b, b[i], a, args...)
 end
 function lazy_combination(op::F, a, b, i::UnitRange, I::UnitRange) where {F<:Function}
-    return lazy_combination(op, _view(a, i), b, _view(b, i), a, I)
+    return lazy_combination(op, view(a, i), b, view(b, i), a, I)
 end
 
 _lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
-function MOI.get(model::DiffModel, ::ReverseConstraintFunction, ci::CI)
+function _get_db end
+function _get_dA end
+function MOI.get(model::AbstractModel, ::ReverseConstraintFunction, ci::CI)
     return _lazy_affine(_get_dA(model, ci), _get_db(model, ci))
 end
 
@@ -422,14 +406,14 @@ function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, te
 end
 
 
-function MOI.supports(model::DiffModel, attr::MOI.AbstractModelAttribute)
+function MOI.supports(model::AbstractModel, attr::MOI.AbstractModelAttribute)
     return MOI.supports(model.model, attr)
 end
 
-function MOI.set(model::DiffModel, attr::MOI.AbstractModelAttribute, value)
+function MOI.set(model::AbstractModel, attr::MOI.AbstractModelAttribute, value)
     MOI.set(model.model, attr, value)
 end
 
-function MOI.get(model::DiffModel, attr::MOI.AbstractModelAttribute)
+function MOI.get(model::AbstractModel, attr::MOI.AbstractModelAttribute)
     return MOI.get(model.model, attr)
 end

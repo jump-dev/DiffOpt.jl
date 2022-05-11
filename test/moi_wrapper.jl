@@ -634,7 +634,7 @@ function simple_psd(solver)
     x = MOI.get(model, MOI.VariablePrimal(), X)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
-    conic_form = DiffOpt.GeometricConicForm{Float64}()
+    conic_form = DiffOpt.ConicProgram.Form{Float64}()
     cones = conic_form.constraints.sets
     DiffOpt.set_set_types(cones, cone_types)
     index_map = MOI.copy_to(conic_form, model)
@@ -769,7 +769,7 @@ end
     _X = MOI.get(model, MOI.VariablePrimal(), X)
 
     cone_types = unique([S for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())])
-    conic_form = DiffOpt.GeometricConicForm{Float64}()
+    conic_form = DiffOpt.ConicProgram.Form{Float64}()
     cones = conic_form.constraints.sets
     DiffOpt.set_set_types(cones, cone_types)
     index_map = MOI.copy_to(conic_form, model)
@@ -1080,7 +1080,7 @@ end
     DiffOpt.reverse_differentiate!(model)
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
     @test grad_wrt_h ≈ -1.0 atol=5e-3 rtol=RTOL
-    @test model.diff.model.gradient_cache isa DiffOpt.QuadraticCache
+    @test model.diff.model.gradient_cache isa DiffOpt.QuadraticProgram.Cache
 
     # adding constraint invalidates the cache
     c2 = MOI.add_constraint(
@@ -1099,7 +1099,7 @@ end
     # second constraint inactive
     grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c2))
     @test grad_wrt_h ≈ 0.0 atol=5e-3 rtol=RTOL
-    @test model.diff.model.gradient_cache isa DiffOpt.QuadraticCache
+    @test model.diff.model.gradient_cache isa DiffOpt.QuadraticProgram.Cache
 end
 
 @testset "Verifying cache on a PSD" begin
@@ -1137,7 +1137,7 @@ end
     @test -0.5 ≈ MOI.get(model,
     DiffOpt.ForwardVariablePrimal(), x) atol=1e-2 rtol=RTOL
 
-    @test model.diff.model.gradient_cache isa DiffOpt.ConicCache
+    @test model.diff.model.gradient_cache isa DiffOpt.ConicProgram.Cache
 
     DiffOpt.forward_differentiate!(model)
 
