@@ -28,6 +28,13 @@ include("bridges.jl")
 
 include("QuadraticProgram/QuadraticProgram.jl")
 include("ConicProgram/ConicProgram.jl")
+
+"""
+    add_all_model_constructors(model)
+
+Add all constructors of [`AbstractModel`](@ref) defined in this package to
+`model` with [`add_model_constructor`](@ref).
+"""
 function add_all_model_constructors(model)
     add_model_constructor(model, QuadraticProgram.Model)
     add_model_constructor(model, ConicProgram.Model)

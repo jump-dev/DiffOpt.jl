@@ -56,6 +56,13 @@ mutable struct Optimizer{OT <: MOI.ModelLike} <: MOI.AbstractOptimizer
         return output
     end
 end
+
+"""
+   add_model_constructor(optimizer::Optimizer, model_constructor)
+
+Add the constructor of [`AbstractModel`](@ref) for `optimizer` to choose
+from when trying to differentiate.
+"""
 function add_model_constructor(optimizer::Optimizer, model_constructor)
     push!(optimizer.model_constructors, model_constructor)
     return
@@ -468,6 +475,7 @@ function MOI.get(model::Optimizer, attr::ReverseObjectiveFunction)
         model.index_map,
     )
 end
+MOI.supports(::Optimizer, ::ForwardObjectiveFunction) = true
 function MOI.get(model::Optimizer, ::ForwardObjectiveFunction)
     return model.input_cache.objective
 end
@@ -479,6 +487,7 @@ end
 function MOI.get(model::Optimizer, attr::ForwardVariablePrimal, vi::MOI.VariableIndex)
     return MOI.get(_checked_diff(model, attr, :forward), attr, model.index_map[vi])
 end
+MOI.supports(::Optimizer, ::ReverseVariablePrimal, ::Type{VI}) = true
 function MOI.get(model::Optimizer, ::ReverseVariablePrimal, vi::VI)
     return get(model.input_cache.dx, vi, 0.0)
 end
@@ -498,6 +507,7 @@ function MOI.get(model::Optimizer,
 ) where {T,S}
     return get(model.input_cache.scalar_constraints, ci, zero(MOI.ScalarAffineFunction{T}))
 end
+MOI.supports(::Optimizer, ::ForwardConstraintFunction, ::Type{<:CI}) = true
 function MOI.get(model::Optimizer,
     ::ForwardConstraintFunction, ci::CI{MOI.VectorAffineFunction{T},S}
 ) where {T,S}
