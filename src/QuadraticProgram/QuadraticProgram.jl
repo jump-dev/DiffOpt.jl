@@ -9,6 +9,8 @@ import LazyArrays
 import IterativeSolvers
 
 import DiffOpt
+import LinearSolve
+const LS = LinearSolve
 
 struct Cache
     lhs::SparseMatrixCSC{Float64, Int}
@@ -284,7 +286,8 @@ function DiffOpt.reverse_differentiate!(model::Model)
     partial_grads = if norm(Q) ≈ 0
         -IterativeSolvers.lsqr(LHS, RHS)
     else
-        -LHS \ RHS
+        sol = LS.solve(LS.init(LS.LinearProblem(LHS, RHS)))
+        -sol.u
     end
 
     dz = partial_grads[1:nv]
@@ -301,10 +304,6 @@ function DiffOpt.reverse_differentiate!(model::Model)
     # db = -dν
     # todo, check MOI signs for dA and dG
 end
-
-_linsolve(A, b) = A \ b
-# See https://github.com/JuliaLang/julia/issues/32668
-_linsolve(A, b::SparseVector) = A \ Vector(b)
 
 # Just a hack that will be removed once we use `MOI.Utilities.MatrixOfConstraints`
 struct _QPSets end
@@ -356,9 +355,9 @@ function DiffOpt.forward_differentiate!(model::Model)
     partial_grads = if norm(Q) ≈ 0
         -IterativeSolvers.lsqr(LHS', RHS)
     else
-        -_linsolve(LHS', RHS)
+        sol = LinearSolve.solve(LinearSolve.init(LinearSolve.LinearProblem(LHS', RHS)))
+        -sol.u
     end
-
 
     dz = partial_grads[1:nv]
     dλ = partial_grads[nv+1:nv+length(λ)]
