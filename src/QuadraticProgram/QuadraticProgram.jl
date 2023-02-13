@@ -405,6 +405,8 @@ Each solver must implement: `solve_system(solver, LHS, RHS)`.
 struct LinearAlgebraSolver <: MOI.AbstractOptimizerAttribute end
 
 solve_system(::Nothing, LHS, RHS) = LHS \ RHS
+# See https://github.com/JuliaLang/julia/issues/32668
+solve_system(::Nothing, LHS, RHS::SparseVector) = LHS \ Vector(RHS)
 
 MOI.supports(::Model, ::LinearAlgebraSolver) = true
 MOI.get(model::Model, ::LinearAlgebraSolver) = model.linear_solver
