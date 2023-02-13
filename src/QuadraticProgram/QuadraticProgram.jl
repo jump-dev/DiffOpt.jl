@@ -9,8 +9,6 @@ import LazyArrays
 import IterativeSolvers
 
 import DiffOpt
-import LinearSolve
-const LS = LinearSolve
 
 struct Cache
     lhs::SparseMatrixCSC{Float64, Int}
@@ -101,6 +99,9 @@ mutable struct Model <: DiffOpt.AbstractModel
 
     # sensitivity input cache using MOI like sparse format
     input_cache::DiffOpt.InputCache
+
+    # linear solving function to use
+    linear_solver::Any
 
     x::Vector{Float64} # Primal
     λ::Vector{Float64} # Dual of inequalities
@@ -286,8 +287,8 @@ function DiffOpt.reverse_differentiate!(model::Model)
     partial_grads = if norm(Q) ≈ 0
         -IterativeSolvers.lsqr(LHS, RHS)
     else
-        sol = LS.solve(LS.init(LS.LinearProblem(LHS, RHS)))
-        -sol.u
+        solver = model.linear_solver
+        -solve_system(solver, LHS, RHS)
     end
 
     dz = partial_grads[1:nv]
@@ -355,8 +356,8 @@ function DiffOpt.forward_differentiate!(model::Model)
     partial_grads = if norm(Q) ≈ 0
         -IterativeSolvers.lsqr(LHS', RHS)
     else
-        sol = LinearSolve.solve(LinearSolve.init(LinearSolve.LinearProblem(LHS', RHS)))
-        -sol.u
+        solver = model.linear_solver
+        -solve_system(solver, LHS', RHS)
     end
 
     dz = partial_grads[1:nv]
@@ -392,6 +393,22 @@ function DiffOpt._get_dA(model::Model, ci::LE)
     dλ = model.back_grad_cache.dλ
     l = model.λ[i]
     return DiffOpt.lazy_combination(+, l * dλ[i], model.x, l, dz)
+end
+
+"""
+    LinearAlgebraSolver
+
+Optimizer attribute for the solver to use for the linear algebra operations.
+Each solver must implement: `solve_system(solver, LHS, RHS)`.
+"""
+struct LinearAlgebraSolver <: MOI.AbstractOptimizerAttribute end
+
+solve_system(::Nothing, LHS, RHS) = LHS \ RHS
+
+MOI.supports(::Model, ::LinearAlgebraSolver) = true
+MOI.get(model::Model, ::LinearAlgebraSolver) = model.linear_solver
+function MOI.set(model::Model, ::LinearAlgebraSolver, linear_solver)
+    model.model_constructor = model_constructor
 end
 
 end
