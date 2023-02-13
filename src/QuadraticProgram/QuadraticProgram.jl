@@ -108,7 +108,7 @@ mutable struct Model <: DiffOpt.AbstractModel
     ν::Vector{Float64} # Dual of equalities
 end
 function Model()
-    return Model(Form{Float64}(), nothing, nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[])
+    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), nothing, Float64[], Float64[], Float64[])
 end
 
 function MOI.is_empty(model::Model)
