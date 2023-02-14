@@ -285,12 +285,9 @@ function DiffOpt.reverse_differentiate!(model::Model)
 
     nv = length(model.x)
     Q = view(LHS, 1:nv, 1:nv)
-    partial_grads = if norm(Q) ≈ 0
-        -IterativeSolvers.lsqr(LHS, RHS)
-    else
-        solver = model.linear_solver
-        -solve_system(solver, LHS, RHS)
-    end
+    iterative = norm(Q) ≈ 0
+    solver = model.linear_solver
+    partial_grads = -solve_system(solver, LHS, RHS, iterative)
 
     dz = partial_grads[1:nv]
     dλ = partial_grads[nv+1:nv+nineq]
@@ -354,13 +351,9 @@ function DiffOpt.forward_differentiate!(model::Model)
     ]
 
     Q = view(LHS, 1:nv, 1:nv)
-    partial_grads = if norm(Q) ≈ 0
-        -IterativeSolvers.lsqr(LHS', RHS)
-    else
-        solver = model.linear_solver
-        -solve_system(solver, LHS', RHS)
-    end
-
+    iterative = norm(Q) ≈ 0
+    solver = model.linear_solver
+    partial_grads = -solve_system(solver, LHS', RHS, iterative)
     dz = partial_grads[1:nv]
     dλ = partial_grads[nv+1:nv+length(λ)]
     dν = partial_grads[nv+length(λ)+1:end]
@@ -400,13 +393,22 @@ end
     LinearAlgebraSolver
 
 Optimizer attribute for the solver to use for the linear algebra operations.
-Each solver must implement: `solve_system(solver, LHS, RHS)`.
+Each solver must implement: `solve_system(solver, LHS, RHS, iterative::Bool)`.
 """
 struct LinearAlgebraSolver <: MOI.AbstractOptimizerAttribute end
 
-solve_system(::Nothing, LHS, RHS) = LHS \ RHS
+"""
+Default `solve_system` call uses IterativeSolvers or the default linear solve \ 
+"""
+function solve_system(::Any, LHS, RHS, iterative::Bool)
+    if iterative
+        IterativeSolvers.lsqr(LHS, RHS)
+    else
+        LHS \ RHS
+    end
+end
 # See https://github.com/JuliaLang/julia/issues/32668
-solve_system(::Nothing, LHS, RHS::SparseVector) = LHS \ Vector(RHS)
+solve_system(::Nothing, LHS, RHS::SparseVector, iterative) = solve_system(nothing, LHS, Vector(RHS), iterative)
 
 MOI.supports(::Model, ::LinearAlgebraSolver) = true
 MOI.get(model::Model, ::LinearAlgebraSolver) = model.linear_solver

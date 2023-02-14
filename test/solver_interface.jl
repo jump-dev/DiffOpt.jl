@@ -32,3 +32,21 @@ end
     @test_throws ErrorException DiffOpt.forward_differentiate!(model)
     @test_throws ErrorException DiffOpt.reverse_differentiate!(model)
 end
+
+struct TestSolver
+end
+
+# always use IterativeSolvers
+function DiffOpt.QuadraticProgram.solve_system(::TestSolver, LHS, RHS, iterative::Bool)
+    IterativeSolvers.lsqr(LHS, RHS)
+end
+
+@testset "Setting the linear solver in the quadratic solver" begin
+    model = DiffOpt.QuadraticProgram.Model()
+    @test MOI.supports(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver())
+    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) === nothing
+    MOI.set(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver(), TestSolver())
+    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) !== nothing
+    MOI.empty!(model)
+    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) === nothing    
+end
