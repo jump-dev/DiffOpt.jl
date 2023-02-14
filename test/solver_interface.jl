@@ -48,5 +48,5 @@ end
     MOI.set(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver(), TestSolver())
     @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) !== nothing
     MOI.empty!(model)
-    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) === nothing    
+    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) !== nothing
 end

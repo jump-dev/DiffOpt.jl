@@ -120,7 +120,6 @@ function MOI.empty!(model::Model)
     model.gradient_cache = nothing
     model.forw_grad_cache = nothing
     model.back_grad_cache = nothing
-    model.linear_solver = nothing
     empty!(model.input_cache)
     empty!(model.x)
     empty!(model.λ)
