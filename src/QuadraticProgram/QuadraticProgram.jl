@@ -100,12 +100,15 @@ mutable struct Model <: DiffOpt.AbstractModel
     # sensitivity input cache using MOI like sparse format
     input_cache::DiffOpt.InputCache
 
+    # linear solving function to use
+    linear_solver::Any
+
     x::Vector{Float64} # Primal
     λ::Vector{Float64} # Dual of inequalities
     ν::Vector{Float64} # Dual of equalities
 end
 function Model()
-    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[])
+    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), nothing, Float64[], Float64[], Float64[])
 end
 
 function MOI.is_empty(model::Model)
@@ -281,11 +284,9 @@ function DiffOpt.reverse_differentiate!(model::Model)
 
     nv = length(model.x)
     Q = view(LHS, 1:nv, 1:nv)
-    partial_grads = if norm(Q) ≈ 0
-        -IterativeSolvers.lsqr(LHS, RHS)
-    else
-        -LHS \ RHS
-    end
+    iterative = norm(Q) ≈ 0
+    solver = model.linear_solver
+    partial_grads = -solve_system(solver, LHS, RHS, iterative)
 
     dz = partial_grads[1:nv]
     dλ = partial_grads[nv+1:nv+nineq]
@@ -301,10 +302,6 @@ function DiffOpt.reverse_differentiate!(model::Model)
     # db = -dν
     # todo, check MOI signs for dA and dG
 end
-
-_linsolve(A, b) = A \ b
-# See https://github.com/JuliaLang/julia/issues/32668
-_linsolve(A, b::SparseVector) = A \ Vector(b)
 
 # Just a hack that will be removed once we use `MOI.Utilities.MatrixOfConstraints`
 struct _QPSets end
@@ -353,13 +350,9 @@ function DiffOpt.forward_differentiate!(model::Model)
     ]
 
     Q = view(LHS, 1:nv, 1:nv)
-    partial_grads = if norm(Q) ≈ 0
-        -IterativeSolvers.lsqr(LHS', RHS)
-    else
-        -_linsolve(LHS', RHS)
-    end
-
-
+    iterative = norm(Q) ≈ 0
+    solver = model.linear_solver
+    partial_grads = -solve_system(solver, LHS', RHS, iterative)
     dz = partial_grads[1:nv]
     dλ = partial_grads[nv+1:nv+length(λ)]
     dν = partial_grads[nv+length(λ)+1:end]
@@ -393,6 +386,33 @@ function DiffOpt._get_dA(model::Model, ci::LE)
     dλ = model.back_grad_cache.dλ
     l = model.λ[i]
     return DiffOpt.lazy_combination(+, l * dλ[i], model.x, l, dz)
+end
+
+"""
+    LinearAlgebraSolver
+
+Optimizer attribute for the solver to use for the linear algebra operations.
+Each solver must implement: `solve_system(solver, LHS, RHS, iterative::Bool)`.
+"""
+struct LinearAlgebraSolver <: MOI.AbstractOptimizerAttribute end
+
+"""
+Default `solve_system` call uses IterativeSolvers or the default linear solve 
+"""
+function solve_system(::Any, LHS, RHS, iterative)
+    if iterative
+        IterativeSolvers.lsqr(LHS, RHS)
+    else
+        LHS \ RHS
+    end
+end
+# See https://github.com/JuliaLang/julia/issues/32668
+solve_system(::Nothing, LHS, RHS::SparseVector, iterative) = solve_system(nothing, LHS, Vector(RHS), iterative)
+
+MOI.supports(::Model, ::LinearAlgebraSolver) = true
+MOI.get(model::Model, ::LinearAlgebraSolver) = model.linear_solver
+function MOI.set(model::Model, ::LinearAlgebraSolver, linear_solver)
+    model.linear_solver = linear_solver
 end
 
 end

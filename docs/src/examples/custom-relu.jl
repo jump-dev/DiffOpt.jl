@@ -99,7 +99,7 @@ dataset = repeated((train_X, train_Y), epochs);
 
 # training loss function, Flux optimizer
 custom_loss(x, y) = Flux.crossentropy(m(x), y)
-opt = Flux.ADAM()
+opt = Flux.Adam()
 evalcb = () -> @show(custom_loss(train_X, train_Y))
 
 # Train to optimize network parameters
