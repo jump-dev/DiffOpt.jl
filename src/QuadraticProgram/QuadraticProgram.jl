@@ -411,7 +411,7 @@ solve_system(::Nothing, LHS, RHS::SparseVector) = LHS \ Vector(RHS)
 MOI.supports(::Model, ::LinearAlgebraSolver) = true
 MOI.get(model::Model, ::LinearAlgebraSolver) = model.linear_solver
 function MOI.set(model::Model, ::LinearAlgebraSolver, linear_solver)
-    model.model_constructor = model_constructor
+    model.linear_solver = linear_solver
 end
 
 end
