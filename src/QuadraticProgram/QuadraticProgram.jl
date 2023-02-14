@@ -400,7 +400,7 @@ struct LinearAlgebraSolver <: MOI.AbstractOptimizerAttribute end
 """
 Default `solve_system` call uses IterativeSolvers or the default linear solve 
 """
-function solve_system(::Any, LHS, RHS, iterative::Bool)
+function solve_system(::Any, LHS, RHS, iterative)
     if iterative
         IterativeSolvers.lsqr(LHS, RHS)
     else
