@@ -175,9 +175,9 @@ MOI.is_set_by_optimize(::ReverseConstraintFunction) = true
 A model attribute for the total elapsed time (in seconds) for computing
 the differentiation information.
 """
-struct DifferentiateTimeSec <: AbstractModelAttribute end
+struct DifferentiateTimeSec <: MOI.AbstractModelAttribute end
 
-attribute_value_type(::DifferentiateTimeSec) = Float64
+MOI.attribute_value_type(::DifferentiateTimeSec) = Float64
 MOI.is_set_by_optimize(::DifferentiateTimeSec) = true
 
 """
