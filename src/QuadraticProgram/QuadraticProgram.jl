@@ -129,7 +129,7 @@ function MOI.empty!(model::Model)
     return
 end
 
-MOI.get(model::Model, ::DifferentiateTimeSec) = model.diff_time
+MOI.get(model::Model, ::DiffOpt.DifferentiateTimeSec) = model.diff_time
 
 const EQ = MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.EqualTo{Float64}}
 const LE = MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.LessThan{Float64}}

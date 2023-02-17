@@ -106,7 +106,7 @@ function MOI.empty!(model::Model)
     return
 end
 
-MOI.get(model::Model, ::DifferentiateTimeSec) = model.diff_time
+MOI.get(model::Model, ::DiffOpt.DifferentiateTimeSec) = model.diff_time
 
 function MOI.supports_constraint(model::Model, F::Type{MOI.VectorAffineFunction{Float64}}, ::Type{S}) where {S<:MOI.AbstractVectorSet}
     if DiffOpt.add_set_types(model.model.constraints.sets, S)
