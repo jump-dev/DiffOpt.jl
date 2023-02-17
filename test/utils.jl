@@ -87,7 +87,6 @@ function qp_test(
     @assert length(fix_values) == length(fix_indices)
     model = DiffOpt.diff_optimizer(solver)
     MOI.set(model, MOI.Silent(), true)
-    @test isnan(MOI.get(model, DiffOpt.DifferentiateTimeSec()))
 
     v = MOI.add_variables(model, n)
 

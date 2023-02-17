@@ -462,16 +462,16 @@ end
 
 # DiffOpt attributes redirected to `diff`
 
-function _checked_diff(model::Optimizer, ::MOI.AnyAttribute, call)
+function _checked_diff(model::Optimizer, attr::MOI.AnyAttribute, call)
     if model.diff === nothing
-        error("Cannot get attribute `attr`. First call `DiffOpt.$call`.")
+        error("Cannot get attribute `$attr`. First call `DiffOpt.$call`.")
     end
     return model.diff
 end
 
 function MOI.get(model::Optimizer, attr::ReverseObjectiveFunction)
     return IndexMappedFunction(
-        MOI.get(_checked_diff(model, attr, :reverse), attr),
+        MOI.get(_checked_diff(model, attr, :reverse_differentiate!), attr),
         model.index_map,
     )
 end
@@ -485,7 +485,7 @@ function MOI.set(model::Optimizer, ::ForwardObjectiveFunction, objective)
 end
 
 function MOI.get(model::Optimizer, attr::ForwardVariablePrimal, vi::MOI.VariableIndex)
-    return MOI.get(_checked_diff(model, attr, :forward), attr, model.index_map[vi])
+    return MOI.get(_checked_diff(model, attr, :forward_differentiate!), attr, model.index_map[vi])
 end
 MOI.supports(::Optimizer, ::ReverseVariablePrimal, ::Type{VI}) = true
 function MOI.get(model::Optimizer, ::ReverseVariablePrimal, vi::VI)
@@ -498,7 +498,7 @@ end
 
 function MOI.get(model::Optimizer, attr::ReverseConstraintFunction, ci::MOI.ConstraintIndex)
     return IndexMappedFunction(
-        MOI.get(_checked_diff(model, attr, :reverse), attr, model.index_map[ci]),
+        MOI.get(_checked_diff(model, attr, :reverse_differentiate!), attr, model.index_map[ci]),
         model.index_map,
     )
 end
@@ -542,3 +542,4 @@ function MOI.set(model::Optimizer,
     model.input_cache.vector_constraints[ci] = func
     return
 end
+MOI.set(model::Optimizer, attr::DifferentiateTimeSec) = MOI.get(model.diff, attr)
