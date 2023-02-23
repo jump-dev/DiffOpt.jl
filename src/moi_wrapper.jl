@@ -542,4 +542,4 @@ function MOI.set(model::Optimizer,
     model.input_cache.vector_constraints[ci] = func
     return
 end
-MOI.set(model::Optimizer, attr::DifferentiateTimeSec) = MOI.get(model.diff, attr)
+MOI.get(model::Optimizer, attr::DifferentiateTimeSec) = MOI.get(model.diff, attr)
