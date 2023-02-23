@@ -86,7 +86,7 @@ mutable struct Model <: DiffOpt.AbstractModel
     diff_time::Float64
 end
 function Model()
-    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[])
+    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[], NaN)
 end
 
 function MOI.is_empty(model::Model)
