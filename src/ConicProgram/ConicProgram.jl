@@ -83,9 +83,10 @@ mutable struct Model <: DiffOpt.AbstractModel
     x::Vector{Float64} # Primal
     s::Vector{Float64} # Slack
     y::Vector{Float64} # Dual
+    diff_time::Float64
 end
 function Model()
-    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[])
+    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[], NaN)
 end
 
 function MOI.is_empty(model::Model)
@@ -101,8 +102,11 @@ function MOI.empty!(model::Model)
     empty!(model.x)
     empty!(model.s)
     empty!(model.y)
+    model.diff_time = NaN
     return
 end
+
+MOI.get(model::Model, ::DiffOpt.DifferentiateTimeSec) = model.diff_time
 
 function MOI.supports_constraint(model::Model, F::Type{MOI.VectorAffineFunction{Float64}}, ::Type{S}) where {S<:MOI.AbstractVectorSet}
     if DiffOpt.add_set_types(model.model.constraints.sets, S)
@@ -194,51 +198,53 @@ function _gradient_cache(model::Model)
 end
 
 function DiffOpt.forward_differentiate!(model::Model)
-    gradient_cache = _gradient_cache(model)
-    M = gradient_cache.M
-    vp = gradient_cache.vp
-    Dπv = gradient_cache.Dπv
-    x = model.x
-    y = model.y
-    s = model.s
-    A = gradient_cache.A
-    b = gradient_cache.b
-    c = gradient_cache.c
+    model.diff_time = @elapsed begin
+        gradient_cache = _gradient_cache(model)
+        M = gradient_cache.M
+        vp = gradient_cache.vp
+        Dπv = gradient_cache.Dπv
+        x = model.x
+        y = model.y
+        s = model.s
+        A = gradient_cache.A
+        b = gradient_cache.b
+        c = gradient_cache.c
 
-    objective_function = DiffOpt._convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
-    sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, length(c))
-    dc = sparse_array_obj.terms
+        objective_function = DiffOpt._convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
+        sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, length(c))
+        dc = sparse_array_obj.terms
 
-    db = zeros(length(b))
-    DiffOpt._fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, db)
-    (lines, cols) = size(A)
-    nz = nnz(A)
-    dAi = zeros(Int, 0)
-    dAj = zeros(Int, 0)
-    dAv = zeros(Float64, 0)
-    sizehint!(dAi, nz)
-    sizehint!(dAj, nz)
-    sizehint!(dAv, nz)
-    DiffOpt._fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, dAi, dAj, dAv)
-    dA = sparse(dAi, dAj, dAv, lines, cols)
+        db = zeros(length(b))
+        DiffOpt._fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, db)
+        (lines, cols) = size(A)
+        nz = nnz(A)
+        dAi = zeros(Int, 0)
+        dAj = zeros(Int, 0)
+        dAv = zeros(Float64, 0)
+        sizehint!(dAi, nz)
+        sizehint!(dAj, nz)
+        sizehint!(dAv, nz)
+        DiffOpt._fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, dAi, dAj, dAv)
+        dA = sparse(dAi, dAj, dAv, lines, cols)
 
-    m = size(A, 1)
-    n = size(A, 2)
-    N = m + n + 1
-    # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-    (u, v, w) = (x, y - s, 1.0)
+        m = size(A, 1)
+        n = size(A, 2)
+        N = m + n + 1
+        # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
+        (u, v, w) = (x, y - s, 1.0)
 
-    # g = dQ * Π(z/|w|) = dQ * [u, vp, 1.0]
-    RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u - db ⋅ vp]
+        # g = dQ * Π(z/|w|) = dQ * [u, vp, 1.0]
+        RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u - db ⋅ vp]
 
-    dz = if norm(RHS) <= 1e-400 # TODO: parametrize or remove
-        RHS .= 0 # because M is square
-    else
-        IterativeSolvers.lsqr(M, RHS)
+        dz = if norm(RHS) <= 1e-400 # TODO: parametrize or remove
+            RHS .= 0 # because M is square
+        else
+            IterativeSolvers.lsqr(M, RHS)
+        end
+
+        du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
+        model.forw_grad_cache = ForwCache(du, dv, [dw])
     end
-
-    du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
-    model.forw_grad_cache = ForwCache(du, dv, [dw])
     return nothing
     # dx = du - x * dw
     # dy = Dπv * dv - y * dw
@@ -247,55 +253,57 @@ function DiffOpt.forward_differentiate!(model::Model)
 end
 
 function DiffOpt.reverse_differentiate!(model::Model)
-    gradient_cache = _gradient_cache(model)
-    M = gradient_cache.M
-    vp = gradient_cache.vp
-    Dπv = gradient_cache.Dπv
-    x = model.x
-    y = model.y
-    s = model.s
-    A = gradient_cache.A
-    b = gradient_cache.b
-    c = gradient_cache.c
+    model.diff_time = @elapsed begin
+        gradient_cache = _gradient_cache(model)
+        M = gradient_cache.M
+        vp = gradient_cache.vp
+        Dπv = gradient_cache.Dπv
+        x = model.x
+        y = model.y
+        s = model.s
+        A = gradient_cache.A
+        b = gradient_cache.b
+        c = gradient_cache.c
 
-    dx = zeros(length(c))
-    for (vi, value) in model.input_cache.dx
-        dx[vi.value] = value
+        dx = zeros(length(c))
+        for (vi, value) in model.input_cache.dx
+            dx[vi.value] = value
+        end
+        dy = zeros(length(b))
+        ds = zeros(length(b))
+
+        m = size(A, 1)
+        n = size(A, 2)
+        N = m + n + 1
+        # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
+        (u, v, w) = (x, y - s, 1.0)
+
+        # dz = D \phi (z)^T (dx,dy,dz)
+        dz = [
+            dx
+            Dπv' * (dy + ds) - ds
+            - x' * dx - y' * dy - s' * ds
+        ]
+
+        g = if norm(dz) <= 1e-4 # TODO: parametrize or remove
+            dz .= 0 # because M is square
+        else
+            IterativeSolvers.lsqr(M, dz)
+        end
+
+        πz = [
+            u
+            vp
+            1.0
+        ]
+
+        # TODO: very important
+        # contrast with:
+        # http://reports-archive.adm.cs.cmu.edu/anon/2019/CMU-CS-19-109.pdf
+        # pg 97, cap 7.4.2
+
+        model.back_grad_cache = ReverseCache(g, πz)
     end
-    dy = zeros(length(b))
-    ds = zeros(length(b))
-
-    m = size(A, 1)
-    n = size(A, 2)
-    N = m + n + 1
-    # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-    (u, v, w) = (x, y - s, 1.0)
-
-    # dz = D \phi (z)^T (dx,dy,dz)
-    dz = [
-        dx
-        Dπv' * (dy + ds) - ds
-        - x' * dx - y' * dy - s' * ds
-    ]
-
-    g = if norm(dz) <= 1e-4 # TODO: parametrize or remove
-        dz .= 0 # because M is square
-    else
-        IterativeSolvers.lsqr(M, dz)
-    end
-
-    πz = [
-        u
-        vp
-        1.0
-    ]
-
-    # TODO: very important
-    # contrast with:
-    # http://reports-archive.adm.cs.cmu.edu/anon/2019/CMU-CS-19-109.pdf
-    # pg 97, cap 7.4.2
-
-    model.back_grad_cache = ReverseCache(g, πz)
     return nothing
     # dQ = - g * πz'
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]

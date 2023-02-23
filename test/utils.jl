@@ -152,6 +152,7 @@ function qp_test(
         MOI.set.(model, DiffOpt.ReverseVariablePrimal(), v, dzb)
 
         DiffOpt.reverse_differentiate!(model)
+        @test !isnan(MOI.get(model, DiffOpt.DifferentiateTimeSec()))
 
         dobjb = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
         spb = DiffOpt.sparse_array_representation(
@@ -235,6 +236,7 @@ function qp_test(
         end
 
         DiffOpt.forward_differentiate!(model)
+        @test !isnan(MOI.get(model, DiffOpt.DifferentiateTimeSec()))
 
         @_test(MOI.get.(model, DiffOpt.ForwardVariablePrimal(), v), dzf)
     end

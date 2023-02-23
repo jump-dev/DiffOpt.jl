@@ -106,9 +106,10 @@ mutable struct Model <: DiffOpt.AbstractModel
     x::Vector{Float64} # Primal
     λ::Vector{Float64} # Dual of inequalities
     ν::Vector{Float64} # Dual of equalities
+    diff_time::Float64
 end
 function Model()
-    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), nothing, Float64[], Float64[], Float64[])
+    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), nothing, Float64[], Float64[], Float64[], NaN)
 end
 
 function MOI.is_empty(model::Model)
@@ -124,8 +125,11 @@ function MOI.empty!(model::Model)
     empty!(model.x)
     empty!(model.λ)
     empty!(model.ν)
+    model.diff_time = NaN
     return
 end
+
+MOI.get(model::Model, ::DiffOpt.DifferentiateTimeSec) = model.diff_time
 
 const EQ = MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.EqualTo{Float64}}
 const LE = MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.LessThan{Float64}}
@@ -269,30 +273,32 @@ function DiffOpt._get_db(model::Model, ci::EQ)
 end
 
 function DiffOpt.reverse_differentiate!(model::Model)
-    gradient_cache = _gradient_cache(model)
-    LHS = gradient_cache.lhs
+    model.diff_time = @elapsed begin
+        gradient_cache = _gradient_cache(model)
+        LHS = gradient_cache.lhs
 
-    neq = length(model.ν)
-    nineq = length(model.λ)
+        neq = length(model.ν)
+        nineq = length(model.λ)
 
-    dl_dz = zeros(length(model.x))
-    for (vi, value) in model.input_cache.dx
-        dl_dz[vi.value] = value
+        dl_dz = zeros(length(model.x))
+        for (vi, value) in model.input_cache.dx
+            dl_dz[vi.value] = value
+        end
+
+        RHS = [dl_dz; zeros(nineq + neq)]
+
+        nv = length(model.x)
+        Q = view(LHS, 1:nv, 1:nv)
+        iterative = norm(Q) ≈ 0
+        solver = model.linear_solver
+        partial_grads = -solve_system(solver, LHS, RHS, iterative)
+
+        dz = partial_grads[1:nv]
+        dλ = partial_grads[nv+1:nv+nineq]
+        dν = partial_grads[nv+nineq+1:end]
+
+        model.back_grad_cache = ForwardReverseCache(dz, dλ, dν)
     end
-
-    RHS = [dl_dz; zeros(nineq + neq)]
-
-    nv = length(model.x)
-    Q = view(LHS, 1:nv, 1:nv)
-    iterative = norm(Q) ≈ 0
-    solver = model.linear_solver
-    partial_grads = -solve_system(solver, LHS, RHS, iterative)
-
-    dz = partial_grads[1:nv]
-    dλ = partial_grads[nv+1:nv+nineq]
-    dν = partial_grads[nv+nineq+1:end]
-
-    model.back_grad_cache = ForwardReverseCache(dz, dλ, dν)
     return
     # dQ = 0.5 * (dz * z' + z * dz')
     # dq = dz
@@ -308,56 +314,58 @@ struct _QPSets end
 MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
 function DiffOpt.forward_differentiate!(model::Model)
-    gradient_cache = _gradient_cache(model)
-    LHS = gradient_cache.lhs
+    model.diff_time = @elapsed begin
+        gradient_cache = _gradient_cache(model)
+        LHS = gradient_cache.lhs
 
-    z = model.x
-    nv = length(z)
+        z = model.x
+        nv = length(z)
 
-    objective_function = DiffOpt._convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
-    sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, nv)
-    dQ = sparse_array_obj.quadratic_terms
-    dq = sparse_array_obj.affine_terms
+        objective_function = DiffOpt._convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
+        sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, nv)
+        dQ = sparse_array_obj.quadratic_terms
+        dq = sparse_array_obj.affine_terms
 
-    # The user sets the constraint function in the sense `func`-in-`set` while
-    # `db` and `dh` corresponds to the tangents of the set constants. Therefore,
-    # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
-    # multiply by `-1` to transform it to `LessThan` so it cancels out.
-    db = zero(model.ν)
-    DiffOpt._fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, gradient_cache, model.input_cache, _QPSets(), db)
-    dh = zero(model.λ)
-    DiffOpt._fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dh)
+        # The user sets the constraint function in the sense `func`-in-`set` while
+        # `db` and `dh` corresponds to the tangents of the set constants. Therefore,
+        # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
+        # multiply by `-1` to transform it to `LessThan` so it cancels out.
+        db = zero(model.ν)
+        DiffOpt._fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, gradient_cache, model.input_cache, _QPSets(), db)
+        dh = zero(model.λ)
+        DiffOpt._fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dh)
 
-    dAi = zeros(Int, 0)
-    dAj = zeros(Int, 0)
-    dAv = zeros(Float64, 0)
-    DiffOpt._fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dAi, dAj, dAv)
-    dA = sparse(dAi, dAj, dAv, length(model.ν), nv)
+        dAi = zeros(Int, 0)
+        dAj = zeros(Int, 0)
+        dAv = zeros(Float64, 0)
+        DiffOpt._fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dAi, dAj, dAv)
+        dA = sparse(dAi, dAj, dAv, length(model.ν), nv)
 
-    dGi = zeros(Int, 0)
-    dGj = zeros(Int, 0)
-    dGv = zeros(Float64, 0)
-    DiffOpt._fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dGi, dGj, dGv)
-    dG = sparse(dGi, dGj, dGv, length(model.λ), nv)
+        dGi = zeros(Int, 0)
+        dGj = zeros(Int, 0)
+        dGv = zeros(Float64, 0)
+        DiffOpt._fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dGi, dGj, dGv)
+        dG = sparse(dGi, dGj, dGv, length(model.λ), nv)
 
 
-    λ = model.λ
-    ν = model.ν
-    RHS = [
-        dQ * z + dq + dG' * λ + dA' * ν
-        λ .* (dG * z) - λ .* dh
-        dA * z - db
-    ]
+        λ = model.λ
+        ν = model.ν
+        RHS = [
+            dQ * z + dq + dG' * λ + dA' * ν
+            λ .* (dG * z) - λ .* dh
+            dA * z - db
+        ]
 
-    Q = view(LHS, 1:nv, 1:nv)
-    iterative = norm(Q) ≈ 0
-    solver = model.linear_solver
-    partial_grads = -solve_system(solver, LHS', RHS, iterative)
-    dz = partial_grads[1:nv]
-    dλ = partial_grads[nv+1:nv+length(λ)]
-    dν = partial_grads[nv+length(λ)+1:end]
+        Q = view(LHS, 1:nv, 1:nv)
+        iterative = norm(Q) ≈ 0
+        solver = model.linear_solver
+        partial_grads = -solve_system(solver, LHS', RHS, iterative)
+        dz = partial_grads[1:nv]
+        dλ = partial_grads[nv+1:nv+length(λ)]
+        dν = partial_grads[nv+length(λ)+1:end]
 
-    model.forw_grad_cache = ForwardReverseCache(dz, dλ, dν)
+        model.forw_grad_cache = ForwardReverseCache(dz, dλ, dν)
+    end
     return
 end
 

@@ -170,6 +170,17 @@ struct ReverseConstraintFunction <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::ReverseConstraintFunction) = true
 
 """
+    DifferentiateTimeSec()
+
+A model attribute for the total elapsed time (in seconds) for computing
+the differentiation information.
+"""
+struct DifferentiateTimeSec <: MOI.AbstractModelAttribute end
+
+MOI.attribute_value_type(::DifferentiateTimeSec) = Float64
+MOI.is_set_by_optimize(::DifferentiateTimeSec) = true
+
+"""
     abstract type AbstractModel <: MOI.ModelLike end
 
 Model supporting [`forward_differentiate!`](@ref) and
