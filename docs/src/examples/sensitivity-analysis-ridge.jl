@@ -34,7 +34,7 @@
 using JuMP
 import DiffOpt
 import Random
-import Ipopt
+import SCS
 import Plots
 using LinearAlgebra: dot
 
@@ -60,7 +60,7 @@ Y = w * X .+ b + 0.8 * randn(N);
 function fit_ridge(X, Y, alpha = 0.1)
     N = length(Y)
     ## Initialize a JuMP Model with Ipopt solver
-    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(SCS.Optimizer))
     set_silent(model)
     @variable(model, w) # angular coefficient
     @variable(model, b) # linear coefficient
@@ -115,32 +115,46 @@ b̂ = value(b)
 
 # Sensitivity with respect to x and y
 
-∇y = zero(X)
-∇x = zero(X)
-for i in 1:N
-    MOI.set(
-        model,
-        DiffOpt.ForwardObjectiveFunction(),
-        2w^2 * X[i] + 2b * w - 2 * w * Y[i]
-    )
-    DiffOpt.forward_differentiate!(model)
-    ∇x[i] = MOI.get(
-        model,
-        DiffOpt.ForwardVariablePrimal(),
-        w
-    )
-    MOI.set(
-        model,
-        DiffOpt.ForwardObjectiveFunction(),
-        (2Y[i] - 2b - 2w * X[i]),
-    )
-    DiffOpt.forward_differentiate!(model)
-    ∇y[i] = MOI.get(
-        model,
-        DiffOpt.ForwardVariablePrimal(),
-        w
-    )
+function sensitivities(model_constructor)
+    MOI.set(model, DiffOpt.ModelConstructor(), model_constructor)
+    ∇y = zero(X)
+    ∇x = zero(X)
+    for i in 1:N
+        MOI.set(
+            model,
+            DiffOpt.ForwardObjectiveFunction(),
+            2w^2 * X[i] + 2b * w - 2 * w * Y[i]
+        )
+        DiffOpt.forward_differentiate!(model)
+        ∇x[i] = MOI.get(
+            model,
+            DiffOpt.ForwardVariablePrimal(),
+            w
+        )
+        MOI.set(
+            model,
+            DiffOpt.ForwardObjectiveFunction(),
+            (2Y[i] - 2b - 2w * X[i]),
+        )
+        DiffOpt.forward_differentiate!(model)
+        ∇y[i] = MOI.get(
+            model,
+            DiffOpt.ForwardVariablePrimal(),
+            w
+        )
+    end
+    return ∇x, ∇y
 end
+
+model.moi_backend.optimizer.model.diff = nothing
+∇x_conic, ∇y_conic = sensitivities(DiffOpt.ConicProgram.Model)
+@show typeof(model.moi_backend.optimizer.model.diff)
+model.moi_backend.optimizer.model.diff = nothing
+∇x_quad, ∇y_quad = sensitivities(DiffOpt.QuadraticProgram.Model)
+@show typeof(model.moi_backend.optimizer.model.diff)
+
+norm(∇x_conic - ∇x_quadp)
+norm(∇y_conic - ∇y_quadp)
 
 # Visualize point sensitivities with respect to regression points.
 

@@ -352,6 +352,7 @@ struct ModelConstructor <: MOI.AbstractOptimizerAttribute end
 MOI.supports(::Optimizer, ::ModelConstructor) = true
 MOI.get(model::Optimizer, ::ModelConstructor) = model.model_constructor
 function MOI.set(model::Optimizer, ::ModelConstructor, model_constructor)
+    model.diff = nothing
     model.model_constructor = model_constructor
 end
 
