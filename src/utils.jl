@@ -12,6 +12,19 @@ function sparse_array_representation(terms::Vector{MOI.ScalarAffineTerm{T}}, num
     end
     return sparsevec(indices, coefficients, num_variables)
 end
+function sparse_array_representation(terms::Vector{MOI.VectorAffineTerm{T}}, num_rows, num_variables, index_map) where {T}
+    n = length(terms)
+    I = Vector{Int64}(undef, n)
+    J = Vector{Int64}(undef, n)
+    K = Vector{T}(undef, n)
+    for i in eachindex(terms)
+        term = terms[i]
+        I[i] = term.output_index
+        J[i] = index_map[term.scalar_term.variable].value
+        K[i] = term.scalar_term.coefficient
+    end
+    return sparse(I, J, K, num_rows, num_variables)
+end
 function sparse_array_representation(terms::Vector{MOI.ScalarQuadraticTerm{T}}, num_variables, index_map) where {T}
     n = length(terms)
     I = Vector{Int64}(undef, n)
@@ -61,4 +74,63 @@ struct IdentityMap end
 Base.getindex(::IdentityMap, index) = index
 function sparse_array_representation(func::MOI.AbstractFunction, num_variables)
     return sparse_array_representation(func, num_variables, IdentityMap())
+end
+
+struct SparseVectorAffineFunction{T}
+    terms::SparseMatrixCSC{T,Int64}
+    constant::Vector{T}
+end
+function sparse_array_representation(func::MOI.VectorAffineFunction, num_variables, index_map)
+    return SparseVectorAffineFunction(
+        sparse_array_representation(
+            func.terms,
+            MOI.output_dimension(func),
+            num_variables,
+            index_map,
+        ),
+        func.constants,
+    )
+end
+
+function _index_map_to_oneto!(index_map, v::MOI.VariableIndex)
+    if !haskey(index_map, v)
+        n = length(index_map.var_map)
+        index_map[v] = MOI.VariableIndex(n + 1)
+    end
+    return
+end
+
+function _index_map_to_oneto!(index_map, term::MOI.ScalarAffineTerm)
+    return _index_map_to_oneto!(index_map, term.variable)
+end
+
+function _index_map_to_oneto!(index_map, term::MOI.ScalarQuadraticTerm)
+    _index_map_to_oneto!(index_map, term.variable_1)
+    _index_map_to_oneto!(index_map, term.variable_2)
+    return
+end
+
+function _index_map_to_oneto!(index_map, term::MOI.VectorAffineTerm)
+    return _index_map_to_oneto!(index_map, term.scalar_term)
+end
+
+function _index_map_to_oneto!(index_map, terms)
+    for term in terms
+        _index_map_to_oneto!(index_map, term)
+    end
+end
+
+function index_map_to_oneto!(index_map, func::MOI.VectorAffineFunction)
+    _index_map_to_oneto!(index_map, func.terms)
+end
+
+function index_map_to_oneto!(index_map, func::MOI.ScalarQuadraticFunction)
+    _index_map_to_oneto!(index_map, func.quadratic_terms)
+    _index_map_to_oneto!(index_map, func.affine_terms)
+end
+
+function index_map_to_oneto(func::MOI.AbstractFunction)
+    index_map = MOI.Utilities.IndexMap()
+    index_map_to_oneto!(index_map, func)
+    return index_map
 end

@@ -346,4 +346,8 @@ function DiffOpt._get_dA(model::Model, ci::MOI.ConstraintIndex{<:MOI.AbstractVec
     return DiffOpt.lazy_combination(-, g, πz, i, n .+ (1:n))
 end
 
+function MOI.get(model::Model, attr::MOI.ConstraintFunction, ci::MOI.ConstraintIndex)
+    return MOI.get(model.model, attr, ci)
+end
+
 end
