@@ -78,7 +78,7 @@ end
 
 """
     struct SparseVectorAffineFunction{T} <: MOI.AbstractVectorFunction
-        terms::SparseMatrixCSC{T,Int64}
+        terms::SparseMatrixCSC{T,Int}
         constants::Vector{T}
     end
 
@@ -88,7 +88,7 @@ The vector-valued affine function ``A x + b``, where:
 * ``b`` is the vector `constants`
 """
 struct SparseVectorAffineFunction{T} <: MOI.AbstractVectorFunction
-    terms::SparseMatrixCSC{T,Int64}
+    terms::SparseMatrixCSC{T,Int}
     constants::Vector{T}
 end
 function sparse_array_representation(func::MOI.VectorAffineFunction, num_variables, index_map)
