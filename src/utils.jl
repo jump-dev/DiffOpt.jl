@@ -76,9 +76,20 @@ function sparse_array_representation(func::MOI.AbstractFunction, num_variables)
     return sparse_array_representation(func, num_variables, IdentityMap())
 end
 
-struct SparseVectorAffineFunction{T}
+"""
+    struct SparseVectorAffineFunction{T} <: MOI.AbstractVectorFunction
+        terms::SparseMatrixCSC{T,Int64}
+        constants::Vector{T}
+    end
+
+The vector-valued affine function ``A x + b``, where:
+
+* ``A`` is the sparse matrix given by `terms`
+* ``b`` is the vector `constants`
+"""
+struct SparseVectorAffineFunction{T} <: MOI.AbstractVectorFunction
     terms::SparseMatrixCSC{T,Int64}
-    constant::Vector{T}
+    constants::Vector{T}
 end
 function sparse_array_representation(func::MOI.VectorAffineFunction, num_variables, index_map)
     return SparseVectorAffineFunction(

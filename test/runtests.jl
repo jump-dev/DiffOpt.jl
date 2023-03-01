@@ -14,6 +14,8 @@ const MOIT = MathOptInterface.Test
 const ATOL = 2e-4
 const RTOL = 2e-4
 
+include("bridges.jl")
+
 @testset "MOI_wrapper" begin
     @testset "Utils" begin
         include("utils.jl")

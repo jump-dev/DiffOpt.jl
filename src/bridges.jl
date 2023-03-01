@@ -78,13 +78,16 @@ end
     dU_from_dQ!(dQ, U)
 
 Overwrite `dQ` into `dU` the solution of
-`dQ = dU' * U + U' * dU`
-where `dQ` is symmetric.
+`dQ = dU' * U + U' * dU`.
+The matrix `U` is not modified.
+
+The matrix `dQ` is assumed to be symmetric and the matrix `U` is assumed to be upper triangular.
 
 We can exploit the structure of `U` here:
-* If the factorization was obtained from SVD, `U` would be
-  orthogonal
+
+* If the factorization was obtained from SVD, `U` would be orthogonal
 * If the factorization was obtained from Cholesky, `U` would be upper triangular.
+
 The MOI bridge uses Cholesky in order to exploit sparsity so we are in the second case.
 We look for an upper triangular `dU` as well.
 We can find each column of `dU` by solving a triangular linear system once the previous
