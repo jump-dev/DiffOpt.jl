@@ -106,6 +106,8 @@ function dU_from_dQ!(dQ, U)
     for j in 1:n
         for i in axes(dQ, 1)
             if i < j
+                # `dQ[:, i]` was modified to correspond to `dU[:, i]`
+                # in the iteration `j := i` of the outer loop
                 dd = view(U, 1:i, j)'view(dQ, 1:i, i)
                 dQ[i, j] -= dd
             elseif i == j
