@@ -77,9 +77,12 @@ end
 """
     dU_from_dQ!(dQ, U)
 
-Overwrite `dQ` into `dU` the solution of
-`dQ = dU' * U + U' * dU`.
-The matrix `U` is not modified.
+Return the solution `dU` of the matrix equation
+`dQ = dU' * U + U' * dU`
+where `dQ` and `U` are the two argument of the function.
+
+This function overwrites the first argument `dQ` to store the solution.
+The matrix `U` is not however modified.
 
 The matrix `dQ` is assumed to be symmetric and the matrix `U` is assumed to be upper triangular.
 
