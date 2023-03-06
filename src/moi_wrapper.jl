@@ -392,13 +392,6 @@ function forward_differentiate!(model::Optimizer)
     forward_differentiate!(diff)
 end
 
-function _copy_constraint_start(dest, src, index_map::MOIU.DoubleDicts.IndexDoubleDictInner{F, S}, dest_attr, src_attr) where {F, S}
-    for ci in MOI.get(src, MOI.ListOfConstraintIndices{F, S}())
-        value = MOI.get(src, src_attr, ci)
-        MOI.set(dest, dest_attr, index_map[ci], value)
-    end
-end
-
 function _instantiate_with_bridges(model_constructor)
     model = MOI.Bridges.LazyBridgeOptimizer(
         MOI.instantiate(model_constructor)
@@ -443,12 +436,7 @@ function _diff(model::Optimizer)
             model.diff = _instantiate_with_bridges(model_constructor)
             model.index_map = MOI.copy_to(model.diff, model.optimizer)
         end
-        vis_src = MOI.get(model.optimizer, MOI.ListOfVariableIndices())
-        MOI.set(model.diff, MOI.VariablePrimalStart(), getindex.(Ref(model.index_map), vis_src), MOI.get(model.optimizer, MOI.VariablePrimal(), vis_src))
-        for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
-            _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintPrimalStart(), MOI.ConstraintPrimal())
-            _copy_constraint_start(model.diff, model.optimizer, model.index_map.con_map[F, S], MOI.ConstraintDualStart(), MOI.ConstraintDual())
-        end
+        _copy_dual(model.diff, model.optimizer, model.index_map)
     end
     return model.diff
 end

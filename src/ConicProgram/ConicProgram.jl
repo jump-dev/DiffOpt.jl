@@ -48,6 +48,9 @@ const Form{T} = MOI.Utilities.GenericModel{
         DiffOpt.ProductOfSets{T},
     },
 }
+function MOI.supports(::Form{T}, ::MOI.ObjectiveFunction{F}) where {T,F<:MOI.AbstractFunction}
+    return F === MOI.ScalarAffineFunction{T}
+end
 
 """
     Diffopt.ConicProgram.Model <: DiffOpt.AbstractModel
@@ -122,6 +125,8 @@ function MOI.set(model::Model, ::MOI.ConstraintPrimalStart, ci::MOI.ConstraintIn
 end
 
 function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::MOI.ConstraintIndex, value)
+    @show ci
+    @show value
     MOI.throw_if_not_valid(model, ci)
     DiffOpt._enlarge_set(model.y, MOI.Utilities.rows(model.model.constraints, ci), value)
 end
@@ -156,9 +161,13 @@ function _gradient_cache(model::Model)
     N = m + n + 1
     # NOTE: w = 1.0 systematically since we asserted the primal-dual pair is optimal
     (u, v, w) = (model.x, model.y - model.s, 1.0)
+    @show m
+    @show n
+    @show u
 
 
     # find gradient of projections on dual of the cones
+    @show v
     Dπv = DiffOpt.Dπ(v, model.model, model.model.constraints.sets)
 
     # Q = [

@@ -146,12 +146,8 @@ function sensitivities(model_constructor)
     return ∇x, ∇y
 end
 
-model.moi_backend.optimizer.model.diff = nothing
 ∇x_conic, ∇y_conic = sensitivities(DiffOpt.ConicProgram.Model)
-@show typeof(model.moi_backend.optimizer.model.diff)
-model.moi_backend.optimizer.model.diff = nothing
 ∇x_quad, ∇y_quad = sensitivities(DiffOpt.QuadraticProgram.Model)
-@show typeof(model.moi_backend.optimizer.model.diff)
 
 norm(∇x_conic - ∇x_quadp)
 norm(∇y_conic - ∇y_quadp)

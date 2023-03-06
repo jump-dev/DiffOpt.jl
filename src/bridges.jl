@@ -1,5 +1,14 @@
 function MOI.set(
     model::MOI.ModelLike,
+    ::ObjectiveFunctionAttribute{ForwardObjectiveFunction},
+    bridge::MOI.Bridges.Objective.SlackBridge,
+    value,
+)
+    MOI.set(model, ForwardConstraintFunction(), bridge.constraint, value)
+end
+
+function MOI.set(
+    model::MOI.ModelLike,
     attr::ForwardConstraintFunction,
     bridge::MOI.Bridges.Constraint.VectorizeBridge{T},
     value,
