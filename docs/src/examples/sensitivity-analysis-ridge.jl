@@ -36,7 +36,7 @@ import DiffOpt
 import Random
 import SCS
 import Plots
-using LinearAlgebra: dot
+using LinearAlgebra: dot, norm
 
 # ## Define and solve the problem
 
@@ -146,11 +146,21 @@ function sensitivities(model_constructor)
     return ∇x, ∇y
 end
 
+# The sensitivities can either be obtained with the conic DiffOpt model
+
 ∇x_conic, ∇y_conic = sensitivities(DiffOpt.ConicProgram.Model)
+
+# Or with the quadratic DiffOpt model
+
 ∇x_quad, ∇y_quad = sensitivities(DiffOpt.QuadraticProgram.Model)
 
-norm(∇x_conic - ∇x_quadp)
-norm(∇y_conic - ∇y_quadp)
+# We can see that the tangent `∇x` obtained in both cases are close
+
+norm(∇x_conic - ∇x_quad)
+
+# The same is true for the tangent obtained for `∇y`
+
+norm(∇y_conic - ∇y_quad)
 
 # Visualize point sensitivities with respect to regression points.
 
