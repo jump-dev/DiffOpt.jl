@@ -148,7 +148,7 @@ end
 
 # The sensitivities can either be obtained with the conic DiffOpt model
 
-∇x_conic, ∇y_conic = sensitivities(DiffOpt.ConicProgram.Model)
+∇x, ∇y = sensitivities(DiffOpt.ConicProgram.Model)
 
 # Or with the quadratic DiffOpt model
 
@@ -156,11 +156,11 @@ end
 
 # We can see that the tangent `∇x` obtained in both cases are close
 
-norm(∇x_conic - ∇x_quad)
+norm(∇x - ∇x_quad)
 
 # The same is true for the tangent obtained for `∇y`
 
-norm(∇y_conic - ∇y_quad)
+norm(∇y - ∇y_quad)
 
 # Visualize point sensitivities with respect to regression points.
 
