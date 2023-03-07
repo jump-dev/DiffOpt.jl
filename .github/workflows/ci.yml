@@ -70,7 +70,7 @@ jobs:
         shell: julia --project=docs {0}
         run: |
           using Pkg
-          Pkg.add(PackageSpec(name="MathOptSetDistances", rev="rsoc"))
+          Pkg.add(PackageSpec(name="MathOptSetDistances"))
       - shell: bash
         run: julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd()))"
       - shell: bash
