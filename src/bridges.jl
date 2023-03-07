@@ -40,46 +40,73 @@ function MOI.get(
     return MOI.Bridges.adjoint_map_function(typeof(bridge), func)
 end
 
-function MOI.set(
-    model::MOI.ModelLike,
-    attr::DiffOpt.ForwardConstraintFunction,
+function _quad_to_soc_diff(
+    ::MOI.ModelLike,
     bridge::MOI.Bridges.Constraint.QuadtoSOCBridge{T},
-    diff::MOI.ScalarQuadraticFunction
+    diff::MOI.ScalarAffineFunction{T},
+) where {T}
+    n = length(bridge.index_to_variable_map)
+    diff_soc = MOI.VectorAffineFunction{T}(
+        MOI.VectorAffineTerm{T}[],
+        zeros(T, n + 2),
+    )
+    for t in diff.terms
+        push!(diff_soc.terms, MOI.VectorAffineTerm(2, MOI.ScalarAffineTerm(-t.coefficient, t.variable)))
+    end
+    diff_soc.constants[2] = -diff.constant
+    return diff_soc
+end
+
+function _quad_to_soc_diff(
+    model::MOI.ModelLike,
+    bridge::MOI.Bridges.Constraint.QuadtoSOCBridge{T},
+    diff::MOI.ScalarQuadraticFunction{T},
 ) where {T}
     func = MOI.get(model, MOI.ConstraintFunction(), bridge.soc)
-    index_map = index_map_to_oneto(func)
-    index_map_to_oneto!(index_map, diff)
-    n = length(index_map.var_map)
-    func_array = sparse_array_representation(func, n, index_map)
+    variable_to_index_map = Dict{MOI.VariableIndex,MOI.VariableIndex}(
+        v => MOI.VariableIndex(i) for (i, v) in enumerate(bridge.index_to_variable_map)
+    )
+    n = length(bridge.index_to_variable_map)
+    Ux = MOI.Utilities.eachscalar(func)[3:end]
+    func_array = sparse_array_representation(Ux, n, variable_to_index_map)
     # x'Qx/2 + a'x + β is bridged into
     # (1, -a'x - β, U*x) in RSOC
     # where Q = U' * U
     # `func_array.terms` is `[0; -a'; U]`
-    U = func_array.terms[3:end, :]
-    diff_array = sparse_array_representation(diff, n, index_map)
+    U = func_array.terms
+    # We assume `diff.quadratic_terms` only contains quadratic terms with
+    # variables already in a quadratic term of the initial constraint
+    # Otherwise, the `U` matrix will not be square so it's a TODO
+    # We remove the affine terms here as they might have other variables not
+    # in `variable_to_index_map`
+    diff_quad = MOI.ScalarQuadraticFunction(diff.quadratic_terms, MOI.ScalarAffineTerm{T}[], zero(T))
+    diff_aff = MOI.ScalarAffineFunction(diff.affine_terms, diff.constant)
+    diff_array = sparse_array_representation(diff_quad, n, variable_to_index_map)
     dU = Matrix(diff_array.quadratic_terms)
     dU = dU_from_dQ!(Matrix(diff_array.quadratic_terms), U)
-    x = Vector{MOI.VariableIndex}(undef, n)
-    for v in keys(index_map.var_map)
-        x[index_map[v].value] = v
-    end
-    diff_aff = MOI.VectorAffineFunction{T}(
-        MOI.VectorAffineTerm{T}[],
-        zeros(T, size(dU, 1) + 2),
-    )
-    for t in diff.affine_terms
-        push!(diff_aff.terms, MOI.VectorAffineTerm(2, MOI.ScalarAffineTerm(-t.coefficient, t.variable)))
-    end
-    diff_aff.constants[2] = -diff.constant
+    diff_soc = _quad_to_soc_diff(model, bridge, diff_aff)
     for i in axes(dU, 1)
         for j in axes(dU, 2)
             if !iszero(dU[i, j])
-                scalar = MOI.ScalarAffineTerm(dU[i, j], x[j])
-                push!(diff_aff.terms, MOI.VectorAffineTerm(2 + i, scalar))
+                scalar = MOI.ScalarAffineTerm(
+                    dU[i, j],
+                    bridge.index_to_variable_map[j],
+                )
+                push!(diff_soc.terms, MOI.VectorAffineTerm(2 + i, scalar))
             end
         end
     end
-    MOI.set(model, attr, bridge.soc, diff_aff)
+    return diff_soc
+end
+
+function MOI.set(
+    model::MOI.ModelLike,
+    attr::DiffOpt.ForwardConstraintFunction,
+    bridge::MOI.Bridges.Constraint.QuadtoSOCBridge{T},
+    diff::MOI.AbstractScalarFunction,
+) where {T}
+    diff_soc = _quad_to_soc_diff(model, bridge, diff)
+    MOI.set(model, attr, bridge.soc, diff_soc)
     return
 end
 

@@ -13,6 +13,8 @@ When setting this attribute, it allows to set the constraint dual of this
 constraint.
 """
 struct ObjectiveDualStart <: MOI.AbstractModelAttribute end
+# Defining it for `MOI.set` leads to ambiguity
+MOI.throw_set_error_fallback(::MOI.ModelLike, ::ObjectiveDualStart, value) = nothing
 
 """
     struct ObjectiveSlackGapPrimalStart <: MOI.AbstractModelAttribute end
@@ -25,6 +27,7 @@ When setting this attribute, it allows to set the constraint dual of this
 constraint.
 """
 struct ObjectiveSlackGapPrimalStart <: MOI.AbstractModelAttribute end
+MOI.throw_set_error_fallback(::MOI.ModelLike, ::ObjectiveSlackGapPrimalStart, value) = nothing
 
 function MOI.set(
     b::MOI.Bridges.AbstractBridgeOptimizer,
