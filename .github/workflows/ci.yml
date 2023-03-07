@@ -62,12 +62,12 @@ jobs:
         with:
           version: '1'
       - name: MOI
-        shell: julia --project=@. {0}
+        shell: julia --project=docs {0}
         run: |
           using Pkg
           Pkg.add(PackageSpec(name="MathOptInterface", rev="bl/quad_to_soc_start"))
       - name: MOSD
-        shell: julia --project=@. {0}
+        shell: julia --project=docs {0}
         run: |
           using Pkg
           Pkg.add(PackageSpec(name="MathOptSetDistances", rev="rsoc"))
