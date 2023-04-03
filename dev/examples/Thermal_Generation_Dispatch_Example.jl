@@ -28,9 +28,8 @@ using JuMP
 import DiffOpt
 import LinearAlgebra: dot
 import HiGHS
-import MathOptInterface
+import MathOptInterface as MOI
 import Plots
-const MOI = MathOptInterface
 
 # Define the model that will be construct given a set of parameters.
 
