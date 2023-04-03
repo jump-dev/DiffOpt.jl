@@ -9,10 +9,9 @@ import LazyArrays
 import BlockDiagonals
 
 import MathOptInterface as MOI
-const MOIU = MathOptInterface.Utilities
+const MOIU = MOI.Utilities
 
-using MathOptSetDistances
-const MOSD = MathOptSetDistances
+import MathOptSetDistances as MOSD
 
 const VI = MOI.VariableIndex
 const CI = MOI.ConstraintIndex
