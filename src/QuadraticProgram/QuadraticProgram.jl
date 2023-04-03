@@ -2,8 +2,7 @@ module QuadraticProgram
 
 using LinearAlgebra, SparseArrays
 
-using MathOptInterface
-const MOI = MathOptInterface
+import MathOptInterface as MOI
 
 import LazyArrays
 import IterativeSolvers

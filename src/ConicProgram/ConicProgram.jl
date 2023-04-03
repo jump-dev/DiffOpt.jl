@@ -2,8 +2,7 @@ module ConicProgram
 
 using LinearAlgebra, SparseArrays
 
-using MathOptInterface
-const MOI = MathOptInterface
+import MathOptInterface as MOI
 
 import BlockDiagonals
 import IterativeSolvers

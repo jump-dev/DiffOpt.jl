@@ -1,7 +1,6 @@
 using Test
 import DiffOpt
-import MathOptInterface
-const MOI = MathOptInterface
+import MathOptInterface as MOI
 import Ipopt
 
 Q = [

@@ -6,8 +6,7 @@ import DelimitedFiles
 
 import SparseArrays: spzeros
 
-import MathOptInterface
-const MOI = MathOptInterface
+import MathOptInterface as MOI
 const MOIU = MathOptInterface.Utilities
 const MOIT = MathOptInterface.Test
 

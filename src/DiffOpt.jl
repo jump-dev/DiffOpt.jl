@@ -8,8 +8,7 @@ using JuMP
 import LazyArrays
 import BlockDiagonals
 
-import MathOptInterface
-const MOI = MathOptInterface
+import MathOptInterface as MOI
 const MOIU = MathOptInterface.Utilities
 
 using MathOptSetDistances

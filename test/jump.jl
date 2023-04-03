@@ -1,8 +1,7 @@
 using Test
 using JuMP
 import DiffOpt
-import MathOptInterface
-const MOI = MathOptInterface
+import MathOptInterface as MOI
 const MOIU = MOI.Utilities
 import LinearAlgebra: dot, ⋅, I
 import Ipopt
