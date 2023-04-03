@@ -1,8 +1,7 @@
 using Test
 using JuMP
 import DiffOpt
-import MathOptInterface
-const MOI = MathOptInterface
+import MathOptInterface as MOI
 import LinearAlgebra: dot, ⋅, Diagonal
 import SparseArrays: sparse
 

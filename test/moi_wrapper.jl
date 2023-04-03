@@ -1,7 +1,6 @@
 using Test
 import DiffOpt
-import MathOptInterface
-const MOI = MathOptInterface
+import MathOptInterface as MOI
 const MOIU = MOI.Utilities
 import DelimitedFiles
 import Ipopt

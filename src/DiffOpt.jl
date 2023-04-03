@@ -8,12 +8,10 @@ using JuMP
 import LazyArrays
 import BlockDiagonals
 
-import MathOptInterface
-const MOI = MathOptInterface
-const MOIU = MathOptInterface.Utilities
+import MathOptInterface as MOI
+const MOIU = MOI.Utilities
 
-using MathOptSetDistances
-const MOSD = MathOptSetDistances
+import MathOptSetDistances as MOSD
 
 const VI = MOI.VariableIndex
 const CI = MOI.ConstraintIndex
