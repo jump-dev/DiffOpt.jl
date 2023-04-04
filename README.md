@@ -7,7 +7,7 @@
 
 [DiffOpt.jl](https://github.com/jump-dev/DiffOpt.jl) is a package for
 differentiating convex optimization programs with respect to the program
-parameters. DiffOpt currently supports linear, quadratic and conic programs.
+parameters. DiffOpt currently supports linear, quadratic, and conic programs.
 
 ## License
 
