@@ -67,7 +67,7 @@ end
 
     DiffOpt.reverse_differentiate!(model)
 
-    grad_constraint = JuMP.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), ctr_le[]))
+    grad_constraint = JuMP.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), ctr_le[1]))
     @test grad_constraint ≈ -1.0  atol=ATOL rtol=RTOL
 
     # Test some overloads from https://github.com/jump-dev/DiffOpt.jl/issues/211
