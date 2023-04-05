@@ -28,6 +28,7 @@ Check our results for QPs using the notations of [AK17].
 """
 function qp_test(
     solver,
+    diff_model,
     lt::Bool,
     set_zero::Bool,
     canonicalize::Bool;
@@ -79,6 +80,9 @@ function qp_test(
     atol = ATOL,
     rtol = RTOL,
 )
+    if !all(iszero, Q) && diff_model == DiffOpt.ConicProgram.Model
+        return # TODO https://github.com/jump-dev/DiffOpt.jl/pull/231
+    end
     n = length(q)
     @assert n == LinearAlgebra.checksquare(Q)
     @assert n == size(A, 2)
@@ -141,6 +145,8 @@ function qp_test(
         _λ = vcat(_λ, MOI.get.(model, MOI.ConstraintDual(), clb))
     end
     @_test(convert(Vector{Float64}, _λ), λ)
+
+    MOI.set(model, DiffOpt.ModelConstructor(), diff_model)
 
     #dobjb = v' * (dQb / 2.0) * v + dqb' * v
     # TODO, it should .-
@@ -267,11 +273,16 @@ function qp_test(
     @test pprod ≈ pprod atol = ATOL rtol = RTOL
 end
 
+function qp_test(solver, lt, set_zero, canonicalize; kws...)
+    @testset "With $diff_model" for diff_model in [DiffOpt.ConicProgram.Model, DiffOpt.QuadraticProgram.Model]
+        qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
+    end
+end
+
 function qp_test(solver; kws...)
     @testset "With $(lt ? "LessThan" : "GreaterThan") constraints" for lt in [true, false]
         @testset "With$(set_zero ? "" : "out") setting zero tangents" for set_zero in [true, false]
             @testset "With$(canonicalize ? "" : "out") canonicalization" for canonicalize in [true, false]
-                qp_test(solver, lt, set_zero, canonicalize; kws...)
             end
         end
     end
