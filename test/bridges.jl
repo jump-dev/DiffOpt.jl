@@ -32,8 +32,8 @@ function test_quad_to_soc()
     a = [1, 2, -3.0]
     b = -5.0
     Q = U' * U
-    f = x' * Q * x / 2.0 + a' * x + b
-    c = MOI.add_constraint(bridged, f, MOI.LessThan(0.0))
+    f = x' * Q * x / 2.0 + a' * x
+    c = MOI.add_constraint(bridged, f, MOI.LessThan(-b))
     dQ = [
          1 -1 0
         -1  2 1
@@ -44,6 +44,7 @@ function test_quad_to_soc()
     df = x' * dQ * x / 2.0 + da' * x + db
     MOI.Utilities.final_touch(bridged, nothing)
     MOI.set(bridged, DiffOpt.ForwardConstraintFunction(), c, df)
+    return
 end
 
 function _test_dU_from_dQ(U, dU)
