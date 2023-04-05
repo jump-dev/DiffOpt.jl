@@ -273,13 +273,16 @@ function qp_test(
     @test pprod ≈ pprod atol = ATOL rtol = RTOL
 end
 
+function qp_test(solver, lt, set_zero, canonicalize; kws...)
+    @testset "With $diff_model" for diff_model in [DiffOpt.ConicProgram.Model, DiffOpt.QuadraticProgram.Model]
+        qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
+    end
+end
+
 function qp_test(solver; kws...)
     @testset "With $(lt ? "LessThan" : "GreaterThan") constraints" for lt in [true, false]
         @testset "With$(set_zero ? "" : "out") setting zero tangents" for set_zero in [true, false]
             @testset "With$(canonicalize ? "" : "out") canonicalization" for canonicalize in [true, false]
-                @testset "With $diff_model" for diff_model in [DiffOpt.ConicProgram.Model, DiffOpt.QuadraticProgram.Model]
-                    qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
-                end
             end
         end
     end
