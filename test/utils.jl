@@ -183,8 +183,16 @@ function qp_test(
             n,
             dobjb.index_map,
         )
-        @_test(spb.quadratic_terms, dQb)
-        @_test(spb.affine_terms, dqb)
+        if spb isa DiffOpt.SparseScalarAffineFunction
+            @test all(iszero, Q)
+            if isnothing(dQb)
+                dQb = Q
+            end
+            @_test(spb.terms, dqb)
+        else
+            @_test(spb.quadratic_terms, dQb)
+            @_test(spb.affine_terms, dqb)
+        end
 
         # FIXME should multiply by -1 if lt is false
         funcs = MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cle)
