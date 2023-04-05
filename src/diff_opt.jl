@@ -274,13 +274,13 @@ function lazy_combination(op::F, α, a, β, b) where {F<:Function}
     )
 end
 
-function lazy_combination(op::F, α, a, β, b, I::UnitRange) where {F<:Function}
+function lazy_combination(op::F, α, a, β, b, I::AbstractUnitRange) where {F<:Function}
     return lazy_combination(op, α, view(a, I), β, view(b, I))
 end
 function lazy_combination(op::F, a, b, i::Integer, args::Vararg{Any,N}) where {F<:Function,N}
     return lazy_combination(op, a[i], b, b[i], a, args...)
 end
-function lazy_combination(op::F, a, b, i::UnitRange, I::UnitRange) where {F<:Function}
+function lazy_combination(op::F, a, b, i::AbstractUnitRange, I::AbstractUnitRange) where {F<:Function}
     return lazy_combination(op, view(a, i), b, view(b, i), a, I)
 end
 
@@ -416,7 +416,7 @@ function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::Integer, term
     push!(J, term.variable.value)
     push!(V, neg ? -term.coefficient : term.coefficient)
 end
-function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::UnitRange, term::MOI.VectorAffineTerm)
+function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::AbstractUnitRange, term::MOI.VectorAffineTerm)
     _push_term(I, J, V, neg, r[term.output_index], term.scalar_term)
 end
 

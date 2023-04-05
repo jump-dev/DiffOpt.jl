@@ -324,7 +324,7 @@ end
 function MOI.get(model::Model, ::DiffOpt.ReverseObjectiveFunction)
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
-    dc = DiffOpt.lazy_combination(-, πz, g, length(g))
+    dc = DiffOpt.lazy_combination(-, πz, g, length(g), eachindex(model.x))
     return DiffOpt.VectorScalarAffineFunction(dc, 0.0)
 end
 
