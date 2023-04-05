@@ -349,6 +349,7 @@ function qp_test(solver; kws...)
                 true,
                 false,
             ]
+                qp_test(solver, lt, set_zero, canonicalize; kws...)
             end
         end
     end
