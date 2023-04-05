@@ -1,74 +1,58 @@
 # DiffOpt.jl
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://jump.dev/DiffOpt.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://jump.dev/DiffOpt.jl/dev)
+[![stable docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://jump.dev/DiffOpt.jl/stable)
+[![development docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://jump.dev/DiffOpt.jl/dev)
 [![Build Status](https://github.com/jump-dev/DiffOpt.jl/workflows/CI/badge.svg?branch=master)](https://github.com/jump-dev/DiffOpt.jl/actions?query=workflow%3ACI)
 [![Coverage](https://codecov.io/gh/jump-dev/DiffOpt.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/jump-dev/DiffOpt.jl)
 
+[DiffOpt.jl](https://github.com/jump-dev/DiffOpt.jl) is a package for
+differentiating convex optimization programs with respect to the program
+parameters. DiffOpt currently supports linear, quadratic, and conic programs.
 
-DiffOpt is a package for differentiating convex optimization programs with respect to the program parameters. It currently supports linear, quadratic and conic programs. Refer to [the documentation](https://jump.dev/DiffOpt.jl/stable) for examples. Powered by [JuMP.jl](https://jump.dev/JuMP.jl/stable), DiffOpt allows creating a differentiable optimization model from many
-[existing optimizers](https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers).
+## License
 
+`DiffOpt.jl` is licensed under the
+[MIT License](https://github.com/jump-dev/DiffOpt.jl/blob/master/LICENSE.md).
 
 ## Installation
-DiffOpt can be installed via the Julia package manager:
 
-```
-julia> ]
-(v1.7) pkg> add DiffOpt
-```
+Install DiffOpt using `Pkg.add`:
 
-## Example
-
-1. Create a model using the wrapper.
 ```julia
-using JuMP
-import DiffOpt
-import HiGHS
-
-model = JuMP.Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+import Pkg
+Pkg.add("DiffOpt")
 ```
 
-2. Define your model and solve it a single line.
+## Documentation
+
+The [documentation for DiffOpt.jl](https://jump.dev/DiffOpt.jl/stable/)
+includes a detailed description of the theory behind the package, along with
+examples, tutorials, and an API reference.
+
+## Use with JuMP
+
+Use DiffOpt with JuMP by following this brief example:
+
 ```julia
+using JuMP, DiffOpt, HiGHS
+# Create a model using the wrapper
+model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+# Define your model and solve it
 @variable(model, x)
-@constraint(
-  model,
-  cons,
-  x >= 3,
-)
-@objective(
-  model,
-  Min,
-  2x,
-)
-
-optimize!(model) # solve
+@constraint(model, cons, x >= 3)
+@objective(model, Min, 2x)
+optimize!(model)
+# Choose the problem parameters to differentiate with respect to, and set their
+# perturbations.
+MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+# Differentiate the model
+DiffOpt.reverse_differentiate!(model)
+# fetch the gradients
+grad_exp = MOI.get(model, DiffOpt.ReverseConstraintFunction(), cons)  # -3 x - 1
+constant(grad_exp)        # -1
+coefficient(grad_exp, x)  # -3
 ```
 
-3. Choose the problem parameters to differentiate with and set their perturbations.
-```julia
-MOI.set.(  # set pertubations / gradient inputs
-    model, 
-    DiffOpt.ReverseVariablePrimal(),
-    x,
-    1.0,
-)
-```
+## GSOC2020
 
-4. Differentiate the model (primal, dual variables specifically) and fetch the gradients
-```julia
-DiffOpt.reverse_differentiate!(model) # differentiate
-
-grad_exp = MOI.get(   # -3 x - 1
-    model,
-    DiffOpt.ReverseConstraintFunction(),
-    cons
-)
-JuMP.constant(grad_exp)  # -1
-JuMP.coefficient(grad_exp, x)  # -3
-```
-
-## Note
-
-- DiffOpt began as a [NumFOCUS sponsored Google Summer of Code (2020) project](https://summerofcode.withgoogle.com/organizations/4727917315096576/?sp-page=2#5232064888045568)
+DiffOpt began as a [NumFOCUS sponsored Google Summer of Code (2020) project](https://summerofcode.withgoogle.com/organizations/4727917315096576/?sp-page=2#5232064888045568)
