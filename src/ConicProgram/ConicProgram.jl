@@ -398,9 +398,12 @@ function DiffOpt._get_db(
     i = MOI.Utilities.rows(model.model.constraints, ci) # vector
     # i = ci.value
     n = length(model.x) # columns in A
+    # Since `b` in https://arxiv.org/pdf/1904.09043.pdf is the constant in the right-hand side and
+    # `b` in MOI is the constant on the left-hand side, we have the opposite sign here
     # db = - dQ[n+1:n+m, end] + dQ[end, n+1:n+m]'
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
+    # `g[end] * πz[n .+ i] - πz[end] * g[n .+ i]`
     return DiffOpt.lazy_combination(-, πz, g, length(g), n .+ i)
 end
 
@@ -415,7 +418,8 @@ function DiffOpt._get_dA(
     # dA = - dQ[1:n, n+1:n+m]' + dQ[n+1:n+m, 1:n]
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
-    return DiffOpt.lazy_combination(-, g, πz, i, n .+ (1:n))
+    #return DiffOpt.lazy_combination(-, g, πz, n .+ i, 1:n)
+    return g[n .+ i] * πz[1:n]' - πz[n .+ i] * g[1:n]'
 end
 
 function MOI.get(
