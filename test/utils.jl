@@ -256,7 +256,11 @@ function qp_test(
     end
     @_test(-A * ∇zb, dνb)
 
-    dobjf = v' * (dQf / 2.0) * v + dqf' * v
+    if all(iszero, dQf)
+        dobjf = dqf' * v
+    else
+        dobjf = v' * (dQf / 2.0) * v + dqf' * v
+    end
     dlef = dGf * v .- dhf
     deqf = dAf * v .- dbf
 

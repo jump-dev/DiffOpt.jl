@@ -152,6 +152,19 @@ function sparse_array_representation(
     )
 end
 
+_scalar(::Type{<:MatrixVectorAffineFunction}) = VectorScalarAffineFunction
+_scalar(::Type{<:SparseVectorAffineFunction}) = SparseScalarAffineFunction
+
+function Base.getindex(
+    it::MOI.Utilities.ScalarFunctionIterator{F},
+    output_index::Integer,
+) where {F<:Union{MatrixVectorAffineFunction,SparseVectorAffineFunction}}
+    return _scalar(F)(
+        it.f.terms[output_index, :],
+        it.f.constants[output_index],
+    )
+end
+
 function _index_map_to_oneto!(index_map, v::MOI.VariableIndex)
     if !haskey(index_map, v)
         n = length(index_map.var_map)

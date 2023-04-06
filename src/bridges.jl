@@ -19,6 +19,13 @@ end
 
 function MOI.get(
     model::MOI.ModelLike,
+    attr::ReverseConstraintFunction,
+    bridge::MOI.Bridges.Constraint.VectorizeBridge,
+)
+    MOI.Utilities.eachscalar(MOI.get(model, attr, bridge.vector_constraint))[1]
+end
+function MOI.get(
+    model::MOI.ModelLike,
     attr::DiffOpt.ReverseConstraintFunction,
     bridge::MOI.Bridges.Constraint.AbstractFunctionConversionBridge,
 )
