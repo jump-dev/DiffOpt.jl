@@ -11,7 +11,7 @@
 # \end{equation}
 # ```
 
-# where 
+# where
 # - `x`, `y` are the data points
 # - `w` are the learned weights
 # - `α` is the hyperparameter acting on regularization.
@@ -26,8 +26,8 @@
 using JuMP     # The mathematical programming modelling language
 import DiffOpt # JuMP extension for differentiable optimization
 import Ipopt    # Optimization solver that handles quadratic programs
-import Plots   # Graphing tool
-import LinearAlgebra: norm, dot
+import LinearAlgebra
+import Plots
 import Random
 
 # ## Generating a noisy regression dataset
@@ -62,7 +62,8 @@ function fit_ridge(model, X, y, α)
     @objective(
         model,
         Min,
-        dot(err_term, err_term) / (2 * N * D) + α * dot(w, w) / (2 * D),
+        LinearAlgebra.dot(err_term, err_term) / (2 * N * D) +
+        α * LinearAlgebra.dot(w, w) / (2 * D),
     )
     optimize!(model)
     @assert termination_status(model) in
@@ -84,8 +85,11 @@ for α in αs
     ŵ = value.(w)
     ŷ_test = X_test * ŵ
     ŷ_train = X_train * ŵ
-    push!(mse_test, norm(ŷ_test - y_test)^2 / (2 * Ntest * D))
-    push!(mse_train, norm(ŷ_train - y_train)^2 / (2 * Ntrain * D))
+    push!(mse_test, LinearAlgebra.norm(ŷ_test - y_test)^2 / (2 * Ntest * D))
+    push!(
+        mse_train,
+        LinearAlgebra.norm(ŷ_train - y_train)^2 / (2 * Ntrain * D),
+    )
 end
 
 # Visualize the Mean Score Error metric
@@ -116,7 +120,11 @@ Plots.title!("Normalized MSE on training and testing sets")
 function compute_dw_dα(model, w)
     D = length(w)
     dw_dα = zeros(D)
-    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), dot(w, w) / (2 * D))
+    MOI.set(
+        model,
+        DiffOpt.ForwardObjectiveFunction(),
+        LinearAlgebra.dot(w, w) / (2 * D),
+    )
     DiffOpt.forward_differentiate!(model)
     for i in 1:D
         dw_dα[i] = MOI.get(model, DiffOpt.ForwardVariablePrimal(), w[i])
@@ -133,7 +141,7 @@ function d_testloss_dα(model, X_test, y_test, w, ŵ)
     dw_dα = compute_dw_dα(model, w)
     err_term = X_test * ŵ - y_test
     return sum(eachindex(err_term)) do i
-        return dot(X_test[i, :], dw_dα) * err_term[i]
+        return LinearAlgebra.dot(X_test[i, :], dw_dα) * err_term[i]
     end / (N * D)
 end
 
@@ -154,7 +162,7 @@ function descent(α0, max_iters = 100; fixed_step = 0.01, grad_tol = 1e-3)
         ∂α = d_testloss_dα(model, X_test, y_test, w, ŵ)
         push!(α_s, α)
         push!(∂α_s, ∂α)
-        push!(test_loss, norm(err_term)^2 / (2 * N * D))
+        push!(test_loss, LinearAlgebra.norm(err_term)^2 / (2 * N * D))
         α -= fixed_step * ∂α
         if abs(∂α) ≤ grad_tol
             break

@@ -27,8 +27,8 @@
 using JuMP     # The mathematical programming modelling language
 import DiffOpt # JuMP extension for differentiable optimization
 import Ipopt   # Optimization solver that handles quadratic programs
-import Plots   # Graphing tool
-import LinearAlgebra: dot, norm
+import LinearAlgebra
+import Plots
 import Random
 
 # ## Define and solve the SVM
@@ -56,11 +56,15 @@ MOI.set(model, MOI.Silent(), true)
 
 # Add the constraints.
 
-@constraint(model, con[i in 1:N], y[i] * (dot(X[i, :], w) + b) >= 1 - ξ[i]);
+@constraint(
+    model,
+    con[i in 1:N],
+    y[i] * (LinearAlgebra.dot(X[i, :], w) + b) >= 1 - ξ[i]
+);
 
 # Define the objective and solve
 
-@objective(model, Min, λ * dot(w, w) + sum(ξ),)
+@objective(model, Min, λ * LinearAlgebra.dot(w, w) + sum(ξ),)
 
 optimize!(model)
 
@@ -122,7 +126,7 @@ for i in 1:N
     DiffOpt.forward_differentiate!(model)
     dw = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), w)
     db = MOI.get(model, DiffOpt.ForwardVariablePrimal(), b)
-    ∇[i] = norm(dw) + norm(db)
+    ∇[i] = LinearAlgebra.norm(dw) + LinearAlgebra.norm(db)
 end
 
 # We can visualize the separating hyperplane sensitivity with respect to the data points.
