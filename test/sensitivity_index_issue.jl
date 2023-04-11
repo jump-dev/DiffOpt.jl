@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 using JuMP
 import HiGHS
 
@@ -115,7 +120,7 @@ end
     ]
 
     derivativeKKT = hcat([DiffOpt.lsqr(KKT,rhsKKT[:,i]) for i in 1:size(rhsKKT)[2]]...)
-    
+
     dprimal_dconsKKT = derivativeKKT[1:6,:]
     #Finished calculation of sensitivities by Manual KKT
 

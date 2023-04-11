@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 function MOI.set(model::JuMP.Model, attr::ForwardObjectiveFunction, func::JuMP.AbstractJuMPScalar)
     JuMP.check_belongs_to_model(func, model)
     return MOI.set(model, attr, JuMP.moi_function(func))

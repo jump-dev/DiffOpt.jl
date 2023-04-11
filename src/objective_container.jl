@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 mutable struct ObjectiveContainer{MOIForm,ArrayForm} <: MOI.ModelLike
     num_variables::Int64
     is_sense_set::Bool
