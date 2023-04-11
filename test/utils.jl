@@ -8,7 +8,8 @@ using JuMP
 import DiffOpt
 import MathOptInterface as MOI
 import LinearAlgebra: ⋅
-import SparseArrays: sparse
+import LinearAlgebra
+import SparseArrays
 
 macro _test(computed, expected::Symbol)
     exp = esc(expected)
@@ -29,7 +30,9 @@ end
 
 Check our results for QPs using the notations of [AK17].
 
-[AK17] Amos, Brandon, and J. Zico Kolter. "Optnet: Differentiable optimization as a layer in neural networks." International Conference on Machine Learning. PMLR, 2017. https://arxiv.org/pdf/1703.00443.pdf
+[AK17] Amos, Brandon, and J. Zico Kolter. "Optnet: Differentiable optimization
+as a layer in neural networks." International Conference on Machine Learning.
+PMLR, 2017. https://arxiv.org/pdf/1703.00443.pdf
 """
 function qp_test(
     solver,
@@ -135,7 +138,7 @@ function qp_test(
 
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     if iszero(Q)
-        obj = q ⋅ v
+        obj = LinearAlgebra.dot(q, v)
     else
         obj = LinearAlgebra.dot(v, Q / 2, v) + LinearAlgebra.dot(q, v)
     end
@@ -318,6 +321,7 @@ function qp_test(
     pprod =
         dQf ⋅ dQb + dqf ⋅ dqb + dGf ⋅ dGb + dhf ⋅ dhb + dAf ⋅ dAb + dbf ⋅ dbb
     @test pprod ≈ pprod atol = ATOL rtol = RTOL
+    return
 end
 
 function qp_test(solver, lt, set_zero, canonicalize; kws...)
@@ -327,6 +331,7 @@ function qp_test(solver, lt, set_zero, canonicalize; kws...)
     ]
         qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
     end
+    return
 end
 
 function qp_test(solver; kws...)
@@ -347,6 +352,7 @@ function qp_test(solver; kws...)
             end
         end
     end
+    return
 end
 
 function qp_test_with_solutions(
@@ -427,4 +433,5 @@ function qp_test_with_solutions(
             kws...,
         )
     end
+    return
 end
