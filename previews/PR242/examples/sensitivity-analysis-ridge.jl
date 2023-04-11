@@ -73,7 +73,7 @@ end
 
 # Plot the data points and the fitted line for different alpha values
 
-p = Plots.scatter(X, Y, label = nothing, legend = :topleft)
+p = Plots.scatter(X, Y; label = nothing, legend = :topleft)
 mi, ma = minimum(X), maximum(X)
 Plots.title!("Fitted lines and points")
 
@@ -84,7 +84,7 @@ for alpha in 0.5:0.5:1.5
     Plots.plot!(
         p,
         [mi, ma],
-        [mi * ŵ + b̂, ma * ŵ + b̂],
+        [mi * ŵ + b̂, ma * ŵ + b̂];
         label = "alpha=$alpha",
         width = 2,
     )
@@ -134,7 +134,7 @@ end
 
 p = Plots.scatter(
     X,
-    Y,
+    Y;
     color = [dw < 0 ? :blue : :red for dw in ∇x],
     markersize = [5 * abs(dw) + 1.2 for dw in ∇x],
     label = "",
@@ -143,7 +143,7 @@ mi, ma = minimum(X), maximum(X)
 Plots.plot!(
     p,
     [mi, ma],
-    [mi * ŵ + b̂, ma * ŵ + b̂],
+    [mi * ŵ + b̂, ma * ŵ + b̂];
     color = :blue,
     label = "",
 )
@@ -153,7 +153,7 @@ Plots.title!("Regression slope sensitivity with respect to x")
 
 p = Plots.scatter(
     X,
-    Y,
+    Y;
     color = [dw < 0 ? :blue : :red for dw in ∇y],
     markersize = [5 * abs(dw) + 1.2 for dw in ∇y],
     label = "",
@@ -162,7 +162,7 @@ mi, ma = minimum(X), maximum(X)
 Plots.plot!(
     p,
     [mi, ma],
-    [mi * ŵ + b̂, ma * ŵ + b̂],
+    [mi * ŵ + b̂, ma * ŵ + b̂];
     color = :blue,
     label = "",
 )

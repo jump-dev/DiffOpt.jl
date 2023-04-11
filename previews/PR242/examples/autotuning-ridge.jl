@@ -92,7 +92,7 @@ end
 
 Plots.plot(
     αs,
-    mse_test ./ sum(mse_test),
+    mse_test ./ sum(mse_test);
     label = "MSE test",
     xaxis = "α",
     yaxis = "MSE",
@@ -101,7 +101,7 @@ Plots.plot(
 )
 Plots.plot!(
     αs,
-    mse_train ./ sum(mse_train),
+    mse_train ./ sum(mse_train);
     label = "MSE train",
     linestyle = :dash,
     width = 3,
@@ -170,20 +170,20 @@ iters = 1:length(ᾱ);
 
 Plots.plot(
     αs,
-    mse_test,
+    mse_test;
     label = "MSE test",
     xaxis = ("α"),
     legend = :topleft,
     width = 2,
 )
-Plots.plot!(ᾱ, msē, label = "learned α", width = 5, style = :dot)
+Plots.plot!(ᾱ, msē; label = "learned α", width = 5, style = :dot)
 Plots.title!("Regularizer learning")
 
 # Visualize the convergence of α to its optimal value
 
 Plots.plot(
     iters,
-    ᾱ,
+    ᾱ;
     label = nothing,
     color = :blue,
     xaxis = ("Iterations"),
@@ -195,7 +195,7 @@ Plots.plot(
 
 Plots.plot(
     iters,
-    msē,
+    msē;
     label = nothing,
     color = :red,
     xaxis = ("Iterations"),
@@ -207,7 +207,7 @@ Plots.plot(
 
 Plots.plot(
     iters,
-    ∂ᾱ,
+    ∂ᾱ;
     label = nothing,
     color = :green,
     xaxis = ("Iterations"),

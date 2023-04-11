@@ -77,14 +77,14 @@ svm_y = (-bv .- wv[1] * svm_x) / wv[2]
 
 p = Plots.scatter(
     X[:, 1],
-    X[:, 2],
+    X[:, 2];
     color = [yi > 0 ? :red : :blue for yi in y],
     label = "",
 )
 Plots.plot!(
     p,
     svm_x,
-    svm_y,
+    svm_y;
     label = "loss = $(round(loss, digits=2))",
     width = 3,
 )
@@ -131,11 +131,11 @@ end
 
 p3 = Plots.scatter(
     X[:, 1],
-    X[:, 2],
+    X[:, 2];
     color = [yi > 0 ? :red : :blue for yi in y],
     label = "",
     markersize = 2 * (max.(1.8∇, 0.2 * maximum(∇))),
 )
 Plots.yaxis!(p3, (-2, 4.5))
-Plots.plot!(p3, svm_x, svm_y, label = "", width = 3)
+Plots.plot!(p3, svm_x, svm_y; label = "", width = 3)
 Plots.title!("Sensitivity of the separator to data point variations")
