@@ -30,9 +30,9 @@ function test_quad_to_soc()
     x = MOI.add_variables(bridged, 3)
     # We pick orthogonal rows but this is not the `U` that cholesky is going to take in the bridge
     U = [
-        1 -1  1
-        1  2  1
-        1  0 -1.0
+        1 -1 1
+        1 2 1
+        1 0 -1.0
     ]
     a = [1, 2, -3.0]
     b = -5.0
@@ -40,9 +40,9 @@ function test_quad_to_soc()
     f = x' * Q * x / 2.0 + a' * x
     c = MOI.add_constraint(bridged, f, MOI.LessThan(-b))
     dQ = [
-         1 -1 0
-        -1  2 1
-         0  1 3.0
+        1 -1 0
+        -1 2 1
+        0 1 3.0
     ]
     da = [-1, 1.0, -2]
     db = 3.0
@@ -75,24 +75,24 @@ function test_dU_from_dQ()
     _test_dU_from_dQ(U, dU)
     U = [
         -3 5
-         0 2.5
+        0 2.5
     ]
     dU = [
-        2  3.5
+        2 3.5
         0 -2
     ]
     _test_dU_from_dQ(U, dU)
     U = [
         1.5 2 -1
-        0  -1  3.5
-        0   0 -2
+        0 -1 3.5
+        0 0 -2
     ]
     dU = [
-        2.5 -1  2
-        0    5 -3
-        0    0  3
+        2.5 -1 2
+        0 5 -3
+        0 0 3
     ]
-    _test_dU_from_dQ(U, dU)
+    return _test_dU_from_dQ(U, dU)
 end
 
 end

@@ -14,7 +14,7 @@ import HiGHS
     MOI.set(model, MOI.ObjectiveFunction{MOI.VariableIndex}(), x)
 
     MOI.optimize!(model)
-    @test MOI.get(model, MOI.ObjectiveValue()) ≈ 1.0 atol=ATOL rtol=RTOL
+    @test MOI.get(model, MOI.ObjectiveValue()) ≈ 1.0 atol = ATOL rtol = RTOL
 
     MOI.set(model, MOI.ObjectiveSense(), MOI.FEASIBILITY_SENSE)
     MOI.optimize!(model)
@@ -38,20 +38,27 @@ end
     @test_throws ErrorException DiffOpt.reverse_differentiate!(model)
 end
 
-struct TestSolver
-end
+struct TestSolver end
 
 # always use IterativeSolvers
-function DiffOpt.QuadraticProgram.solve_system(::TestSolver, LHS, RHS, iterative::Bool)
-    IterativeSolvers.lsqr(LHS, RHS)
+function DiffOpt.QuadraticProgram.solve_system(
+    ::TestSolver,
+    LHS,
+    RHS,
+    iterative::Bool,
+)
+    return IterativeSolvers.lsqr(LHS, RHS)
 end
 
 @testset "Setting the linear solver in the quadratic solver" begin
     model = DiffOpt.QuadraticProgram.Model()
     @test MOI.supports(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver())
-    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) === nothing
+    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) ===
+          nothing
     MOI.set(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver(), TestSolver())
-    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) == TestSolver()
+    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) ==
+          TestSolver()
     MOI.empty!(model)
-    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) == TestSolver()
+    @test MOI.get(model, DiffOpt.QuadraticProgram.LinearAlgebraSolver()) ==
+          TestSolver()
 end

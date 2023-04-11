@@ -15,7 +15,7 @@ import IterativeSolvers
 import DiffOpt
 
 struct Cache
-    lhs::SparseMatrixCSC{Float64, Int}
+    lhs::SparseMatrixCSC{Float64,Int}
 end
 
 Base.@kwdef struct ForwardReverseCache
@@ -24,15 +24,9 @@ Base.@kwdef struct ForwardReverseCache
     dν::Vector{Float64}
 end
 
-MOI.Utilities.@product_of_sets(
-    Equalities,
-    MOI.EqualTo{T},
-)
+MOI.Utilities.@product_of_sets(Equalities, MOI.EqualTo{T},)
 
-MOI.Utilities.@product_of_sets(
-    Inequalities,
-    MOI.LessThan{T},
-)
+MOI.Utilities.@product_of_sets(Inequalities, MOI.LessThan{T},)
 
 MOI.Utilities.@struct_of_constraints_by_set_types(
     EqualitiesOrInequalities,
@@ -113,7 +107,18 @@ mutable struct Model <: DiffOpt.AbstractModel
     diff_time::Float64
 end
 function Model()
-    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), nothing, Float64[], Float64[], Float64[], NaN)
+    return Model(
+        Form{Float64}(),
+        nothing,
+        nothing,
+        nothing,
+        DiffOpt.InputCache(),
+        nothing,
+        Float64[],
+        Float64[],
+        Float64[],
+        NaN,
+    )
 end
 
 function MOI.is_empty(model::Model)
@@ -135,10 +140,17 @@ end
 
 MOI.get(model::Model, ::DiffOpt.DifferentiateTimeSec) = model.diff_time
 
-const EQ = MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.EqualTo{Float64}}
-const LE = MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.LessThan{Float64}}
+const EQ =
+    MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.EqualTo{Float64}}
+const LE =
+    MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.LessThan{Float64}}
 
-function MOI.set(model::Model, ::MOI.ConstraintPrimalStart, ci::MOI.ConstraintIndex, value)
+function MOI.set(
+    model::Model,
+    ::MOI.ConstraintPrimalStart,
+    ci::MOI.ConstraintIndex,
+    value,
+)
     MOI.throw_if_not_valid(model, ci)
     return # Ignored
 end
@@ -153,27 +165,39 @@ end
 # as in the paper.
 function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::EQ, value)
     MOI.throw_if_not_valid(model, ci)
-    DiffOpt._enlarge_set(model.ν, MOI.Utilities.rows(_equalities(model), ci), -value)
+    return DiffOpt._enlarge_set(
+        model.ν,
+        MOI.Utilities.rows(_equalities(model), ci),
+        -value,
+    )
 end
 
 function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::LE, value)
     MOI.throw_if_not_valid(model, ci)
-    DiffOpt._enlarge_set(model.λ, MOI.Utilities.rows(_inequalities(model), ci), -value)
+    return DiffOpt._enlarge_set(
+        model.λ,
+        MOI.Utilities.rows(_inequalities(model), ci),
+        -value,
+    )
 end
 
 function _gradient_cache(model::Model)
     if model.gradient_cache !== nothing
         return model.gradient_cache
     end
-    A = convert(SparseMatrixCSC{Float64, Int}, _equalities(model).coefficients)
+    A = convert(SparseMatrixCSC{Float64,Int}, _equalities(model).coefficients)
     b = _equalities(model).constants.upper
-    G = convert(SparseMatrixCSC{Float64, Int}, _inequalities(model).coefficients)
+    G = convert(SparseMatrixCSC{Float64,Int}, _inequalities(model).coefficients)
     h = _inequalities(model).constants.upper
 
     nz = size(A, 2)
     # TODO ideally, the objective should be stored in matrix form in `model.model`
-    objective_function = MOI.get(model.model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}())
-    sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, nz)
+    objective_function = MOI.get(
+        model.model,
+        MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(),
+    )
+    sparse_array_obj =
+        DiffOpt.sparse_array_representation(objective_function, nz)
     Q = sparse_array_obj.quadratic_terms
     q = sparse_array_obj.affine_terms
 
@@ -218,7 +242,6 @@ end
 #     end
 # end
 
-
 """
     create_LHS_matrix(z, λ, Q, G, h, A=nothing)
 
@@ -226,25 +249,31 @@ Inverse matrix specified on RHS of eqn(7) in https://arxiv.org/pdf/1703.00443.pd
 
 Helper method while calling `reverse_differentiate!`
 """
-function create_LHS_matrix(z, λ, Q, G, h, A=nothing)::AbstractMatrix{Float64}
+function create_LHS_matrix(z, λ, Q, G, h, A = nothing)::AbstractMatrix{Float64}
     if (A === nothing || size(A)[1] == 0) && (G === nothing || size(G)[1] == 0)
         return Q
     elseif A === nothing || size(A)[1] == 0
-        return [Q         G' * Diagonal(λ);
-                G         Diagonal(G * z - h)]
+        return [
+            Q G'*Diagonal(λ)
+            G Diagonal(G * z - h)
+        ]
     elseif G === nothing || size(G)[1] == 0
         p, n = size(A)
-        return [Q         A';
-                A         spzeros(p, p)]
+        return [
+            Q A'
+            A spzeros(p, p)
+        ]
     else
-        p, n  = size(A)
+        p, n = size(A)
         m, n2 = size(G)
         if n != n2
             throw(DimensionError("Sizes of $A and $G do not match"))
         end
-        return [Q         G' * Diagonal(λ)       A';
-                G         Diagonal(G * z - h)    spzeros(m, p);
-                A         spzeros(p, m)          spzeros(p, p)]
+        return [
+            Q G'*Diagonal(λ) A'
+            G Diagonal(G * z - h) spzeros(m, p)
+            A spzeros(p, m) spzeros(p, p)
+        ]
     end
 end
 # TODO: this is the transpose, check back for usage
@@ -263,7 +292,11 @@ end
 #     end
 # end
 
-function MOI.get(model::Model, ::DiffOpt.ForwardVariablePrimal, vi::MOI.VariableIndex)
+function MOI.get(
+    model::Model,
+    ::DiffOpt.ForwardVariablePrimal,
+    vi::MOI.VariableIndex,
+)
     return model.forw_grad_cache.dz[vi.value]
 end
 
@@ -325,8 +358,12 @@ function DiffOpt.forward_differentiate!(model::Model)
         z = model.x
         nv = length(z)
 
-        objective_function = DiffOpt._convert(MOI.ScalarQuadraticFunction{Float64}, model.input_cache.objective)
-        sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, nv)
+        objective_function = DiffOpt._convert(
+            MOI.ScalarQuadraticFunction{Float64},
+            model.input_cache.objective,
+        )
+        sparse_array_obj =
+            DiffOpt.sparse_array_representation(objective_function, nv)
         dQ = sparse_array_obj.quadratic_terms
         dq = sparse_array_obj.affine_terms
 
@@ -335,22 +372,53 @@ function DiffOpt.forward_differentiate!(model::Model)
         # we should multiply the constant by `-1`. For `GreaterThan`, we needed to
         # multiply by `-1` to transform it to `LessThan` so it cancels out.
         db = zero(model.ν)
-        DiffOpt._fill(isequal(MOI.EqualTo{Float64}), (::Type{MOI.EqualTo{Float64}}) -> true, gradient_cache, model.input_cache, _QPSets(), db)
+        DiffOpt._fill(
+            isequal(MOI.EqualTo{Float64}),
+            (::Type{MOI.EqualTo{Float64}}) -> true,
+            gradient_cache,
+            model.input_cache,
+            _QPSets(),
+            db,
+        )
         dh = zero(model.λ)
-        DiffOpt._fill(!isequal(MOI.EqualTo{Float64}), !isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dh)
+        DiffOpt._fill(
+            !isequal(MOI.EqualTo{Float64}),
+            !isequal(MOI.GreaterThan{Float64}),
+            gradient_cache,
+            model.input_cache,
+            _QPSets(),
+            dh,
+        )
 
         dAi = zeros(Int, 0)
         dAj = zeros(Int, 0)
         dAv = zeros(Float64, 0)
-        DiffOpt._fill(isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dAi, dAj, dAv)
+        DiffOpt._fill(
+            isequal(MOI.EqualTo{Float64}),
+            isequal(MOI.GreaterThan{Float64}),
+            gradient_cache,
+            model.input_cache,
+            _QPSets(),
+            dAi,
+            dAj,
+            dAv,
+        )
         dA = sparse(dAi, dAj, dAv, length(model.ν), nv)
 
         dGi = zeros(Int, 0)
         dGj = zeros(Int, 0)
         dGv = zeros(Float64, 0)
-        DiffOpt._fill(!isequal(MOI.EqualTo{Float64}), isequal(MOI.GreaterThan{Float64}), gradient_cache, model.input_cache, _QPSets(), dGi, dGj, dGv)
+        DiffOpt._fill(
+            !isequal(MOI.EqualTo{Float64}),
+            isequal(MOI.GreaterThan{Float64}),
+            gradient_cache,
+            model.input_cache,
+            _QPSets(),
+            dGi,
+            dGj,
+            dGv,
+        )
         dG = sparse(dGi, dGj, dGv, length(model.λ), nv)
-
 
         λ = model.λ
         ν = model.ν
@@ -419,12 +487,14 @@ function solve_system(::Any, LHS, RHS, iterative)
     end
 end
 # See https://github.com/JuliaLang/julia/issues/32668
-solve_system(::Nothing, LHS, RHS::SparseVector, iterative) = solve_system(nothing, LHS, Vector(RHS), iterative)
+function solve_system(::Nothing, LHS, RHS::SparseVector, iterative)
+    return solve_system(nothing, LHS, Vector(RHS), iterative)
+end
 
 MOI.supports(::Model, ::LinearAlgebraSolver) = true
 MOI.get(model::Model, ::LinearAlgebraSolver) = model.linear_solver
 function MOI.set(model::Model, ::LinearAlgebraSolver, linear_solver)
-    model.linear_solver = linear_solver
+    return model.linear_solver = linear_solver
 end
 
 end

@@ -12,7 +12,7 @@
 const MOIDD = MOI.Utilities.DoubleDicts
 
 Base.@kwdef mutable struct InputCache
-    dx::Dict{VI, Float64} = Dict{VI, Float64}()# dz for QP
+    dx::Dict{VI,Float64} = Dict{VI,Float64}()# dz for QP
     # ds
     # dy #= [d\lambda, d\nu] for QP
     # FIXME Would it be possible to have a DoubleDict where the value depends
@@ -20,8 +20,10 @@ Base.@kwdef mutable struct InputCache
     #       concrete value types.
     # `scalar_constraints` and `vector_constraints` includes `A` and `b` for CPs
     # or `G` and `h` for QPs
-    scalar_constraints::MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}} = MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}}() # also includes G for QPs
-    vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} = MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}}() # also includes G for QPs
+    scalar_constraints::MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}} =
+        MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}}() # also includes G for QPs
+    vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} =
+        MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}}() # also includes G for QPs
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
 end
 
@@ -90,7 +92,6 @@ Note that we use `-5` as the `ForwardConstraintFunction` sets the tangent of the
 ConstraintFunction so we consider the expression `θ * (x + 2y - 5)`.
 """
 struct ForwardConstraintFunction <: MOI.AbstractConstraintAttribute end
-
 
 """
     ForwardVariablePrimal <: MOI.AbstractVariableAttribute
@@ -195,7 +196,9 @@ abstract type AbstractModel <: MOI.ModelLike end
 
 MOI.supports_incremental_interface(::AbstractModel) = true
 
-MOI.is_valid(model::AbstractModel, idx::MOI.Index) = MOI.is_valid(model.model, idx)
+function MOI.is_valid(model::AbstractModel, idx::MOI.Index)
+    return MOI.is_valid(model.model, idx)
+end
 
 function MOI.add_variable(model::AbstractModel)
     return MOI.add_variable(model.model)
@@ -211,18 +214,31 @@ function MOI.Utilities.pass_nonvariable_constraints(
     idxmap::MOIU.IndexMap,
     constraint_types,
 )
-    MOI.Utilities.pass_nonvariable_constraints(dest.model, src, idxmap, constraint_types)
+    return MOI.Utilities.pass_nonvariable_constraints(
+        dest.model,
+        src,
+        idxmap,
+        constraint_types,
+    )
 end
 
 function MOI.Utilities.final_touch(model::AbstractModel, index_map)
-    MOI.Utilities.final_touch(model.model, index_map)
+    return MOI.Utilities.final_touch(model.model, index_map)
 end
 
-function MOI.supports_constraint(model::AbstractModel, ::Type{F}, ::Type{S}) where {F<:MOI.AbstractFunction, S<:MOI.AbstractSet}
+function MOI.supports_constraint(
+    model::AbstractModel,
+    ::Type{F},
+    ::Type{S},
+) where {F<:MOI.AbstractFunction,S<:MOI.AbstractSet}
     return MOI.supports_constraint(model.model, F, S)
 end
 
-function MOI.add_constraint(model::AbstractModel, func::MOI.AbstractFunction, set::MOI.AbstractSet)
+function MOI.add_constraint(
+    model::AbstractModel,
+    func::MOI.AbstractFunction,
+    set::MOI.AbstractSet,
+)
     return MOI.add_constraint(model.model, func, set)
 end
 
@@ -237,9 +253,14 @@ function _enlarge_set(vec::Vector, idx, value)
     return
 end
 
-function MOI.set(model::AbstractModel, ::MOI.VariablePrimalStart, vi::MOI.VariableIndex, value)
+function MOI.set(
+    model::AbstractModel,
+    ::MOI.VariablePrimalStart,
+    vi::MOI.VariableIndex,
+    value,
+)
     MOI.throw_if_not_valid(model, vi)
-    _enlarge_set(model.x, vi.value, value)
+    return _enlarge_set(model.x, vi.value, value)
 end
 
 function MOI.set(model::AbstractModel, ::ForwardObjectiveFunction, objective)
@@ -250,7 +271,8 @@ function MOI.set(model::AbstractModel, ::ReverseVariablePrimal, vi::VI, val)
     model.input_cache.dx[vi] = val
     return
 end
-function MOI.set(model::AbstractModel,
+function MOI.set(
+    model::AbstractModel,
     ::ForwardConstraintFunction,
     ci::CI{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
@@ -258,7 +280,8 @@ function MOI.set(model::AbstractModel,
     model.input_cache.scalar_constraints[ci] = func
     return
 end
-function MOI.set(model::AbstractModel,
+function MOI.set(
+    model::AbstractModel,
     ::ForwardConstraintFunction,
     ci::CI{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
@@ -275,17 +298,38 @@ function lazy_combination(op::F, α, a, β, b) where {F<:Function}
     )
 end
 
-function lazy_combination(op::F, α, a, β, b, I::AbstractUnitRange) where {F<:Function}
+function lazy_combination(
+    op::F,
+    α,
+    a,
+    β,
+    b,
+    I::AbstractUnitRange,
+) where {F<:Function}
     return lazy_combination(op, α, view(a, I), β, view(b, I))
 end
-function lazy_combination(op::F, a, b, i::Integer, args::Vararg{Any,N}) where {F<:Function,N}
+function lazy_combination(
+    op::F,
+    a,
+    b,
+    i::Integer,
+    args::Vararg{Any,N},
+) where {F<:Function,N}
     return lazy_combination(op, a[i], b, b[i], a, args...)
 end
-function lazy_combination(op::F, a, b, i::AbstractUnitRange, I::AbstractUnitRange) where {F<:Function}
+function lazy_combination(
+    op::F,
+    a,
+    b,
+    i::AbstractUnitRange,
+    I::AbstractUnitRange,
+) where {F<:Function}
     return lazy_combination(op, view(a, i), b, view(b, i), a, I)
 end
 
-_lazy_affine(vector, constant::Number) = VectorScalarAffineFunction(vector, constant)
+function _lazy_affine(vector, constant::Number)
+    return VectorScalarAffineFunction(vector, constant)
+end
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
 function _get_db end
 function _get_dA end
@@ -301,16 +345,15 @@ of length equal to the number of rows in the conic form onto the cartesian
 product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function π(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets) where T
+function π(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets) where {T}
     return map_rows(model, cones, Flattened{T}()) do ci, r
-        MOSD.projection_on_set(
+        return MOSD.projection_on_set(
             MOSD.DefaultDistance(),
             v[r],
-            MOI.dual_set(MOI.get(model, MOI.ConstraintSet(), ci))
+            MOI.dual_set(MOI.get(model, MOI.ConstraintSet(), ci)),
         )
     end
 end
-
 
 """
     Dπ(v::Vector{Float64}, model, cones::ProductOfSets)
@@ -320,15 +363,15 @@ the vectors `v` of length equal to the number of rows in the conic form onto the
 cartesian product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function Dπ(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets) where T
+function Dπ(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets) where {T}
     return BlockDiagonals.BlockDiagonal(
         map_rows(model, cones, Nested{Matrix{T}}()) do ci, r
-            MOSD.projection_gradient_on_set(
+            return MOSD.projection_gradient_on_set(
                 MOSD.DefaultDistance(),
                 v[r],
                 MOI.dual_set(MOI.get(model, MOI.ConstraintSet(), ci)),
             )
-        end
+        end,
     )
 end
 
@@ -339,15 +382,24 @@ struct Flattened{T} end
 # Store in `x` the values `y` corresponding to the rows `r` and the `k`th
 # constraint.
 function _assign_mapped!(x, y, r, k, ::Nested)
-    x[k] = y
+    return x[k] = y
 end
 function _assign_mapped!(x, y, r, k, ::Flattened)
-    x[r] = y
+    return x[r] = y
 end
 
 # Map the rows corresponding to `F`-in-`S` constraints and store it in `x`.
-function _map_rows!(f::Function, x::Vector, model, cones::ProductOfSets, ::Type{F}, ::Type{S}, map_mode, k) where {F, S}
-    for ci in MOI.get(model, MOI.ListOfConstraintIndices{F, S}())
+function _map_rows!(
+    f::Function,
+    x::Vector,
+    model,
+    cones::ProductOfSets,
+    ::Type{F},
+    ::Type{S},
+    map_mode,
+    k,
+) where {F,S}
+    for ci in MOI.get(model, MOI.ListOfConstraintIndices{F,S}())
         r = MOI.Utilities.rows(cones, ci)
         k += 1
         _assign_mapped!(x, f(ci, r), r, k, map_mode)
@@ -356,8 +408,12 @@ function _map_rows!(f::Function, x::Vector, model, cones::ProductOfSets, ::Type{
 end
 
 # Allocate a vector for storing the output of `map_rows`.
-_allocate_rows(cones, ::Nested{T}) where {T} = Vector{T}(undef, length(cones.dimension))
-_allocate_rows(cones, ::Flattened{T}) where {T} = Vector{T}(undef, MOI.dimension(cones))
+function _allocate_rows(cones, ::Nested{T}) where {T}
+    return Vector{T}(undef, length(cones.dimension))
+end
+function _allocate_rows(cones, ::Flattened{T}) where {T}
+    return Vector{T}(undef, MOI.dimension(cones))
+end
 
 """
     map_rows(f::Function, model, cones::ProductOfSets, map_mode::Union{Nested{T}, Flattened{T}})
@@ -369,7 +425,12 @@ to each cone is equal to `f(ci, r)` where `ci` is the corresponding constraint
 index in `model` and `r` is a `UnitRange` of the corresponding rows in the conic
 form.
 """
-function map_rows(f::Function, model, cones::ProductOfSets, map_mode::Union{Nested, Flattened})
+function map_rows(
+    f::Function,
+    model,
+    cones::ProductOfSets,
+    map_mode::Union{Nested,Flattened},
+)
     x = _allocate_rows(cones, map_mode)
     k = 0
     for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
@@ -385,15 +446,22 @@ function map_rows(f::Function, model, cones::ProductOfSets, map_mode::Union{Nest
 end
 
 function _fill(neg::Function, gradient_cache, input_cache, cones, args...)
-    _fill(S -> true, neg, gradient_cache, input_cache, cones, args...)
+    return _fill(S -> true, neg, gradient_cache, input_cache, cones, args...)
 end
-function _fill(filter::Function, neg::Function, gradient_cache, input_cache, cones, args...)
+function _fill(
+    filter::Function,
+    neg::Function,
+    gradient_cache,
+    input_cache,
+    cones,
+    args...,
+)
     for (F, S) in keys(input_cache.scalar_constraints.dict)
         filter(S) || continue
-        _fill(args..., neg(S), cones, input_cache.scalar_constraints[F,S])
+        _fill(args..., neg(S), cones, input_cache.scalar_constraints[F, S])
     end
     for (F, S) in keys(input_cache.vector_constraints.dict)
-        _fill(args..., neg(S), cones, input_cache.vector_constraints[F,S])
+        _fill(args..., neg(S), cones, input_cache.vector_constraints[F, S])
     end
     return
 end
@@ -412,22 +480,35 @@ function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, cones, dict)
         end
     end
 end
-function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::Integer, term::MOI.ScalarAffineTerm)
+function _push_term(
+    I::Vector,
+    J::Vector,
+    V::Vector,
+    neg::Bool,
+    r::Integer,
+    term::MOI.ScalarAffineTerm,
+)
     push!(I, r)
     push!(J, term.variable.value)
-    push!(V, neg ? -term.coefficient : term.coefficient)
+    return push!(V, neg ? -term.coefficient : term.coefficient)
 end
-function _push_term(I::Vector, J::Vector, V::Vector, neg::Bool, r::AbstractUnitRange, term::MOI.VectorAffineTerm)
-    _push_term(I, J, V, neg, r[term.output_index], term.scalar_term)
+function _push_term(
+    I::Vector,
+    J::Vector,
+    V::Vector,
+    neg::Bool,
+    r::AbstractUnitRange,
+    term::MOI.VectorAffineTerm,
+)
+    return _push_term(I, J, V, neg, r[term.output_index], term.scalar_term)
 end
-
 
 function MOI.supports(model::AbstractModel, attr::MOI.AbstractModelAttribute)
     return MOI.supports(model.model, attr)
 end
 
 function MOI.set(model::AbstractModel, attr::MOI.AbstractModelAttribute, value)
-    MOI.set(model.model, attr, value)
+    return MOI.set(model.model, attr, value)
 end
 
 function MOI.get(model::AbstractModel, attr::MOI.AbstractModelAttribute)

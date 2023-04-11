@@ -106,19 +106,26 @@ function qp_test(
         cle = MOI.add_constraint.(model, -G * v, MOI.GreaterThan.(-h))
     end
     if !iszero(nub)
-        cub = MOI.add_constraint.(model, v[ub_indices], MOI.LessThan.(ub_values))
+        cub =
+            MOI.add_constraint.(model, v[ub_indices], MOI.LessThan.(ub_values))
         G = vcat(G, sparse(1:nub, ub_indices, ones(nub), nub, n))
         h = vcat(h, ub_values)
     end
     if !iszero(nlb)
-        clb = MOI.add_constraint.(model, v[lb_indices], MOI.GreaterThan.(lb_values))
+        clb =
+            MOI.add_constraint.(
+                model,
+                v[lb_indices],
+                MOI.GreaterThan.(lb_values),
+            )
         G = vcat(G, sparse(1:nlb, lb_indices, -ones(nlb), nlb, n))
         h = vcat(h, -lb_values)
     end
 
     ceq = MOI.add_constraint.(model, A * v, MOI.EqualTo.(b))
     if !iszero(nfix)
-        cfix = MOI.add_constraint.(model, v[fix_indices], MOI.EqualTo.(fix_values))
+        cfix =
+            MOI.add_constraint.(model, v[fix_indices], MOI.EqualTo.(fix_values))
         A = vcat(A, sparse(1:nfix, fix_indices, ones(nfix), nfix, n))
         b = vcat(b, fix_values)
     end
@@ -127,7 +134,7 @@ function qp_test(
     if iszero(Q)
         obj = q ⋅ v
     else
-        obj = dot(v, Q/2, v) + dot(q, v)
+        obj = dot(v, Q / 2, v) + dot(q, v)
     end
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
 
@@ -176,21 +183,42 @@ function qp_test(
         # FIXME should multiply by -1 if lt is false
         funcs = MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cle)
         if !iszero(nub)
-            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cub))
+            funcs = vcat(
+                funcs,
+                MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cub),
+            )
         end
         if !iszero(nlb)
             # FIXME should multiply by -1
-            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintFunction(), clb))
+            funcs = vcat(
+                funcs,
+                MOI.get.(model, DiffOpt.ReverseConstraintFunction(), clb),
+            )
         end
         @_test(convert(Vector{Float64}, _sign(MOI.constant.(funcs), true)), dhb)
-        @_test(Float64[_sign(JuMP.coefficient(funcs[i], vi), false) for i in eachindex(funcs), vi in v], dGb)
+        @_test(
+            Float64[
+                _sign(JuMP.coefficient(funcs[i], vi), false) for
+                i in eachindex(funcs), vi in v
+            ],
+            dGb
+        )
 
         funcs = MOI.get.(model, DiffOpt.ReverseConstraintFunction(), ceq)
         if !iszero(nfix)
-            funcs = vcat(funcs, MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cfix))
+            funcs = vcat(
+                funcs,
+                MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cfix),
+            )
         end
         @_test(convert(Vector{Float64}, -MOI.constant.(funcs)), dbb)
-        @_test(Float64[JuMP.coefficient(funcs[i], vi) for i in eachindex(funcs), vi in v], dAb)
+        @_test(
+            Float64[
+                JuMP.coefficient(funcs[i], vi) for i in eachindex(funcs),
+                vi in v
+            ],
+            dAb
+        )
     end
 
     # Test against [AK17, eq. (8)]
@@ -224,7 +252,12 @@ function qp_test(
             func = dlef[j]
             canonicalize && MOI.Utilities.canonicalize!(func)
             if set_zero || !MOI.iszero(dlef[j])
-                MOI.set(model, DiffOpt.ForwardConstraintFunction(), jc, _sign(func, false))
+                MOI.set(
+                    model,
+                    DiffOpt.ForwardConstraintFunction(),
+                    jc,
+                    _sign(func, false),
+                )
             end
         end
         for (j, jc) in enumerate(ceq)
@@ -240,7 +273,12 @@ function qp_test(
                 canonicalize && MOI.Utilities.canonicalize!(func)
                 if set_zero || !MOI.iszero(func)
                     # TODO FIXME should work if we drop support for `VariableIndex` and we let the Functionize bridge do the work
-                    @test_throws MOI.UnsupportedAttribute MOI.set(model, DiffOpt.ForwardConstraintFunction(), jc, func)
+                    @test_throws MOI.UnsupportedAttribute MOI.set(
+                        model,
+                        DiffOpt.ForwardConstraintFunction(),
+                        jc,
+                        func,
+                    )
                 end
             end
         end
@@ -274,26 +312,42 @@ function qp_test(
     # 3) the problem data (here we made it so that they are the same for the forward
     #    and backward pass but we could have picked any other dQ, dq, ... for the forward pass
     #    and we would still have pprod = ∇prod = dprod
-    pprod = dQf ⋅ dQb + dqf ⋅ dqb + dGf ⋅ dGb + dhf ⋅ dhb + dAf ⋅ dAb + dbf ⋅ dbb
+    pprod =
+        dQf ⋅ dQb + dqf ⋅ dqb + dGf ⋅ dGb + dhf ⋅ dhb + dAf ⋅ dAb + dbf ⋅ dbb
     @test pprod ≈ pprod atol = ATOL rtol = RTOL
 end
 
 function qp_test(solver, lt, set_zero, canonicalize; kws...)
-    @testset "With $diff_model" for diff_model in [DiffOpt.ConicProgram.Model, DiffOpt.QuadraticProgram.Model]
+    @testset "With $diff_model" for diff_model in [
+        DiffOpt.ConicProgram.Model,
+        DiffOpt.QuadraticProgram.Model,
+    ]
         qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
     end
 end
 
 function qp_test(solver; kws...)
-    @testset "With $(lt ? "LessThan" : "GreaterThan") constraints" for lt in [true, false]
-        @testset "With$(set_zero ? "" : "out") setting zero tangents" for set_zero in [true, false]
-            @testset "With$(canonicalize ? "" : "out") canonicalization" for canonicalize in [true, false]
+    @testset "With $(lt ? "LessThan" : "GreaterThan") constraints" for lt in [
+        true,
+        false,
+    ]
+        @testset "With$(set_zero ? "" : "out") setting zero tangents" for set_zero in
+                                                                          [
+            true,
+            false,
+        ]
+            @testset "With$(canonicalize ? "" : "out") canonicalization" for canonicalize in
+                                                                             [
+                true,
+                false,
+            ]
             end
         end
     end
 end
 
-function qp_test_with_solutions(solver;
+function qp_test_with_solutions(
+    solver;
     dzb = nothing,
     n = length(dzb),
     q = nothing,
@@ -319,10 +373,11 @@ function qp_test_with_solutions(solver;
     dbf = zeros(neq + nfix),
     A = zeros(0, n),
     dAf = zeros(neq + nfix, n),
-    kws...
+    kws...,
 )
     @testset "Without known solutions" begin
-        qp_test(solver;
+        qp_test(
+            solver;
             dzb = dzb,
             q = q,
             dqf = dqf,
@@ -345,7 +400,8 @@ function qp_test_with_solutions(solver;
         )
     end
     @testset "With known solutions" begin
-        qp_test(solver;
+        qp_test(
+            solver;
             dzb = dzb,
             q = q,
             dqf = dqf,

@@ -31,7 +31,7 @@ Random.seed!(42)
 # ## The Polytope representation and its derivative
 
 struct Polytope{N}
-    w::NTuple{N, Vector{Float64}}
+    w::NTuple{N,Vector{Float64}}
     b::Vector{Float64}
 end
 
@@ -41,13 +41,14 @@ Polytope(w::NTuple{N}) where {N} = Polytope{N}(w, randn(N))
 # Calling the polytope with a matrix `y` operates an Euclidean projection of this matrix onto the polytope.
 function (polytope::Polytope{N})(
     y::AbstractMatrix;
-    model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer)),
 ) where {N}
     layer_size, batch_size = size(y)
     empty!(model)
     set_silent(model)
     @variable(model, x[1:layer_size, 1:batch_size])
-    @constraint(model,
+    @constraint(
+        model,
         greater_than_cons[idx in 1:N, sample in 1:batch_size],
         dot(polytope.w[idx], x[:, sample]) ≥ polytope.b[idx]
     )
@@ -67,7 +68,10 @@ Flux.@functor Polytope
 # which is used to represent derivatives with respect to structs.
 # For more details about backpropagation, visit [Introduction, ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/dev/).
 
-function ChainRulesCore.rrule(polytope::Polytope{N}, y::AbstractMatrix) where {N}
+function ChainRulesCore.rrule(
+    polytope::Polytope{N},
+    y::AbstractMatrix,
+) where {N}
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     xv = polytope(y; model = model)
     function pullback_matrix_projection(dl_dx)
@@ -89,11 +93,14 @@ function ChainRulesCore.rrule(polytope::Polytope{N}, y::AbstractMatrix) where {N
         dl_dy .= -2 * JuMP.coefficient.(obj_expr, x)
         greater_than_cons = model[:greater_than_cons]
         for idx in 1:N, sample in 1:batch_size
-            cons_expr = MOI.get(model,
+            cons_expr = MOI.get(
+                model,
                 DiffOpt.ReverseConstraintFunction(),
-                greater_than_cons[idx, sample])
-            dl_db[idx] -= JuMP.constant(cons_expr)/batch_size
-            dl_dw[idx] .+= JuMP.coefficient.(cons_expr, x[:,sample])/batch_size
+                greater_than_cons[idx, sample],
+            )
+            dl_db[idx] -= JuMP.constant(cons_expr) / batch_size
+            dl_dw[idx] .+=
+                JuMP.coefficient.(cons_expr, x[:, sample]) / batch_size
         end
         dself = ChainRulesCore.Tangent{Polytope{N}}(; w = dl_dw, b = dl_db)
         return (dself, dl_dy)
@@ -141,7 +148,13 @@ evalcb = () -> @show(custom_loss(train_X, train_Y))
 
 # Train to optimize network parameters
 
-@time Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));
+@time Flux.train!(
+    custom_loss,
+    Flux.params(m),
+    dataset,
+    opt,
+    cb = Flux.throttle(evalcb, 5),
+);
 
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.

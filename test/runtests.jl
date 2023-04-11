@@ -58,12 +58,27 @@ end
         include(joinpath(@__DIR__, "../docs/src/examples/custom-relu.jl")) # needs downloads
     end
     @testset "matrix-inversion-manual" begin
-       include(joinpath(@__DIR__, "../docs/src/examples/matrix-inversion-manual.jl"))
+        include(
+            joinpath(
+                @__DIR__,
+                "../docs/src/examples/matrix-inversion-manual.jl",
+            ),
+        )
     end
     @testset "sensitivity-analysis-ridge" begin
-        include(joinpath(@__DIR__, "../docs/src/examples/sensitivity-analysis-ridge.jl"))
+        include(
+            joinpath(
+                @__DIR__,
+                "../docs/src/examples/sensitivity-analysis-ridge.jl",
+            ),
+        )
     end
     @testset "sensitivity-analysis-svm" begin
-        include(joinpath(@__DIR__, "../docs/src/examples/sensitivity-analysis-svm.jl"))
+        include(
+            joinpath(
+                @__DIR__,
+                "../docs/src/examples/sensitivity-analysis-svm.jl",
+            ),
+        )
     end
 end

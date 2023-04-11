@@ -28,7 +28,6 @@
 # \end{split}
 # ```
 
-
 # This tutorial uses the following packages
 
 using JuMP
@@ -65,21 +64,16 @@ function fit_ridge(X, Y, alpha = 0.1)
     @variable(model, w) # angular coefficient
     @variable(model, b) # linear coefficient
     ## expression defining approximation error
-    @expression(model, e[i=1:N], Y[i] - w * X[i] - b)
+    @expression(model, e[i = 1:N], Y[i] - w * X[i] - b)
     ## objective minimizing squared error and ridge penalty
-    @objective(
-        model,
-        Min,
-        1 / N * dot(e, e) + alpha * (w^2),
-    )
+    @objective(model, Min, 1 / N * dot(e, e) + alpha * (w^2),)
     optimize!(model)
     return model, w, b # return model & variables
 end
 
-
 # Plot the data points and the fitted line for different alpha values
 
-p = Plots.scatter(X, Y, label=nothing, legend=:topleft)
+p = Plots.scatter(X, Y, label = nothing, legend = :topleft)
 mi, ma = minimum(X), maximum(X)
 Plots.title!("Fitted lines and points")
 
@@ -87,7 +81,13 @@ for alpha in 0.5:0.5:1.5
     local model, w, b = fit_ridge(X, Y, alpha)
     ŵ = value(w)
     b̂ = value(b)
-    Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], label="alpha=$alpha", width=2)
+    Plots.plot!(
+        p,
+        [mi, ma],
+        [mi * ŵ + b̂, ma * ŵ + b̂],
+        label = "alpha=$alpha",
+        width = 2,
+    )
 end
 p
 
@@ -121,49 +121,51 @@ for i in 1:N
     MOI.set(
         model,
         DiffOpt.ForwardObjectiveFunction(),
-        2w^2 * X[i] + 2b * w - 2 * w * Y[i]
+        2w^2 * X[i] + 2b * w - 2 * w * Y[i],
     )
     DiffOpt.forward_differentiate!(model)
-    ∇x[i] = MOI.get(
-        model,
-        DiffOpt.ForwardVariablePrimal(),
-        w
-    )
-    MOI.set(
-        model,
-        DiffOpt.ForwardObjectiveFunction(),
-        (2Y[i] - 2b - 2w * X[i]),
-    )
+    ∇x[i] = MOI.get(model, DiffOpt.ForwardVariablePrimal(), w)
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), (2Y[i] - 2b - 2w * X[i]))
     DiffOpt.forward_differentiate!(model)
-    ∇y[i] = MOI.get(
-        model,
-        DiffOpt.ForwardVariablePrimal(),
-        w
-    )
+    ∇y[i] = MOI.get(model, DiffOpt.ForwardVariablePrimal(), w)
 end
 
 # Visualize point sensitivities with respect to regression points.
 
 p = Plots.scatter(
-    X, Y,
+    X,
+    Y,
     color = [dw < 0 ? :blue : :red for dw in ∇x],
     markersize = [5 * abs(dw) + 1.2 for dw in ∇x],
-    label = ""
+    label = "",
 )
 mi, ma = minimum(X), maximum(X)
-Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :blue, label = "")
+Plots.plot!(
+    p,
+    [mi, ma],
+    [mi * ŵ + b̂, ma * ŵ + b̂],
+    color = :blue,
+    label = "",
+)
 Plots.title!("Regression slope sensitivity with respect to x")
 
 #
 
 p = Plots.scatter(
-    X, Y,
+    X,
+    Y,
     color = [dw < 0 ? :blue : :red for dw in ∇y],
     markersize = [5 * abs(dw) + 1.2 for dw in ∇y],
-    label = ""
+    label = "",
 )
 mi, ma = minimum(X), maximum(X)
-Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂], color = :blue, label = "")
+Plots.plot!(
+    p,
+    [mi, ma],
+    [mi * ŵ + b̂, ma * ŵ + b̂],
+    color = :blue,
+    label = "",
+)
 Plots.title!("Regression slope sensitivity with respect to y")
 
 # Note the points with less central `x` values induce a greater y sensitivity of the slope.
