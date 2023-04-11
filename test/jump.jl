@@ -471,12 +471,7 @@ function test_differentiating_simple_socp()
 end
 
 function test_sensitivity_index_issue()
-    function DiffOptModel()
-        model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
-        MOI.set(model, DiffOpt.ProgramClass(), DiffOpt.QUADRATIC)
-        return model
-    end
-    testModel = Model(() -> DiffOptModel())
+    testModel = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     #Variables
     @variable(testModel, v[i in 1:1])
     @variable(testModel, u[i in 1:1])
@@ -560,18 +555,17 @@ function test_sensitivity_index_issue()
         JuMP.value.(testModel[:a])
     ]
     Q = zeros(6, 6)
-    D_lambda = diagm(lambda)
-    D_Gz_h = diagm(G * z - h)
-
+    D_lambda = LinearAlgebra.diagm(lambda)
+    D_Gz_h = LinearAlgebra.diagm(G * z - h)
     KKT = [
         Q (G') (A')
-        diagm(lambda)*G diagm(G * z - h) zeros(11, 2)
+        D_lambda*G LinearAlgebra.diagm(G * z - h) zeros(11, 2)
         A zeros(2, 11) zeros(2, 2)
     ]
     rhsKKT = [
         zeros(6, 11) zeros(6, 2)
-        diagm(lambda) zeros(11, 2)
-        zeros(2, 11) diagm(ones(2))
+        D_lambda zeros(11, 2)
+        zeros(2, 11) LinearAlgebra.diagm(ones(2))
     ]
     derivativeKKT =
         hcat([DiffOpt.lsqr(KKT, rhsKKT[:, i]) for i in 1:size(rhsKKT)[2]]...)
