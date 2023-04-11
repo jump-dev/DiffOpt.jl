@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Custom ReLU layer · DiffOpt.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">DiffOpt.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../intro/">Introduction</a></li><li><a class="tocitem" href="../../manual/">Manual</a></li><li><a class="tocitem" href="../../usage/">Usage</a></li><li><a class="tocitem" href="../../reference/">Reference</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../autotuning-ridge/">Auto-tuning Hyperparameters</a></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li class="is-active"><a class="tocitem" href>Custom ReLU layer</a><ul class="internal"><li><a class="tocitem" href="#The-ReLU-and-its-derivative"><span>The ReLU and its derivative</span></a></li><li><a class="tocitem" href="#Define-the-network"><span>Define the network</span></a></li><li><a class="tocitem" href="#Prepare-data"><span>Prepare data</span></a></li><li><a class="tocitem" href="#Network-training"><span>Network training</span></a></li><li><a class="tocitem" href="#Accuracy-results"><span>Accuracy results</span></a></li></ul></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../polyhedral_project/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm/">Sensitivity Analysis of SVM</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Custom ReLU layer</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Custom ReLU layer</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/jump-dev/DiffOpt.jl/blob/master/docs/src/examples/custom-relu.jl" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Custom-ReLU-layer"><a class="docs-heading-anchor" href="#Custom-ReLU-layer">Custom ReLU layer</a><a id="Custom-ReLU-layer-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-ReLU-layer" title="Permalink"></a></h1><p><a href="https://github.com/jump-dev/DiffOpt.jl/blob/master/docs/src/examples/custom-relu.jl"><img src="https://img.shields.io/badge/show-github-579ACA.svg" alt/></a></p><p>We demonstrate how DiffOpt can be used to generate a simple neural network unit - the ReLU layer. A neural network is created using Flux.jl and trained on the MNIST dataset.</p><p>This tutorial uses the following packages</p><pre><code class="language-julia hljs">using JuMP
+import DiffOpt
+import Ipopt
+import ChainRulesCore
+import Flux
+import MLDatasets
+import Statistics
+import Base.Iterators: repeated
+using LinearAlgebra</code></pre><h2 id="The-ReLU-and-its-derivative"><a class="docs-heading-anchor" href="#The-ReLU-and-its-derivative">The ReLU and its derivative</a><a id="The-ReLU-and-its-derivative-1"></a><a class="docs-heading-anchor-permalink" href="#The-ReLU-and-its-derivative" title="Permalink"></a></h2><p>Define a relu through an optimization problem solved by a quadratic solver. Return the solution of the problem.</p><pre><code class="language-julia hljs">function matrix_relu(
+    y::Matrix;
+    model = Model(() -&gt; DiffOpt.diff_optimizer(Ipopt.Optimizer)),
+)
+    layer_size, batch_size = size(y)
+    empty!(model)
+    set_silent(model)
+    @variable(model, x[1:layer_size, 1:batch_size] &gt;= 0)
+    @objective(model, Min, x[:]&#39;x[:] - 2y[:]&#39;x[:])
+    optimize!(model)
+    return value.(x)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">matrix_relu (generic function with 1 method)</code></pre><p>Define the reverse differentiation rule, for the function we defined above.</p><pre><code class="language-julia hljs">function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where {T}
+    model = Model(() -&gt; DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    pv = matrix_relu(y; model = model)
+    function pullback_matrix_relu(dl_dx)
+        # some value from the backpropagation (e.g., loss) is denoted by `l`
+        # so `dl_dy` is the derivative of `l` wrt `y`
+        x = model[:x] # load decision variable `x` into scope
+        dl_dy = zeros(T, size(dl_dx))
+        dl_dq = zeros(T, size(dl_dx))
+        # set sensitivities
+        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x[:], dl_dx[:])
+        # compute grad
+        DiffOpt.reverse_differentiate!(model)
+        # return gradient wrt objective function parameters
+        obj_exp = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
+        # coeff of `x` in q&#39;x = -2y&#39;x
+        dl_dq[:] .= JuMP.coefficient.(obj_exp, x[:])
+        dq_dy = -2 # dq/dy = -2
+        dl_dy[:] .= dl_dq[:] * dq_dy
+        return (ChainRulesCore.NoTangent(), dl_dy)
+    end
+    return pv, pullback_matrix_relu
+end</code></pre><p>For more details about backpropagation, visit <a href="https://juliadiff.org/ChainRulesCore.jl/dev/">Introduction, ChainRulesCore.jl</a>.</p><h2 id="Define-the-network"><a class="docs-heading-anchor" href="#Define-the-network">Define the network</a><a id="Define-the-network-1"></a><a class="docs-heading-anchor-permalink" href="#Define-the-network" title="Permalink"></a></h2><pre><code class="language-julia hljs">layer_size = 10
+m = Flux.Chain(
+    Flux.Dense(784, layer_size), # 784 being image linear dimension (28 x 28)
+    matrix_relu,
+    Flux.Dense(layer_size, 10), # 10 being the number of outcomes (0 to 9)
+    Flux.softmax,
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Chain(
+  Dense(784 =&gt; 10),                     # 7_850 parameters
+  Main.var&quot;Main&quot;.matrix_relu,
+  Dense(10 =&gt; 10),                      # 110 parameters
+  NNlib.softmax,
+)                   # Total: 4 arrays, 7_960 parameters, 31.344 KiB.</code></pre><h2 id="Prepare-data"><a class="docs-heading-anchor" href="#Prepare-data">Prepare data</a><a id="Prepare-data-1"></a><a class="docs-heading-anchor-permalink" href="#Prepare-data" title="Permalink"></a></h2><pre><code class="language-julia hljs">N = 1000 # batch size
+# Preprocessing train data
+imgs = MLDatasets.MNIST.traintensor(1:N)
+labels = MLDatasets.MNIST.trainlabels(1:N)
+train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), N)) # stack images
+train_Y = Flux.onehotbatch(labels, 0:9);
+# Preprocessing test data
+test_imgs = MLDatasets.MNIST.testtensor(1:N)
+test_labels = MLDatasets.MNIST.testlabels(1:N)
+test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), N))
+test_Y = Flux.onehotbatch(test_labels, 0:9);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: MNIST.traintensor() is deprecated, use `MNIST(split=:train).features` instead.
+└ @ MLDatasets ~/.julia/packages/MLDatasets/bg0uc/src/datasets/vision/mnist.jl:157
+┌ Warning: MNIST.trainlabels() is deprecated, use `MNIST(split=:train).targets` instead.
+└ @ MLDatasets ~/.julia/packages/MLDatasets/bg0uc/src/datasets/vision/mnist.jl:173
+┌ Warning: MNIST.testtensor() is deprecated, use `MNIST(split=:test).features` instead.
+└ @ MLDatasets ~/.julia/packages/MLDatasets/bg0uc/src/datasets/vision/mnist.jl:165
+┌ Warning: MNIST.testlabels() is deprecated, use `MNIST(split=:test).targets` instead.
+└ @ MLDatasets ~/.julia/packages/MLDatasets/bg0uc/src/datasets/vision/mnist.jl:180</code></pre><p>Define input data The original data is repeated <code>epochs</code> times because <code>Flux.train!</code> only loops through the data set once</p><pre><code class="language-julia hljs">epochs = 50 # ~1 minute (i7 8th gen with 16gb RAM)
+# epochs = 100 # leads to 77.8% in about 2 minutes
+dataset = repeated((train_X, train_Y), epochs);</code></pre><h2 id="Network-training"><a class="docs-heading-anchor" href="#Network-training">Network training</a><a id="Network-training-1"></a><a class="docs-heading-anchor-permalink" href="#Network-training" title="Permalink"></a></h2><p>training loss function, Flux optimizer</p><pre><code class="language-julia hljs">custom_loss(x, y) = Flux.crossentropy(m(x), y)
+opt = Flux.Adam()
+evalcb = () -&gt; @show(custom_loss(train_X, train_Y))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">#11 (generic function with 1 method)</code></pre><p>Train to optimize network parameters</p><pre><code class="language-julia hljs">@time Flux.train!(
+    custom_loss,
+    Flux.params(m),
+    dataset,
+    opt,
+    cb = Flux.throttle(evalcb, 5),
+);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Layer with Float32 parameters got Float64 input.
+│   The input will be converted, but any earlier layers may be very slow.
+│   layer = Dense(10 =&gt; 10)     # 110 parameters
+│   summary(x) = &quot;10×1000 Matrix{Float64}&quot;
+└ @ Flux ~/.julia/packages/Flux/Nzh8J/src/layers/stateless.jl:50
+custom_loss(train_X, train_Y) = 2.355365f0
+custom_loss(train_X, train_Y) = 2.2093794f0
+custom_loss(train_X, train_Y) = 2.1170535f0
+custom_loss(train_X, train_Y) = 1.9994309f0
+custom_loss(train_X, train_Y) = 1.8882124f0
+custom_loss(train_X, train_Y) = 1.7790897f0
+custom_loss(train_X, train_Y) = 1.6751546f0
+custom_loss(train_X, train_Y) = 1.5782491f0
+custom_loss(train_X, train_Y) = 1.4869447f0
+ 80.529157 seconds (36.72 M allocations: 3.541 GiB, 0.39% gc time, 0.93% compilation time)</code></pre><p>Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.</p><h2 id="Accuracy-results"><a class="docs-heading-anchor" href="#Accuracy-results">Accuracy results</a><a id="Accuracy-results-1"></a><a class="docs-heading-anchor-permalink" href="#Accuracy-results" title="Permalink"></a></h2><p>Average of correct guesses</p><pre><code class="language-julia hljs">accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y));</code></pre><p>Training accuracy</p><pre><code class="language-julia hljs">accuracy(train_X, train_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.562</code></pre><p>Test accuracy</p><pre><code class="language-julia hljs">accuracy(test_X, test_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.478</code></pre><p>Note that the accuracy is low due to simplified training. It is possible to increase the number of samples <code>N</code>, the number of epochs <code>epoch</code> and the connectivity <code>inner</code>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../chainrules_unit/">« ChainRules integration demo: Relaxed Unit Commitment</a><a class="docs-footer-nextpage" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Tuesday 11 April 2023 23:00">Tuesday 11 April 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
