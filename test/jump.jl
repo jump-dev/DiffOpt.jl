@@ -45,11 +45,7 @@ function test_forward_on_trivial_qp()
     model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:2])
-    @objective(
-        model,
-        Min,
-        x' * Q * x + q' * x
-    )
+    @objective(model, Min, x' * Q * x + q' * x)
     @constraint(model, G * x .<= h,)
     optimize!(model)
     @test JuMP.value.(x) ≈ [0.3, 0.7] atol = ATOL rtol = RTOL
@@ -64,11 +60,7 @@ function test_differentiating_trivial_qp_1()
     model = JuMP.direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     x = @variable(model, [1:2])
-    @objective(
-        model,
-        Min,
-        x' * Q * x + q' * x
-    )
+    @objective(model, Min, x' * Q * x + q' * x)
     @constraint(model, ctr_le, G * x .<= h,)
     optimize!(model)
     @test JuMP.value.(x) ≈ [-0.25, -0.75] atol = ATOL rtol = RTOL
@@ -273,7 +265,7 @@ function test_differentiating_non_trivial_convex_qp_jump()
             DelimitedFiles.readdlm(filename, ' ', Float64, '\n'),
         )
     end
-    dq = grads_actual[2]
+    dq = vec(grads_actual[2])
     dh = grads_actual[4]
     db = grads_actual[6]
     grad = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
@@ -469,7 +461,7 @@ function test_differentiating_simple_socp()
     @test s ≈ [0.0, 0.0, 1.0, -1 / √2, 1 / √2] atol = ATOL rtol = RTOL
     @test y ≈ [1, √2, √2, 1, -1] atol = ATOL rtol = RTOL
     dA = zeros(5, 3)
-    dA[1:3, :] .= Matrix(1.0I, 3, 3)
+    dA[1:3, :] .= LinearAlgebra.I(3)
     db = zeros(5)
     dc = zeros(3)
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), vv, 1.0)
