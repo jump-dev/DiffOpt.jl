@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 module QuadraticProgram
 
 using LinearAlgebra, SparseArrays
@@ -404,7 +409,7 @@ Each solver must implement: `solve_system(solver, LHS, RHS, iterative::Bool)`.
 struct LinearAlgebraSolver <: MOI.AbstractOptimizerAttribute end
 
 """
-Default `solve_system` call uses IterativeSolvers or the default linear solve 
+Default `solve_system` call uses IterativeSolvers or the default linear solve
 """
 function solve_system(::Any, LHS, RHS, iterative)
     if iterative

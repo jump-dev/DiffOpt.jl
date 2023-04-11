@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 # Representation of MOI functions using SparseArrays
 # Might be able to replace in the future by a function in MOI, see
 # https://github.com/jump-dev/MathOptInterface.jl/pull/1238

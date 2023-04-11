@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 using Test
 using JuMP
 import DiffOpt
@@ -72,10 +77,10 @@ end
 
     # Test some overloads from https://github.com/jump-dev/DiffOpt.jl/issues/211
     grad_obj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
-    @test JuMP.coefficient(grad_obj, x[1], x[2]) ≈ 
+    @test JuMP.coefficient(grad_obj, x[1], x[2]) ≈
         DiffOpt.quad_sym_half.(grad_obj, x[1], x[2]) atol=ATOL rtol=RTOL
 
-    @test DiffOpt.quad_sym_half(grad_obj, x[1], x[1]) ≈ 
+    @test DiffOpt.quad_sym_half(grad_obj, x[1], x[1]) ≈
         2 * JuMP.coefficient(grad_obj, x[1], x[1]) atol=ATOL rtol=RTOL
 
     # TODO: this simple show fails

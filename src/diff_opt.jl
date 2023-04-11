@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 # Constructs a Differentiable Optimizer model from a MOI Optimizer.
 # Supports `forward_differentiate!` and `reverse_differentiate!` methods for solving and differentiating the model respectectively.
 
