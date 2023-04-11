@@ -266,7 +266,7 @@ function DiffOpt.forward_differentiate!(model::Model)
             db,
         )
         (lines, cols) = size(A)
-        nz = nnz(A)
+        nz = SparseArrays.nnz(A)
         dAi = zeros(Int, 0)
         dAj = zeros(Int, 0)
         dAv = zeros(Float64, 0)
@@ -342,7 +342,8 @@ function DiffOpt.reverse_differentiate!(model::Model)
         # dz = D \phi (z)^T (dx,dy,dz)
         dz = [
             dx
-            Dπv' * (dy + ds) - ds - x' * dx - y' * dy - s' * ds
+            Dπv' * (dy + ds) - ds
+            -x' * dx - y' * dy - s' * ds
         ]
 
         g = if LinearAlgebra.norm(dz) <= 1e-4 # TODO: parametrize or remove

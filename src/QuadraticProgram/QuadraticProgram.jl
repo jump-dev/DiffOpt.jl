@@ -330,7 +330,7 @@ function DiffOpt.reverse_differentiate!(model::Model)
 
         nv = length(model.x)
         Q = view(LHS, 1:nv, 1:nv)
-        iterative = LinearAlgebra.(Q) ≈ 0
+        iterative = LinearAlgebra.norm(Q) ≈ 0
         solver = model.linear_solver
         partial_grads = -solve_system(solver, LHS, RHS, iterative)
 
