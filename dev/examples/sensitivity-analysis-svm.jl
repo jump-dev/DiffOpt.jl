@@ -27,8 +27,8 @@
 using JuMP     # The mathematical programming modelling language
 import DiffOpt # JuMP extension for differentiable optimization
 import Ipopt   # Optimization solver that handles quadratic programs
-import Plots   # Graphing tool
-import LinearAlgebra: dot, norm
+import LinearAlgebra
+import Plots
 import Random
 
 # ## Define and solve the SVM
@@ -43,7 +43,6 @@ X = vcat(randn(N ÷ 2, D), randn(N ÷ 2, D) .+ [2.0, 2.0]')
 y = append!(ones(N ÷ 2), -ones(N ÷ 2))
 λ = 0.05;
 
-
 # Let's initialize a special model that can understand sensitivities
 
 model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
@@ -57,19 +56,17 @@ MOI.set(model, MOI.Silent(), true)
 
 # Add the constraints.
 
-@constraint(model, con[i in 1:N],
-    y[i] * (dot(X[i, :], w) + b) >= 1 - ξ[i]
+@constraint(
+    model,
+    con[i in 1:N],
+    y[i] * (LinearAlgebra.dot(X[i, :], w) + b) >= 1 - ξ[i]
 );
-
 
 # Define the objective and solve
 
-@objective(model,
-    Min, λ * dot(w, w) + sum(ξ),
-)
+@objective(model, Min, λ * LinearAlgebra.dot(w, w) + sum(ξ),)
 
 optimize!(model)
-
 
 # We can visualize the separating hyperplane.
 
@@ -80,10 +77,21 @@ wv = value.(w)
 bv = value(b)
 
 svm_x = [-2.0, 4.0] # arbitrary points
-svm_y = (-bv .- wv[1] * svm_x )/wv[2]
+svm_y = (-bv .- wv[1] * svm_x) / wv[2]
 
-p = Plots.scatter(X[:,1], X[:,2], color = [yi > 0 ? :red : :blue for yi in y], label = "")
-Plots.plot!(p, svm_x, svm_y, label = "loss = $(round(loss, digits=2))", width=3)
+p = Plots.scatter(
+    X[:, 1],
+    X[:, 2];
+    color = [yi > 0 ? :red : :blue for yi in y],
+    label = "",
+)
+Plots.plot!(
+    p,
+    svm_x,
+    svm_y;
+    label = "loss = $(round(loss, digits=2))",
+    width = 3,
+)
 
 # ## Gradient of hyperplane wrt the data point coordinates
 
@@ -105,7 +113,12 @@ for i in 1:N
     for j in 1:N
         if i == j
             ## we consider identical perturbations on all x_i coordinates
-            MOI.set(model, DiffOpt.ForwardConstraintFunction(), con[j], y[j] * sum(w))
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintFunction(),
+                con[j],
+                y[j] * sum(w),
+            )
         else
             MOI.set(model, DiffOpt.ForwardConstraintFunction(), con[j], 0.0)
         end
@@ -113,7 +126,7 @@ for i in 1:N
     DiffOpt.forward_differentiate!(model)
     dw = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), w)
     db = MOI.get(model, DiffOpt.ForwardVariablePrimal(), b)
-    ∇[i] = norm(dw) + norm(db)
+    ∇[i] = LinearAlgebra.norm(dw) + LinearAlgebra.norm(db)
 end
 
 # We can visualize the separating hyperplane sensitivity with respect to the data points.
@@ -121,10 +134,12 @@ end
 # largest value to show all the points of the set.
 
 p3 = Plots.scatter(
-    X[:,1], X[:,2],
-    color = [yi > 0 ? :red : :blue for yi in y], label = "",
+    X[:, 1],
+    X[:, 2];
+    color = [yi > 0 ? :red : :blue for yi in y],
+    label = "",
     markersize = 2 * (max.(1.8∇, 0.2 * maximum(∇))),
 )
 Plots.yaxis!(p3, (-2, 4.5))
-Plots.plot!(p3, svm_x, svm_y, label = "", width=3)
+Plots.plot!(p3, svm_x, svm_y; label = "", width = 3)
 Plots.title!("Sensitivity of the separator to data point variations")

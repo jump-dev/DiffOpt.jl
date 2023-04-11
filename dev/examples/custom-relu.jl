@@ -24,22 +24,21 @@ using LinearAlgebra
 # Return the solution of the problem.
 function matrix_relu(
     y::Matrix;
-    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer)),
 )
     layer_size, batch_size = size(y)
     empty!(model)
     set_silent(model)
     @variable(model, x[1:layer_size, 1:batch_size] >= 0)
-    @objective(model, Min, x[:]'x[:] -2y[:]'x[:])
+    @objective(model, Min, x[:]'x[:] - 2y[:]'x[:])
     optimize!(model)
     return value.(x)
 end
 
-
 # Define the reverse differentiation rule, for the function we defined above.
-function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where T
+function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where {T}
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
-    pv = matrix_relu(y, model = model)
+    pv = matrix_relu(y; model = model)
     function pullback_matrix_relu(dl_dx)
         ## some value from the backpropagation (e.g., loss) is denoted by `l`
         ## so `dl_dy` is the derivative of `l` wrt `y`
@@ -56,7 +55,7 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where T
         dl_dq[:] .= JuMP.coefficient.(obj_exp, x[:])
         dq_dy = -2 # dq/dy = -2
         dl_dy[:] .= dl_dq[:] * dq_dy
-        return (ChainRulesCore.NoTangent(), dl_dy,)
+        return (ChainRulesCore.NoTangent(), dl_dy)
     end
     return pv, pullback_matrix_relu
 end
@@ -104,7 +103,13 @@ evalcb = () -> @show(custom_loss(train_X, train_Y))
 
 # Train to optimize network parameters
 
-@time Flux.train!(custom_loss, Flux.params(m), dataset, opt, cb = Flux.throttle(evalcb, 5));
+@time Flux.train!(
+    custom_loss,
+    Flux.params(m),
+    dataset,
+    opt,
+    cb = Flux.throttle(evalcb, 5),
+);
 
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.
