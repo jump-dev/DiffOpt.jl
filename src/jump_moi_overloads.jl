@@ -3,24 +3,52 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-function MOI.set(model::JuMP.Model, attr::ForwardObjectiveFunction, func::JuMP.AbstractJuMPScalar)
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardObjectiveFunction,
+    func::JuMP.AbstractJuMPScalar,
+)
     JuMP.check_belongs_to_model(func, model)
     return MOI.set(model, attr, JuMP.moi_function(func))
 end
-MOI.set(model::JuMP.Model, attr::ForwardObjectiveFunction, func::Number) = MOI.set(model, attr, JuMP.AffExpr(func))
 
-function MOI.set(model::JuMP.Model, attr::ForwardConstraintFunction, con_ref::JuMP.ConstraintRef, func::JuMP.AbstractJuMPScalar)
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardObjectiveFunction,
+    func::Number,
+)
+    return MOI.set(model, attr, JuMP.AffExpr(func))
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintFunction,
+    con_ref::JuMP.ConstraintRef,
+    func::JuMP.AbstractJuMPScalar,
+)
     JuMP.check_belongs_to_model(func, model)
     return MOI.set(model, attr, con_ref, JuMP.moi_function(func))
 end
-MOI.set(model::JuMP.Model, attr::ForwardConstraintFunction, con_ref::JuMP.ConstraintRef, func::Number) = MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintFunction,
+    con_ref::JuMP.ConstraintRef,
+    func::Number,
+)
+    return MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
+end
 
 function MOI.get(model::JuMP.Model, attr::ReverseObjectiveFunction)
     func = MOI.get(JuMP.backend(model), attr)
     return JuMP.jump_function(model, func)
 end
 
-function MOI.get(model::JuMP.Model, attr::ReverseConstraintFunction, con_ref::JuMP.ConstraintRef)
+function MOI.get(
+    model::JuMP.Model,
+    attr::ReverseConstraintFunction,
+    con_ref::JuMP.ConstraintRef,
+)
     JuMP.check_belongs_to_model(con_ref, model)
     moi_func = MOI.get(JuMP.backend(model), attr, JuMP.index(con_ref))
     return JuMP.jump_function(model, moi_func)
@@ -33,15 +61,21 @@ function _moi_get_result(model::MOI.ModelLike, args...)
     end
     return MOI.get(model, args...)
 end
-function _moi_get_result(model::MOIU.CachingOptimizer, args...)
-    if MOIU.state(model) == MOIU.NO_OPTIMIZER
+
+function _moi_get_result(model::MOI.Utilities.CachingOptimizer, args...)
+    if MOI.Utilities.state(model) == MOI.Utilities.NO_OPTIMIZER
         throw(NoOptimizer())
     elseif MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
         throw(OptimizeNotCalled())
     end
     return MOI.get(model, args...)
 end
-function MOI.get(model::JuMP.Model, attr::ForwardVariablePrimal, var_ref::JuMP.VariableRef)
+
+function MOI.get(
+    model::JuMP.Model,
+    attr::ForwardVariablePrimal,
+    var_ref::JuMP.VariableRef,
+)
     JuMP.check_belongs_to_model(var_ref, model)
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
@@ -79,8 +113,21 @@ in the case `vi1 == vi2`, it is rather equal to
 """
 function quad_sym_half end
 
-standard_form(func::Union{MOI.VariableIndex,MOI.ScalarAffineFunction,MOI.ScalarQuadraticFunction}) = func
-function Base.isapprox(func1::AbstractLazyScalarFunction, func2::MOI.AbstractScalarFunction; kws...)
+function standard_form(
+    func::Union{
+        MOI.VariableIndex,
+        MOI.ScalarAffineFunction,
+        MOI.ScalarQuadraticFunction,
+    },
+)
+    return func
+end
+
+function Base.isapprox(
+    func1::AbstractLazyScalarFunction,
+    func2::MOI.AbstractScalarFunction;
+    kws...,
+)
     return isapprox(standard_form(func1), standard_form(func2); kws...)
 end
 
@@ -92,31 +139,48 @@ Represents the function `x ⋅ terms + constant`
 as an `MOI.AbstractScalarFunction` where `x[i] = MOI.VariableIndex(i)`.
 Use [`standard_form`](@ref) to convert it to a `MOI.ScalarAffineFunction{T}`.
 """
-struct VectorScalarAffineFunction{T, VT} <: MOI.AbstractScalarFunction
+struct VectorScalarAffineFunction{T,VT} <: MOI.AbstractScalarFunction
     terms::VT
     constant::T
 end
+
 MOI.constant(func::VectorScalarAffineFunction) = func.constant
-function JuMP.coefficient(func::VectorScalarAffineFunction, vi::MOI.VariableIndex)
+
+function JuMP.coefficient(
+    func::VectorScalarAffineFunction,
+    vi::MOI.VariableIndex,
+)
     return func.terms[vi.value]
 end
-function Base.convert(::Type{MOI.ScalarAffineFunction{T}}, func::VectorScalarAffineFunction) where {T}
+
+function Base.convert(
+    ::Type{MOI.ScalarAffineFunction{T}},
+    func::VectorScalarAffineFunction,
+) where {T}
     return MOI.ScalarAffineFunction{T}(
         # TODO we should do better if the vector is a `SparseVector`, I think
         #      I have some code working for both vector types in Polyhedra.jl
         MOI.ScalarAffineTerm{T}[
-            MOI.ScalarAffineTerm{T}(func.terms[i], VI(i))
-            for i in eachindex(func.terms) if !iszero(func.terms[i])
+            MOI.ScalarAffineTerm{T}(func.terms[i], MOI.VariableIndex(i)) for
+            i in eachindex(func.terms) if !iszero(func.terms[i])
         ],
         func.constant,
     )
 end
+
 function standard_form(func::VectorScalarAffineFunction{T}) where {T}
     return convert(MOI.ScalarAffineFunction{T}, func)
 end
 
-function MOI.Utilities.operate(::typeof(-), ::Type{T}, func::VectorScalarAffineFunction{T}) where {T}
-    return VectorScalarAffineFunction(LazyArrays.ApplyArray(-, func.terms), -func.constant)
+function MOI.Utilities.operate(
+    ::typeof(-),
+    ::Type{T},
+    func::VectorScalarAffineFunction{T},
+) where {T}
+    return VectorScalarAffineFunction(
+        LazyArrays.ApplyArray(-, func.terms),
+        -func.constant,
+    )
 end
 
 """
@@ -129,14 +193,20 @@ Represents the function `x' * terms * x / 2 + affine` as an
 `MOI.AbstractScalarFunction` where `x[i] = MOI.VariableIndex(i)`.
 Use [`standard_form`](@ref) to convert it to a `MOI.ScalarQuadraticFunction{T}`.
 """
-struct MatrixScalarQuadraticFunction{T, VT, MT} <: MOI.AbstractScalarFunction
+struct MatrixScalarQuadraticFunction{T,VT,MT} <: MOI.AbstractScalarFunction
     affine::VectorScalarAffineFunction{T,VT}
     terms::MT
 end
+
 MOI.constant(func::MatrixScalarQuadraticFunction) = MOI.constant(func.affine)
-function JuMP.coefficient(func::MatrixScalarQuadraticFunction, vi::MOI.VariableIndex)
+
+function JuMP.coefficient(
+    func::MatrixScalarQuadraticFunction,
+    vi::MOI.VariableIndex,
+)
     return JuMP.coefficient(func.affine, vi)
 end
+
 function quad_sym_half(
     func::MatrixScalarQuadraticFunction,
     vi1::MOI.VariableIndex,
@@ -144,6 +214,7 @@ function quad_sym_half(
 )
     return func.terms[vi1.value, vi2.value]
 end
+
 function JuMP.coefficient(
     func::MatrixScalarQuadraticFunction,
     vi1::MOI.VariableIndex,
@@ -156,15 +227,25 @@ function JuMP.coefficient(
         return coef
     end
 end
-function Base.convert(::Type{MOI.ScalarQuadraticFunction{T}}, func::MatrixScalarQuadraticFunction) where {T}
+
+function Base.convert(
+    ::Type{MOI.ScalarQuadraticFunction{T}},
+    func::MatrixScalarQuadraticFunction,
+) where {T}
     n = length(func.affine.terms)
     aff = convert(MOI.ScalarAffineFunction{T}, func.affine)
     quad = MOI.ScalarQuadraticTerm{T}[
-        MOI.ScalarQuadraticTerm{T}(quad_sym_half(func, VI(i), VI(j)), VI(i), VI(j))
-        for j in 1:n for i in 1:j if !iszero(quad_sym_half(func, VI(i), VI(j)))
+        MOI.ScalarQuadraticTerm{T}(
+            quad_sym_half(func, MOI.VariableIndex(i), MOI.VariableIndex(j)),
+            MOI.VariableIndex(i),
+            MOI.VariableIndex(j),
+        ) for j in 1:n for i in 1:j if !iszero(
+            quad_sym_half(func, MOI.VariableIndex(i), MOI.VariableIndex(j)),
+        )
     ]
     return MOI.ScalarQuadraticFunction{T}(quad, aff.terms, aff.constant)
 end
+
 function standard_form(func::MatrixScalarQuadraticFunction{T}) where {T}
     return convert(MOI.ScalarQuadraticFunction{T}, func)
 end
@@ -176,29 +257,41 @@ Represents the function `terms * x + constant`
 as an `MOI.AbstractVectorFunction` where `x[i] = MOI.VariableIndex(i)`.
 Use [`standard_form`](@ref) to convert it to a `MOI.VectorAffineFunction{T}`.
 """
-struct MatrixVectorAffineFunction{AT, VT} <: MOI.AbstractVectorFunction
+struct MatrixVectorAffineFunction{AT,VT} <: MOI.AbstractVectorFunction
     terms::AT
     constants::VT
 end
+
 MOI.constant(func::MatrixVectorAffineFunction) = func.constants
-function Base.convert(::Type{MOI.VectorAffineFunction{T}}, func::MatrixVectorAffineFunction) where {T}
+
+function Base.convert(
+    ::Type{MOI.VectorAffineFunction{T}},
+    func::MatrixVectorAffineFunction,
+) where {T}
     return MOI.VectorAffineFunction{T}(
         MOI.VectorAffineTerm{T}[
             # TODO we should do better if the matrix is a `SparseMatrixCSC`
-            MOI.VectorAffineTerm(i, MOI.ScalarAffineTerm{T}(func.terms[i, j], VI(j)))
-            for i in 1:size(func.terms, 1) for j in 1:size(func.terms, 2) if !iszero(func.terms[i, j])
+            MOI.VectorAffineTerm(
+                i,
+                MOI.ScalarAffineTerm{T}(func.terms[i, j], MOI.VariableIndex(j)),
+            ) for i in 1:size(func.terms, 1) for
+            j in 1:size(func.terms, 2) if !iszero(func.terms[i, j])
         ],
         func.constants,
     )
 end
+
 function standard_form(func::MatrixVectorAffineFunction{T}) where {T}
     return convert(MOI.VectorAffineFunction{T}, func)
 end
 
 # Only used for testing at the moment so performance is not critical so
 # converting to standard form is ok
-function MOIU.isapprox_zero(func::Union{VectorScalarAffineFunction,MatrixScalarQuadraticFunction}, tol)
-    return MOIU.isapprox_zero(standard_form(func), tol)
+function MOI.Utilities.isapprox_zero(
+    func::Union{VectorScalarAffineFunction,MatrixScalarQuadraticFunction},
+    tol,
+)
+    return MOI.Utilities.isapprox_zero(standard_form(func), tol)
 end
 
 """
@@ -206,26 +299,46 @@ end
 
 Lazily represents the function `MOI.Utilities.map_indices(index_map, DiffOpt.standard_form(func))`.
 """
-struct IndexMappedFunction{F<:MOI.AbstractFunction} <: AbstractLazyScalarFunction
+struct IndexMappedFunction{F<:MOI.AbstractFunction} <:
+       AbstractLazyScalarFunction
     func::F
-    index_map::MOIU.IndexMap
+    index_map::MOI.Utilities.IndexMap
 end
+
 MOI.constant(func::IndexMappedFunction) = MOI.constant(func.func)
+
 function JuMP.coefficient(func::IndexMappedFunction, vi::MOI.VariableIndex)
     return JuMP.coefficient(func.func, func.index_map[vi])
 end
-function quad_sym_half(func::IndexMappedFunction, vi1::MOI.VariableIndex, vi2::MOI.VariableIndex)
+
+function quad_sym_half(
+    func::IndexMappedFunction,
+    vi1::MOI.VariableIndex,
+    vi2::MOI.VariableIndex,
+)
     return quad_sym_half(func.func, func.index_map[vi1], func.index_map[vi2])
 end
-function JuMP.coefficient(func::IndexMappedFunction, vi1::MOI.VariableIndex, vi2::MOI.VariableIndex)
+
+function JuMP.coefficient(
+    func::IndexMappedFunction,
+    vi1::MOI.VariableIndex,
+    vi2::MOI.VariableIndex,
+)
     return JuMP.coefficient(func.func, func.index_map[vi1], func.index_map[vi2])
 end
-function standard_form(func::IndexMappedFunction)
-    return MOIU.map_indices(func.index_map, standard_form(func.func))
-end
-MOIU.isapprox_zero(func::IndexMappedFunction, tol) = MOIU.isapprox_zero(func.func, tol)
 
-function MOIU.map_indices(index_map::MOIU.IndexMap, func::AbstractLazyScalarFunction)
+function standard_form(func::IndexMappedFunction)
+    return MOI.Utilities.map_indices(func.index_map, standard_form(func.func))
+end
+
+function MOI.Utilities.isapprox_zero(func::IndexMappedFunction, tol)
+    return MOI.Utilities.isapprox_zero(func.func, tol)
+end
+
+function MOI.Utilities.map_indices(
+    index_map::MOI.Utilities.IndexMap,
+    func::AbstractLazyScalarFunction,
+)
     return IndexMappedFunction(func, index_map)
 end
 
@@ -238,45 +351,98 @@ struct MOItoJuMP{F<:MOI.AbstractScalarFunction} <: JuMP.AbstractJuMPScalar
     model::JuMP.Model
     func::F
 end
+
 Base.broadcastable(func::MOItoJuMP) = Ref(func)
+
 JuMP.constant(func::MOItoJuMP) = MOI.constant(func.func)
+
 function JuMP.coefficient(func::MOItoJuMP, var_ref::JuMP.VariableRef)
     check_belongs_to_model(var_ref, func.model)
     return JuMP.coefficient(func.func, JuMP.index(var_ref))
 end
-function quad_sym_half(func::MOItoJuMP, var1_ref::JuMP.VariableRef, var2_ref::JuMP.VariableRef)
+
+function quad_sym_half(
+    func::MOItoJuMP,
+    var1_ref::JuMP.VariableRef,
+    var2_ref::JuMP.VariableRef,
+)
     check_belongs_to_model.([var1_ref, var2_ref], Ref(func.model))
     return quad_sym_half(func.func, JuMP.index(var1_ref), JuMP.index(var2_ref))
 end
-function JuMP.coefficient(func::MOItoJuMP, var1_ref::JuMP.VariableRef, var2_ref::JuMP.VariableRef)
+
+function JuMP.coefficient(
+    func::MOItoJuMP,
+    var1_ref::JuMP.VariableRef,
+    var2_ref::JuMP.VariableRef,
+)
     check_belongs_to_model.([var1_ref, var2_ref], Ref(func.model))
-    return JuMP.coefficient(func.func, JuMP.index(var1_ref), JuMP.index(var2_ref))
+    return JuMP.coefficient(
+        func.func,
+        JuMP.index(var1_ref),
+        JuMP.index(var2_ref),
+    )
 end
-function Base.convert(::Type{JuMP.GenericAffExpr{T,JuMP.VariableRef}}, func::MOItoJuMP) where {T}
-    return JuMP.GenericAffExpr{T,JuMP.VariableRef}(func.model, convert(MOI.ScalarAffineFunction{T}, func.func))
+
+function Base.convert(
+    ::Type{JuMP.GenericAffExpr{T,JuMP.VariableRef}},
+    func::MOItoJuMP,
+) where {T}
+    return JuMP.GenericAffExpr{T,JuMP.VariableRef}(
+        func.model,
+        convert(MOI.ScalarAffineFunction{T}, func.func),
+    )
 end
-function Base.convert(::Type{JuMP.GenericQuadExpr{T,JuMP.VariableRef}}, func::MOItoJuMP) where {T}
-    return JuMP.GenericQuadExpr{T,JuMP.VariableRef}(func.model, convert(MOI.ScalarQuadraticFunction{T}, func.func))
+
+function Base.convert(
+    ::Type{JuMP.GenericQuadExpr{T,JuMP.VariableRef}},
+    func::MOItoJuMP,
+) where {T}
+    return JuMP.GenericQuadExpr{T,JuMP.VariableRef}(
+        func.model,
+        convert(MOI.ScalarQuadraticFunction{T}, func.func),
+    )
 end
+
 JuMP.moi_function(func::MOItoJuMP) = func.func
+
 function JuMP.jump_function(model::JuMP.Model, func::AbstractLazyScalarFunction)
     return MOItoJuMP(model, func)
 end
+
 function standard_form(func::MOItoJuMP)
     return JuMP.jump_function(func.model, standard_form(func.func))
 end
+
 function JuMP.function_string(mode, func::MOItoJuMP)
     return JuMP.function_string(mode, standard_form(func))
 end
 
 # JuMP
-reverse_differentiate!(model::JuMP.Model) = reverse_differentiate!(JuMP.backend(model))
-forward_differentiate!(model::JuMP.Model) = forward_differentiate!(JuMP.backend(model))
 
-# MOIU
-reverse_differentiate!(model::MOI.Utilities.CachingOptimizer) = reverse_differentiate!(model.optimizer)
-forward_differentiate!(model::MOI.Utilities.CachingOptimizer) = forward_differentiate!(model.optimizer)
+function reverse_differentiate!(model::JuMP.Model)
+    return reverse_differentiate!(JuMP.backend(model))
+end
+
+function forward_differentiate!(model::JuMP.Model)
+    return forward_differentiate!(JuMP.backend(model))
+end
+
+# MOI.Utilities
+
+function reverse_differentiate!(model::MOI.Utilities.CachingOptimizer)
+    return reverse_differentiate!(model.optimizer)
+end
+
+function forward_differentiate!(model::MOI.Utilities.CachingOptimizer)
+    return forward_differentiate!(model.optimizer)
+end
 
 # MOIB
-reverse_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer) = reverse_differentiate!(model.model)
-forward_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer) = forward_differentiate!(model.model)
+
+function reverse_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer)
+    return reverse_differentiate!(model.model)
+end
+
+function forward_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer)
+    return forward_differentiate!(model.model)
+end

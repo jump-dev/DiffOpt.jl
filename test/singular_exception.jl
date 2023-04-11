@@ -24,18 +24,16 @@ x = MOI.add_variables(model, 2)
 quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
 for i in 1:2
     for j in i:2 # indexes (i,j), (j,i) will be mirrored. specify only one kind
-        push!(
-            quad_terms,
-            MOI.ScalarQuadraticTerm(Q[i,j], x[i], x[j])
-        )
+        push!(quad_terms, MOI.ScalarQuadraticTerm(Q[i, j], x[i], x[j]))
     end
 end
-objective_function = MOI.ScalarQuadraticFunction(
-                        quad_terms,
-                        MOI.ScalarAffineTerm.(q, x),
-                        0.0,
-                    )
-MOI.set(model, MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(), objective_function)
+objective_function =
+    MOI.ScalarQuadraticFunction(quad_terms, MOI.ScalarAffineTerm.(q, x), 0.0)
+MOI.set(
+    model,
+    MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(),
+    objective_function,
+)
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 # add constraint
@@ -46,14 +44,16 @@ c = MOI.add_constraint(
 )
 MOI.optimize!(model)
 
-@test MOI.get(model, MOI.VariablePrimal(), x) ≈ [-0.25; -0.75] atol=ATOL rtol=RTOL
+@test MOI.get(model, MOI.VariablePrimal(), x) ≈ [-0.25; -0.75] atol = ATOL rtol =
+    RTOL
 
 @test model.diff === nothing
 MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, ones(2))
 DiffOpt.reverse_differentiate!(model)
 
-grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
-@test grad_wrt_h ≈ -1.0 atol=2ATOL rtol=RTOL
+grad_wrt_h =
+    MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
+@test grad_wrt_h ≈ -1.0 atol = 2ATOL rtol = RTOL
 @test model.diff !== nothing
 
 # adding two variables invalidates the cache
@@ -67,7 +67,8 @@ MOI.optimize!(model)
 MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, ones(2))
 DiffOpt.reverse_differentiate!(model)
 
-grad_wrt_h = MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
+grad_wrt_h =
+    MOI.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c))
 
-@test grad_wrt_h ≈ -1.0 atol=1e-3
+@test grad_wrt_h ≈ -1.0 atol = 1e-3
 @test model.diff !== nothing

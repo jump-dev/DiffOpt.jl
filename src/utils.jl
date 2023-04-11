@@ -6,7 +6,11 @@
 # Representation of MOI functions using SparseArrays
 # Might be able to replace in the future by a function in MOI, see
 # https://github.com/jump-dev/MathOptInterface.jl/pull/1238
-function sparse_array_representation(terms::Vector{MOI.ScalarAffineTerm{T}}, num_variables, index_map) where {T}
+function sparse_array_representation(
+    terms::Vector{MOI.ScalarAffineTerm{T}},
+    num_variables,
+    index_map,
+) where {T}
     n = length(terms)
     indices = Vector{Int64}(undef, n)
     coefficients = Vector{T}(undef, n)
@@ -15,9 +19,15 @@ function sparse_array_representation(terms::Vector{MOI.ScalarAffineTerm{T}}, num
         indices[i] = index_map[term.variable].value
         coefficients[i] = term.coefficient
     end
-    return sparsevec(indices, coefficients, num_variables)
+    return SparseArrays.sparsevec(indices, coefficients, num_variables)
 end
-function sparse_array_representation(terms::Vector{MOI.VectorAffineTerm{T}}, num_rows, num_variables, index_map) where {T}
+
+function sparse_array_representation(
+    terms::Vector{MOI.VectorAffineTerm{T}},
+    num_rows,
+    num_variables,
+    index_map,
+) where {T}
     n = length(terms)
     I = Vector{Int64}(undef, n)
     J = Vector{Int64}(undef, n)
@@ -28,9 +38,14 @@ function sparse_array_representation(terms::Vector{MOI.VectorAffineTerm{T}}, num
         J[i] = index_map[term.scalar_term.variable].value
         K[i] = term.scalar_term.coefficient
     end
-    return sparse(I, J, K, num_rows, num_variables)
+    return SparseArrays.sparse(I, J, K, num_rows, num_variables)
 end
-function sparse_array_representation(terms::Vector{MOI.ScalarQuadraticTerm{T}}, num_variables, index_map) where {T}
+
+function sparse_array_representation(
+    terms::Vector{MOI.ScalarQuadraticTerm{T}},
+    num_variables,
+    index_map,
+) where {T}
     n = length(terms)
     I = Vector{Int64}(undef, n)
     J = Vector{Int64}(undef, n)
@@ -48,42 +63,66 @@ function sparse_array_representation(terms::Vector{MOI.ScalarQuadraticTerm{T}}, 
             push!(V, term.coefficient)
         end
     end
-    return sparse(I, J, V, num_variables, num_variables)
+    return SparseArrays.sparse(I, J, V, num_variables, num_variables)
 end
+
 struct SparseScalarAffineFunction{T}
-    terms::SparseVector{T,Int64}
+    terms::SparseArrays.SparseVector{T,Int64}
     constant::T
 end
-function sparse_array_representation(func::MOI.ScalarAffineFunction, num_variables, index_map)
+
+function sparse_array_representation(
+    func::MOI.ScalarAffineFunction,
+    num_variables,
+    index_map,
+)
     return SparseScalarAffineFunction(
         sparse_array_representation(func.terms, num_variables, index_map),
         func.constant,
     )
 end
+
 struct SparseScalarQuadraticFunction{T}
-    quadratic_terms::SparseMatrixCSC{T,Int64}
-    affine_terms::SparseVector{T,Int64}
+    quadratic_terms::SparseArrays.SparseMatrixCSC{T,Int64}
+    affine_terms::SparseArrays.SparseVector{T,Int64}
     constant::T
 end
-function sparse_array_representation(func::MOI.ScalarQuadraticFunction, num_variables, index_map)
+
+function sparse_array_representation(
+    func::MOI.ScalarQuadraticFunction,
+    num_variables,
+    index_map,
+)
     return SparseScalarQuadraticFunction(
-        sparse_array_representation(func.quadratic_terms, num_variables, index_map),
-        sparse_array_representation(func.affine_terms, num_variables, index_map),
+        sparse_array_representation(
+            func.quadratic_terms,
+            num_variables,
+            index_map,
+        ),
+        sparse_array_representation(
+            func.affine_terms,
+            num_variables,
+            index_map,
+        ),
         func.constant,
     )
 end
+
 _convert(::Type{F}, ::Nothing) where {F} = zero(F)
+
 _convert(::Type{F}, obj) where {F} = convert(F, obj)
 
 struct IdentityMap end
+
 Base.getindex(::IdentityMap, index) = index
+
 function sparse_array_representation(func::MOI.AbstractFunction, num_variables)
     return sparse_array_representation(func, num_variables, IdentityMap())
 end
 
 """
     struct SparseVectorAffineFunction{T} <: MOI.AbstractVectorFunction
-        terms::SparseMatrixCSC{T,Int}
+        terms::SparseArrays.SparseMatrixCSC{T,Int}
         constants::Vector{T}
     end
 
@@ -93,10 +132,15 @@ The vector-valued affine function ``A x + b``, where:
 * ``b`` is the vector `constants`
 """
 struct SparseVectorAffineFunction{T} <: MOI.AbstractVectorFunction
-    terms::SparseMatrixCSC{T,Int}
+    terms::SparseArrays.SparseMatrixCSC{T,Int}
     constants::Vector{T}
 end
-function sparse_array_representation(func::MOI.VectorAffineFunction, num_variables, index_map)
+
+function sparse_array_representation(
+    func::MOI.VectorAffineFunction,
+    num_variables,
+    index_map,
+)
     return SparseVectorAffineFunction(
         sparse_array_representation(
             func.terms,
@@ -117,7 +161,8 @@ function _index_map_to_oneto!(index_map, v::MOI.VariableIndex)
 end
 
 function _index_map_to_oneto!(index_map, term::MOI.ScalarAffineTerm)
-    return _index_map_to_oneto!(index_map, term.variable)
+    _index_map_to_oneto!(index_map, term.variable)
+    return
 end
 
 function _index_map_to_oneto!(index_map, term::MOI.ScalarQuadraticTerm)
@@ -127,22 +172,26 @@ function _index_map_to_oneto!(index_map, term::MOI.ScalarQuadraticTerm)
 end
 
 function _index_map_to_oneto!(index_map, term::MOI.VectorAffineTerm)
-    return _index_map_to_oneto!(index_map, term.scalar_term)
+    _index_map_to_oneto!(index_map, term.scalar_term)
+    return
 end
 
 function _index_map_to_oneto!(index_map, terms)
     for term in terms
         _index_map_to_oneto!(index_map, term)
     end
+    return
 end
 
 function index_map_to_oneto!(index_map, func::MOI.VectorAffineFunction)
     _index_map_to_oneto!(index_map, func.terms)
+    return
 end
 
 function index_map_to_oneto!(index_map, func::MOI.ScalarQuadraticFunction)
     _index_map_to_oneto!(index_map, func.quadratic_terms)
     _index_map_to_oneto!(index_map, func.affine_terms)
+    return
 end
 
 function index_map_to_oneto(func::MOI.AbstractFunction)

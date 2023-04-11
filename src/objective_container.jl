@@ -36,7 +36,9 @@ function MOI.add_variable(model::MOI.Utilities.AbstractModel)
     MOI.Utilities._add_variable(model.constraints)
     return x
 end
+
 function MOI.Utilities._add_variable(::MOI.Utilities.ObjectiveContainer) end
+
 function MOI.Utilities._add_variable(model::ObjectiveContainer)
     if !model.is_function_set
         error("Adding variables after setting objective is not implemented yet")

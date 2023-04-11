@@ -9,5 +9,5 @@ function MOI.set(
     bridge::MOI.Bridges.Variable.VectorizeBridge,
     value,
 )
-    MOI.set(model, attr, bridge.variable, value)
+    return MOI.set(model, attr, bridge.variable, value)
 end

@@ -10,7 +10,7 @@ import HiGHS
     # s.t. x >= 0
     #      x >= 3
     qp_test_with_solutions(
-        HiGHS.Optimizer,
+        HiGHS.Optimizer;
         q = [1.0],
         G = -ones(2, 1),
         h = [0.0, -3.0],

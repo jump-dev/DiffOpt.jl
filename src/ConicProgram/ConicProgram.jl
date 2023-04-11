@@ -5,20 +5,18 @@
 
 module ConicProgram
 
-using LinearAlgebra, SparseArrays
-
-import MathOptInterface as MOI
-
 import BlockDiagonals
-import IterativeSolvers
-
 import DiffOpt
+import IterativeSolvers
+import LinearAlgebra
+import MathOptInterface as MOI
+import SparseArrays
 
 Base.@kwdef struct Cache
-    M::SparseMatrixCSC{Float64, Int}
+    M::SparseArrays.SparseMatrixCSC{Float64,Int}
     vp::Vector{Float64}
-    Dπv::BlockDiagonals.BlockDiagonal{Float64, Matrix{Float64}}
-    A::SparseMatrixCSC{Float64, Int}
+    Dπv::BlockDiagonals.BlockDiagonal{Float64,Matrix{Float64}}
+    A::SparseArrays.SparseMatrixCSC{Float64,Int}
     b::Vector{Float64}
     c::Vector{Float64}
 end
@@ -58,13 +56,15 @@ const Form{T} = MOI.Utilities.GenericModel{
 
 Model to differentiate conic programs.
 
-The forward differentiation computes the product of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c` to the perturbations `dA`, `db`, `dc`.
+The forward differentiation computes the product of the derivative (Jacobian) at
+the conic program parameters `A`, `b`, `c` to the perturbations `dA`, `db`, `dc`.
 
-The reverse differentiation computes the product of the transpose of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c` to the perturbations `dx`, `dy`, `ds`.
+The reverse differentiation computes the product of the transpose of the
+derivative (Jacobian) at the conic program parameters `A`, `b`, `c` to the
+perturbations `dx`, `dy`, `ds`.
 
-For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
+For theoretical background, refer Section 3 of Differentiating Through a Cone
+Program, https://arxiv.org/abs/1904.09043
 """
 mutable struct Model <: DiffOpt.AbstractModel
     # storage for problem data in matrix form
@@ -89,8 +89,19 @@ mutable struct Model <: DiffOpt.AbstractModel
     y::Vector{Float64} # Dual
     diff_time::Float64
 end
+
 function Model()
-    return Model(Form{Float64}(), nothing, nothing, nothing, DiffOpt.InputCache(), Float64[], Float64[], Float64[], NaN)
+    return Model(
+        Form{Float64}(),
+        nothing,
+        nothing,
+        nothing,
+        DiffOpt.InputCache(),
+        Float64[],
+        Float64[],
+        Float64[],
+        NaN,
+    )
 end
 
 function MOI.is_empty(model::Model)
@@ -112,7 +123,11 @@ end
 
 MOI.get(model::Model, ::DiffOpt.DifferentiateTimeSec) = model.diff_time
 
-function MOI.supports_constraint(model::Model, F::Type{MOI.VectorAffineFunction{Float64}}, ::Type{S}) where {S<:MOI.AbstractVectorSet}
+function MOI.supports_constraint(
+    model::Model,
+    F::Type{MOI.VectorAffineFunction{Float64}},
+    ::Type{S},
+) where {S<:MOI.AbstractVectorSet}
     if DiffOpt.add_set_types(model.model.constraints.sets, S)
         push!(model.model.constraints.caches, Tuple{F,S}[])
         push!(model.model.constraints.are_indices_mapped, BitSet())
@@ -120,14 +135,32 @@ function MOI.supports_constraint(model::Model, F::Type{MOI.VectorAffineFunction{
     return MOI.supports_constraint(model.model, F, S)
 end
 
-function MOI.set(model::Model, ::MOI.ConstraintPrimalStart, ci::MOI.ConstraintIndex, value)
+function MOI.set(
+    model::Model,
+    ::MOI.ConstraintPrimalStart,
+    ci::MOI.ConstraintIndex,
+    value,
+)
     MOI.throw_if_not_valid(model, ci)
-    DiffOpt._enlarge_set(model.s, MOI.Utilities.rows(model.model.constraints, ci), value)
+    return DiffOpt._enlarge_set(
+        model.s,
+        MOI.Utilities.rows(model.model.constraints, ci),
+        value,
+    )
 end
 
-function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::MOI.ConstraintIndex, value)
+function MOI.set(
+    model::Model,
+    ::MOI.ConstraintDualStart,
+    ci::MOI.ConstraintIndex,
+    value,
+)
     MOI.throw_if_not_valid(model, ci)
-    DiffOpt._enlarge_set(model.y, MOI.Utilities.rows(model.model.constraints, ci), value)
+    return DiffOpt._enlarge_set(
+        model.y,
+        MOI.Utilities.rows(model.model.constraints, ci),
+        value,
+    )
 end
 
 function _gradient_cache(model::Model)
@@ -137,13 +170,20 @@ function _gradient_cache(model::Model)
 
     # For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
 
-    A = -convert(SparseMatrixCSC{Float64, Int}, model.model.constraints.coefficients)
+    A =
+        -convert(
+            SparseArrays.SparseMatrixCSC{Float64,Int},
+            model.model.constraints.coefficients,
+        )
     b = model.model.constraints.constants
 
     if MOI.get(model, MOI.ObjectiveSense()) == MOI.FEASIBILITY_SENSE
-        c = spzeros(size(A, 2))
+        c = SparseArrays.spzeros(size(A, 2))
     else
-        obj = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
+        obj = MOI.get(
+            model,
+            MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+        )
         c = DiffOpt.sparse_array_representation(obj, size(A, 2)).terms
         if MOI.get(model, MOI.ObjectiveSense()) == MOI.MAX_SENSE
             c = -c
@@ -160,7 +200,6 @@ function _gradient_cache(model::Model)
     N = m + n + 1
     # NOTE: w = 1.0 systematically since we asserted the primal-dual pair is optimal
     (u, v, w) = (model.x, model.y - model.s, 1.0)
-
 
     # find gradient of projections on dual of the cones
     Dπv = DiffOpt.Dπ(v, model.model, model.model.constraints.sets)
@@ -182,21 +221,15 @@ function _gradient_cache(model::Model)
     # K is defined in (5), Π in sect 2, and projection sin sect 3
 
     M = [
-        spzeros(n,n)     (A' * Dπv)    c
-        -A               -Dπv + I      b
-        -c'              -b' * Dπv     0.0
+        SparseArrays.spzeros(n, n) (A'*Dπv) c
+        -A -Dπv+LinearAlgebra.I b
+        -c' -b'*Dπv 0.0
     ]
     # find projections on dual of the cones
     vp = DiffOpt.π(v, model.model, model.model.constraints.sets)
 
-    model.gradient_cache = Cache(
-        M = M,
-        vp = vp,
-        Dπv = Dπv,
-        A = A,
-        b = b,
-        c = c,
-    )
+    model.gradient_cache =
+        Cache(; M = M, vp = vp, Dπv = Dπv, A = A, b = b, c = c)
 
     return model.gradient_cache
 end
@@ -214,22 +247,42 @@ function DiffOpt.forward_differentiate!(model::Model)
         b = gradient_cache.b
         c = gradient_cache.c
 
-        objective_function = DiffOpt._convert(MOI.ScalarAffineFunction{Float64}, model.input_cache.objective)
-        sparse_array_obj = DiffOpt.sparse_array_representation(objective_function, length(c))
+        objective_function = DiffOpt._convert(
+            MOI.ScalarAffineFunction{Float64},
+            model.input_cache.objective,
+        )
+        sparse_array_obj = DiffOpt.sparse_array_representation(
+            objective_function,
+            length(c),
+        )
         dc = sparse_array_obj.terms
 
         db = zeros(length(b))
-        DiffOpt._fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, db)
+        DiffOpt._fill(
+            S -> false,
+            gradient_cache,
+            model.input_cache,
+            model.model.constraints.sets,
+            db,
+        )
         (lines, cols) = size(A)
-        nz = nnz(A)
+        nz = SparseArrays.nnz(A)
         dAi = zeros(Int, 0)
         dAj = zeros(Int, 0)
         dAv = zeros(Float64, 0)
         sizehint!(dAi, nz)
         sizehint!(dAj, nz)
         sizehint!(dAv, nz)
-        DiffOpt._fill(S -> false, gradient_cache, model.input_cache, model.model.constraints.sets, dAi, dAj, dAv)
-        dA = sparse(dAi, dAj, dAv, lines, cols)
+        DiffOpt._fill(
+            S -> false,
+            gradient_cache,
+            model.input_cache,
+            model.model.constraints.sets,
+            dAi,
+            dAj,
+            dAv,
+        )
+        dA = SparseArrays.sparse(dAi, dAj, dAv, lines, cols)
 
         m = size(A, 1)
         n = size(A, 2)
@@ -238,9 +291,13 @@ function DiffOpt.forward_differentiate!(model::Model)
         (u, v, w) = (x, y - s, 1.0)
 
         # g = dQ * Π(z/|w|) = dQ * [u, vp, 1.0]
-        RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u - db ⋅ vp]
+        RHS = [
+            dA' * vp + dc
+            -dA * u + db
+            -LinearAlgebra.dot(dc, u) - LinearAlgebra.dot(db, vp)
+        ]
 
-        dz = if norm(RHS) <= 1e-400 # TODO: parametrize or remove
+        dz = if LinearAlgebra.norm(RHS) <= 1e-400 # TODO: parametrize or remove
             RHS .= 0 # because M is square
         else
             IterativeSolvers.lsqr(M, RHS)
@@ -286,10 +343,10 @@ function DiffOpt.reverse_differentiate!(model::Model)
         dz = [
             dx
             Dπv' * (dy + ds) - ds
-            - x' * dx - y' * dy - s' * ds
+            -x' * dx - y' * dy - s' * ds
         ]
 
-        g = if norm(dz) <= 1e-4 # TODO: parametrize or remove
+        g = if LinearAlgebra.norm(dz) <= 1e-4 # TODO: parametrize or remove
             dz .= 0 # because M is square
         else
             IterativeSolvers.lsqr(M, dz)
@@ -323,13 +380,20 @@ function MOI.get(model::Model, ::DiffOpt.ReverseObjectiveFunction)
     return DiffOpt.VectorScalarAffineFunction(dc, 0.0)
 end
 
-function MOI.get(model::Model, ::DiffOpt.ForwardVariablePrimal, vi::MOI.VariableIndex)
+function MOI.get(
+    model::Model,
+    ::DiffOpt.ForwardVariablePrimal,
+    vi::MOI.VariableIndex,
+)
     i = vi.value
     du = model.forw_grad_cache.du
     dw = model.forw_grad_cache.dw
     return -(du[i] - model.x[i] * dw[])
 end
-function DiffOpt._get_db(model::Model, ci::MOI.ConstraintIndex{F,S}
+
+function DiffOpt._get_db(
+    model::Model,
+    ci::MOI.ConstraintIndex{F,S},
 ) where {F<:MOI.AbstractVectorFunction,S}
     i = MOI.Utilities.rows(model.model.constraints, ci) # vector
     # i = ci.value
@@ -339,7 +403,11 @@ function DiffOpt._get_db(model::Model, ci::MOI.ConstraintIndex{F,S}
     πz = model.back_grad_cache.πz
     return DiffOpt.lazy_combination(-, πz, g, length(g), n .+ i)
 end
-function DiffOpt._get_dA(model::Model, ci::MOI.ConstraintIndex{<:MOI.AbstractVectorFunction})
+
+function DiffOpt._get_dA(
+    model::Model,
+    ci::MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
+)
     i = MOI.Utilities.rows(model.model.constraints, ci) # vector
     # i = ci.value
     n = length(model.x) # columns in A
@@ -350,7 +418,11 @@ function DiffOpt._get_dA(model::Model, ci::MOI.ConstraintIndex{<:MOI.AbstractVec
     return DiffOpt.lazy_combination(-, g, πz, i, n .+ (1:n))
 end
 
-function MOI.get(model::Model, attr::MOI.ConstraintFunction, ci::MOI.ConstraintIndex)
+function MOI.get(
+    model::Model,
+    attr::MOI.ConstraintFunction,
+    ci::MOI.ConstraintIndex,
+)
     return MOI.get(model.model, attr, ci)
 end
 

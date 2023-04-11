@@ -9,8 +9,14 @@ function MOI.set(
     bridge::MOI.Bridges.Constraint.VectorizeBridge{T},
     value,
 ) where {T}
-    MOI.set(model, attr, bridge.vector_constraint, MOI.Utilities.operate(vcat, T, value))
+    return MOI.set(
+        model,
+        attr,
+        bridge.vector_constraint,
+        MOI.Utilities.operate(vcat, T, value),
+    )
 end
+
 function MOI.get(
     model::MOI.ModelLike,
     attr::DiffOpt.ReverseConstraintFunction,
@@ -18,6 +24,7 @@ function MOI.get(
 )
     return MOI.get(model, attr, bridge.constraint)
 end
+
 function MOI.set(
     model::MOI.ModelLike,
     attr::DiffOpt.ForwardConstraintFunction,
@@ -25,8 +32,9 @@ function MOI.set(
     func,
 )
     mapped_func = MOI.Bridges.map_function(typeof(bridge), func)
-    MOI.set(model, attr, bridge.constraint, mapped_func)
+    return MOI.set(model, attr, bridge.constraint, mapped_func)
 end
+
 function MOI.get(
     model::MOI.ModelLike,
     attr::DiffOpt.ReverseConstraintFunction,
@@ -40,7 +48,7 @@ function MOI.set(
     model::MOI.ModelLike,
     attr::DiffOpt.ForwardConstraintFunction,
     bridge::MOI.Bridges.Constraint.QuadtoSOCBridge{T},
-    diff::MOI.ScalarQuadraticFunction
+    diff::MOI.ScalarQuadraticFunction,
 ) where {T}
     func = MOI.get(model, MOI.ConstraintFunction(), bridge.soc)
     index_map = index_map_to_oneto(func)
@@ -64,7 +72,13 @@ function MOI.set(
         zeros(T, size(dU, 1) + 2),
     )
     for t in diff.affine_terms
-        push!(diff_aff.terms, MOI.VectorAffineTerm(2, MOI.ScalarAffineTerm(-t.coefficient, t.variable)))
+        push!(
+            diff_aff.terms,
+            MOI.VectorAffineTerm(
+                2,
+                MOI.ScalarAffineTerm(-t.coefficient, t.variable),
+            ),
+        )
     end
     diff_aff.constants[2] = -diff.constant
     for i in axes(dU, 1)
@@ -89,17 +103,21 @@ where `dQ` and `U` are the two argument of the function.
 This function overwrites the first argument `dQ` to store the solution.
 The matrix `U` is not however modified.
 
-The matrix `dQ` is assumed to be symmetric and the matrix `U` is assumed to be upper triangular.
+The matrix `dQ` is assumed to be symmetric and the matrix `U` is assumed to be
+upper triangular.
 
 We can exploit the structure of `U` here:
 
 * If the factorization was obtained from SVD, `U` would be orthogonal
 * If the factorization was obtained from Cholesky, `U` would be upper triangular.
 
-The MOI bridge uses Cholesky in order to exploit sparsity so we are in the second case.
+The MOI bridge uses Cholesky in order to exploit sparsity so we are in the
+second case.
+
 We look for an upper triangular `dU` as well.
-We can find each column of `dU` by solving a triangular linear system once the previous
-column have been found.
+
+We can find each column of `dU` by solving a triangular linear system once the
+previous column have been found.
 Indeed, let `dj` be the `j`th column of `dU`
 `dU' * U = vcat(dj'U for j in axes(U, 2))`
 Therefore,

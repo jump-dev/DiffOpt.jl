@@ -36,7 +36,6 @@
 # | x* | [-0.25; -0.75] | Primal optimal | 
 # | 𝜆∗ | -0.75 | Dual optimal | 
 
-
 # ## Finding Jacobian using matrix inversion
 # Lets formulate Eqn (6) of [QPTH article](https://arxiv.org/pdf/1703.00443.pdf) for our QP. If we assume `h` as the only parameter and `Q`,`q`,`G` as fixed problem data - also note that our QP doesn't involves `Ax=b` constraint - then Eqn (6) reduces to 
 # ```math
@@ -94,10 +93,10 @@ import Ipopt
 n = 2 # variable dimension
 m = 1; # no of inequality constraints
 
-Q = [4. 1.;1. 2.]
-q = [1.; 1.]
-G = [1. 1.;]
-h = [-1.;]   # initial values set
+Q = [4.0 1.0; 1.0 2.0]
+q = [1.0; 1.0]
+G = [1.0 1.0;]
+h = [-1.0;]   # initial values set
 
 # Initialize empty model
 
@@ -110,16 +109,12 @@ set_silent(model)
 
 # Add the constraints.
 
-@constraint(
-    model,
-    cons[j in 1:1],
-    sum(G[j, i] * x[i] for i in 1:2) <= h[j]
-);
+@constraint(model, cons[j in 1:1], sum(G[j, i] * x[i] for i in 1:2) <= h[j]);
 
 @objective(
     model,
     Min,
-    1/2 * sum(Q[j, i] * x[i] *x[j] for i in 1:2, j in 1:2) +
+    1 / 2 * sum(Q[j, i] * x[i] * x[j] for i in 1:2, j in 1:2) +
     sum(q[i] * x[i] for i in 1:2)
 )
 
@@ -153,11 +148,7 @@ DiffOpt.forward_differentiate!(model)
 
 # Query derivative
 
-dx = MOI.get.(
-    model,
-    DiffOpt.ForwardVariablePrimal(),
-    x,
-)
+dx = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), x)
 
 using Test                                  #src
-@test dx ≈ [0.25 ,0.75] atol=1e-4 rtol=1e-4 #src
+@test dx ≈ [0.25, 0.75] atol = 1e-4 rtol = 1e-4 #src

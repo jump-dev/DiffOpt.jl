@@ -35,11 +35,7 @@ function literate_directory(dir)
         @testset "$(filename)" begin
             _include_sandbox(filename)
         end
-        Literate.markdown(
-            filename,
-            dir;
-            documenter = true,
-        )
+        Literate.markdown(filename, dir; documenter = true)
     end
     return
 end
@@ -47,30 +43,28 @@ end
 literate_directory(_EXAMPLE_DIR)
 
 makedocs(;
-    modules=[DiffOpt],
+    modules = [DiffOpt],
     doctest = false,
     clean = true,
-    format=Documenter.HTML(
+    format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", nothing) == "true",
         mathengine = Documenter.MathJax2(),
     ),
-    pages=[
+    pages = [
         "Home" => "index.md",
         "Introduction" => "intro.md",
         "Manual" => "manual.md",
         "Usage" => "usage.md",
         "Reference" => "reference.md",
         "Tutorials" => [
-            joinpath("examples", f) for f in readdir(_EXAMPLE_DIR) if endswith(f, ".md")
+            joinpath("examples", f) for
+            f in readdir(_EXAMPLE_DIR) if endswith(f, ".md")
         ],
     ],
     strict = true,  # See https://github.com/JuliaOpt/JuMP.jl/issues/1576
-    repo="https://github.com/jump-dev/DiffOpt.jl",
-    sitename="DiffOpt.jl",
-    authors="JuMP Community",
+    repo = "https://github.com/jump-dev/DiffOpt.jl",
+    sitename = "DiffOpt.jl",
+    authors = "JuMP Community",
 )
 
-deploydocs(
-    repo = "github.com/jump-dev/DiffOpt.jl.git",
-    push_preview = true,
-)
+deploydocs(; repo = "github.com/jump-dev/DiffOpt.jl.git", push_preview = true)
