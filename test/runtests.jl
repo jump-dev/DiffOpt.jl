@@ -8,11 +8,7 @@ import DiffOpt
 import Random
 import LinearAlgebra
 import DelimitedFiles
-
-import SparseArrays: spzeros
-
 import MathOptInterface as MOI
-const MOIU = MOI.Utilities
 const MOIT = MOI.Test
 
 const ATOL = 2e-4

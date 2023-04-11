@@ -7,7 +7,6 @@ using Test
 using JuMP
 import DiffOpt
 import MathOptInterface as MOI
-const MOIU = MOI.Utilities
 import LinearAlgebra: dot, ⋅, I
 import Ipopt
 import Ipopt
@@ -35,7 +34,11 @@ import DelimitedFiles
     model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:2])
-    @objective(model, Min, dot(Q * x, x) + dot(q, x))
+    @objective(
+        model,
+        Min,
+        LinearAlgebra.dot(Q * x, x) + LinearAlgebra.dot(q, x)
+    )
     @constraint(model, G * x .<= h,)
     optimize!(model)
 
@@ -54,7 +57,11 @@ end
     model = JuMP.direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     x = @variable(model, [1:2])
-    @objective(model, Min, dot(Q * x, x) + dot(q, x))
+    @objective(
+        model,
+        Min,
+        LinearAlgebra.dot(Q * x, x) + LinearAlgebra.dot(q, x)
+    )
     @constraint(model, ctr_le, G * x .<= h,)
     optimize!(model)
 
@@ -118,7 +125,7 @@ end
 
     DiffOpt.reverse_differentiate!(model)
 
-    @test MOIU.isapprox_zero(
+    @test MOI.Utilities.isapprox_zero(
         moi_function(MOI.get(model, DiffOpt.ReverseObjectiveFunction())),
         ATOL,
     )

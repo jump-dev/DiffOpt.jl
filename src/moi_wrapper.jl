@@ -29,8 +29,8 @@ function diff_optimizer(optimizer_constructor)::Optimizer
     # implement some getters or it may be inefficient and 2) the getters may be
     # unimplemented or inefficient through some bridges.
     # For this reason we add a cache layer, the same cache JuMP adds.
-    caching_opt = MOIU.CachingOptimizer(
-        MOIU.UniversalFallback(MOIU.Model{Float64}()),
+    caching_opt = MOI.Utilities.CachingOptimizer(
+        MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
         optimizer,
     )
     return Optimizer(caching_opt)
@@ -70,13 +70,12 @@ end
 
 function MOI.add_variable(model::Optimizer)
     model.diff = nothing
-    vi = MOI.add_variable(model.optimizer)
-    return vi
+    return MOI.add_variable(model.optimizer)
 end
 
 function MOI.add_variables(model::Optimizer, N::Int)
     model.diff = nothing
-    return VI[MOI.add_variable(model) for i in 1:N]
+    return MOI.VariableIndex[MOI.add_variable(model) for i in 1:N]
 end
 
 function MOI.add_constraint(
@@ -94,7 +93,9 @@ function MOI.add_constraints(
     s::AbstractVector{S},
 ) where {F<:MOI.AbstractFunction,S<:MOI.AbstractSet}
     model.diff = nothing
-    return CI{F,S}[MOI.add_constraint(model, f[i], s[i]) for i in eachindex(f)]
+    return MOI.ConstraintIndex{F,S}[
+        MOI.add_constraint(model, f[i], s[i]) for i in eachindex(f)
+    ]
 end
 
 function MOI.set(
@@ -127,14 +128,18 @@ function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintIndices)
     return MOI.get(model.optimizer, attr)
 end
 
-function MOI.get(model::Optimizer, attr::MOI.ConstraintSet, ci::CI)
+function MOI.get(
+    model::Optimizer,
+    attr::MOI.ConstraintSet,
+    ci::MOI.ConstraintIndex,
+)
     return MOI.get(model.optimizer, attr, ci)
 end
 
 function MOI.set(
     model::Optimizer,
     attr::MOI.ConstraintSet,
-    ci::CI{F,S},
+    ci::MOI.ConstraintIndex{F,S},
     s::S,
 ) where {F,S}
     model.diff = nothing
@@ -144,7 +149,7 @@ end
 function MOI.get(
     model::Optimizer,
     attr::MOI.ConstraintFunction,
-    ci::CI{F,S},
+    ci::MOI.ConstraintIndex{F,S},
 ) where {F,S}
     return MOI.get(model.optimizer, attr, ci)
 end
@@ -152,7 +157,7 @@ end
 function MOI.set(
     model::Optimizer,
     attr::MOI.ConstraintFunction,
-    ci::CI{F,S},
+    ci::MOI.ConstraintIndex{F,S},
     f::F,
 ) where {F,S}
     model.diff = nothing
@@ -176,12 +181,13 @@ function MOI.supports_constraint(
 ) where {F<:MOI.AbstractFunction,S<:MOI.AbstractSet}
     return MOI.supports_constraint(model.optimizer, F, S)
 end
+
 function MOI.supports(
     model::Optimizer,
     attr::MOI.ConstraintName,
-    ::Type{CI{F,S}},
+    ::Type{MOI.ConstraintIndex{F,S}},
 ) where {F,S}
-    return MOI.supports(model.optimizer, attr, CI{F,S})
+    return MOI.supports(model.optimizer, attr, MOI.ConstraintIndex{F,S})
 end
 
 function MOI.get(model::Optimizer, attr::MOI.SolveTimeSec)
@@ -213,7 +219,7 @@ end
 
 function MOI.copy_to(model::Optimizer, src::MOI.ModelLike)
     model.diff = nothing
-    return MOIU.default_copy_to(model.optimizer, src)
+    return MOI.Utilities.default_copy_to(model.optimizer, src)
 end
 
 function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
@@ -223,11 +229,12 @@ end
 function MOI.set(
     model::Optimizer,
     ::MOI.VariablePrimalStart,
-    vi::VI,
+    vi::MOI.VariableIndex,
     value::Float64,
 )
     model.diff = nothing
-    return MOI.set(model.optimizer, MOI.VariablePrimalStart(), vi, value)
+    MOI.set(model.optimizer, MOI.VariablePrimalStart(), vi, value)
+    return
 end
 
 function MOI.supports(
@@ -244,7 +251,8 @@ function MOI.set(
     v::MOI.VariableIndex,
     value,
 )
-    return MOI.set(model.optimizer, attr, v, value)
+    MOI.set(model.optimizer, attr, v, value)
+    return
 end
 
 function MOI.get(
@@ -255,29 +263,32 @@ function MOI.get(
     return MOI.get(model.optimizer, attr, vi)
 end
 
-function MOI.delete(model::Optimizer, ci::CI{F,S}) where {F,S}
+function MOI.delete(model::Optimizer, ci::MOI.ConstraintIndex{F,S}) where {F,S}
     model.diff = nothing
-    return MOI.delete(model.optimizer, ci)
+    MOI.delete(model.optimizer, ci)
+    return
 end
 
 function MOI.get(
     model::Optimizer,
     attr::MOI.ConstraintPrimal,
-    ci::CI{F,S},
+    ci::MOI.ConstraintIndex{F,S},
 ) where {F,S}
     return MOI.get(model.optimizer, attr, ci)
 end
 
-function MOI.is_valid(model::Optimizer, v::VI)
-    return MOI.is_valid(model.optimizer, v::VI)
+function MOI.is_valid(model::Optimizer, v::MOI.VariableIndex)
+    return MOI.is_valid(model.optimizer, v::MOI.VariableIndex)
 end
 
-MOI.is_valid(model::Optimizer, con::CI) = MOI.is_valid(model.optimizer, con)
+function MOI.is_valid(model::Optimizer, con::MOI.ConstraintIndex)
+    return MOI.is_valid(model.optimizer, con)
+end
 
 function MOI.get(
     model::Optimizer,
     attr::MOI.ConstraintDual,
-    ci::CI{F,S},
+    ci::MOI.ConstraintIndex{F,S},
 ) where {F,S}
     return MOI.get(model.optimizer, attr, ci)
 end
@@ -285,7 +296,7 @@ end
 function MOI.get(
     model::Optimizer,
     ::MOI.ConstraintBasisStatus,
-    ci::CI{F,S},
+    ci::MOI.ConstraintIndex{F,S},
 ) where {F,S}
     return MOI.get(model.optimizer, MOI.ConstraintBasisStatus(), ci)
 end
@@ -293,16 +304,16 @@ end
 # helper methods to check if a constraint contains a Variable
 function _constraint_contains(
     model::Optimizer,
-    v::VI,
-    ci::CI{MOI.VariableIndex},
+    v::MOI.VariableIndex,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex},
 )
     return v == MOI.get(model, MOI.ConstraintFunction(), ci)
 end
 
 function _constraint_contains(
     model::Optimizer,
-    v::VI,
-    ci::CI{MOI.ScalarAffineFunction{Float64}},
+    v::MOI.VariableIndex,
+    ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}},
 )
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
     return any(term -> v == term.variable, func.terms)
@@ -310,8 +321,8 @@ end
 
 function _constraint_contains(
     model::Optimizer,
-    v::VI,
-    ci::CI{MOI.VectorOfVariables},
+    v::MOI.VariableIndex,
+    ci::MOI.ConstraintIndex{MOI.VectorOfVariables},
 )
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
     return v in func.variables
@@ -319,24 +330,26 @@ end
 
 function _constraint_contains(
     model::Optimizer,
-    v::VI,
-    ci::CI{MOI.VectorAffineFunction{Float64}},
+    v::MOI.VariableIndex,
+    ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{Float64}},
 )
     func = MOI.get(model, MOI.ConstraintFunction(), ci)
     return any(term -> v == term.scalar_term.variable, func.terms)
 end
 
-function MOI.delete(model::Optimizer, v::VI)
+function MOI.delete(model::Optimizer, v::MOI.VariableIndex)
     model.diff = nothing
-    return MOI.delete(model.optimizer, v)
+    MOI.delete(model.optimizer, v)
+    return
 end
 
 # for array deletion
-function MOI.delete(model::Optimizer, indices::Vector{VI})
+function MOI.delete(model::Optimizer, indices::Vector{MOI.VariableIndex})
     model.diff = nothing
     for i in indices
         MOI.delete(model, i)
     end
+    return
 end
 
 function MOI.modify(
@@ -345,64 +358,88 @@ function MOI.modify(
     chg::MOI.AbstractFunctionModification,
 )
     model.diff = nothing
-    return MOI.modify(
+    MOI.modify(
         model.optimizer,
         MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
         chg,
     )
+    return
 end
 
 function MOI.modify(
     model::Optimizer,
-    ci::CI,
+    ci::MOI.ConstraintIndex,
     chg::MOI.AbstractFunctionModification,
 )
     model.diff = nothing
-    return MOI.modify(model.optimizer, ci, chg)
+    MOI.modify(model.optimizer, ci, chg)
+    return
 end
 
 function MOI.get(model::Optimizer, ::Type{MOI.VariableIndex}, name::String)
     return MOI.get(model.optimizer, MOI.VariableIndex, name)
 end
 
-function MOI.set(model::Optimizer, ::MOI.ConstraintName, con::CI, name::String)
-    return MOI.set(model.optimizer, MOI.ConstraintName(), con, name)
+function MOI.set(
+    model::Optimizer,
+    ::MOI.ConstraintName,
+    con::MOI.ConstraintIndex,
+    name::String,
+)
+    MOI.set(model.optimizer, MOI.ConstraintName(), con, name)
+    return
 end
 
 function MOI.get(model::Optimizer, ::Type{MOI.ConstraintIndex}, name::String)
     return MOI.get(model.optimizer, MOI.ConstraintIndex, name)
 end
 
-function MOI.get(model::Optimizer, ::MOI.ConstraintName, con::CI)
+function MOI.get(
+    model::Optimizer,
+    ::MOI.ConstraintName,
+    con::MOI.ConstraintIndex,
+)
     return MOI.get(model.optimizer, MOI.ConstraintName(), con)
 end
 
 function MOI.get(
     model::Optimizer,
     ::MOI.ConstraintName,
-    ::Type{CI{F,S}},
+    ::Type{MOI.ConstraintIndex{F,S}},
 ) where {F,S}
-    return MOI.get(model.optimizer, MOI.ConstraintName(), CI{F,S})
+    return MOI.get(
+        model.optimizer,
+        MOI.ConstraintName(),
+        MOI.ConstraintIndex{F,S},
+    )
 end
 
 function MOI.set(model::Optimizer, ::MOI.Name, name::String)
-    return MOI.set(model.optimizer, MOI.Name(), name)
+    MOI.set(model.optimizer, MOI.Name(), name)
+    return
 end
 
-function MOI.get(model::Optimizer, ::Type{CI{F,S}}, name::String) where {F,S}
-    return MOI.get(model.optimizer, CI{F,S}, name)
+function MOI.get(
+    model::Optimizer,
+    ::Type{MOI.ConstraintIndex{F,S}},
+    name::String,
+) where {F,S}
+    return MOI.get(model.optimizer, MOI.ConstraintIndex{F,S}, name)
 end
 
 function MOI.supports(model::Optimizer, attr::MOI.TimeLimitSec)
     return MOI.supports(model.optimizer, attr)
 end
+
 function MOI.set(
     model::Optimizer,
     ::MOI.TimeLimitSec,
     value::Union{Real,Nothing},
 )
-    return MOI.set(model.optimizer, MOI.TimeLimitSec(), value)
+    MOI.set(model.optimizer, MOI.TimeLimitSec(), value)
+    return
 end
+
 function MOI.get(model::Optimizer, ::MOI.TimeLimitSec)
     return MOI.get(model.optimizer, MOI.TimeLimitSec())
 end
@@ -412,7 +449,8 @@ function MOI.supports(model::Optimizer, ::MOI.Silent)
 end
 
 function MOI.set(model::Optimizer, ::MOI.Silent, value)
-    return MOI.set(model.optimizer, MOI.Silent(), value)
+    MOI.set(model.optimizer, MOI.Silent(), value)
+    return
 end
 
 function MOI.get(model::Optimizer, ::MOI.Silent)
@@ -442,9 +480,12 @@ differentiation. When set to `nothing`, the first one out of
 struct ModelConstructor <: MOI.AbstractOptimizerAttribute end
 
 MOI.supports(::Optimizer, ::ModelConstructor) = true
+
 MOI.get(model::Optimizer, ::ModelConstructor) = model.model_constructor
+
 function MOI.set(model::Optimizer, ::ModelConstructor, model_constructor)
-    return model.model_constructor = model_constructor
+    model.model_constructor = model_constructor
+    return
 end
 
 function reverse_differentiate!(model::Optimizer)
@@ -470,6 +511,7 @@ function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
             MOI.Utilities.map_indices(index_map, value),
         )
     end
+    return
 end
 
 function forward_differentiate!(model::Optimizer)
@@ -512,7 +554,7 @@ end
 function _copy_constraint_start(
     dest,
     src,
-    index_map::MOIU.DoubleDicts.IndexDoubleDictInner{F,S},
+    index_map::MOI.Utilities.DoubleDicts.IndexDoubleDictInner{F,S},
     dest_attr,
     src_attr,
 ) where {F,S}
@@ -520,6 +562,7 @@ function _copy_constraint_start(
         value = MOI.get(src, src_attr, ci)
         MOI.set(dest, dest_attr, index_map[ci], value)
     end
+    return
 end
 
 function _instantiate_with_bridges(model_constructor)
@@ -605,6 +648,7 @@ function _check_termination_status(model::Optimizer)
             MOI.get(model.optimizer, MOI.TerminationStatus()),
         )
     end
+    return
 end
 
 # DiffOpt attributes redirected to `diff`
@@ -622,10 +666,13 @@ function MOI.get(model::Optimizer, attr::ReverseObjectiveFunction)
         model.index_map,
     )
 end
+
 MOI.supports(::Optimizer, ::ForwardObjectiveFunction) = true
+
 function MOI.get(model::Optimizer, ::ForwardObjectiveFunction)
     return model.input_cache.objective
 end
+
 function MOI.set(model::Optimizer, ::ForwardObjectiveFunction, objective)
     model.input_cache.objective = objective
     return
@@ -642,11 +689,29 @@ function MOI.get(
         model.index_map[vi],
     )
 end
-MOI.supports(::Optimizer, ::ReverseVariablePrimal, ::Type{VI}) = true
-function MOI.get(model::Optimizer, ::ReverseVariablePrimal, vi::VI)
+
+function MOI.supports(
+    ::Optimizer,
+    ::ReverseVariablePrimal,
+    ::Type{MOI.VariableIndex},
+)
+    return true
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::ReverseVariablePrimal,
+    vi::MOI.VariableIndex,
+)
     return get(model.input_cache.dx, vi, 0.0)
 end
-function MOI.set(model::Optimizer, ::ReverseVariablePrimal, vi::VI, val)
+
+function MOI.set(
+    model::Optimizer,
+    ::ReverseVariablePrimal,
+    vi::MOI.VariableIndex,
+    val,
+)
     model.input_cache.dx[vi] = val
     return
 end
@@ -665,10 +730,11 @@ function MOI.get(
         model.index_map,
     )
 end
+
 function MOI.get(
     model::Optimizer,
     ::ForwardConstraintFunction,
-    ci::CI{MOI.ScalarAffineFunction{T},S},
+    ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
 ) where {T,S}
     return get(
         model.input_cache.scalar_constraints,
@@ -676,17 +742,19 @@ function MOI.get(
         zero(MOI.ScalarAffineFunction{T}),
     )
 end
+
 function MOI.supports(
     ::Optimizer,
     ::ForwardConstraintFunction,
-    ::Type{CI{F,S}},
+    ::Type{MOI.ConstraintIndex{F,S}},
 ) where {F<:Union{MOI.ScalarAffineFunction,MOI.VectorAffineFunction},S}
     return true
 end
+
 function MOI.get(
     model::Optimizer,
     ::ForwardConstraintFunction,
-    ci::CI{MOI.VectorAffineFunction{T},S},
+    ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{T},S},
 ) where {T,S}
     func = get(model.input_cache.vector_constraints, ci, nothing)
     if func === nothing
@@ -700,24 +768,27 @@ function MOI.get(
         return func
     end
 end
+
 function MOI.set(
     model::Optimizer,
     ::ForwardConstraintFunction,
-    ci::CI{MOI.ScalarAffineFunction{T},S},
+    ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
     model.input_cache.scalar_constraints[ci] = func
     return
 end
+
 function MOI.set(
     model::Optimizer,
     ::ForwardConstraintFunction,
-    ci::CI{MOI.VectorAffineFunction{T},S},
+    ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}
     model.input_cache.vector_constraints[ci] = func
     return
 end
+
 function MOI.get(model::Optimizer, attr::DifferentiateTimeSec)
     return MOI.get(model.diff, attr)
 end

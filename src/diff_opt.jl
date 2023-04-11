@@ -12,7 +12,7 @@
 const MOIDD = MOI.Utilities.DoubleDicts
 
 Base.@kwdef mutable struct InputCache
-    dx::Dict{VI,Float64} = Dict{VI,Float64}()# dz for QP
+    dx::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()# dz for QP
     # ds
     # dy #= [d\lambda, d\nu] for QP
     # FIXME Would it be possible to have a DoubleDict where the value depends
@@ -107,6 +107,7 @@ MOI.get(model, DiffOpt.ForwardVariablePrimal(), vi)
 ```
 """
 struct ForwardVariablePrimal <: MOI.AbstractVariableAttribute end
+
 MOI.is_set_by_optimize(::ForwardVariablePrimal) = true
 
 """
@@ -155,6 +156,7 @@ DiffOpt.quad_sym_half(func, x, y)
     functions.
 """
 struct ReverseObjectiveFunction <: MOI.AbstractModelAttribute end
+
 MOI.is_set_by_optimize(::ReverseObjectiveFunction) = true
 
 """
@@ -173,6 +175,7 @@ MOI.get(model, DiffOpt.ReverseConstraintFunction(), ci)
 ```
 """
 struct ReverseConstraintFunction <: MOI.AbstractConstraintAttribute end
+
 MOI.is_set_by_optimize(::ReverseConstraintFunction) = true
 
 """
@@ -184,6 +187,7 @@ the differentiation information.
 struct DifferentiateTimeSec <: MOI.AbstractModelAttribute end
 
 MOI.attribute_value_type(::DifferentiateTimeSec) = Float64
+
 MOI.is_set_by_optimize(::DifferentiateTimeSec) = true
 
 """
@@ -211,7 +215,7 @@ end
 function MOI.Utilities.pass_nonvariable_constraints(
     dest::AbstractModel,
     src::MOI.ModelLike,
-    idxmap::MOIU.IndexMap,
+    idxmap::MOI.Utilities.IndexMap,
     constraint_types,
 )
     return MOI.Utilities.pass_nonvariable_constraints(
@@ -267,23 +271,31 @@ function MOI.set(model::AbstractModel, ::ForwardObjectiveFunction, objective)
     model.input_cache.objective = objective
     return
 end
-function MOI.set(model::AbstractModel, ::ReverseVariablePrimal, vi::VI, val)
+
+function MOI.set(
+    model::AbstractModel,
+    ::ReverseVariablePrimal,
+    vi::MOI.VariableIndex,
+    val,
+)
     model.input_cache.dx[vi] = val
     return
 end
+
 function MOI.set(
     model::AbstractModel,
     ::ForwardConstraintFunction,
-    ci::CI{MOI.ScalarAffineFunction{T},S},
+    ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
     model.input_cache.scalar_constraints[ci] = func
     return
 end
+
 function MOI.set(
     model::AbstractModel,
     ::ForwardConstraintFunction,
-    ci::CI{MOI.VectorAffineFunction{T},S},
+    ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}
     model.input_cache.vector_constraints[ci] = func
@@ -308,6 +320,7 @@ function lazy_combination(
 ) where {F<:Function}
     return lazy_combination(op, α, view(a, I), β, view(b, I))
 end
+
 function lazy_combination(
     op::F,
     a,
@@ -317,6 +330,7 @@ function lazy_combination(
 ) where {F<:Function,N}
     return lazy_combination(op, a[i], b, b[i], a, args...)
 end
+
 function lazy_combination(
     op::F,
     a,
@@ -330,10 +344,18 @@ end
 function _lazy_affine(vector, constant::Number)
     return VectorScalarAffineFunction(vector, constant)
 end
+
 _lazy_affine(matrix, vector) = MatrixVectorAffineFunction(matrix, vector)
+
 function _get_db end
+
 function _get_dA end
-function MOI.get(model::AbstractModel, ::ReverseConstraintFunction, ci::CI)
+
+function MOI.get(
+    model::AbstractModel,
+    ::ReverseConstraintFunction,
+    ci::MOI.ConstraintIndex,
+)
     return _lazy_affine(_get_dA(model, ci), _get_db(model, ci))
 end
 
@@ -377,6 +399,7 @@ end
 
 # See the docstring of `map_rows`.
 struct Nested{T} end
+
 struct Flattened{T} end
 
 # Store in `x` the values `y` corresponding to the rows `r` and the `k`th
@@ -384,6 +407,7 @@ struct Flattened{T} end
 function _assign_mapped!(x, y, r, k, ::Nested)
     return x[k] = y
 end
+
 function _assign_mapped!(x, y, r, k, ::Flattened)
     return x[r] = y
 end
@@ -411,6 +435,7 @@ end
 function _allocate_rows(cones, ::Nested{T}) where {T}
     return Vector{T}(undef, length(cones.dimension))
 end
+
 function _allocate_rows(cones, ::Flattened{T}) where {T}
     return Vector{T}(undef, MOI.dimension(cones))
 end
@@ -435,8 +460,8 @@ function map_rows(
     k = 0
     for (F, S) in MOI.get(model, MOI.ListOfConstraintTypesPresent())
         # Function barrier for type unstability of `F` and `S`
-        # `con_map` is a `MOIU.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
-        # which returns a `MOIU.DoubleDicts.IndexWithType{F, S}` which is type stable.
+        # `con_map` is a `MOI.Utilities.DoubleDicts.MainIndexDoubleDict`, we index it at `F, S`
+        # which returns a `MOI.Utilities.DoubleDicts.IndexWithType{F, S}` which is type stable.
         # If we have a small number of different constraint types and many
         # constraint of each type, this mostly removes type unstabilities
         # as most the time is in `_map_rows!` which is type stable.
@@ -448,6 +473,7 @@ end
 function _fill(neg::Function, gradient_cache, input_cache, cones, args...)
     return _fill(S -> true, neg, gradient_cache, input_cache, cones, args...)
 end
+
 function _fill(
     filter::Function,
     neg::Function,
@@ -471,7 +497,9 @@ function _fill(vector::Vector, neg::Bool, cones, dict)
         r = MOI.Utilities.rows(cones, ci)
         vector[r] = neg ? -MOI.constant(func) : MOI.constant(func)
     end
+    return
 end
+
 function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, cones, dict)
     for (ci, func) in dict
         r = MOI.Utilities.rows(cones, ci)
@@ -479,7 +507,9 @@ function _fill(I::Vector, J::Vector, V::Vector, neg::Bool, cones, dict)
             _push_term(I, J, V, neg, r, term)
         end
     end
+    return
 end
+
 function _push_term(
     I::Vector,
     J::Vector,
@@ -492,6 +522,7 @@ function _push_term(
     push!(J, term.variable.value)
     return push!(V, neg ? -term.coefficient : term.coefficient)
 end
+
 function _push_term(
     I::Vector,
     J::Vector,

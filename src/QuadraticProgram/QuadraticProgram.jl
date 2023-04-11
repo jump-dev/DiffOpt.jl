@@ -5,17 +5,15 @@
 
 module QuadraticProgram
 
-using LinearAlgebra, SparseArrays
-
-import MathOptInterface as MOI
-
-import LazyArrays
-import IterativeSolvers
-
 import DiffOpt
+import IterativeSolvers
+import LazyArrays
+import LinearAlgebra
+import MathOptInterface as MOI
+import SparseArrays
 
 struct Cache
-    lhs::SparseMatrixCSC{Float64,Int}
+    lhs::SparseArrays.SparseMatrixCSC{Float64,Int}
 end
 
 Base.@kwdef struct ForwardReverseCache
@@ -185,9 +183,15 @@ function _gradient_cache(model::Model)
     if model.gradient_cache !== nothing
         return model.gradient_cache
     end
-    A = convert(SparseMatrixCSC{Float64,Int}, _equalities(model).coefficients)
+    A = convert(
+        SparseArrays.SparseMatrixCSC{Float64,Int},
+        _equalities(model).coefficients,
+    )
     b = _equalities(model).constants.upper
-    G = convert(SparseMatrixCSC{Float64,Int}, _inequalities(model).coefficients)
+    G = convert(
+        SparseArrays.SparseMatrixCSC{Float64,Int},
+        _inequalities(model).coefficients,
+    )
     h = _inequalities(model).constants.upper
 
     nz = size(A, 2)
@@ -254,14 +258,14 @@ function create_LHS_matrix(z, λ, Q, G, h, A = nothing)::AbstractMatrix{Float64}
         return Q
     elseif A === nothing || size(A)[1] == 0
         return [
-            Q G'*Diagonal(λ)
-            G Diagonal(G * z - h)
+            Q G'*LinearAlgebra.Diagonal(λ)
+            G LinearAlgebra.Diagonal(G * z - h)
         ]
     elseif G === nothing || size(G)[1] == 0
         p, n = size(A)
         return [
             Q A'
-            A spzeros(p, p)
+            A SparseArrays.spzeros(p, p)
         ]
     else
         p, n = size(A)
@@ -270,9 +274,9 @@ function create_LHS_matrix(z, λ, Q, G, h, A = nothing)::AbstractMatrix{Float64}
             throw(DimensionError("Sizes of $A and $G do not match"))
         end
         return [
-            Q G'*Diagonal(λ) A'
-            G Diagonal(G * z - h) spzeros(m, p)
-            A spzeros(p, m) spzeros(p, p)
+            Q G'*LinearAlgebra.Diagonal(λ) A'
+            G LinearAlgebra.Diagonal(G * z - h) SparseArrays.spzeros(m, p)
+            A SparseArrays.spzeros(p, m) SparseArrays.spzeros(p, p)
         ]
     end
 end
@@ -326,7 +330,7 @@ function DiffOpt.reverse_differentiate!(model::Model)
 
         nv = length(model.x)
         Q = view(LHS, 1:nv, 1:nv)
-        iterative = norm(Q) ≈ 0
+        iterative = LinearAlgebra.(Q) ≈ 0
         solver = model.linear_solver
         partial_grads = -solve_system(solver, LHS, RHS, iterative)
 
@@ -403,7 +407,7 @@ function DiffOpt.forward_differentiate!(model::Model)
             dAj,
             dAv,
         )
-        dA = sparse(dAi, dAj, dAv, length(model.ν), nv)
+        dA = SparseArrays.sparse(dAi, dAj, dAv, length(model.ν), nv)
 
         dGi = zeros(Int, 0)
         dGj = zeros(Int, 0)
@@ -418,7 +422,7 @@ function DiffOpt.forward_differentiate!(model::Model)
             dGj,
             dGv,
         )
-        dG = sparse(dGi, dGj, dGv, length(model.λ), nv)
+        dG = SparseArrays.sparse(dGi, dGj, dGv, length(model.λ), nv)
 
         λ = model.λ
         ν = model.ν
@@ -429,7 +433,7 @@ function DiffOpt.forward_differentiate!(model::Model)
         ]
 
         Q = view(LHS, 1:nv, 1:nv)
-        iterative = norm(Q) ≈ 0
+        iterative = LinearAlgebra.norm(Q) ≈ 0
         solver = model.linear_solver
         partial_grads = -solve_system(solver, LHS', RHS, iterative)
         dz = partial_grads[1:nv]
@@ -487,7 +491,7 @@ function solve_system(::Any, LHS, RHS, iterative)
     end
 end
 # See https://github.com/JuliaLang/julia/issues/32668
-function solve_system(::Nothing, LHS, RHS::SparseVector, iterative)
+function solve_system(::Nothing, LHS, RHS::SparseArrays.SparseVector, iterative)
     return solve_system(nothing, LHS, Vector(RHS), iterative)
 end
 

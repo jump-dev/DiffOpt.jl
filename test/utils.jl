@@ -7,7 +7,7 @@ using Test
 using JuMP
 import DiffOpt
 import MathOptInterface as MOI
-import LinearAlgebra: dot, ⋅, Diagonal
+import LinearAlgebra: ⋅
 import SparseArrays: sparse
 
 macro _test(computed, expected::Symbol)
@@ -108,7 +108,7 @@ function qp_test(
     if !iszero(nub)
         cub =
             MOI.add_constraint.(model, v[ub_indices], MOI.LessThan.(ub_values))
-        G = vcat(G, sparse(1:nub, ub_indices, ones(nub), nub, n))
+        G = vcat(G, SparseArrays.sparse(1:nub, ub_indices, ones(nub), nub, n))
         h = vcat(h, ub_values)
     end
     if !iszero(nlb)
@@ -118,7 +118,7 @@ function qp_test(
                 v[lb_indices],
                 MOI.GreaterThan.(lb_values),
             )
-        G = vcat(G, sparse(1:nlb, lb_indices, -ones(nlb), nlb, n))
+        G = vcat(G, SparseArrays.sparse(1:nlb, lb_indices, -ones(nlb), nlb, n))
         h = vcat(h, -lb_values)
     end
 
@@ -126,7 +126,10 @@ function qp_test(
     if !iszero(nfix)
         cfix =
             MOI.add_constraint.(model, v[fix_indices], MOI.EqualTo.(fix_values))
-        A = vcat(A, sparse(1:nfix, fix_indices, ones(nfix), nfix, n))
+        A = vcat(
+            A,
+            SparseArrays.sparse(1:nfix, fix_indices, ones(nfix), nfix, n),
+        )
         b = vcat(b, fix_values)
     end
 
@@ -134,7 +137,7 @@ function qp_test(
     if iszero(Q)
         obj = q ⋅ v
     else
-        obj = dot(v, Q / 2, v) + dot(q, v)
+        obj = LinearAlgebra.dot(v, Q / 2, v) + LinearAlgebra.dot(q, v)
     end
     MOI.set(model, MOI.ObjectiveFunction{typeof(obj)}(), obj)
 
@@ -230,7 +233,7 @@ function qp_test(
         @_test(-dhb ./ λ, ∇λb)
     end
     if ∇λb !== nothing
-        @_test(Diagonal(λ) * ∇λb * z' + λ * ∇zb', dGb)
+        @_test(LinearAlgebra.Diagonal(λ) * ∇λb * z' + λ * ∇zb', dGb)
     end
 
     # Test against [AK17, eq. (7)]

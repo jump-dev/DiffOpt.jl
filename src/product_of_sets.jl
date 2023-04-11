@@ -48,7 +48,9 @@ end
 function MOI.Utilities.set_index(set::ProductOfSets, S::Type{<:MOI.AbstractSet})
     return get(set.set_types_dict, S, nothing)
 end
+
 MOI.Utilities.set_types(set::ProductOfSets) = set.set_types
+
 function set_set_types(set::ProductOfSets, set_types)
     resize!(set.num_rows, length(set_types))
     fill!(set.num_rows, 0)
@@ -58,7 +60,9 @@ function set_set_types(set::ProductOfSets, set_types)
     for i in eachindex(set_types)
         set.set_types_dict[set_types[i]] = i
     end
+    return
 end
+
 function add_set_types(set::ProductOfSets, S::Type)
     if !haskey(set.set_types_dict, S)
         push!(set.num_rows, 0)

@@ -5,21 +5,14 @@
 
 module DiffOpt
 
-using LinearAlgebra
-import LinearAlgebra: ⋅, dot, Diagonal
-using SparseArrays
 using JuMP
 
-import LazyArrays
 import BlockDiagonals
-
+import LazyArrays
+import LinearAlgebra
 import MathOptInterface as MOI
-const MOIU = MOI.Utilities
-
 import MathOptSetDistances as MOSD
-
-const VI = MOI.VariableIndex
-const CI = MOI.ConstraintIndex
+import SparseArrays
 
 include("utils.jl")
 include("product_of_sets.jl")

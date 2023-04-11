@@ -5,20 +5,18 @@
 
 module ConicProgram
 
-using LinearAlgebra, SparseArrays
-
-import MathOptInterface as MOI
-
 import BlockDiagonals
-import IterativeSolvers
-
 import DiffOpt
+import IterativeSolvers
+import LinearAlgebra
+import MathOptInterface as MOI
+import SparseArrays
 
 Base.@kwdef struct Cache
-    M::SparseMatrixCSC{Float64,Int}
+    M::SparseArrays.SparseMatrixCSC{Float64,Int}
     vp::Vector{Float64}
     Dπv::BlockDiagonals.BlockDiagonal{Float64,Matrix{Float64}}
-    A::SparseMatrixCSC{Float64,Int}
+    A::SparseArrays.SparseMatrixCSC{Float64,Int}
     b::Vector{Float64}
     c::Vector{Float64}
 end
@@ -58,13 +56,15 @@ const Form{T} = MOI.Utilities.GenericModel{
 
 Model to differentiate conic programs.
 
-The forward differentiation computes the product of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c` to the perturbations `dA`, `db`, `dc`.
+The forward differentiation computes the product of the derivative (Jacobian) at
+the conic program parameters `A`, `b`, `c` to the perturbations `dA`, `db`, `dc`.
 
-The reverse differentiation computes the product of the transpose of the derivative (Jacobian) at the
-conic program parameters `A`, `b`, `c` to the perturbations `dx`, `dy`, `ds`.
+The reverse differentiation computes the product of the transpose of the
+derivative (Jacobian) at the conic program parameters `A`, `b`, `c` to the
+perturbations `dx`, `dy`, `ds`.
 
-For theoretical background, refer Section 3 of Differentiating Through a Cone Program, https://arxiv.org/abs/1904.09043
+For theoretical background, refer Section 3 of Differentiating Through a Cone
+Program, https://arxiv.org/abs/1904.09043
 """
 mutable struct Model <: DiffOpt.AbstractModel
     # storage for problem data in matrix form
@@ -89,6 +89,7 @@ mutable struct Model <: DiffOpt.AbstractModel
     y::Vector{Float64} # Dual
     diff_time::Float64
 end
+
 function Model()
     return Model(
         Form{Float64}(),
@@ -171,13 +172,13 @@ function _gradient_cache(model::Model)
 
     A =
         -convert(
-            SparseMatrixCSC{Float64,Int},
+            SparseArrays.SparseMatrixCSC{Float64,Int},
             model.model.constraints.coefficients,
         )
     b = model.model.constraints.constants
 
     if MOI.get(model, MOI.ObjectiveSense()) == MOI.FEASIBILITY_SENSE
-        c = spzeros(size(A, 2))
+        c = SparseArrays.spzeros(size(A, 2))
     else
         obj = MOI.get(
             model,
@@ -220,8 +221,8 @@ function _gradient_cache(model::Model)
     # K is defined in (5), Π in sect 2, and projection sin sect 3
 
     M = [
-        spzeros(n, n) (A'*Dπv) c
-        -A -Dπv+I b
+        SparseArrays.spzeros(n, n) (A'*Dπv) c
+        -A -Dπv+LinearAlgebra.I b
         -c' -b'*Dπv 0.0
     ]
     # find projections on dual of the cones
@@ -281,7 +282,7 @@ function DiffOpt.forward_differentiate!(model::Model)
             dAj,
             dAv,
         )
-        dA = sparse(dAi, dAj, dAv, lines, cols)
+        dA = SparseArrays.sparse(dAi, dAj, dAv, lines, cols)
 
         m = size(A, 1)
         n = size(A, 2)
@@ -290,9 +291,13 @@ function DiffOpt.forward_differentiate!(model::Model)
         (u, v, w) = (x, y - s, 1.0)
 
         # g = dQ * Π(z/|w|) = dQ * [u, vp, 1.0]
-        RHS = [dA' * vp + dc; -dA * u + db; -dc ⋅ u - db ⋅ vp]
+        RHS = [
+            dA' * vp + dc
+            -dA * u + db
+            -LinearAlgebra.dot(dc, u) - LinearAlgebra.dot(db, vp)
+        ]
 
-        dz = if norm(RHS) <= 1e-400 # TODO: parametrize or remove
+        dz = if LinearAlgebra.norm(RHS) <= 1e-400 # TODO: parametrize or remove
             RHS .= 0 # because M is square
         else
             IterativeSolvers.lsqr(M, RHS)
@@ -340,7 +345,7 @@ function DiffOpt.reverse_differentiate!(model::Model)
             Dπv' * (dy + ds) - ds - x' * dx - y' * dy - s' * ds
         ]
 
-        g = if norm(dz) <= 1e-4 # TODO: parametrize or remove
+        g = if LinearAlgebra.norm(dz) <= 1e-4 # TODO: parametrize or remove
             dz .= 0 # because M is square
         else
             IterativeSolvers.lsqr(M, dz)
@@ -384,6 +389,7 @@ function MOI.get(
     dw = model.forw_grad_cache.dw
     return -(du[i] - model.x[i] * dw[])
 end
+
 function DiffOpt._get_db(
     model::Model,
     ci::MOI.ConstraintIndex{F,S},
@@ -396,6 +402,7 @@ function DiffOpt._get_db(
     πz = model.back_grad_cache.πz
     return DiffOpt.lazy_combination(-, πz, g, length(g), n .+ i)
 end
+
 function DiffOpt._get_dA(
     model::Model,
     ci::MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},

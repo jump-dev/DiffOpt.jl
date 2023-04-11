@@ -6,7 +6,6 @@
 using Test
 import DiffOpt
 import MathOptInterface as MOI
-const MOIU = MOI.Utilities
 import DelimitedFiles
 import Ipopt
 import HiGHS
@@ -597,7 +596,7 @@ function test_simple_socp(eq_vec::Bool)
     if eq_vec
         ceq = MOI.add_constraint(
             model,
-            MOIU.vectorize([-1.0t + 1.0]),
+            MOI.Utilities.vectorize([-1.0t + 1.0]),
             MOI.Zeros(1),
         )
     else
@@ -605,12 +604,12 @@ function test_simple_socp(eq_vec::Bool)
     end
     cnon = MOI.add_constraint(
         model,
-        MOIU.vectorize([1.0y - 1 / √2]),
+        MOI.Utilities.vectorize([1.0y - 1 / √2]),
         MOI.Nonnegatives(1),
     )
     csoc = MOI.add_constraint(
         model,
-        MOIU.vectorize([1.0t, 1.0x, 1.0y]),
+        MOI.Utilities.vectorize([1.0t, 1.0x, 1.0y]),
         MOI.SecondOrderCone(3),
     )
 
@@ -621,7 +620,7 @@ function test_simple_socp(eq_vec::Bool)
             model,
             DiffOpt.ForwardConstraintFunction(),
             ceq,
-            MOIU.vectorize([1.0 * x]),
+            MOI.Utilities.vectorize([1.0 * x]),
         )
     else
         MOI.set(model, DiffOpt.ForwardConstraintFunction(), ceq, 1.0 * x)
@@ -630,13 +629,13 @@ function test_simple_socp(eq_vec::Bool)
         model,
         DiffOpt.ForwardConstraintFunction(),
         cnon,
-        MOIU.vectorize([1.0 * y]),
+        MOI.Utilities.vectorize([1.0 * y]),
     )
     MOI.set(
         model,
         DiffOpt.ForwardConstraintFunction(),
         csoc,
-        MOIU.operate(vcat, Float64, 1.0 * t, 0.0, 0.0),
+        MOI.Utilities.operate(vcat, Float64, 1.0 * t, 0.0, 0.0),
     )
 
     DiffOpt.forward_differentiate!(model)
@@ -750,7 +749,10 @@ function simple_psd(solver)
         model,
         DiffOpt.ForwardConstraintFunction(),
         c,
-        MOIU.zero_with_output_dimension(MOI.VectorAffineFunction{Float64}, 1),
+        MOI.Utilities.zero_with_output_dimension(
+            MOI.VectorAffineFunction{Float64},
+            1,
+        ),
     )
     MOI.set(model, DiffOpt.ForwardObjectiveFunction(), -1.0X[1] + 1.0X[3])
 
@@ -1037,25 +1039,25 @@ end
         model,
         DiffOpt.ForwardConstraintFunction(),
         c1,
-        MOIU.vectorize(ones(1, 7) * x + ones(1)),
+        MOI.Utilities.vectorize(ones(1, 7) * x + ones(1)),
     )
     MOI.set(
         model,
         DiffOpt.ForwardConstraintFunction(),
         c2,
-        MOIU.vectorize(ones(6, 7) * x + ones(6)),
+        MOI.Utilities.vectorize(ones(6, 7) * x + ones(6)),
     )
     MOI.set(
         model,
         DiffOpt.ForwardConstraintFunction(),
         c3,
-        MOIU.vectorize(ones(3, 7) * x + ones(3)),
+        MOI.Utilities.vectorize(ones(3, 7) * x + ones(3)),
     )
     MOI.set(
         model,
         DiffOpt.ForwardConstraintFunction(),
         c4,
-        MOIU.vectorize(ones(1, 7) * x + ones(1)),
+        MOI.Utilities.vectorize(ones(1, 7) * x + ones(1)),
     )
 
     DiffOpt.forward_differentiate!(model)
@@ -1116,25 +1118,25 @@ end
         model,
         DiffOpt.ForwardConstraintFunction(),
         c1,
-        MOIU.zero_with_output_dimension(VAF, 1),
+        MOI.Utilities.zero_with_output_dimension(VAF, 1),
     )
     MOI.set(
         model,
         DiffOpt.ForwardConstraintFunction(),
         c2,
-        MOIU.vectorize(ones(6) .* x[1:6]),
+        MOI.Utilities.vectorize(ones(6) .* x[1:6]),
     )
     MOI.set(
         model,
         DiffOpt.ForwardConstraintFunction(),
         c3,
-        MOIU.zero_with_output_dimension(VAF, 3),
+        MOI.Utilities.zero_with_output_dimension(VAF, 3),
     )
     MOI.set(
         model,
         DiffOpt.ForwardConstraintFunction(),
         c4,
-        MOIU.zero_with_output_dimension(VAF, 1),
+        MOI.Utilities.zero_with_output_dimension(VAF, 1),
     )
 
     DiffOpt.forward_differentiate!(model)
@@ -1165,7 +1167,7 @@ end
 
     x = MOI.add_variable(model)
 
-    func = MOIU.operate(
+    func = MOI.Utilities.operate(
         vcat,
         Float64,
         x,
@@ -1218,7 +1220,7 @@ end
         model,
         DiffOpt.ForwardConstraintFunction(),
         c,
-        MOIU.zero_with_output_dimension(VAF, 6),
+        MOI.Utilities.zero_with_output_dimension(VAF, 6),
     )
     MOI.set(model, DiffOpt.ForwardObjectiveFunction(), 1.0 * x)
 
@@ -1344,7 +1346,7 @@ end
 
     x = MOI.add_variable(model)
 
-    func = MOIU.operate(vcat, Float64, x, 1.0, x, 1.0, 1.0, x)
+    func = MOI.Utilities.operate(vcat, Float64, x, 1.0, x, 1.0, 1.0, x)
 
     c = MOI.add_constraint(model, func, MOI.PositiveSemidefiniteConeTriangle(3))
 
