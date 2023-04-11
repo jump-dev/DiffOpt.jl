@@ -137,7 +137,7 @@ pvalues = map(demand_values) do di
         [1.0, di, 1.4, 1.6],
         [1.0, di, 1.4, 1.6],
         [1000.0, 1500.0],
-        [500.0, 1000.0],
+        [500.0, 1000.0];
         silent = true,
     )
 end
@@ -146,7 +146,7 @@ pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])];
 # The influence of this variation of the demand is piecewise linear on the
 # generation at different time frames:
 
-Plots.scatter(demand_values, pflat, xaxis = ("Demand"), yaxis = ("Generation"))
+Plots.scatter(demand_values, pflat; xaxis = ("Demand"), yaxis = ("Generation"))
 Plots.title!("Different time frames and generators")
 Plots.xlims!(0.0, 3.5)
 
@@ -177,7 +177,7 @@ function ChainRulesCore.frule(
         load1_demand,
         load2_demand,
         gen_costs,
-        noload_costs,
+        noload_costs;
         model = model,
     )
     energy_balance_cons = model[:energy_balance_cons]
@@ -258,7 +258,7 @@ function ChainRulesCore.rrule(
         load1_demand,
         load2_demand,
         gen_costs,
-        noload_costs,
+        noload_costs;
         model = model,
         silent = silent,
     )
@@ -304,7 +304,7 @@ end
     load1_demand,
     load2_demand,
     gen_costs,
-    noload_costs,
+    noload_costs;
     optimizer = HiGHS.Optimizer,
     silent = true,
 )

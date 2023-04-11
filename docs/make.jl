@@ -46,7 +46,7 @@ makedocs(;
     modules = [DiffOpt],
     doctest = false,
     clean = true,
-    format = Documenter.HTML(
+    format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", nothing) == "true",
         mathengine = Documenter.MathJax2(),
     ),
@@ -67,4 +67,4 @@ makedocs(;
     authors = "JuMP Community",
 )
 
-deploydocs(repo = "github.com/jump-dev/DiffOpt.jl.git", push_preview = true)
+deploydocs(; repo = "github.com/jump-dev/DiffOpt.jl.git", push_preview = true)

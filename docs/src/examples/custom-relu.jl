@@ -38,7 +38,7 @@ end
 # Define the reverse differentiation rule, for the function we defined above.
 function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where {T}
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
-    pv = matrix_relu(y, model = model)
+    pv = matrix_relu(y; model = model)
     function pullback_matrix_relu(dl_dx)
         ## some value from the backpropagation (e.g., loss) is denoted by `l`
         ## so `dl_dy` is the derivative of `l` wrt `y`

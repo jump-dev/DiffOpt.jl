@@ -227,7 +227,8 @@ function _gradient_cache(model::Model)
     # find projections on dual of the cones
     vp = DiffOpt.π(v, model.model, model.model.constraints.sets)
 
-    model.gradient_cache = Cache(M = M, vp = vp, Dπv = Dπv, A = A, b = b, c = c)
+    model.gradient_cache =
+        Cache(; M = M, vp = vp, Dπv = Dπv, A = A, b = b, c = c)
 
     return model.gradient_cache
 end

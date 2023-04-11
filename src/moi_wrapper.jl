@@ -23,7 +23,7 @@ julia> model.add_constraint(model, ...)
 """
 function diff_optimizer(optimizer_constructor)::Optimizer
     optimizer =
-        MOI.instantiate(optimizer_constructor, with_bridge_type = Float64)
+        MOI.instantiate(optimizer_constructor; with_bridge_type = Float64)
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
     # the model information from `optimizer`. However, 1) `optimizer` may not
     # implement some getters or it may be inefficient and 2) the getters may be
