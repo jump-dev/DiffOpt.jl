@@ -48,7 +48,7 @@ function test_forward_on_trivial_qp()
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:2])
     @objective(model, Min, x' * Q * x + q' * x)
-    @constraint(model, G * x .<= h,)
+    @constraint(model, G * x .<= h)
     optimize!(model)
     @test JuMP.value.(x) ≈ [0.3, 0.7] atol = ATOL rtol = RTOL
     return
@@ -63,7 +63,7 @@ function test_differentiating_trivial_qp_1()
     MOI.set(model, MOI.Silent(), true)
     x = @variable(model, [1:2])
     @objective(model, Min, x' * Q * x + q' * x)
-    @constraint(model, ctr_le, G * x .<= h,)
+    @constraint(model, ctr_le, G * x .<= h)
     optimize!(model)
     @test JuMP.value.(x) ≈ [-0.25, -0.75] atol = ATOL rtol = RTOL
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
@@ -77,11 +77,9 @@ function test_differentiating_trivial_qp_1()
     grad_obj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
     @test JuMP.coefficient(grad_obj, x[1], x[2]) ≈
           DiffOpt.quad_sym_half.(grad_obj, x[1], x[2]) atol = ATOL rtol = RTOL
-
     @test DiffOpt.quad_sym_half(grad_obj, x[1], x[1]) ≈
           2 * JuMP.coefficient(grad_obj, x[1], x[1]) atol = ATOL rtol = RTOL
-    # TODO: this simple show fails
-    @show ctr_le
+    @test sprint(show, ctr_le) isa String
     return
 end
 
@@ -109,8 +107,8 @@ function test_differentiating_qp_with_inequality_and_equality_constraints()
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:3])
     @objective(model, Min, x' * Q * x + q' * x)
-    @constraint(model, ctr_le, G * x .<= h,)
-    @constraint(model, ctr_eq, A * x .== b,)
+    @constraint(model, ctr_le, G * x .<= h)
+    @constraint(model, ctr_eq, A * x .== b)
     optimize!(model)
     @test JuMP.value.(x) ≈ [0.0, 0.5, 0.0] atol = ATOL rtol = RTOL
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
