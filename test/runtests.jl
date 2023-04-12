@@ -5,5 +5,9 @@
 
 using Test
 
-include("moi_wrapper.jl")
-include("jump.jl")
+@testset "$file" for file in readdir(@__DIR__)
+    if !endswith(file, ".jl") || file in ("runtests.jl", "utils.jl")
+        continue
+    end
+    include(file)
+end

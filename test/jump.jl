@@ -28,6 +28,7 @@ function runtests()
             end
         end
     end
+    return
 end
 
 function test_forward_on_trivial_qp()
