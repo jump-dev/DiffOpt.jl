@@ -12,6 +12,7 @@ import DelimitedFiles
 import DiffOpt
 import HiGHS
 import Ipopt
+import IterativeSolvers
 import LinearAlgebra
 import MathOptInterface as MOI
 import SCS
@@ -532,6 +533,10 @@ function test_sensitivity_index_issue()
         -50.0
     ]
     optimize!(testModel)
+    @test JuMP.value.(testModel[:g]) == [15.0, 20.0, 20.0]
+    @test JuMP.value.(testModel[:v]) == [0.0]
+    @test JuMP.value.(testModel[:u]) == [45.0]
+    @test JuMP.value(testModel[:a]) == 50.0
     lambda = [
         JuMP.dual.(testModel[:v_cons_min])
         JuMP.dual.(testModel[:u_cons_min])
@@ -567,8 +572,10 @@ function test_sensitivity_index_issue()
         D_lambda zeros(11, 2)
         zeros(2, 11) LinearAlgebra.diagm(ones(2))
     ]
-    derivativeKKT =
-        hcat([DiffOpt.lsqr(KKT, rhsKKT[:, i]) for i in 1:size(rhsKKT)[2]]...)
+    derivativeKKT = reduce(
+        hcat,
+        IterativeSolvers.lsqr(KKT, rhsKKT[:, i]) for i in 1:size(rhsKKT, 2)
+    )
     dprimal_dconsKKT = derivativeKKT[1:6, :]
     #Finished calculation of sensitivities by Manual KKT
     #Calculation of sensitivities by DiffOpt
@@ -628,10 +635,6 @@ function test_sensitivity_index_issue()
     @test -dprimal_dcons[:, 11] ≈ -dprimal_dconsKKT[:, 11] atol = ATOL
     @test -dprimal_dcons[:, 12] ≈ dprimal_dconsKKT[:, 12] atol = ATOL
     @test -dprimal_dcons[:, 13] ≈ dprimal_dconsKKT[:, 13] atol = ATOL
-    @test JuMP.value.(testModel[:g]) == [15.0, 20.0, 20.0]
-    @test JuMP.value.(testModel[:v]) == [0.0]
-    @test JuMP.value.(testModel[:u]) == [45.0]
-    @test JuMP.value(testModel[:a]) == 50.0
     return
 end
 

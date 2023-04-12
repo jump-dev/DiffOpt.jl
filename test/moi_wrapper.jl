@@ -10,6 +10,7 @@ import DelimitedFiles
 import DiffOpt
 import HiGHS
 import Ipopt
+import IterativeSolvers
 import MathOptInterface as MOI
 import SCS
 
