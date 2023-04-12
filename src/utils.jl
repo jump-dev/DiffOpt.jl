@@ -160,21 +160,27 @@ Represents the function `x ⋅ terms + constant`
 as an `MOI.AbstractScalarFunction` where `x[i] = MOI.VariableIndex(i)`.
 Use [`standard_form`](@ref) to convert it to a `MOI.ScalarAffineFunction{T}`.
 """
-struct VectorScalarAffineFunction{T, VT} <: MOI.AbstractScalarFunction
+struct VectorScalarAffineFunction{T,VT} <: MOI.AbstractScalarFunction
     terms::VT
     constant::T
 end
 MOI.constant(func::VectorScalarAffineFunction) = func.constant
-function JuMP.coefficient(func::VectorScalarAffineFunction, vi::MOI.VariableIndex)
+function JuMP.coefficient(
+    func::VectorScalarAffineFunction,
+    vi::MOI.VariableIndex,
+)
     return func.terms[vi.value]
 end
-function Base.convert(::Type{MOI.ScalarAffineFunction{T}}, func::VectorScalarAffineFunction) where {T}
+function Base.convert(
+    ::Type{MOI.ScalarAffineFunction{T}},
+    func::VectorScalarAffineFunction,
+) where {T}
     return MOI.ScalarAffineFunction{T}(
         # TODO we should do better if the vector is a `SparseVector`, I think
         #      I have some code working for both vector types in Polyhedra.jl
         MOI.ScalarAffineTerm{T}[
-            MOI.ScalarAffineTerm{T}(func.terms[i], VI(i))
-            for i in eachindex(func.terms) if !iszero(func.terms[i])
+            MOI.ScalarAffineTerm{T}(func.terms[i], VI(i)) for
+            i in eachindex(func.terms) if !iszero(func.terms[i])
         ],
         func.constant,
     )
@@ -183,8 +189,15 @@ function standard_form(func::VectorScalarAffineFunction{T}) where {T}
     return convert(MOI.ScalarAffineFunction{T}, func)
 end
 
-function MOI.Utilities.operate(::typeof(-), ::Type{T}, func::VectorScalarAffineFunction{T}) where {T}
-    return VectorScalarAffineFunction(LazyArrays.ApplyArray(-, func.terms), -func.constant)
+function MOI.Utilities.operate(
+    ::typeof(-),
+    ::Type{T},
+    func::VectorScalarAffineFunction{T},
+) where {T}
+    return VectorScalarAffineFunction(
+        LazyArrays.ApplyArray(-, func.terms),
+        -func.constant,
+    )
 end
 
 """
@@ -197,12 +210,15 @@ Represents the function `x' * terms * x / 2 + affine` as an
 `MOI.AbstractScalarFunction` where `x[i] = MOI.VariableIndex(i)`.
 Use [`standard_form`](@ref) to convert it to a `MOI.ScalarQuadraticFunction{T}`.
 """
-struct MatrixScalarQuadraticFunction{T, VT, MT} <: MOI.AbstractScalarFunction
+struct MatrixScalarQuadraticFunction{T,VT,MT} <: MOI.AbstractScalarFunction
     affine::VectorScalarAffineFunction{T,VT}
     terms::MT
 end
 MOI.constant(func::MatrixScalarQuadraticFunction) = MOI.constant(func.affine)
-function JuMP.coefficient(func::MatrixScalarQuadraticFunction, vi::MOI.VariableIndex)
+function JuMP.coefficient(
+    func::MatrixScalarQuadraticFunction,
+    vi::MOI.VariableIndex,
+)
     return JuMP.coefficient(func.affine, vi)
 end
 
@@ -213,17 +229,23 @@ Represents the function `terms * x + constant`
 as an `MOI.AbstractVectorFunction` where `x[i] = MOI.VariableIndex(i)`.
 Use [`standard_form`](@ref) to convert it to a `MOI.VectorAffineFunction{T}`.
 """
-struct MatrixVectorAffineFunction{AT, VT} <: MOI.AbstractVectorFunction
+struct MatrixVectorAffineFunction{AT,VT} <: MOI.AbstractVectorFunction
     terms::AT
     constants::VT
 end
 MOI.constant(func::MatrixVectorAffineFunction) = func.constants
-function Base.convert(::Type{MOI.VectorAffineFunction{T}}, func::MatrixVectorAffineFunction) where {T}
+function Base.convert(
+    ::Type{MOI.VectorAffineFunction{T}},
+    func::MatrixVectorAffineFunction,
+) where {T}
     return MOI.VectorAffineFunction{T}(
         MOI.VectorAffineTerm{T}[
             # TODO we should do better if the matrix is a `SparseMatrixCSC`
-            MOI.VectorAffineTerm(i, MOI.ScalarAffineTerm{T}(func.terms[i, j], VI(j)))
-            for i in 1:size(func.terms, 1) for j in 1:size(func.terms, 2) if !iszero(func.terms[i, j])
+            MOI.VectorAffineTerm(
+                i,
+                MOI.ScalarAffineTerm{T}(func.terms[i, j], VI(j)),
+            ) for i in 1:size(func.terms, 1) for
+            j in 1:size(func.terms, 2) if !iszero(func.terms[i, j])
         ],
         func.constants,
     )
@@ -234,7 +256,10 @@ end
 
 # Only used for testing at the moment so performance is not critical so
 # converting to standard form is ok
-function MOIU.isapprox_zero(func::Union{VectorScalarAffineFunction,MatrixScalarQuadraticFunction}, tol)
+function MOIU.isapprox_zero(
+    func::Union{VectorScalarAffineFunction,MatrixScalarQuadraticFunction},
+    tol,
+)
     return MOIU.isapprox_zero(standard_form(func), tol)
 end
 
@@ -245,10 +270,7 @@ function Base.getindex(
     it::MOI.Utilities.ScalarFunctionIterator{F},
     output_index::Integer,
 ) where {F<:Union{MatrixVectorAffineFunction,SparseVectorAffineFunction}}
-    return _scalar(F)(
-        it.f.terms[output_index, :],
-        it.f.constants[output_index],
-    )
+    return _scalar(F)(it.f.terms[output_index, :], it.f.constants[output_index])
 end
 
 function _index_map_to_oneto!(index_map, v::MOI.VariableIndex)
