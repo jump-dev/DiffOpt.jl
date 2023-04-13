@@ -7,7 +7,7 @@ module TestConicProgram
 
 using Test
 import DiffOpt
-import Ipopt
+import HiGHS
 import LinearAlgebra
 import MathOptInterface as MOI
 import SCS
@@ -848,7 +848,7 @@ function test_singular_exception()
     q = [1.0, 1.0]
     G = [1.0 1.0]
     h = [-1.0]
-    model = DiffOpt.diff_optimizer(Ipopt.Optimizer)
+    model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 2)
     quad_terms = MOI.ScalarQuadraticTerm{Float64}[]
