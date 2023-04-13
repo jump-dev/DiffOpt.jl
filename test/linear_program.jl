@@ -6,7 +6,6 @@
 module TestLinearProgram
 
 using Test
-import DelimitedFiles
 import DiffOpt
 import HiGHS
 import Ipopt
