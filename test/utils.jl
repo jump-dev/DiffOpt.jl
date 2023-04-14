@@ -40,7 +40,6 @@ function qp_test(
     lt::Bool,
     set_zero::Bool,
     canonicalize::Bool;
-    known_sol = false,
     dzb = nothing,
     n = length(dzb),
     q = nothing,
@@ -337,20 +336,7 @@ function qp_test(
     return
 end
 
-function qp_test(solver, lt, set_zero, canonicalize; known_sol, kws...)
-    @testset "With $diff_model" for diff_model in [
-        DiffOpt.QuadraticProgram.Model,
-        DiffOpt.ConicProgram.Model,
-    ]
-        if diff_model === DiffOpt.ConicProgram.Model && known_sol
-            continue # FIXME
-        end
-        qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
-    end
-    return
-end
-
-function qp_test(solver; kws...)
+function qp_test(solver, diff_model; kws...)
     @testset "With $(lt ? "LessThan" : "GreaterThan") constraints" for lt in [
         true,
         false,
@@ -365,9 +351,19 @@ function qp_test(solver; kws...)
                 true,
                 false,
             ]
-                qp_test(solver, lt, set_zero, canonicalize; kws...)
+                qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
             end
         end
+    end
+    return
+end
+
+function qp_test(solver; kws...)
+    @testset "With $diff_model" for diff_model in [
+        DiffOpt.QuadraticProgram.Model,
+        DiffOpt.ConicProgram.Model,
+    ]
+        qp_test(solver, diff_model; kws...)
     end
     return
 end
@@ -404,7 +400,6 @@ function qp_test_with_solutions(
     @testset "Without known solutions" begin
         qp_test(
             solver;
-            known_sol = false,
             dzb = dzb,
             q = q,
             dqf = dqf,
@@ -428,8 +423,8 @@ function qp_test_with_solutions(
     end
     @testset "With known solutions" begin
         qp_test(
-            solver;
-            known_sol = true,
+            solver,
+            DiffOpt.QuadraticProgram.Model; # FIXME conic finds different solutions
             dzb = dzb,
             q = q,
             dqf = dqf,
