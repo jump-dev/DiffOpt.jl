@@ -179,7 +179,7 @@ function Base.convert(
         # TODO we should do better if the vector is a `SparseVector`, I think
         #      I have some code working for both vector types in Polyhedra.jl
         MOI.ScalarAffineTerm{T}[
-            MOI.ScalarAffineTerm{T}(func.terms[i], VI(i)) for
+            MOI.ScalarAffineTerm{T}(func.terms[i], MOI.VariableIndex(i)) for
             i in eachindex(func.terms) if !iszero(func.terms[i])
         ],
         func.constant,
@@ -243,7 +243,7 @@ function Base.convert(
             # TODO we should do better if the matrix is a `SparseMatrixCSC`
             MOI.VectorAffineTerm(
                 i,
-                MOI.ScalarAffineTerm{T}(func.terms[i, j], VI(j)),
+                MOI.ScalarAffineTerm{T}(func.terms[i, j], MOI.VariableIndex(j)),
             ) for i in 1:size(func.terms, 1) for
             j in 1:size(func.terms, 2) if !iszero(func.terms[i, j])
         ],
