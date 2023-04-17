@@ -50,7 +50,10 @@ const Form{T} = MOI.Utilities.GenericModel{
         DiffOpt.ProductOfSets{T},
     },
 }
-function MOI.supports(::Form{T}, ::MOI.ObjectiveFunction{F}) where {T,F<:MOI.AbstractFunction}
+function MOI.supports(
+    ::Form{T},
+    ::MOI.ObjectiveFunction{F},
+) where {T,F<:MOI.AbstractFunction}
     return F === MOI.ScalarAffineFunction{T}
 end
 

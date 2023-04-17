@@ -171,7 +171,10 @@ function JuMP.coefficient(
 )
     return func.terms[vi.value]
 end
-function Base.convert(::Type{VectorScalarAffineFunction{T,VT}}, v::SparseScalarAffineFunction) where {T,VT}
+function Base.convert(
+    ::Type{VectorScalarAffineFunction{T,VT}},
+    v::SparseScalarAffineFunction,
+) where {T,VT}
     return VectorScalarAffineFunction{T,VT}(v.terms, v.constant)
 end
 function Base.convert(

@@ -17,7 +17,7 @@ function MOI.set(
     bridge::MOI.Bridges.Objective.SlackBridge,
     value,
 )
-    MOI.set(model, ForwardConstraintFunction(), bridge.constraint, value)
+    return MOI.set(model, ForwardConstraintFunction(), bridge.constraint, value)
 end
 
 function MOI.set(
@@ -63,7 +63,8 @@ end
 
 function _variable_to_index_map(bridge)
     return Dict{MOI.VariableIndex,MOI.VariableIndex}(
-        v => MOI.VariableIndex(i) for (i, v) in enumerate(bridge.index_to_variable_map)
+        v => MOI.VariableIndex(i) for
+        (i, v) in enumerate(bridge.index_to_variable_map)
     )
 end
 
@@ -93,15 +94,27 @@ function MOI.get(
 ) where {T}
     variable_to_index_map = _variable_to_index_map(bridge)
     n = length(bridge.index_to_variable_map)
-    U = _U(MOI.get(model, MOI.ConstraintFunction(), bridge.soc), n, variable_to_index_map)
-    Δfunc = convert(MOI.VectorAffineFunction{T}, MOI.get(model, attr, bridge.soc))
+    U = _U(
+        MOI.get(model, MOI.ConstraintFunction(), bridge.soc),
+        n,
+        variable_to_index_map,
+    )
+    Δfunc =
+        convert(MOI.VectorAffineFunction{T}, MOI.get(model, attr, bridge.soc))
     filter!(Δfunc.terms) do t
-        haskey(variable_to_index_map, t.scalar_term.variable)
+        return haskey(variable_to_index_map, t.scalar_term.variable)
     end
-    aff = sparse_array_representation(-MOI.Utilities.eachscalar(Δfunc)[2], n, variable_to_index_map)
+    aff = sparse_array_representation(
+        -MOI.Utilities.eachscalar(Δfunc)[2],
+        n,
+        variable_to_index_map,
+    )
     ΔU = _U(Δfunc, n, variable_to_index_map)
     ΔQ = ΔQ_from_ΔU!(ΔU, U)
-    func = MatrixScalarQuadraticFunction(convert(VectorScalarAffineFunction{T,Vector{T}}, aff), ΔQ)
+    func = MatrixScalarQuadraticFunction(
+        convert(VectorScalarAffineFunction{T,Vector{T}}, aff),
+        ΔQ,
+    )
     index_map = MOI.Utilities.IndexMap()
     for (i, vi) in enumerate(bridge.index_to_variable_map)
         index_map[MOI.VariableIndex(i)] = vi
@@ -119,12 +132,16 @@ function _quad_to_soc_diff(
     diff::MOI.ScalarAffineFunction{T},
 ) where {T}
     n = length(bridge.index_to_variable_map)
-    diff_soc = MOI.VectorAffineFunction{T}(
-        MOI.VectorAffineTerm{T}[],
-        zeros(T, n + 2),
-    )
+    diff_soc =
+        MOI.VectorAffineFunction{T}(MOI.VectorAffineTerm{T}[], zeros(T, n + 2))
     for t in diff.terms
-        push!(diff_soc.terms, MOI.VectorAffineTerm(2, MOI.ScalarAffineTerm(-t.coefficient, t.variable)))
+        push!(
+            diff_soc.terms,
+            MOI.VectorAffineTerm(
+                2,
+                MOI.ScalarAffineTerm(-t.coefficient, t.variable),
+            ),
+        )
     end
     diff_soc.constants[2] = -diff.constant
     return diff_soc
@@ -137,15 +154,24 @@ function _quad_to_soc_diff(
 ) where {T}
     variable_to_index_map = _variable_to_index_map(bridge)
     n = length(bridge.index_to_variable_map)
-    U = _U(MOI.get(model, MOI.ConstraintFunction(), bridge.soc), n, variable_to_index_map)
+    U = _U(
+        MOI.get(model, MOI.ConstraintFunction(), bridge.soc),
+        n,
+        variable_to_index_map,
+    )
     # We assume `diff.quadratic_terms` only contains quadratic terms with
     # variables already in a quadratic term of the initial constraint
     # Otherwise, the `U` matrix will not be square so it's a TODO
     # We remove the affine terms here as they might have other variables not
     # in `variable_to_index_map`
-    diff_quad = MOI.ScalarQuadraticFunction(diff.quadratic_terms, MOI.ScalarAffineTerm{T}[], zero(T))
+    diff_quad = MOI.ScalarQuadraticFunction(
+        diff.quadratic_terms,
+        MOI.ScalarAffineTerm{T}[],
+        zero(T),
+    )
     diff_aff = MOI.ScalarAffineFunction(diff.affine_terms, diff.constant)
-    diff_array = sparse_array_representation(diff_quad, n, variable_to_index_map)
+    diff_array =
+        sparse_array_representation(diff_quad, n, variable_to_index_map)
     dU = dU_from_dQ!(Matrix(diff_array.quadratic_terms), U)
     diff_soc = _quad_to_soc_diff(model, bridge, diff_aff)
     for i in axes(dU, 1)
