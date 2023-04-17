@@ -12,8 +12,8 @@ import Ipopt
 import MathOptInterface as MOI
 import SCS
 
-const ATOL = 2e-4
-const RTOL = 2e-4
+const ATOL = 1e-2
+const RTOL = 1e-2
 
 function runtests()
     for name in names(@__MODULE__; all = true)

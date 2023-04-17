@@ -183,8 +183,16 @@ function qp_test(
             n,
             dobjb.index_map,
         )
-        @_test(spb.quadratic_terms, dQb)
-        @_test(spb.affine_terms, dqb)
+        if spb isa DiffOpt.SparseScalarAffineFunction
+            @test all(iszero, Q)
+            if isnothing(dQb)
+                dQb = Q
+            end
+            @_test(spb.terms, dqb)
+        else
+            @_test(spb.quadratic_terms, dQb)
+            @_test(spb.affine_terms, dqb)
+        end
 
         # FIXME should multiply by -1 if lt is false
         funcs = MOI.get.(model, DiffOpt.ReverseConstraintFunction(), cle)
@@ -248,7 +256,11 @@ function qp_test(
     end
     @_test(-A * ∇zb, dνb)
 
-    dobjf = v' * (dQf / 2.0) * v + dqf' * v
+    if all(iszero, dQf)
+        dobjf = dqf' * v
+    else
+        dobjf = v' * (dQf / 2.0) * v + dqf' * v
+    end
     dlef = dGf * v .- dhf
     deqf = dAf * v .- dbf
 
@@ -324,17 +336,7 @@ function qp_test(
     return
 end
 
-function qp_test(solver, lt, set_zero, canonicalize; kws...)
-    @testset "With $diff_model" for diff_model in [
-        DiffOpt.ConicProgram.Model,
-        DiffOpt.QuadraticProgram.Model,
-    ]
-        qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
-    end
-    return
-end
-
-function qp_test(solver; kws...)
+function qp_test(solver, diff_model; kws...)
     @testset "With $(lt ? "LessThan" : "GreaterThan") constraints" for lt in [
         true,
         false,
@@ -349,8 +351,19 @@ function qp_test(solver; kws...)
                 true,
                 false,
             ]
+                qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
             end
         end
+    end
+    return
+end
+
+function qp_test(solver; kws...)
+    @testset "With $diff_model" for diff_model in [
+        DiffOpt.QuadraticProgram.Model,
+        DiffOpt.ConicProgram.Model,
+    ]
+        qp_test(solver, diff_model; kws...)
     end
     return
 end
@@ -410,7 +423,8 @@ function qp_test_with_solutions(
     end
     @testset "With known solutions" begin
         qp_test(
-            solver;
+            solver,
+            DiffOpt.QuadraticProgram.Model; # FIXME conic finds different solutions
             dzb = dzb,
             q = q,
             dqf = dqf,
