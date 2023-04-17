@@ -322,6 +322,7 @@ function test_differentiating_non_trivial_convex_qp_moi()
     dbb = vec(grads_actual[6])
     qp_test(
         Ipopt.Optimizer,
+        DiffOpt.ConicProgram.Model,
         true,
         true,
         true;
