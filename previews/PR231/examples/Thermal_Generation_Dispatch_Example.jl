@@ -28,20 +28,24 @@ using JuMP
 import DiffOpt
 import LinearAlgebra: dot
 import HiGHS
-import MathOptInterface
+import MathOptInterface as MOI
 import Plots
-const MOI = MathOptInterface
 
 # Define the model that will be construct given a set of parameters.
 
-function generate_model(d::Float64; g_sup::Vector{Float64}, c_g::Vector{Float64}, c_ϕ::Float64)
+function generate_model(
+    d::Float64;
+    g_sup::Vector{Float64},
+    c_g::Vector{Float64},
+    c_ϕ::Float64,
+)
     ## Creation of the Model and Parameters
     model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     I = length(g_sup)
 
     ## Variables
-    @variable(model, g[i in  1:I] >= 0.0)
+    @variable(model, g[i in 1:I] >= 0.0)
     @variable(model, ϕ >= 0.0)
 
     ## Constraints
@@ -67,15 +71,20 @@ function diff_forward(model::Model, ϵ::Float64 = 1.0)
 
     ## Get the primal solution of the model
     vect = MOI.get.(model, MOI.VariablePrimal(), vect_ref)
-     
+
     ## Pass the perturbation to the DiffOpt Framework and set the context to Forward
     constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, ϵ)
-    MOI.set(model, DiffOpt.ForwardConstraintFunction(), model[:demand_constraint], constraint_equation)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintFunction(),
+        model[:demand_constraint],
+        constraint_equation,
+    )
     DiffOpt.forward_differentiate!(model)
-    
+
     ## Get the derivative of the model
     dvect = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), vect_ref)
-    
+
     ## Return the values as a vector
     return [vect; dvect]
 end
@@ -89,7 +98,7 @@ function diff_reverse(model::Model, ϵ::Float64 = 1.0)
     vect = MOI.get.(model, MOI.VariablePrimal(), vect_ref)
 
     ## Set variables needed for the DiffOpt Backward Framework
-    dvect = Array{Float64, 1}(undef, I + 1)
+    dvect = Array{Float64,1}(undef, I + 1)
     perturbation = zeros(I + 1)
 
     ## Loop for each primal variable
@@ -100,12 +109,18 @@ function diff_reverse(model::Model, ϵ::Float64 = 1.0)
         DiffOpt.reverse_differentiate!(model)
 
         ## Get the value of the derivative of the model
-        dvect[i] = JuMP.constant(MOI.get(model, DiffOpt.ReverseConstraintFunction(), model[:demand_constraint]))
+        dvect[i] = JuMP.constant(
+            MOI.get(
+                model,
+                DiffOpt.ReverseConstraintFunction(),
+                model[:demand_constraint],
+            ),
+        )
         perturbation[i] = 0.0
     end
 
     ## Return the values as a vector
-    return [vect;dvect]
+    return [vect; dvect]
 end
 
 # Initialize of Parameters
@@ -115,8 +130,7 @@ I = length(g_sup)
 d = 0.0:0.1:80
 d_size = length(d)
 c_g = [1.0, 3.0, 5.0]
-c_ϕ = 10.0
-;
+c_ϕ = 10.0;
 
 # Generate models for each demand `d`
 models = generate_model.(d; g_sup = g_sup, c_g = c_g, c_ϕ = c_ϕ);
@@ -129,37 +143,53 @@ result_reverse = diff_reverse.(models);
 
 # Organization of results to plot
 # Initialize data_results that will contain every result
-data_results = Array{Float64,3}(undef, 2, d_size, 2*(I+1));
+data_results = Array{Float64,3}(undef, 2, d_size, 2 * (I + 1));
 
 # Populate the data_results array
 for k in 1:d_size
-    data_results[1,k,:] = result_forward[k]
-    data_results[2,k,:] = result_reverse[k]
+    data_results[1, k, :] = result_forward[k]
+    data_results[2, k, :] = result_reverse[k]
 end
 
 # ## Results with Plot graphs
 # ### Results for the forward context
 # Result Primal Values:
-Plots.plot(d,data_results[1,:,1:I+1],
-    title="Generation by Demand",label=["Thermal Generation 1" "Thermal Generation 2" "Thermal Generation 3" "Generation Deficit"],
-    xlabel="Demand [unit]",ylabel= "Generation [unit]"
+Plots.plot(
+    d,
+    data_results[1, :, 1:I+1];
+    title = "Generation by Demand",
+    label = ["Thermal Generation 1" "Thermal Generation 2" "Thermal Generation 3" "Generation Deficit"],
+    xlabel = "Demand [unit]",
+    ylabel = "Generation [unit]",
 )
 
 # Result Sensitivity Analysis:
-Plots.plot(d,data_results[1,:,I+2:2*(I+1)],
-    title="Sensitivity of Generation by Demand",label=["T. Gen. 1 Sensitivity" "T. Gen. 2 Sensitivity" "T. Gen. 3 Sensitivity" "Gen. Deficit Sensitivity"],
-    xlabel="Demand [unit]",ylabel= "Sensitivity [-]"
+Plots.plot(
+    d,
+    data_results[1, :, I+2:2*(I+1)];
+    title = "Sensitivity of Generation by Demand",
+    label = ["T. Gen. 1 Sensitivity" "T. Gen. 2 Sensitivity" "T. Gen. 3 Sensitivity" "Gen. Deficit Sensitivity"],
+    xlabel = "Demand [unit]",
+    ylabel = "Sensitivity [-]",
 )
 
 # ### Results for the reverse context
 # Result Primal Values:
-Plots.plot(d,data_results[2,:,1:I+1],
-    title="Generation by Demand",label=["Thermal Generation 1" "Thermal Generation 2" "Thermal Generation 3" "Generation Deficit"],
-    xlabel="Demand [unit]",ylabel= "Generation [unit]"
+Plots.plot(
+    d,
+    data_results[2, :, 1:I+1];
+    title = "Generation by Demand",
+    label = ["Thermal Generation 1" "Thermal Generation 2" "Thermal Generation 3" "Generation Deficit"],
+    xlabel = "Demand [unit]",
+    ylabel = "Generation [unit]",
 )
 
 # Result Sensitivity Analysis:
-Plots.plot(d,data_results[2,:,I+2:2*(I+1)],
-    title="Sensitivity of Generation by Demand",label=["T. Gen. 1 Sensitivity" "T. Gen. 2 Sensitivity" "T. Gen. 3 Sensitivity" "Gen. Deficit Sensitivity"],
-    xlabel="Demand [unit]",ylabel= "Sensitivity [-]"
+Plots.plot(
+    d,
+    data_results[2, :, I+2:2*(I+1)];
+    title = "Sensitivity of Generation by Demand",
+    label = ["T. Gen. 1 Sensitivity" "T. Gen. 2 Sensitivity" "T. Gen. 3 Sensitivity" "Gen. Deficit Sensitivity"],
+    xlabel = "Demand [unit]",
+    ylabel = "Sensitivity [-]",
 )

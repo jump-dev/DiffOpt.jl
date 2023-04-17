@@ -2,12 +2,10 @@
 
 #md # [![](https://img.shields.io/badge/show-github-579ACA.svg)](@__REPO_ROOT_URL__/docs/src/examples/chainrules_unit.jl)
 
-
 # In this example, we will demonstrate the integration of DiffOpt with
 # [ChainRulesCore.jl](https://juliadiff.org/ChainRulesCore.jl/stable/),
 # the library allowing the definition of derivatives for functions
 # that can then be used by automatic differentiation systems.
-
 
 using JuMP
 import DiffOpt
@@ -39,8 +37,13 @@ import ChainRulesCore
 # solution map taking in input the problem parameters and returning the solution.
 
 function unit_commitment(
-        load1_demand, load2_demand, gen_costs, noload_costs;
-        model = Model(HiGHS.Optimizer), silent=false)
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs;
+    model = Model(HiGHS.Optimizer),
+    silent = false,
+)
     MOI.set(model, MOI.Silent(), silent)
 
     ## Problem data
@@ -72,20 +75,39 @@ function unit_commitment(
     )
 
     ## Generation limits
-    @constraint(model, [g in units, t in 1:n_periods], Pmin[g][t] * u[g, t] <= p[g, t])
-    @constraint(model, [g in units, t in 1:n_periods], p[g, t] <= Pmax[g][t] * u[g, t])
+    @constraint(
+        model,
+        [g in units, t in 1:n_periods],
+        Pmin[g][t] * u[g, t] <= p[g, t]
+    )
+    @constraint(
+        model,
+        [g in units, t in 1:n_periods],
+        p[g, t] <= Pmax[g][t] * u[g, t]
+    )
 
     ## Ramp rates
-    @constraint(model, [g in units, t in 2:n_periods], p[g, t] - p[g, t - 1] <= 60 * RR[g])
+    @constraint(
+        model,
+        [g in units, t in 2:n_periods],
+        p[g, t] - p[g, t-1] <= 60 * RR[g]
+    )
     @constraint(model, [g in units], p[g, 1] - P0[g] <= 60 * RR[g])
-    @constraint(model, [g in units, t in 2:n_periods], p[g, t - 1] - p[g, t] <= 60 * RR[g])
+    @constraint(
+        model,
+        [g in units, t in 2:n_periods],
+        p[g, t-1] - p[g, t] <= 60 * RR[g]
+    )
     @constraint(model, [g in units], P0[g] - p[g, 1] <= 60 * RR[g])
 
     ## Objective
     @objective(
         model,
         Min,
-        sum((Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for g in units, t in 1:n_periods),
+        sum(
+            (Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for g in units,
+            t in 1:n_periods
+        ),
     )
 
     optimize!(model)
@@ -97,31 +119,34 @@ end
 
 m = Model(HiGHS.Optimizer)
 @show unit_commitment(
-    [1.0, 1.2, 1.4, 1.6], [1.0, 1.2, 1.4, 1.6],
-    [1000.0, 1500.0], [500.0, 1000.0],
-    model=m, silent=true
+    [1.0, 1.2, 1.4, 1.6],
+    [1.0, 1.2, 1.4, 1.6],
+    [1000.0, 1500.0],
+    [500.0, 1000.0],
+    model = m,
+    silent = true,
 )
 
 # ## Perturbation of a single input parameter
 
 # Let us vary the demand at the second time frame on both loads:
 
-
 demand_values = 0.05:0.05:3.0
 pvalues = map(demand_values) do di
-    unit_commitment(
-        [1.0, di, 1.4, 1.6], [1.0, di, 1.4, 1.6],
-        [1000.0, 1500.0], [500.0, 1000.0],
-        silent=true,
+    return unit_commitment(
+        [1.0, di, 1.4, 1.6],
+        [1.0, di, 1.4, 1.6],
+        [1000.0, 1500.0],
+        [500.0, 1000.0];
+        silent = true,
     )
 end
 pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])];
 
-
 # The influence of this variation of the demand is piecewise linear on the
 # generation at different time frames:
 
-Plots.scatter(demand_values, pflat, xaxis = ("Demand"), yaxis = ("Generation"))
+Plots.scatter(demand_values, pflat; xaxis = ("Demand"), yaxis = ("Generation"))
 Plots.title!("Different time frames and generators")
 Plots.xlims!(0.0, 3.5)
 
@@ -136,29 +161,37 @@ Plots.xlims!(0.0, 3.5)
 # and returns a tuple `(primal_output, perturbations)`, the main primal result
 # and the perturbation propagated to this result:
 
-
 function ChainRulesCore.frule(
-        (_, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs),
-        ::typeof(unit_commitment),
-        load1_demand, load2_demand, gen_costs, noload_costs;
-        optimizer=HiGHS.Optimizer,
-        )
+    (_, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs),
+    ::typeof(unit_commitment),
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs;
+    optimizer = HiGHS.Optimizer,
+)
     ## creating the UC model with a DiffOpt optimizer wrapper around HiGHS
     model = Model(() -> DiffOpt.diff_optimizer(optimizer))
     ## building and solving the main model
     pv = unit_commitment(
-        load1_demand, load2_demand, gen_costs, noload_costs, model=model)
+        load1_demand,
+        load2_demand,
+        gen_costs,
+        noload_costs;
+        model = model,
+    )
     energy_balance_cons = model[:energy_balance_cons]
 
     ## Setting some perturbation of the energy balance constraints
     ## Perturbations are set as MOI functions
     Δenergy_balance = [
-        convert(MOI.ScalarAffineFunction{Float64}, d1 + d2)
-        for (d1, d2) in zip(Δload1_demand, Δload2_demand)
+        convert(MOI.ScalarAffineFunction{Float64}, d1 + d2) for
+        (d1, d2) in zip(Δload1_demand, Δload2_demand)
     ]
     MOI.set.(
         model,
-        DiffOpt.ForwardConstraintFunction(), energy_balance_cons,
+        DiffOpt.ForwardConstraintFunction(),
+        energy_balance_cons,
         Δenergy_balance,
     )
 
@@ -166,7 +199,8 @@ function ChainRulesCore.frule(
     u = model[:u]
 
     ## setting the perturbation of the linear objective
-    Δobj = sum(Δgen_costs ⋅ p[:,t] + Δnoload_costs ⋅ u[:,t] for t in size(p, 2))
+    Δobj =
+        sum(Δgen_costs ⋅ p[:, t] + Δnoload_costs ⋅ u[:, t] for t in size(p, 2))
     MOI.set(model, DiffOpt.ForwardObjectiveFunction(), Δobj)
     DiffOpt.forward_differentiate!(JuMP.backend(model))
     ## querying the corresponding perturbation of the decision
@@ -176,7 +210,6 @@ end
 
 # We can now compute the perturbation of the output powers `Δpv`
 # for a perturbation of the first load demand at time 2:
-
 
 load1_demand = [1.0, 1.0, 1.4, 1.6]
 load2_demand = [1.0, 1.0, 1.4, 1.6]
@@ -193,11 +226,13 @@ noload_costs = [500.0, 1000.0];
 (pv, Δpv) = ChainRulesCore.frule(
     (nothing, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs),
     unit_commitment,
-    load1_demand, load2_demand, gen_costs, noload_costs,
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs,
 )
 
 Δpv
-
 
 # The result matches what we observe in the previous figure:
 # the generation of the first generator at the second time frame (third element on the plot).
@@ -209,15 +244,24 @@ noload_costs = [500.0, 1000.0];
 # derivatives with respect to each input parameter of the function.
 
 function ChainRulesCore.rrule(
-        ::typeof(unit_commitment),
-        load1_demand, load2_demand, gen_costs, noload_costs;
-        optimizer=HiGHS.Optimizer,
-        silent=false)
+    ::typeof(unit_commitment),
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs;
+    optimizer = HiGHS.Optimizer,
+    silent = false,
+)
     model = Model(() -> DiffOpt.diff_optimizer(optimizer))
     ## solve the forward UC problem
     pv = unit_commitment(
-        load1_demand, load2_demand, gen_costs, noload_costs,
-        model=model, silent=silent)
+        load1_demand,
+        load2_demand,
+        gen_costs,
+        noload_costs;
+        model = model,
+        silent = silent,
+    )
     function pullback_unit_commitment(pb)
         p = model[:p]
         u = model[:u]
@@ -230,16 +274,22 @@ function ChainRulesCore.rrule(
 
         ## computing derivative wrt linear objective costs
         dgen_costs = similar(gen_costs)
-        dgen_costs[1] = sum(JuMP.coefficient.(obj, p[1,:]))
-        dgen_costs[2] = sum(JuMP.coefficient.(obj, p[2,:]))
+        dgen_costs[1] = sum(JuMP.coefficient.(obj, p[1, :]))
+        dgen_costs[2] = sum(JuMP.coefficient.(obj, p[2, :]))
 
         dnoload_costs = similar(noload_costs)
-        dnoload_costs[1] = sum(JuMP.coefficient.(obj, u[1,:]))
-        dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2,:]))
+        dnoload_costs[1] = sum(JuMP.coefficient.(obj, u[1, :]))
+        dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2, :]))
 
         ## computing derivative wrt constraint constant
-        dload1_demand = JuMP.constant.(
-            MOI.get.(model, DiffOpt.ReverseConstraintFunction(), energy_balance_cons))
+        dload1_demand =
+            JuMP.constant.(
+                MOI.get.(
+                    model,
+                    DiffOpt.ReverseConstraintFunction(),
+                    energy_balance_cons,
+                )
+            )
         dload2_demand = copy(dload1_demand)
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
     end
@@ -251,12 +301,15 @@ end
 
 (pv, pullback_unit_commitment) = ChainRulesCore.rrule(
     unit_commitment,
-    load1_demand, load2_demand, gen_costs, noload_costs,
-    optimizer=HiGHS.Optimizer,
-    silent=true,
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs;
+    optimizer = HiGHS.Optimizer,
+    silent = true,
 )
 dpv = 0 * pv
-dpv[1,2] = 1
+dpv[1, 2] = 1
 dargs = pullback_unit_commitment(dpv)
 (dload1_demand, dload2_demand, dgen_costs, dnoload_costs) = dargs;
 
