@@ -257,12 +257,11 @@ function _enlarge_set(vec::Vector, idx, value)
     return
 end
 
-function MOI.set(
-    model::AbstractModel,
-    ::MOI.VariablePrimalStart,
-    vi::MOI.VariableIndex,
-    value,
-)
+function MOI.get(model::AbstractModel, ::MOI.VariablePrimalStart, vi::MOI.VariableIndex)
+    return model.x[vi.value]
+end
+
+function MOI.set(model::AbstractModel, ::MOI.VariablePrimalStart, vi::MOI.VariableIndex, value)
     MOI.throw_if_not_valid(model, vi)
     return _enlarge_set(model.x, vi.value, value)
 end
