@@ -20,6 +20,7 @@ include("diff_opt.jl")
 include("moi_wrapper.jl")
 include("jump_moi_overloads.jl")
 
+include("copy_dual.jl")
 include("bridges.jl")
 
 include("QuadraticProgram/QuadraticProgram.jl")

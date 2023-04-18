@@ -50,6 +50,12 @@ const Form{T} = MOI.Utilities.GenericModel{
         DiffOpt.ProductOfSets{T},
     },
 }
+function MOI.supports(
+    ::Form{T},
+    ::MOI.ObjectiveFunction{F},
+) where {T,F<:MOI.AbstractFunction}
+    return F === MOI.ScalarAffineFunction{T}
+end
 
 """
     Diffopt.ConicProgram.Model <: DiffOpt.AbstractModel
@@ -199,6 +205,8 @@ function _gradient_cache(model::Model)
     n = A.n
     N = m + n + 1
     # NOTE: w = 1.0 systematically since we asserted the primal-dual pair is optimal
+    # `inv(M)((x, y, 1), (0, s, 0)) = (x, y, 1) - (0, s, 0)`,
+    # see Minty parametrization in https://stanford.edu/~boyd/papers/pdf/cone_prog_refine.pdf
     (u, v, w) = (model.x, model.y - model.s, 1.0)
 
     # find gradient of projections on dual of the cones
@@ -209,16 +217,16 @@ function _gradient_cache(model::Model)
     #     -A   0    b;
     #     -c' -b'   0;
     # ]
-    # M = (Q- I) * B + I
+    # M = (Q - I) * B + I
     # with B =
     # [
-    #  I    .   .    # Πx = x because x is a solution and hence satistfies the constraints
-    #  .  Dπv   .
-    #  .    .   1    # w >= 0, but in the solution x = 1
+    #  I    .   .    # Πx = x because it projects on R^n
+    #  .  Dπv   .    # Derivative of the projection onto the dual cones
+    #  .    .   1    # Projection onto R_+ but w is 1 so the derivative is 1
     # ]
     # see: https://stanford.edu/~boyd/papers/pdf/cone_prog_refine.pdf
     # for the definition of Π and why we get I and 1 for x and w respectectively
-    # K is defined in (5), Π in sect 2, and projection sin sect 3
+    # K is defined in (5), Π in sect 2, and projections in sect 3
 
     M = [
         SparseArrays.spzeros(n, n) (A'*Dπv) c
