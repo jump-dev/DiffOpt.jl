@@ -1,4 +1,13 @@
-struct ObjectiveFunctionAttribute{A,F}
+"""
+    struct ObjectiveFunctionAttribute{A,F} <: MOI.AbstractModelAttribute
+        attr::A
+    end
+
+Objective function attribute `attr` for the function type `F`.
+The type `F` is used by a `MOI.Bridges.AbstractBridgeOptimizer` to keep track
+of its position in a chain of objective bridges.
+"""
+struct ObjectiveFunctionAttribute{A,F} <: MOI.AbstractModelAttribute
     attr::A
 end
 
