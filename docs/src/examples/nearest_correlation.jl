@@ -16,8 +16,12 @@ function proj(A, dH = Diagonal(ones(size(A, 1))), H = ones(size(A)))
     model = Model(() -> DiffOpt.diff_optimizer(solver))
     @variable(model, X[1:n, 1:n] in PSDCone())
     @constraint(model, [i in 1:n], X[i, i] == 1)
-    @objective(model, Min, sum((H .* (X - A)).^2))
-    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), sum((dH .* (X - A)).^2))
+    @objective(model, Min, sum((H .* (X - A)) .^ 2))
+    MOI.set(
+        model,
+        DiffOpt.ForwardObjectiveFunction(),
+        sum((dH .* (X - A)) .^ 2),
+    )
     optimize!(model)
     DiffOpt.forward_differentiate!(model)
     dX = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), X)
