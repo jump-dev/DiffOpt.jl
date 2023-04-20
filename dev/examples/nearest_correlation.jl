@@ -41,7 +41,7 @@ nothing # hide
 
 X
 
-# The derivative of the projection with respect to increase uniformly the weights
+# The derivative of the projection with respect to a uniform increase of the weights
 # of the diagonal entries is:
 
 dX
@@ -50,7 +50,7 @@ dX
 
 A = LinearAlgebra.Tridiagonal(-ones(3), 2ones(4), -ones(3))
 
-# The projection is
+# The projection is computed as follows:
 
 X, dX = proj(A)
 nothing # hide
@@ -59,7 +59,7 @@ nothing # hide
 
 X
 
-# The derivative of the projection with respect to increase uniformly the weights
+# The derivative of the projection with respect to a uniform increase of the weights
 # of the diagonal entries is:
 
 dX
