@@ -276,11 +276,11 @@ previous column have been found.
 Indeed, let `dj` be the `j`th column of `dU`
 `dU' * U = vcat(dj'U for j in axes(U, 2))`
 Therefore,
-`dQ[j, 1:j]` = di'U[:, 1:j] + U[:, j]'dU[:, 1:j]`
+`dQ[j, 1:j]` = dj'U[:, 1:j] + U[:, j]'dU[:, 1:j]`
 So
 `dQ[j, 1:(j-1)] - U[:, j]' * dU[:, 1:(j-1)] = dj'U[:, 1:(j-1)]`
 and
-`dQ[j, j] / 2 = dj'U[:, 1:(j-1)]`
+`dQ[j, j] / 2 = dj'U[:, j]`
 """
 function dU_from_dQ!(dQ, U)
     n = LinearAlgebra.checksquare(dQ)
