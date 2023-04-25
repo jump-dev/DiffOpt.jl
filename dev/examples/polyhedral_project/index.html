@@ -123,12 +123,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 5.96e+01  4.13e+00  2.63e+02 -1.28e+02  1.00e-01  1.30e-04
-   225| 4.49e-06  1.76e-06  2.78e-06  2.79e-01  3.74e-01  1.17e-03
+     0| 5.96e+01  4.13e+00  2.63e+02 -1.28e+02  1.00e-01  1.32e-04
+   225| 4.49e-06  1.76e-06  2.79e-06  2.79e-01  3.74e-01  1.23e-03
 ------------------------------------------------------------------
 status:  solved
-timings: total: 1.17e-03s = setup: 7.32e-05s + solve: 1.10e-03s
-	 lin-sys: 1.05e-04s, cones: 8.10e-04s, accel: 3.53e-05s
+timings: total: 1.24e-03s = setup: 9.25e-05s + solve: 1.14e-03s
+	 lin-sys: 1.10e-04s, cones: 7.39e-04s, accel: 1.92e-04s
 ------------------------------------------------------------------
 objective = 0.278569
 ------------------------------------------------------------------
@@ -149,15 +149,15 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 4.96e+01  4.70e+00  3.33e+02 -1.48e+02  1.00e-01  1.04e-04
-   250| 1.32e-02  2.48e-04  1.29e-01  4.49e+00  3.31e-01  1.50e-03
-   275| 3.00e-05  6.41e-06  4.98e-05  4.55e+00  3.31e-01  1.66e-03
+     0| 4.96e+01  4.70e+00  3.33e+02 -1.48e+02  1.00e-01  1.43e-04
+   250| 1.32e-02  2.48e-04  1.29e-01  4.49e+00  3.31e-01  2.81e-03
+   275| 3.00e-05  6.43e-06  4.99e-05  4.55e+00  3.31e-01  2.98e-03
 ------------------------------------------------------------------
 status:  solved
-timings: total: 1.66e-03s = setup: 6.42e-05s + solve: 1.60e-03s
-	 lin-sys: 1.76e-04s, cones: 1.24e-03s, accel: 3.94e-05s
+timings: total: 2.99e-03s = setup: 1.02e-04s + solve: 2.88e-03s
+	 lin-sys: 2.08e-04s, cones: 1.32e-03s, accel: 1.15e-03s
 ------------------------------------------------------------------
-objective = 4.552817
+objective = 4.552818
 ------------------------------------------------------------------
 ┌ Warning: Layer with Float32 parameters got Float64 input.
 │   The input will be converted, but any earlier layers may be very slow.
@@ -168,10 +168,10 @@ custom_loss(train_X, train_Y) = 2.3216214f0
 custom_loss(train_X, train_Y) = 1.8995347f0
 custom_loss(train_X, train_Y) = 1.5656878f0
 custom_loss(train_X, train_Y) = 1.3102238f0
-custom_loss(train_X, train_Y) = 1.115803f0
-custom_loss(train_X, train_Y) = 0.96475786f0
+custom_loss(train_X, train_Y) = 1.1158031f0
+custom_loss(train_X, train_Y) = 0.9647578f0
 custom_loss(train_X, train_Y) = 0.84461033f0
 custom_loss(train_X, train_Y) = 0.74726844f0
 custom_loss(train_X, train_Y) = 0.6669284f0
 custom_loss(train_X, train_Y) = 0.5996534f0
-122.475527 seconds (55.95 M allocations: 5.874 GiB, 1.00% gc time, 0.96% compilation time)</code></pre><p>Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.</p><h2 id="Accuracy-results"><a class="docs-heading-anchor" href="#Accuracy-results">Accuracy results</a><a id="Accuracy-results-1"></a><a class="docs-heading-anchor-permalink" href="#Accuracy-results" title="Permalink"></a></h2><p>Average of correct guesses</p><pre><code class="language-julia hljs">accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y));</code></pre><p>Training accuracy</p><pre><code class="language-julia hljs">accuracy(train_X, train_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9</code></pre><p>Test accuracy</p><pre><code class="language-julia hljs">accuracy(test_X, test_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.744</code></pre><p>Note that the accuracy is low due to simplified training. It is possible to increase the number of samples <code>N</code>, the number of epochs <code>epoch</code> and the connectivity <code>inner</code>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nearest_correlation/">« Nearest correlation</a><a class="docs-footer-nextpage" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Thursday 20 April 2023 08:35">Thursday 20 April 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+126.278425 seconds (55.95 M allocations: 5.874 GiB, 0.94% gc time, 0.98% compilation time)</code></pre><p>Although our custom implementation takes time, it is able to reach similar accuracy as the usual ReLU function implementation.</p><h2 id="Accuracy-results"><a class="docs-heading-anchor" href="#Accuracy-results">Accuracy results</a><a id="Accuracy-results-1"></a><a class="docs-heading-anchor-permalink" href="#Accuracy-results" title="Permalink"></a></h2><p>Average of correct guesses</p><pre><code class="language-julia hljs">accuracy(x, y) = Statistics.mean(Flux.onecold(m(x)) .== Flux.onecold(y));</code></pre><p>Training accuracy</p><pre><code class="language-julia hljs">accuracy(train_X, train_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.9</code></pre><p>Test accuracy</p><pre><code class="language-julia hljs">accuracy(test_X, test_Y)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.744</code></pre><p>Note that the accuracy is low due to simplified training. It is possible to increase the number of samples <code>N</code>, the number of epochs <code>epoch</code> and the connectivity <code>inner</code>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nearest_correlation/">« Nearest correlation</a><a class="docs-footer-nextpage" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Tuesday 25 April 2023 07:48">Tuesday 25 April 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
