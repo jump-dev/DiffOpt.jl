@@ -4,7 +4,7 @@
 This package has two major backends, available via the `reverse_differentiate!` and `forward_differentiate!` methods, to differentiate models (quadratic or conic) with optimal solutions.
 
 !!! note
-    Currently supports *linear programs* (LP), *convex quadratic programs* (QP) and *convex conic programs* (SDP, SOCP constraints only). 
+    Currently supports *linear programs* (LP), *convex quadratic programs* (QP) and *convex conic programs* (SDP, SOCP, exponential cone constraints only). 
 
 
 ## Installation
