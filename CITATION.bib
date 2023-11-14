@@ -1,8 +1,8 @@
-@article{diffoptpaper2022,
-  url = {https://arxiv.org/abs/2206.06135},
-  author = {Sharma, Akshay and Besançon, Mathieu and Garcia, Joaquim Dias and Legat, Benoît},
-  title = {{Flexible Differentiable Optimization via Model Transformations}},
-  publisher = {arXiv},
-  year = {2022},  
-  doi = {10.48550/ARXIV.2206.06135}
+@article{doi:10.1287/ijoc.2022.0283,
+    author = {Besan\c{c}on, Mathieu and Dias Garcia, Joaquim and Legat, Beno\^{\i}t and Sharma, Akshay},
+    title = {Flexible Differentiable Optimization via Model Transformations},
+    journal = {INFORMS Journal on Computing},
+    doi = {10.1287/ijoc.2022.0283},
+    URL = {https://doi.org/10.1287/ijoc.2022.0283},
+    abstract = { We introduce DiffOpt.jl, a Julia library to differentiate through the solution of optimization problems with respect to arbitrary parameters present in the objective and/or constraints. The library builds upon MathOptInterface, thus leveraging the rich ecosystem of solvers and composing well with modeling languages like JuMP. DiffOpt offers both forward and reverse differentiation modes, enabling multiple use cases from hyperparameter optimization to backpropagation and sensitivity analysis, bridging constrained optimization with end-to-end differentiable programming. DiffOpt is built on two known rules for differentiating quadratic programming and conic programming standard forms. However, thanks to its ability to differentiate through model transformations, the user is not limited to these forms and can differentiate with respect to the parameters of any model that can be reformulated into these standard forms. This notably includes programs mixing affine conic constraints and convex quadratic constraints or objective function.History: Accepted by Ted Ralphs, Area Editor for Software Tools.Funding: The work of A. Sharma on DiffOpt.jl was funded by the Google Summer of Code program through NumFocus. M. Besançon was partially supported through the Research Campus Modal funded by the German Federal Ministry of Education and Research [Grant 05M14ZAM, 05M20ZBM]. J. Dias Garcia was supported in part by the Coordenação de Aperfeiçoamento de Pessoal de Nível Superior – Brasil (CAPES) – Finance Code 001. B. Legat was supported by a BAEF Postdoctoral Fellowship, the NSF [Grant OAC-1835443], and the ERC Adv. [Grant 885682].Supplemental Material: The software that supports the findings of this study is available within the paper and its Supplemental Information (https://pubsonline.informs.org/doi/suppl/10.1287/ijoc.2022.0283), as well as from the IJOC GitHub software repository (https://github.com/INFORMSJoC/2022.0283). The complete IJOC Software and Data Repository is available at https://informsjoc.github.io/. }
 }
