@@ -11,7 +11,6 @@ using JuMP
 import DelimitedFiles
 import DiffOpt
 import HiGHS
-import Ipopt
 import IterativeSolvers
 import LinearAlgebra
 import MathOptInterface as MOI
@@ -44,7 +43,7 @@ function test_forward_on_trivial_qp()
         0.0 -1.0
     ]
     h = [1, 0.7, 0.7, -1, 0, 0]
-    model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = JuMP.Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:2])
     @objective(model, Min, x' * Q * x + q' * x)
@@ -59,7 +58,7 @@ function test_differentiating_trivial_qp_1()
     q = [1.0, 1.0]
     G = [1.0 1.0]
     h = [-1.0]
-    model = JuMP.direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = JuMP.direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     x = @variable(model, [1:2])
     @objective(model, Min, x' * Q * x + q' * x)
@@ -103,7 +102,7 @@ function test_differentiating_qp_with_inequality_and_equality_constraints()
     h = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
     A = [1.0 1.0 1.0;]
     b = [0.5]
-    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:3])
     @objective(model, Min, x' * Q * x + q' * x)
@@ -147,7 +146,7 @@ function test_differentiating_MOI_examples_1()
     # st  x + 2y + 3z >= 4 (c1)
     #     x +  y      >= 1 (c2)
     #     x, y, z \in R
-    model = JuMP.direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = JuMP.direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variables(model, begin
         x
@@ -191,7 +190,7 @@ function test_differentiating_moi_examples_2_non_trivial_backward_pass_vector()
     #    minimize 2 x^2 + y^2 + xy + x + y
     #       s.t.  x, y >= 0
     #             x + y = 1 (c1)
-    model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = JuMP.Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x ≥ 0)
     @variable(model, y ≥ 0)
@@ -245,7 +244,7 @@ function test_differentiating_non_trivial_convex_qp_jump()
     q = vec(q)
     h = vec(h)
     b = vec(b)
-    model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = JuMP.Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:nz])
     @objective(model, Min, x' * Q * x + q' * x)
