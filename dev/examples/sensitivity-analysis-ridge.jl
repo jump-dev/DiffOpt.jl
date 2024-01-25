@@ -66,7 +66,7 @@ function fit_ridge(X, Y, alpha = 0.1)
     ## expression defining approximation error
     @expression(model, e[i = 1:N], Y[i] - w * X[i] - b)
     ## objective minimizing squared error and ridge penalty
-    @objective(model, Min, 1 / N * dot(e, e) + alpha * (w^2),)
+    @objective(model, Min, 1 / N * dot(e, e) + alpha * (w^2))
     optimize!(model)
     return model, w, b # return model & variables
 end
