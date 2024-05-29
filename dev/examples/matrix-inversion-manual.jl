@@ -130,7 +130,7 @@ value.(x)
 
 dual.(cons)
 
-# set sentivitity
+# set sensitivitity
 
 MOI.set(
     model,
