@@ -41,7 +41,7 @@
 # ```math
 # \begin{gather}
 #  \begin{bmatrix} 
-#      Q & g^T \\
+#      Q & G^T \\
 #      \lambda^* G & G x^* - h
 #  \end{bmatrix}
 #  \begin{bmatrix} 
