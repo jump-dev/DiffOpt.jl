@@ -21,7 +21,7 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
  1.0  1.0   ⋅ 
  1.0  1.0  1.0
   ⋅   1.0  1.0</code></pre><p>The projection is computed as follows:</p><pre><code class="language-julia hljs">X, dX = proj(A)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">------------------------------------------------------------------
-	       SCS v3.2.4 - Splitting Conic Solver
+	       SCS v3.2.6 - Splitting Conic Solver
 	(c) Brendan O&#39;Donoghue, Stanford University, 2012
 ------------------------------------------------------------------
 problem:  variables n: 6, constraints m: 9
@@ -37,12 +37,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 9.98e-01  3.35e+00  2.27e+01 -1.27e+01  1.00e-01  1.14e-04
-    75| 5.98e-05  2.10e-06  1.25e-04 -6.72e+00  1.00e-01  3.60e-04
+     0| 9.98e-01  3.35e+00  2.27e+01 -1.27e+01  1.00e-01  1.09e-04
+    75| 5.98e-05  2.10e-06  1.25e-04 -6.72e+00  1.00e-01  3.59e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 3.61e-04s = setup: 4.59e-05s + solve: 3.15e-04s
-	 lin-sys: 2.36e-05s, cones: 2.02e-04s, accel: 3.92e-06s
+timings: total: 3.60e-04s = setup: 4.79e-05s + solve: 3.12e-04s
+	 lin-sys: 2.27e-05s, cones: 2.08e-04s, accel: 3.93e-06s
 ------------------------------------------------------------------
 objective = -6.721507
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
@@ -56,7 +56,7 @@ objective = -6.721507
  -1.0   2.0  -1.0    ⋅ 
    ⋅   -1.0   2.0  -1.0
    ⋅     ⋅   -1.0   2.0</code></pre><p>The projection is computed as follows:</p><pre><code class="language-julia hljs">X, dX = proj(A)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">------------------------------------------------------------------
-	       SCS v3.2.4 - Splitting Conic Solver
+	       SCS v3.2.6 - Splitting Conic Solver
 	(c) Brendan O&#39;Donoghue, Stanford University, 2012
 ------------------------------------------------------------------
 problem:  variables n: 10, constraints m: 14
@@ -72,12 +72,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.02e+00  3.57e+00  3.24e+01 -3.42e+01  1.00e-01  8.84e-05
-    75| 2.52e-05  7.03e-07  7.14e-05 -1.74e+01  1.00e-01  4.12e-04
+     0| 1.02e+00  3.57e+00  3.24e+01 -3.42e+01  1.00e-01  9.97e-03
+    75| 2.52e-05  7.03e-07  7.14e-05 -1.74e+01  1.00e-01  1.03e-02
 ------------------------------------------------------------------
 status:  solved
-timings: total: 4.13e-04s = setup: 4.12e-05s + solve: 3.72e-04s
-	 lin-sys: 3.09e-05s, cones: 2.58e-04s, accel: 4.49e-06s
+timings: total: 1.03e-02s = setup: 6.40e-05s + solve: 1.02e-02s
+	 lin-sys: 2.99e-05s, cones: 2.69e-04s, accel: 4.94e-06s
 ------------------------------------------------------------------
 objective = -17.447239
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
@@ -88,4 +88,4 @@ objective = -17.447239
   0.101794    0.228658   -0.0880952  -0.0490976
   0.228658    0.0565823   0.158685   -0.0880952
  -0.0880952   0.158685    0.0565823   0.228658
- -0.0490976  -0.0880952   0.228658    0.101794</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../polyhedral_project/">Polyhedral QP layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Friday 31 May 2024 10:05">Friday 31 May 2024</span>. Using Julia version 1.10.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ -0.0490976  -0.0880952   0.228658    0.101794</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../polyhedral_project/">Polyhedral QP layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.25 on <span class="colophon-date" title="Tuesday 23 July 2024 17:26">Tuesday 23 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
