@@ -104,6 +104,6 @@ In the light of above, DiffOpt differentiates program variables ``x``, ``s``, ``
 - OptNet: Differentiable Optimization as a Layer in Neural Networks
 
 ### Backward Pass vector
-One possible point of confusion in finding Jacobians is the role of the backward pass vector - above eqn (7), *OptNet: Differentiable Optimization as a Layer in Neural Networks*. While differentiating convex programs, it is often the case that we don't want to find the acutal derivatives, rather we might be interested in computing the product of Jacobians with a *backward pass vector*, often used in backprop in machine learning/automatic differentiation. This is what happens in scheme 1 of `DiffOpt` backend.
+One possible point of confusion in finding Jacobians is the role of the backward pass vector - above eqn (7), *OptNet: Differentiable Optimization as a Layer in Neural Networks*. While differentiating convex programs, it is often the case that we don't want to find the actual derivatives, rather we might be interested in computing the product of Jacobians with a *backward pass vector*, often used in backprop in machine learning/automatic differentiation. This is what happens in scheme 1 of `DiffOpt` backend.
 
 But, for the conic system (scheme 2), we provide perturbations in conic data (`dA`, `db`, `dc`) to compute pertubations (`dx`, `dy`, `dz`) in input variables. Unlike the quadratic case, these perturbations are actual derivatives, not the product with a backward pass vector. This is an important distinction between the two schemes of differential optimization.
