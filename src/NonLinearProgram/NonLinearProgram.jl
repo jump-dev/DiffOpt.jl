@@ -26,6 +26,16 @@ Base.@kwdef struct ReverseCache
     dual_Δs_T::Matrix{Float64}
 end
 
+struct ForwardParameter <: MOI.AbstractVariableAttribute end
+
+MOI.is_set_by_optimize(::ForwardParameter) = true
+
+struct ReverseParameter <: MOI.AbstractVariableAttribute end
+
+MOI.is_set_by_optimize(::ReverseParameter) = true
+
+struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
+
 """
     DiffOpt.NonLinearProgram.Model <: DiffOpt.AbstractModel
 
@@ -64,55 +74,52 @@ function MOI.empty!(model::Model)
     return
 end
 
-function _cache_evaluator!(model::Model; params=nothing)
-    if params !== nothing || model.cache === nothing
-        # Retrieve and sort primal variables by index
-        primal_vars = sort(all_primal_vars(model.model), by=x -> x.index.value)
-        num_primal = length(primal_vars)
-        params = params === nothing ? sort(all_params(model.model), by=x -> x.index.value) : params
+function _cache_evaluator!(model::Model; params=sort(all_params(model.model), by=x -> x.index.value))
+    # Retrieve and sort primal variables by index
+    primal_vars = sort(all_primal_vars(model.model), by=x -> x.index.value)
+    num_primal = length(primal_vars)
 
-        # Create evaluator and constraints
-        evaluator, cons = create_evaluator(model.model; x=[primal_vars; params])
-        num_constraints = length(cons)
-        # Analyze constraints and bounds
-        leq_locations, geq_locations = find_inequealities(cons)
-        num_leq = length(leq_locations)
-        num_geq = length(geq_locations)
-        has_up = findall(x -> has_upper_bound(x), primal_vars)
-        has_low = findall(x -> has_lower_bound(x), primal_vars)
-        num_low = length(has_low)
-        num_up = length(has_up)
+    # Create evaluator and constraints
+    evaluator, cons = create_evaluator(model.model; x=[primal_vars; params])
+    num_constraints = length(cons)
+    # Analyze constraints and bounds
+    leq_locations, geq_locations = find_inequealities(cons)
+    num_leq = length(leq_locations)
+    num_geq = length(geq_locations)
+    has_up = findall(x -> has_upper_bound(x), primal_vars)
+    has_low = findall(x -> has_lower_bound(x), primal_vars)
+    num_low = length(has_low)
+    num_up = length(has_up)
 
-        # Create unified dual mapping
-        dual_mapping = Vector{Int}(undef, num_constraints + num_low + num_up)
-        for (i, ci) in enumerate(cons)
-            dual_mapping[ci.index.value] = i
-        end
-
-        # Add bounds to dual mapping
-        for (i, var_idx) in enumerate(has_low)
-            lb = MOI.LowerBoundRef(primal_vars[var_idx])
-            dual_mapping[lb.index] = num_constraints + i
-        end
-        offset += num_low
-        for (i, var_idx) in enumerate(has_up)
-            ub = MOI.UpperBoundRef(primal_vars[var_idx])
-            dual_mapping[ub.index] = offset + i
-        end
-
-        num_slacks = num_leq + num_geq
-        num_w = num_primal + num_slacks
-        index_duals = [num_w+1:num_w+num_constraints; num_w+num_constraints+1:num_w+num_constraints+num_low; num_w+num_constraints+num_low+num_geq+1:num_w+num_constraints+num_low+num_geq+num_up]
-
-        model.cache = Cache(
-            primal_vars=primal_vars,
-            dual_mapping=dual_mapping,
-            params=params,
-            index_duals=index_duals,
-            evaluator=evaluator,
-            cons=cons,
-        )
+    # Create unified dual mapping
+    dual_mapping = Vector{Int}(undef, num_constraints + num_low + num_up)
+    for (i, ci) in enumerate(cons)
+        dual_mapping[ci.index.value] = i
     end
+
+    # Add bounds to dual mapping
+    for (i, var_idx) in enumerate(has_low)
+        lb = MOI.LowerBoundRef(primal_vars[var_idx])
+        dual_mapping[lb.index] = num_constraints + i
+    end
+    offset += num_low
+    for (i, var_idx) in enumerate(has_up)
+        ub = MOI.UpperBoundRef(primal_vars[var_idx])
+        dual_mapping[ub.index] = offset + i
+    end
+
+    num_slacks = num_leq + num_geq
+    num_w = num_primal + num_slacks
+    index_duals = [num_w+1:num_w+num_constraints; num_w+num_constraints+1:num_w+num_constraints+num_low; num_w+num_constraints+num_low+num_geq+1:num_w+num_constraints+num_low+num_geq+num_up]
+
+    model.cache = Cache(
+        primal_vars=primal_vars,
+        dual_mapping=dual_mapping,
+        params=params,
+        index_duals=index_duals,
+        evaluator=evaluator,
+        cons=cons,
+    )
     return model.cache
 end
 
@@ -120,11 +127,14 @@ function DiffOpt.forward_differentiate!(model::Model; params=nothing)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model; params=params)
 
-        # Compute sensitivities
+        Δp = [MOI.get(model, DiffOpt.ForwardParameter(), p.index) for p in cache.params]
+
+        # Compute Jacobian
         Δs = compute_sensitivity(cache.evaluator, cache.cons; primal_vars=cache.primal_vars, params=cache.params)
 
-        primal_Δs = Δs[1:cache.num_primal, :] # Exclude slacks
-        dual_Δs = Δs[cache.index_duals, :] # Includes constraints and bounds
+        # Extract primal and dual sensitivities
+        primal_Δs = Δs[1:cache.num_primal, :] * Δp # Exclude slacks
+        dual_Δs = Δs[cache.index_duals, :]  * Δp # Includes constraints and bounds
 
         model.forw_grad_cache = ForwCache(
             primal_Δs=primal_Δs,
@@ -136,7 +146,19 @@ end
 
 function DiffOpt.reverse_differentiate!(model::Model; params=nothing)
     model.diff_time = @elapsed begin
-        # TODO: Implement reverse differentiation
+        cache = _cache_evaluator!(model; params=params)
+
+        # Compute Jacobian
+        Δs = compute_sensitivity(cache.evaluator, cache.cons; primal_vars=cache.primal_vars, params=cache.params)
+
+        # Extract primal and dual sensitivities
+        primal_Δs_T = Δs[1:cache.num_primal, :]'
+        dual_Δs_T = Δs[cache.index_duals, :]'
+
+        model.back_grad_cache = ReverseCache(
+            primal_Δs_T=primal_Δs_T,
+            dual_Δs_T=dual_Δs_T,
+        )
     end
     return nothing
 end
@@ -168,5 +190,7 @@ function MOI.get(
     end
     return model.forw_grad_cache.dual_Δs[idx, :]
 end
+
+# TODO: get for the reverse mode
 
 end # module NonLinearProgram
