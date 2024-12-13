@@ -4,10 +4,10 @@
 Create a Nonlinear Programming (NLP) model from a JuMP model.
 """
 function create_nlp_model(model::JuMP.Model)
-    rows = Vector{ConstraintRef}(undef, 0)
+    rows = Vector{JuMP.ConstraintRef}(undef, 0)
     nlp = MOI.Nonlinear.Model()
     for (F, S) in list_of_constraint_types(model)
-        if F <: VariableRef && !(S <: MathOptInterface.EqualTo{Float64})
+        if F <: JuMP.VariableRef && !(S <: MathOptInterface.EqualTo{Float64})
             continue  # Skip variable bounds
         end
         for ci in all_constraints(model, F, S)
@@ -43,11 +43,11 @@ sense_mult(x) = JuMP.objective_sense(owner_model(x)) == MOI.MIN_SENSE ? 1.0 : -1
 sense_mult(x::Vector) = sense_mult(x[1])
 
 """
-    compute_optimal_hessian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{ConstraintRef}, x::Vector{VariableRef})
+    compute_optimal_hessian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
 
 Compute the optimal Hessian of the Lagrangian.
 """
-function compute_optimal_hessian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{ConstraintRef}, x::Vector{VariableRef})
+function compute_optimal_hessian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
     sense_multiplier = objective_sense(owner_model(x[1])) == MOI.MIN_SENSE ? 1.0 : -1.0
     hessian_sparsity = MOI.hessian_lagrangian_structure(evaluator)
     I = [i for (i, _) in hessian_sparsity]
@@ -61,11 +61,11 @@ function compute_optimal_hessian(evaluator::MOI.Nonlinear.Evaluator, rows::Vecto
 end
 
 """
-    compute_optimal_jacobian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{ConstraintRef}, x::Vector{VariableRef})
+    compute_optimal_jacobian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
 
 Compute the optimal Jacobian of the constraints.
 """
-function compute_optimal_jacobian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{ConstraintRef}, x::Vector{VariableRef})
+function compute_optimal_jacobian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
     jacobian_sparsity = MOI.jacobian_structure(evaluator)
     I = [i for (i, _) in jacobian_sparsity]
     J = [j for (_, j) in jacobian_sparsity]
@@ -76,11 +76,11 @@ function compute_optimal_jacobian(evaluator::MOI.Nonlinear.Evaluator, rows::Vect
 end
 
 """
-    compute_optimal_hess_jac(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{ConstraintRef}, x::Vector{VariableRef})
+    compute_optimal_hess_jac(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
 
 Compute the optimal Hessian of the Lagrangian and Jacobian of the constraints.
 """
-function compute_optimal_hess_jac(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{ConstraintRef}, x::Vector{VariableRef})
+function compute_optimal_hess_jac(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
     hessian = compute_optimal_hessian(evaluator, rows, x)
     jacobian = compute_optimal_jacobian(evaluator, rows, x)
     
@@ -88,27 +88,27 @@ function compute_optimal_hess_jac(evaluator::MOI.Nonlinear.Evaluator, rows::Vect
 end
 
 """
-    all_primal_vars(model::Model)
+    all_primal_vars(model::JuMP.Model)
 
 Get all the primal variables in the model.
 """
-all_primal_vars(model::Model) = filter(x -> !is_parameter(x), all_variables(model))
+all_primal_vars(model::JuMP.Model) = filter(x -> !is_parameter(x), all_variables(model))
 
 """
-    all_params(model::Model)
+    all_params(model::JuMP.Model)
 
 Get all the parameters in the model.
 """
-all_params(model::Model) = filter(x -> is_parameter(x), all_variables(model))
+all_params(model::JuMP.Model) = filter(x -> is_parameter(x), all_variables(model))
 
 """
-    create_evaluator(model::Model; x=all_variables(model))
+    create_evaluator(model::JuMP.Model; x=all_variables(model))
 
 Create an evaluator for the model.
 """
 JuMP.index(x::JuMP.Containers.DenseAxisArray) = index.(x).data
 
-function create_evaluator(model::Model; x=all_variables(model))
+function create_evaluator(model::JuMP.Model; x=all_variables(model))
     nlp, rows = create_nlp_model(model)
     backend = MOI.Nonlinear.SparseReverseMode()
     evaluator = MOI.Nonlinear.Evaluator(nlp, backend, vcat(index.(x)...))
@@ -117,22 +117,22 @@ function create_evaluator(model::Model; x=all_variables(model))
 end
 
 
-function is_less_inequality(con::ConstraintRef)
+function is_less_inequality(con::JuMP.ConstraintRef)
     set_type = typeof(MOI.get(owner_model(con), MOI.ConstraintSet(), con))
     return set_type <: MOI.LessThan
 end
 
-function is_greater_inequality(con::ConstraintRef)
+function is_greater_inequality(con::JuMP.ConstraintRef)
     set_type = typeof(MOI.get(owner_model(con), MOI.ConstraintSet(), con))
     return set_type <: MOI.GreaterThan
 end
 
 """
-    find_inequealities(cons::Vector{ConstraintRef})
+    find_inequealities(cons::Vector{JuMP.ConstraintRef})
 
 Find the indices of the inequality constraints.
 """
-function find_inequealities(cons::Vector{C}) where C<:ConstraintRef
+function find_inequealities(cons::Vector{C}) where C<:JuMP.ConstraintRef
     leq_locations = zeros(length(cons))
     geq_locations = zeros(length(cons))
     for i in 1:length(cons)
@@ -147,11 +147,11 @@ function find_inequealities(cons::Vector{C}) where C<:ConstraintRef
 end
 
 """
-    get_slack_inequality(con::ConstraintRef)
+    get_slack_inequality(con::JuMP.ConstraintRef)
 
 Get the reference to the canonical function that is equivalent to the slack variable of the inequality constraint.
 """
-function get_slack_inequality(con::ConstraintRef)
+function get_slack_inequality(con::JuMP.ConstraintRef)
     set_type = typeof(MOI.get(owner_model(con), MOI.ConstraintSet(), con))
     obj = constraint_object(con)
     if set_type <: MOI.LessThan
@@ -163,11 +163,11 @@ function get_slack_inequality(con::ConstraintRef)
 end
 
 """
-    compute_solution_and_bounds(primal_vars::Vector{VariableRef}, cons::Vector{C}) where C<:ConstraintRef
+    compute_solution_and_bounds(primal_vars::Vector{JuMP.VariableRef}, cons::Vector{C}) where C<:JuMP.ConstraintRef
 
 Compute the solution and bounds of the primal variables.
 """
-function compute_solution_and_bounds(primal_vars::Vector{VariableRef}, cons::Vector{C}) where {C<:ConstraintRef}
+function compute_solution_and_bounds(primal_vars::Vector{JuMP.VariableRef}, cons::Vector{C}) where {C<:JuMP.ConstraintRef}
     sense_multiplier = sense_mult(primal_vars)
     num_vars = length(primal_vars)
     leq_locations, geq_locations = find_inequealities(cons)
@@ -236,16 +236,16 @@ function compute_solution_and_bounds(primal_vars::Vector{VariableRef}, cons::Vec
 end
 
 """
-    build_M_N(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{ConstraintRef},
-    primal_vars::Vector{VariableRef}, params::Vector{VariableRef}, 
+    build_M_N(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{JuMP.ConstraintRef},
+    primal_vars::Vector{JuMP.VariableRef}, params::Vector{JuMP.VariableRef}, 
     _X::Vector, _V_L::Vector, _X_L::Vector, _V_U::Vector, _X_U::Vector, ineq_locations::Vector{Z},
     has_up::Vector{Z}, has_low::Vector{Z}
 ) where {Z<:Integer}
 
 Build the M (KKT Jacobian w.r.t. solution) and N (KKT Jacobian w.r.t. parameters) matrices for the sensitivity analysis.
 """
-function build_M_N(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{ConstraintRef},
-    primal_vars::Vector{VariableRef}, params::Vector{VariableRef}, 
+function build_M_N(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{JuMP.ConstraintRef},
+    primal_vars::Vector{JuMP.VariableRef}, params::Vector{JuMP.VariableRef}, 
     _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z},
     has_up::Vector{Z}, has_low::Vector{Z}
 ) where {Z<:Integer}
@@ -380,16 +380,16 @@ function inertia_corrector_factorization(M; st=1e-6, max_corrections=50)
 end
 
 """
-    compute_derivatives_no_relax(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{ConstraintRef},
-        primal_vars::Vector{VariableRef}, params::Vector{VariableRef},
+    compute_derivatives_no_relax(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{JuMP.ConstraintRef},
+        primal_vars::Vector{JuMP.VariableRef}, params::Vector{JuMP.VariableRef},
         _X::Vector, _V_L::Vector, _X_L::Vector, _V_U::Vector, _X_U::Vector, ineq_locations::Vector{Z},
         has_up::Vector{Z}, has_low::Vector{Z}
     ) where {Z<:Integer}
 
 Compute the derivatives of the solution w.r.t. the parameters without accounting for active set changes.
 """
-function compute_derivatives_no_relax(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{ConstraintRef},
-    primal_vars::Vector{VariableRef}, params::Vector{VariableRef}, 
+function compute_derivatives_no_relax(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{JuMP.ConstraintRef},
+    primal_vars::Vector{JuMP.VariableRef}, params::Vector{JuMP.VariableRef}, 
     _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z},
     has_up::Vector{Z}, has_low::Vector{Z}
 ) where {Z<:Integer}
@@ -410,11 +410,11 @@ function compute_derivatives_no_relax(evaluator::MOI.Nonlinear.Evaluator, cons::
 end
 
 """
-    compute_sensitivity(model::Model; primal_vars=all_primal_vars(model), params=all_params(model))
+    compute_sensitivity(model::JuMP.Model; primal_vars=all_primal_vars(model), params=all_params(model))
 
 Compute the sensitivity of the solution given sensitivity of the parameters (Δp).
 """
-function compute_sensitivity(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{ConstraintRef}; primal_vars=all_primal_vars(model), params=all_params(model), tol=1e-6
+function compute_sensitivity(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{JuMP.ConstraintRef}; primal_vars=all_primal_vars(model), params=all_params(model), tol=1e-6
 )
     ismin = sense_mult(primal_vars) == 1.0
     sense_multiplier = sense_mult(primal_vars)

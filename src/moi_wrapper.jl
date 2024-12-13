@@ -662,6 +662,14 @@ function MOI.supports(
     return true
 end
 
+function MOI.supports(
+    ::Optimizer,
+    ::ForwardParameter,
+    ::Type{MOI.VariableIndex},
+)
+    return true
+end
+
 function MOI.get(
     model::Optimizer,
     ::ReverseVariablePrimal,

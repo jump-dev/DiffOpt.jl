@@ -26,16 +26,6 @@ Base.@kwdef struct ReverseCache
     dual_Δs_T::Matrix{Float64}
 end
 
-struct ForwardParameter <: MOI.AbstractVariableAttribute end
-
-MOI.is_set_by_optimize(::ForwardParameter) = true
-
-struct ReverseParameter <: MOI.AbstractVariableAttribute end
-
-MOI.is_set_by_optimize(::ReverseParameter) = true
-
-struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
-
 """
     DiffOpt.NonLinearProgram.Model <: DiffOpt.AbstractModel
 

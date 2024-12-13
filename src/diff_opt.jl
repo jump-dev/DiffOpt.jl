@@ -125,6 +125,52 @@ MOI.set(model, DiffOpt.ReverseVariablePrimal(), x)
 struct ReverseVariablePrimal <: MOI.AbstractVariableAttribute end
 
 """
+    ForwardParameter <: MOI.AbstractVariableAttribute
+
+A `MOI.AbstractVariableAttribute` to set input data to forward differentiation,
+that is, problem input data.
+
+For instance, to set the tangent of the variable of index `vi`, do the
+following:
+```julia
+MOI.set(model, DiffOpt.ForwardParameter(), x)
+```
+"""
+struct ForwardParameter <: MOI.AbstractVariableAttribute end
+
+MOI.is_set_by_optimize(::ForwardParameter) = true
+
+"""
+    ReverseParameter <: MOI.AbstractVariableAttribute
+
+A `MOI.AbstractVariableAttribute` to get output data from reverse differentiation,
+that is, problem input data.
+
+For instance, to get the tangent of the variable of index `vi` corresponding to
+the tangents given to `ReverseVariablePrimal`, do the following:
+```julia
+MOI.get(model, DiffOpt.ReverseParameter(), vi)
+```
+"""
+struct ReverseParameter <: MOI.AbstractVariableAttribute end
+
+MOI.is_set_by_optimize(::ReverseParameter) = true
+
+"""
+    ForwardConstraintDual <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to get output data from forward differentiation for the dual variable.
+
+For instance, to get the sensitivity of the dual of constraint of index `ci` with respect to the parameter perturbation, do the following:
+
+```julia
+MOI.get(model, DiffOpt.ForwardConstraintDual(), ci)
+```
+"""
+
+struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
+
+"""
     ReverseObjectiveFunction <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to get output data to reverse differentiation,
@@ -287,6 +333,16 @@ function MOI.set(
     val,
 )
     model.input_cache.dx[vi] = val
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
+    ::ForwardParameter,
+    pi::MOI.VariableIndex,
+    val,
+)
+    model.input_cache.dx[pi] = val
     return
 end
 
