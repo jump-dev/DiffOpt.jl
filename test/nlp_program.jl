@@ -107,7 +107,7 @@ function test_compute_derivatives_Analytical(DICT_PROBLEMS)
         set_parameter_value.(params, p_a)
         optimize!(model)
         @assert is_solved_and_feasible(model)
-        MOI.set.(model, DiffOpt.ForwardParameter(), params[1].index, Δp)
+        MOI.set.(model, DiffOpt.ForwardParameter(), params[1], Δp)
         DiffOpt.forward_differentiate!(model::Model; params=params)
         # Compute derivatives
         (Δs, sp_approx), evaluator, cons = compute_sensitivity(model, Δp; primal_vars, params)

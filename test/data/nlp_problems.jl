@@ -8,7 +8,7 @@ https://github.com/jump-dev/JuMP.jl/blob/301d46e81cb66c74c6e22cd89fb89ced740f157
 =#
 ################################################
 function create_nonlinear_jump_model(;ismin=true)
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
     @variable(model, p ∈ MOI.Parameter(1.0))
     @variable(model, p2 ∈ MOI.Parameter(2.0))
@@ -33,7 +33,7 @@ From sIpopt paper: https://optimization-online.org/2011/04/3008/
 ################################################
 
 function create_nonlinear_jump_model_sipopt(;ismin = true)
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
     @variable(model, p1 ∈ MOI.Parameter(4.5))
     @variable(model, p2 ∈ MOI.Parameter(1.0))
@@ -56,7 +56,7 @@ Simple Problems
 
 
 function create_jump_model_1(p_val = [1.5])
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -74,7 +74,7 @@ function create_jump_model_1(p_val = [1.5])
 end
 
 function create_jump_model_2(p_val = [1.5])
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -91,7 +91,7 @@ function create_jump_model_2(p_val = [1.5])
 end
 
 function create_jump_model_3(p_val = [-1.5])
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -109,7 +109,7 @@ function create_jump_model_3(p_val = [-1.5])
 end
 
 function create_jump_model_4(p_val = [1.5])
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -127,7 +127,7 @@ function create_jump_model_4(p_val = [1.5])
 end
 
 function create_jump_model_5(p_val = [1.5])
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -148,7 +148,7 @@ end
 h(y) = - sum(y .* log.(y))
 softmax(x) = exp.(x) / sum(exp.(x))
 function create_jump_model_6(p_a = collect(1.0:0.1:2.0))
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -168,7 +168,7 @@ function create_jump_model_6(p_a = collect(1.0:0.1:2.0))
 end
 
 function create_jump_model_7(p_val = [1.5], g = sin)
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -192,7 +192,7 @@ Non Linear Problems
 
 
 function create_nonlinear_jump_model_1(p_val = [1.0; 2.0; 100]; ismin = true)
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -216,7 +216,7 @@ function create_nonlinear_jump_model_1(p_val = [1.0; 2.0; 100]; ismin = true)
 end
 
 function create_nonlinear_jump_model_2(p_val = [3.0; 2.0; 10]; ismin = true)
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -240,7 +240,7 @@ function create_nonlinear_jump_model_2(p_val = [3.0; 2.0; 10]; ismin = true)
 end
 
 function create_nonlinear_jump_model_3(p_val = [3.0; 2.0; 10]; ismin = true)
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -263,7 +263,7 @@ function create_nonlinear_jump_model_3(p_val = [3.0; 2.0; 10]; ismin = true)
 end
 
 function create_nonlinear_jump_model_4(p_val = [1.0; 2.0; 100]; ismin = true)
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -288,7 +288,7 @@ function create_nonlinear_jump_model_4(p_val = [1.0; 2.0; 100]; ismin = true)
 end
 
 function create_nonlinear_jump_model_5(p_val = [1.0; 2.0; 100]; ismin = true)
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
@@ -314,7 +314,7 @@ function create_nonlinear_jump_model_5(p_val = [1.0; 2.0; 100]; ismin = true)
 end
 
 function create_nonlinear_jump_model_6(p_val = [100.0; 200.0]; ismin = true)
-    model = Model(Ipopt.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters

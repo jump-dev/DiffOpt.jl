@@ -39,6 +39,15 @@ function MOI.set(
     return MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
 end
 
+function MOI.get(
+    model::JuMP.Model,
+    attr::ForwardParameter,
+    param::JuMP.VariableRef,
+)
+    JuMP.check_belongs_to_model(param, model)
+    return MOI.get(model, attr, JuMP.index(param))
+end
+
 function MOI.get(model::JuMP.Model, attr::ReverseObjectiveFunction)
     func = MOI.get(JuMP.backend(model), attr)
     return JuMP.jump_function(model, func)

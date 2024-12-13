@@ -138,8 +138,6 @@ MOI.set(model, DiffOpt.ForwardParameter(), x)
 """
 struct ForwardParameter <: MOI.AbstractVariableAttribute end
 
-MOI.is_set_by_optimize(::ForwardParameter) = true
-
 """
     ReverseConstraintDual <: MOI.AbstractConstraintAttribute
 
@@ -151,8 +149,6 @@ MOI.set(model, DiffOpt.ReverseConstraintDual(), x)
 ```
 """
 struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
-
-MOI.is_set_by_optimize(::ReverseConstraintDual) = true
 
 """
     ReverseVariableDual <: MOI.AbstractVariableAttribute
@@ -166,8 +162,6 @@ MOI.set(model, DiffOpt.ReverseVariableDual(), x)
 ```
 """
 struct ReverseVariableDual <: MOI.AbstractVariableAttribute end
-
-MOI.is_set_by_optimize(::ReverseVariableDual) = true
 
 """
     ReverseParameter <: MOI.AbstractVariableAttribute
