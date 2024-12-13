@@ -141,6 +141,35 @@ struct ForwardParameter <: MOI.AbstractVariableAttribute end
 MOI.is_set_by_optimize(::ForwardParameter) = true
 
 """
+    ReverseConstraintDual <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to set input data from reverse differentiation.
+
+For instance, to set the sensitivity wrt the dual of constraint of index `ci` do the following:
+```julia
+MOI.set(model, DiffOpt.ReverseConstraintDual(), x)
+```
+"""
+struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
+
+MOI.is_set_by_optimize(::ReverseConstraintDual) = true
+
+"""
+    ReverseVariableDual <: MOI.AbstractVariableAttribute
+
+A `MOI.AbstractVariableAttribute` to set input data from reverse differentiation.
+
+For instance, to set the tangent of the variable of index `vi`, do the
+following:
+```julia
+MOI.set(model, DiffOpt.ReverseVariableDual(), x)
+```
+"""
+struct ReverseVariableDual <: MOI.AbstractVariableAttribute end
+
+MOI.is_set_by_optimize(::ReverseVariableDual) = true
+
+"""
     ReverseParameter <: MOI.AbstractVariableAttribute
 
 A `MOI.AbstractVariableAttribute` to get output data from reverse differentiation,

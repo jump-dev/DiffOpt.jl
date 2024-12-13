@@ -82,6 +82,7 @@ function _cache_evaluator!(model::Model; params=sort(all_params(model.model), by
     num_up = length(has_up)
 
     # Create unified dual mapping
+    # TODO: This assumes that these are all possible constraints available. We should change to either a dict or a sparse array
     dual_mapping = Vector{Int}(undef, num_constraints + num_low + num_up)
     for (i, ci) in enumerate(cons)
         dual_mapping[ci.index.value] = i
@@ -141,9 +142,13 @@ function DiffOpt.reverse_differentiate!(model::Model; params=nothing)
         # Compute Jacobian
         Δs = compute_sensitivity(cache.evaluator, cache.cons; primal_vars=cache.primal_vars, params=cache.params)
 
+        Δx = [MOI.get(model, DiffOpt.ReverseVariablePrimal(), x.index) for x in cache.primal_vars]
+        Δλ = [MOI.get(model, DiffOpt.ReverseConstraintDual(), c.index) for c in cache.cons]
+        Δvdown = [MOI.get(model, DiffOpt.ReverseVariableDual(), MOI.LowerBoundRef(x)) for x in cache.primal_vars if has_lower_bound(x)]
+        Δvup = [MOI.get(model, DiffOpt.ReverseVariableDual(), MOI.UpperBoundRef(x)) for x in cache.primal_vars if has_upper_bound(x)]
         # Extract primal and dual sensitivities
-        primal_Δs_T = Δs[1:cache.num_primal, :]'
-        dual_Δs_T = Δs[cache.index_duals, :]'
+        primal_Δs_T = Δs[1:cache.num_primal, :]' * Δx 
+        dual_Δs_T = Δs[cache.index_duals, :]' * [Δλ; Δvdown; Δvup]
 
         model.back_grad_cache = ReverseCache(
             primal_Δs_T=primal_Δs_T,
@@ -182,5 +187,13 @@ function MOI.get(
 end
 
 # TODO: get for the reverse mode
+function MOI.get(
+    model::Model,
+    ::DiffOpt.ReverseParameter,
+    pi::MOI.VariableIndex,
+)
+
+return NaN
+end
 
 end # module NonLinearProgram
