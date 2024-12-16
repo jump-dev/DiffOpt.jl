@@ -26,6 +26,136 @@ Base.@kwdef struct ReverseCache
     dual_Δs_T::Matrix{Float64}
 end
 
+mutable struct Form <: MOI.ModelLike
+    model::MOI.Nonlinear.Model
+    num_variables::Int
+    num_constraints::Int
+    sense::MOI.OptimizationSense
+    list_of_constraint::MOI.Utilities.DoubleDicts.IndexDoubleDict
+end
+
+Form() = Form(MOI.Nonlinear.Model(), 0, 0, MOI.MIN_SENSE, MOI.Utilities.DoubleDicts.IndexDoubleDict())
+
+function MOI.is_valid(model::Form, ref::MOI.VariableIndex) 
+    return ref.value <= model.num_variables
+end
+
+function MOI.is_valid(model::Form, ref::MOI.ConstraintIndex)
+    return ref.value <= model.num_constraints
+end
+
+function MOI.add_variable(form::Form)
+    form.num_variables += 1
+    return MOI.VariableIndex(form.num_variables)
+end
+
+function MOI.add_variables(form::Form, n)
+    idxs = Vector{MOI.VariableIndex}(undef, n)
+    for i in 1:n
+        idxs[i] = MOI.add_variable(form)
+    end
+    return idxs
+end
+
+function MOI.supports(
+    form::Form,
+    attribute,
+    val,
+)
+    return MOI.supports(form.model, attribute, val)
+end
+
+function MOI.supports_constraint(
+    ::Form,
+    ::Type{F},
+    ::Type{S},
+) where {
+    F<:Union{MOI.ScalarNonlinearFunction,
+        MOI.ScalarQuadraticFunction{Float64},
+        MOI.ScalarAffineFunction{Float64}
+    },
+    S<:Union{
+        MOI.GreaterThan{Float64},
+        MOI.LessThan{Float64},
+        MOI.Interval{Float64},
+        MOI.EqualTo{Float64},
+    }
+}
+    return true
+end
+
+function MOI.add_constraint(
+    form::Form,
+    func::F,
+    set::S
+) where {
+    F<:Union{MOI.ScalarNonlinearFunction,
+        MOI.ScalarQuadraticFunction{Float64},
+        MOI.ScalarAffineFunction{Float64}
+    },
+    S<:Union{
+        MOI.GreaterThan{Float64},
+        MOI.LessThan{Float64},
+        MOI.Interval{Float64},
+        MOI.EqualTo{Float64},
+    }
+}
+    form.num_constraints += 1
+    MOI.Nonlinear.add_constraint(form.model, func, set)
+    idx = MOI.ConstraintIndex{F, S}(form.num_constraints)
+    form.list_of_constraint[idx] = idx
+    return idx
+end
+
+function MOI.get(form::Form, ::MOI.ListOfConstraintTypesPresent)
+    return collect(MOI.Utilities.DoubleDicts.outer_keys(form.list_of_constraint))
+end
+
+function MOI.get(form::Form, ::MOI.NumberOfConstraints{F,S}) where {F,S}
+    return length(form.list_of_constraint[F,S])
+end
+
+function MOI.get(form::Form, ::MOI.ConstraintPrimalStart)
+    return 
+end
+
+function MOI.supports(::Form, ::MOI.ObjectiveSense)
+    return true
+end
+
+# function MOI.supports(::Form, ::MOI.ObjectiveFunction{MOI.ScalarNonlinearFunction})
+#     return true
+# end
+
+function MOI.supports(::Form, ::MOI.ObjectiveFunction)
+    return true
+end
+
+function MOI.set(
+    form::Form,
+    ::MOI.ObjectiveSense,
+    sense::MOI.OptimizationSense
+)
+    form.sense = sense
+    return
+end
+
+function MOI.get(
+    form::Form,
+    ::MOI.ObjectiveSense,
+)
+    return form.sense
+end
+
+function MOI.set(
+    form::Form,
+    ::MOI.ObjectiveFunction,
+    func #::MOI.ScalarNonlinearFunction
+)
+    MOI.Nonlinear.set_objective(form.model, func)
+    return
+end
+
 """
     DiffOpt.NonLinearProgram.Model <: DiffOpt.AbstractModel
 
@@ -35,20 +165,68 @@ Supports forward and reverse differentiation, caching sensitivity data
 for primal variables, constraints, and bounds, excluding slack variables.
 """
 mutable struct Model <: DiffOpt.AbstractModel
-    model::JuMP.Model          # JuMP optimization model
+    model::Form
     cache::Union{Nothing, Cache} # Cache for evaluator and mappings
     forw_grad_cache::Union{Nothing, ForwCache} # Cache for forward sensitivity results
     back_grad_cache::Union{Nothing, ReverseCache} # Cache for reverse sensitivity results
     diff_time::Float64
+    x::Vector{Float64}
+    y::Vector{Float64}
+    s::Vector{Float64}
 end
 
-function Model(model::JuMP.Model)
+function Model()
     return Model(
-        model,
+        Form(),
         nothing,
         nothing,
         nothing,
         NaN,
+        [],
+        [],
+        [],
+    )
+end
+
+function MOI.set(
+    model::Model,
+    ::MOI.ConstraintPrimalStart,
+    ci::MOI.ConstraintIndex,
+    value,
+)
+    MOI.throw_if_not_valid(model, ci)
+    return DiffOpt._enlarge_set(
+        model.s,
+        ci.value,
+        value,
+    )
+end
+
+function MOI.set(
+    model::Model,
+    ::MOI.ConstraintDualStart,
+    ci::MOI.ConstraintIndex,
+    value,
+)
+    MOI.throw_if_not_valid(model, ci)
+    return DiffOpt._enlarge_set(
+        model.y,
+        ci.value,
+        value,
+    )
+end
+
+function MOI.set(
+    model::Model,
+    ::MOI.VariablePrimalStart,
+    vi::MOI.VariableIndex,
+    value,
+)
+    MOI.throw_if_not_valid(model, vi)
+    return DiffOpt._enlarge_set(
+        model.x,
+        vi.value,
+        value,
     )
 end
 
@@ -64,8 +242,9 @@ function MOI.empty!(model::Model)
     return
 end
 
-function _cache_evaluator!(model::Model; params=sort(all_params(model.model), by=x -> x.index.value))
+function _cache_evaluator!(model::Model)
     # Retrieve and sort primal variables by index
+    params = params=sort(all_params(model.model), by=x -> x.index.value)
     primal_vars = sort(all_primal_vars(model.model), by=x -> x.index.value)
     num_primal = length(primal_vars)
 
@@ -149,11 +328,13 @@ function DiffOpt.reverse_differentiate!(model::Model; params=nothing)
         Δvup = [MOI.get(model, DiffOpt.ReverseVariableDual(), MOI.UpperBoundRef(x)) for x in cache.primal_vars if has_upper_bound(x)]
         # Extract primal and dual sensitivities
         # TODO: multiply everyone together before indexing
-        primal_Δs_T = Δs[1:cache.num_primal, :]' * Δx 
-        dual_Δs_T = Δs[cache.index_duals, :]' * [Δλ; Δvdown; Δvup]
+        dual_Δ = zeros(size(Δs, 2))
+        dual_Δ[1:cache.num_primal] = Δx
+        dual_Δ[cache.index_duals] = [Δλ; Δvdown; Δvup]
+        Δp = Δs' * dual_Δ
 
         model.back_grad_cache = ReverseCache(
-            Δp=primal_Δs_T, # TODO: change
+            Δp=Δp,
         )
     end
     return nothing

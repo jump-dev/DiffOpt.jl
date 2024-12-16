@@ -573,10 +573,12 @@ function _diff(model::Optimizer)
         if isnothing(model_constructor)
             model.diff = nothing
             for constructor in model.model_constructors
+                println("Trying $constructor")
                 model.diff = _instantiate_with_bridges(constructor)
                 try
                     model.index_map = MOI.copy_to(model.diff, model.optimizer)
                 catch err
+                    @show err
                     if err isa MOI.UnsupportedConstraint ||
                        err isa MOI.UnsupportedAttribute
                         model.diff = nothing
