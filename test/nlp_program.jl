@@ -5,6 +5,28 @@ using FiniteDiff
 
 include("test/data/nlp_problems.jl")
 
+# Example usage
+# using Revise
+# using DiffOpt
+# using JuMP
+# using Ipopt
+# using Test
+
+# model, vars, cons, params = create_jump_model_1()
+# set_parameter_value.(params, [2.1])
+# JuMP.optimize!(model)
+
+# # d_iff = DiffOpt._diff(model.moi_backend.optimizer.model)
+
+# # set parameter pertubations
+# MOI.set(model, DiffOpt.ForwardParameter(), params[1], 0.2)
+
+# # forward differentiate
+# DiffOpt.forward_differentiate!(model)
+
+# # get sensitivities
+# MOI.get(model, DiffOpt.ForwardVariablePrimal(), vars[1])
+
 ################################################
 #=
 # Test JuMP Hessian and Jacobian
