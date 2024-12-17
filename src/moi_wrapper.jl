@@ -549,6 +549,11 @@ function forward_differentiate!(model::Optimizer)
             model.input_cache.vector_constraints[F, S],
         )
     end
+    if model.input_cache.dp !== nothing
+        for (vi, value) in model.input_cache.dp
+            MOI.set(diff, ForwardParameter(), model.index_map[vi], value)
+        end
+    end
     return forward_differentiate!(diff)
 end
 
@@ -668,6 +673,16 @@ function MOI.supports(
     ::Type{MOI.VariableIndex},
 )
     return true
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::ForwardParameter,
+    vi::MOI.VariableIndex,
+    val,
+)
+    model.input_cache.dp[vi] = val
+    return
 end
 
 function MOI.get(

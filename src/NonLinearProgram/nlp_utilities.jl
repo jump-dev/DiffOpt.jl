@@ -50,7 +50,7 @@ Compute the optimal Hessian of the Lagrangian.
 function compute_optimal_hessian(model::Model, rows::Vector{MOI.Nonlinear.ConstraintIndex})
     sense_multiplier = sense_mult(model)
     evaluator = model.cache.evaluator
-    y = [model.y[model.form.nlp_index_2_constraint[row].value] for row in rows]
+    y = [model.y[model.model.nlp_index_2_constraint[row].value] for row in rows]
     hessian_sparsity = MOI.hessian_lagrangian_structure(evaluator)
     I = [i for (i, _) in hessian_sparsity]
     J = [j for (_, j) in hessian_sparsity]
@@ -58,7 +58,8 @@ function compute_optimal_hessian(model::Model, rows::Vector{MOI.Nonlinear.Constr
     # The signals are being sdjusted to match the Ipopt convention (inner.mult_g)
     # but we don't know if we need to adjust the objective function multiplier
     MOI.eval_hessian_lagrangian(evaluator, V, model.x, 1.0, - sense_multiplier * y)
-    H = SparseArrays.sparse(I, J, V, length(x), length(x))
+    num_vars = length(model.x)
+    H = SparseArrays.sparse(I, J, V, num_vars, num_vars)
     return fill_off_diagonal(H)
 end
 
@@ -131,6 +132,14 @@ function is_less_inequality(::MOI.ConstraintIndex{F, MOI.LessThan}) where {F}
     return true
 end
 
+function is_less_inequality(::MOI.ConstraintIndex{F, S}) where {F, S}
+    return false
+end
+
+function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F, S}
+    return false
+end
+
 function is_greater_inequality(::MOI.ConstraintIndex{F, MOI.GreaterThan}) where {F}
     return true
 end
@@ -179,16 +188,16 @@ Compute the solution and bounds of the primal variables.
 function compute_solution_and_bounds(model::Model; tol=1e-6)
     sense_multiplier = sense_mult(model)
     num_vars = get_num_primal_vars(model)
-    form = model.form
+    form = model.model
     leq_locations = model.cache.leq_locations
     geq_locations = model.cache.geq_locations
     ineq_locations = vcat(geq_locations, leq_locations)
     num_leq = length(leq_locations)
     num_geq = length(geq_locations)
     num_ineq = num_leq + num_geq
-    has_up = sort(keys(form.upper_bounds))
-    has_low = sort(keys(form.lower_bounds))
-    cons = sort(keys(form.nlp_index_2_constraint), by=x->x.value)
+    has_up = model.cache.has_up
+    has_low = model.cache.has_low
+    cons = sort(collect(keys(form.nlp_index_2_constraint)), by=x->x.value)
     # Primal solution: value.([primal_vars; slack_vars])
     X = [model.x; model.s]
 
@@ -196,16 +205,16 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     V_L = spzeros(num_vars+num_ineq)
     X_L = spzeros(num_vars+num_ineq)
     for (i, j) in enumerate(has_low)
-        V_L[i] = model.y[form.constraint_lower_bounds[j].value] * sense_multiplier
+        V_L[j] = model.y[form.constraint_lower_bounds[j].value] * sense_multiplier
         #dual.(LowerBoundRef(primal_vars[j])) * sense_multiplier
         #
         if sense_multiplier == 1.0
-            V_L[i] <= -tol && @info "Dual of lower bound must be positive" i V_L[i]
+            V_L[j] <= -tol && @info "Dual of lower bound must be positive" i V_L[j]
         else
-            V_L[i] >= tol && @info "Dual of lower bound must be negative" i V_L[i]
+            V_L[j] >= tol && @info "Dual of lower bound must be negative" i V_L[j]
         end
         #
-        X_L[i] = form.lower_bounds[j]
+        X_L[j] = form.lower_bounds[j]
     end
     for (i, con) in enumerate(cons[geq_locations])
         # By convention jump dual will allways be positive for geq constraints
@@ -222,25 +231,25 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     V_U = spzeros(num_vars+num_ineq)
     X_U = spzeros(num_vars+num_ineq)
     for (i, j) in enumerate(has_up)
-        V_U[i] = model.y[form.constraint_upper_bounds[j].value] * (- sense_multiplier)
+        V_U[j] = model.y[form.constraint_upper_bounds[j].value] * (- sense_multiplier)
         # dual.(UpperBoundRef(primal_vars[j])) * (- sense_multiplier)
         if sense_multiplier == 1.0
-            V_U[i] <= -tol && @info "Dual of upper bound must be positive" i V_U[i]
+            V_U[j] <= -tol && @info "Dual of upper bound must be positive" i V_U[i]
         else
-            V_U[i] >= tol && @info "Dual of upper bound must be negative" i V_U[i]
+            V_U[j] >= tol && @info "Dual of upper bound must be negative" i V_U[i]
         end
         #
-        X_U[i] = JuMP.upper_bound(primal_vars[j])
+        X_U[j] = form.upper_bounds[j]
     end
     for (i, con) in enumerate(cons[leq_locations])
         # By convention jump dual will allways be negative for leq constraints
         # but for ipopt it will be positive if min problem and negative if max problem
-        V_U[num_vars+i] = model.y[form.nlp_index_2_constraint[con]] * (- sense_multiplier)
+        V_U[num_vars+num_geq+i] = model.y[form.nlp_index_2_constraint[con]] * (- sense_multiplier)
         # dual.(con) * (- sense_multiplier)
         if sense_multiplier == 1.0
-            V_U[num_vars+i] <= -tol && @info "Dual of leq constraint must be positive" i V_U[num_vars+i]
+            V_U[num_vars+num_geq+i] <= -tol && @info "Dual of leq constraint must be positive" i V_U[num_vars+i]
         else
-            V_U[num_vars+i] >= tol && @info "Dual of leq constraint must be negative" i V_U[num_vars+i]
+            V_U[num_vars+num_geq+i] >= tol && @info "Dual of leq constraint must be negative" i V_U[num_vars+i]
         end
     end
     return X, V_L, X_L, V_U, X_U, leq_locations, geq_locations, ineq_locations, vcat(has_up, collect(num_vars+num_geq+1:num_vars+num_geq+num_leq)), vcat(has_low, collect(num_vars+1:num_vars+num_geq)), cons
@@ -259,8 +268,6 @@ function build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
     _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z},
     has_up::Vector{Z}, has_low::Vector{Z}
 ) where {Z<:Integer}
-    @assert all(x -> is_parameter(x), params) "All parameters must be parameters"
-
     # Setting
     num_vars = get_num_primal_vars(model)
     num_parms = get_num_params(model)
@@ -404,7 +411,10 @@ function compute_derivatives_no_relax(model::Model, cons::Vector{MOI.Nonlinear.C
     M, N = build_M_N(model, cons, _X, _V_L, _X_L, _V_U, _X_U, leq_locations, geq_locations, ineq_locations, has_up, has_low)
 
     # Sesitivity of the solution (primal-dual_constraints-dual_bounds) w.r.t. the parameters
-    K = inertia_corrector_factorization(M, length(primal_vars) + length(ineq_locations), length(cons)) # Factorization
+    num_vars = get_num_primal_vars(model)
+    num_cons = get_num_constraints(model)
+    num_ineq = length(ineq_locations)
+    K = inertia_corrector_factorization(M, num_vars + num_ineq, num_cons) # Factorization
     if isnothing(K)
         return zeros(size(M, 1), size(N, 2)), K, N
     end

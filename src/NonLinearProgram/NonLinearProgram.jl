@@ -4,6 +4,7 @@ import DiffOpt
 import JuMP
 import MathOptInterface as MOI
 using SparseArrays
+using LinearAlgebra
 
 Base.@kwdef struct Cache
     primal_vars::Vector{MOI.VariableIndex}         # Sorted primal variables
@@ -12,17 +13,19 @@ Base.@kwdef struct Cache
     index_duals::Vector{Int}                       # Indices for dual variables
     leq_locations::Vector{Int}                     # Locations of <= constraints
     geq_locations::Vector{Int}                     # Locations of >= constraints
+    has_up::Vector{Int}                            # Variables with upper bounds
+    has_low::Vector{Int}                           # Variables with lower bounds
     evaluator                                     # Cached evaluator for derivative computation
 end
 
 Base.@kwdef struct ForwCache
-    primal_Δs::Matrix{Float64}         # Sensitivity for primal variables (excluding slacks)
-    dual_Δs::Matrix{Float64}           # Sensitivity for constraints and bounds (indexed by ConstraintIndex)
+    primal_Δs::Dict{MOI.VariableIndex, Float64}  # Sensitivity for primal variables (indexed by VariableIndex)
+    dual_Δs::Vector{Float64}           # Sensitivity for constraints and bounds (indexed by ConstraintIndex)
 end
 
 Base.@kwdef struct ReverseCache
-    primal_Δs_T::Matrix{Float64}
-    dual_Δs_T::Matrix{Float64}
+    primal_Δs_T::Vector{Float64}
+    dual_Δs_T::Vector{Float64}
 end
 
 mutable struct Form <: MOI.ModelLike
@@ -220,6 +223,7 @@ mutable struct Model <: DiffOpt.AbstractModel
     forw_grad_cache::Union{Nothing, ForwCache} # Cache for forward sensitivity results
     back_grad_cache::Union{Nothing, ReverseCache} # Cache for reverse sensitivity results
     diff_time::Float64
+    input_cache::DiffOpt.InputCache
     x::Vector{Float64}
     y::Vector{Float64}
     s::Vector{Float64}
@@ -232,6 +236,7 @@ function Model()
         nothing,
         nothing,
         NaN,
+        DiffOpt.InputCache(),
         [],
         [],
         [],
@@ -299,7 +304,7 @@ include("nlp_utilities.jl")
 
 all_variables(form::Form) = MOI.VariableIndex.(1:form.num_variables)
 all_variables(model::Model) = all_variables(model.model)
-all_params(form::Form) = keys(form.var2param)
+all_params(form::Form) = collect(keys(form.var2param))
 all_params(model::Model) = all_params(model.model)
 all_primal_vars(form::Form) = setdiff(all_variables(form), all_params(form))
 all_primal_vars(model::Model) = all_primal_vars(model.model)
@@ -314,8 +319,8 @@ get_num_params(model::Model) = get_num_params(model.model)
 function _cache_evaluator!(model::Model)
     form = model.model
     # Retrieve and sort primal variables by index
-    params = params=sort(all_params(form), by=x -> x.index.value)
-    primal_vars = sort(all_primal_vars(form), by=x -> x.index.value)
+    params = params=sort(all_params(form), by=x -> x.value)
+    primal_vars = sort(all_primal_vars(form), by=x -> x.value)
     num_primal = length(primal_vars)
 
     # Create evaluator and constraints
@@ -325,8 +330,8 @@ function _cache_evaluator!(model::Model)
     leq_locations, geq_locations = find_inequealities(form)
     num_leq = length(leq_locations)
     num_geq = length(geq_locations)
-    has_up = sort(keys(form.upper_bounds))
-    has_low = sort(keys(form.lower_bounds))
+    has_up = findall(i-> haskey(form.upper_bounds, i), primal_vars)
+    has_low = findall(i-> haskey(form.lower_bounds, i), primal_vars)
     num_low = length(has_low)
     num_up = length(has_up)
 
@@ -361,6 +366,8 @@ function _cache_evaluator!(model::Model)
         index_duals=index_duals,
         leq_locations=leq_locations,
         geq_locations=geq_locations,
+        has_up=has_up,
+        has_low=has_low,
         evaluator=evaluator,
     )
     return model.cache
@@ -369,18 +376,17 @@ end
 function DiffOpt.forward_differentiate!(model::Model)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
-
-        Δp = [MOI.get(model, DiffOpt.ForwardParameter(), p) for p in cache.params]
+        Δp = [model.input_cache.dp[i] for i in cache.params]
 
         # Compute Jacobian
         Δs = compute_sensitivity(model)
 
         # Extract primal and dual sensitivities
-        primal_Δs = Δs[1:cache.num_primal, :] * Δp # Exclude slacks
+        primal_Δs = Δs[1:length(model.cache.primal_vars), :] * Δp # Exclude slacks
         dual_Δs = Δs[cache.index_duals, :]  * Δp # Includes constraints and bounds
 
         model.forw_grad_cache = ForwCache(
-            primal_Δs=primal_Δs,
+            primal_Δs=Dict(model.cache.primal_vars .=> primal_Δs),
             dual_Δs=dual_Δs,
         )
     end
@@ -420,8 +426,7 @@ function MOI.get(
     if model.forw_grad_cache === nothing
         error("Forward differentiation has not been performed yet.")
     end
-    idx = vi.value # Direct mapping via sorted primal variables
-    return model.forw_grad_cache.primal_Δs[idx, :]
+    return model.forw_grad_cache.primal_Δs[vi]
 end
 
 function MOI.get(

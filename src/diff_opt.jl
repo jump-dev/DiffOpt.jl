@@ -13,6 +13,7 @@ const MOIDD = MOI.Utilities.DoubleDicts
 
 Base.@kwdef mutable struct InputCache
     dx::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()# dz for QP
+    dp::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()
     # ds
     # dy #= [d\lambda, d\nu] for QP
     # FIXME Would it be possible to have a DoubleDict where the value depends
@@ -29,6 +30,7 @@ end
 
 function Base.empty!(cache::InputCache)
     empty!(cache.dx)
+    empty!(cache.dp)
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
@@ -365,7 +367,7 @@ function MOI.set(
     pi::MOI.VariableIndex,
     val,
 )
-    model.input_cache.dx[pi] = val
+    model.input_cache.dp[pi] = val
     return
 end
 
