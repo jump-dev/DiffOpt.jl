@@ -14,6 +14,7 @@ const MOIDD = MOI.Utilities.DoubleDicts
 Base.@kwdef mutable struct InputCache
     dx::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()# dz for QP
     dp::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()
+    dy::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}()
     # ds
     # dy #= [d\lambda, d\nu] for QP
     # FIXME Would it be possible to have a DoubleDict where the value depends
@@ -31,6 +32,7 @@ end
 function Base.empty!(cache::InputCache)
     empty!(cache.dx)
     empty!(cache.dp)
+    empty!(cache.dy)
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
@@ -153,19 +155,6 @@ MOI.set(model, DiffOpt.ReverseConstraintDual(), x)
 struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
 
 """
-    ReverseVariableDual <: MOI.AbstractVariableAttribute
-
-A `MOI.AbstractVariableAttribute` to set input data from reverse differentiation.
-
-For instance, to set the tangent of the variable of index `vi`, do the
-following:
-```julia
-MOI.set(model, DiffOpt.ReverseVariableDual(), x)
-```
-"""
-struct ReverseVariableDual <: MOI.AbstractVariableAttribute end
-
-"""
     ReverseParameter <: MOI.AbstractVariableAttribute
 
 A `MOI.AbstractVariableAttribute` to get output data from reverse differentiation,
@@ -192,8 +181,9 @@ For instance, to get the sensitivity of the dual of constraint of index `ci` wit
 MOI.get(model, DiffOpt.ForwardConstraintDual(), ci)
 ```
 """
-
 struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
+
+MOI.is_set_by_optimize(::ForwardConstraintDual) = true
 
 """
     ReverseObjectiveFunction <: MOI.AbstractModelAttribute
@@ -358,6 +348,16 @@ function MOI.set(
     val,
 )
     model.input_cache.dx[vi] = val
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
+    ::ReverseConstraintDual,
+    vi::MOI.ConstraintIndex,
+    val,
+)
+    model.input_cache.dy[vi] = val
     return
 end
 

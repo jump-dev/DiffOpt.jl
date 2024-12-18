@@ -16,7 +16,7 @@ include("test/data/nlp_problems.jl")
 # set_parameter_value.(params, [2.1])
 # JuMP.optimize!(model)
 
-# # d_iff = DiffOpt._diff(model.moi_backend.optimizer.model)
+# ### Forward differentiation
 
 # # set parameter pertubations
 # MOI.set(model, DiffOpt.ForwardParameter(), params[1], 0.2)
@@ -26,6 +26,17 @@ include("test/data/nlp_problems.jl")
 
 # # get sensitivities
 # MOI.get(model, DiffOpt.ForwardVariablePrimal(), vars[1])
+
+# ### Reverse differentiation
+
+# # set variable pertubations
+# MOI.set(model, DiffOpt.ReverseVariablePrimal(), vars[1], 1.0)
+
+# # reverse differentiate
+# DiffOpt.reverse_differentiate!(model)
+
+# # get sensitivities
+# dp = MOI.get(model, DiffOpt.ReverseParameter(), params[1])
 
 ################################################
 #=

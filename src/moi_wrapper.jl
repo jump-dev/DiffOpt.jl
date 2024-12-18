@@ -659,6 +659,18 @@ function MOI.get(
     )
 end
 
+function MOI.get(
+    model::Optimizer,
+    attr::ReverseParameter,
+    vi::MOI.VariableIndex,
+)
+    return MOI.get(
+        _checked_diff(model, attr, :reverse_differentiate!),
+        attr,
+        model.index_map[vi],
+    )
+end
+
 function MOI.supports(
     ::Optimizer,
     ::ReverseVariablePrimal,
@@ -687,6 +699,14 @@ end
 
 function MOI.get(
     model::Optimizer,
+    ::ForwardParameter,
+    vi::MOI.VariableIndex,
+)
+    return get(model.input_cache.dp, vi, 0.0)
+end
+
+function MOI.get(
+    model::Optimizer,
     ::ReverseVariablePrimal,
     vi::MOI.VariableIndex,
 )
@@ -701,6 +721,24 @@ function MOI.set(
 )
     model.input_cache.dx[vi] = val
     return
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::ReverseConstraintDual,
+    vi::MOI.ConstraintIndex,
+    val,
+)
+    model.input_cache.dy[vi] = val
+    return
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::ReverseConstraintDual,
+    vi::MOI.ConstraintIndex,
+)
+    return get(model.input_cache.dy, vi, 0.0)
 end
 
 function MOI.get(

@@ -15,7 +15,8 @@ Base.@kwdef struct Cache
     geq_locations::Vector{Int}                     # Locations of >= constraints
     has_up::Vector{Int}                            # Variables with upper bounds
     has_low::Vector{Int}                           # Variables with lower bounds
-    evaluator                                     # Cached evaluator for derivative computation
+    evaluator::MOI.Nonlinear.Evaluator            # Evaluator for the NLP
+    cons::Vector{MOI.Nonlinear.ConstraintIndex} # Constraints index for the NLP
 end
 
 Base.@kwdef struct ForwCache
@@ -24,8 +25,7 @@ Base.@kwdef struct ForwCache
 end
 
 Base.@kwdef struct ReverseCache
-    primal_Δs_T::Vector{Float64}
-    dual_Δs_T::Vector{Float64}
+    Δp::Vector{Float64}  # Sensitivity for parameters
 end
 
 mutable struct Form <: MOI.ModelLike
@@ -358,6 +358,7 @@ function _cache_evaluator!(model::Model)
     num_slacks = num_leq + num_geq
     num_w = num_primal + num_slacks
     index_duals = [num_w+1:num_w+num_constraints; num_w+num_constraints+1:num_w+num_constraints+num_low; num_w+num_constraints+num_low+num_geq+1:num_w+num_constraints+num_low+num_geq+num_up]
+    cons = sort(collect(keys(form.nlp_index_2_constraint)), by=x->x.value)
 
     model.cache = Cache(
         primal_vars=primal_vars,
@@ -369,6 +370,7 @@ function _cache_evaluator!(model::Model)
         has_up=has_up,
         has_low=has_low,
         evaluator=evaluator,
+        cons=cons,
     )
     return model.cache
 end
@@ -396,20 +398,50 @@ end
 function DiffOpt.reverse_differentiate!(model::Model)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
+        form = model.model
 
         # Compute Jacobian
-        Δs = compute_sensitivity(cache.evaluator, cache.cons; primal_vars=cache.primal_vars, params=cache.params)
-
-        Δx = [MOI.get(model, DiffOpt.ReverseVariablePrimal(), x.index) for x in cache.primal_vars]
-        Δλ = [MOI.get(model, DiffOpt.ReverseConstraintDual(), c.index) for c in cache.cons]
-        Δvdown = [MOI.get(model, DiffOpt.ReverseVariableDual(), MOI.LowerBoundRef(x)) for x in cache.primal_vars if has_lower_bound(x)]
-        Δvup = [MOI.get(model, DiffOpt.ReverseVariableDual(), MOI.UpperBoundRef(x)) for x in cache.primal_vars if has_upper_bound(x)]
+        Δs = compute_sensitivity(model)
+        num_primal = length(cache.primal_vars)
+        Δx = zeros(num_primal)
+        # [model.input_cache.dx[i] for i in cache.primal_vars]
+        for (i, var_idx) in enumerate(cache.primal_vars)
+            if haskey(model.input_cache.dx, var_idx)
+                Δx[i] = model.input_cache.dx[var_idx]
+            end
+        end
+        # ReverseConstraintDual
+        num_constraints = length(cache.cons)
+        num_up = length(cache.has_up)
+        num_low = length(cache.has_low)
+        Δdual = zeros(num_constraints + num_up + num_low)
+        # Δdual[1:num_constraints] = [model.input_cache.dy[form.nlp_index_2_constraint[nlp_ci]] for nlp_ci in cache.cons]
+        # Δdual[num_constraints+1:num_constraints+num_low] = [model.input_cache.dy[form.constraint_lower_bounds[form.primal_vars[i]].value] for i in cache.has_low]
+        # Δdual[num_constraints+num_low+1:end] = [model.input_cache.dy[form.constraint_upper_bounds[form.primal_vars[i]].value] for i in cache.has_up]
+        for (i, ci) in enumerate(cache.cons)
+            idx = form.nlp_index_2_constraint[ci]
+            if haskey(model.input_cache.dy, idx)
+                Δdual[i] = model.input_cache.dy[idx]
+            end
+        end
+        for (i, var_idx) in enumerate(cache.has_low)
+            idx = form.constraint_lower_bounds[var_idx].value
+            if haskey(model.input_cache.dy, idx)
+                Δdual[num_constraints + i] = model.input_cache.dy[idx]
+            end
+        end
+        for (i, var_idx) in enumerate(cache.has_up)
+            idx = form.constraint_upper_bounds[var_idx].value
+            if haskey(model.input_cache.dy, idx)
+                Δdual[num_constraints + num_low + i] = model.input_cache.dy[idx]
+            end
+        end
         # Extract primal and dual sensitivities
         # TODO: multiply everyone together before indexing
-        dual_Δ = zeros(size(Δs, 2))
-        dual_Δ[1:cache.num_primal] = Δx
-        dual_Δ[cache.index_duals] = [Δλ; Δvdown; Δvup]
-        Δp = Δs' * dual_Δ
+        Δw = zeros(size(Δs, 1))
+        Δw[1:num_primal] = Δx
+        Δw[cache.index_duals] = Δdual
+        Δp = Δs' * Δw
 
         model.back_grad_cache = ReverseCache(
             Δp=Δp,
@@ -451,8 +483,8 @@ function MOI.get(
     ::DiffOpt.ReverseParameter,
     pi::MOI.VariableIndex,
 )
-
-return NaN
+    form = model.model
+    return model.back_grad_cache.Δp[form.var2param[pi].value]
 end
 
 end # module NonLinearProgram

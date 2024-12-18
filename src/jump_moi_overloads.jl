@@ -41,11 +41,11 @@ end
 
 function MOI.get(
     model::JuMP.Model,
-    attr::ForwardParameter,
-    param::JuMP.VariableRef,
+    attr::ReverseParameter,
+    var_ref::JuMP.VariableRef,
 )
-    JuMP.check_belongs_to_model(param, model)
-    return MOI.get(model, attr, JuMP.index(param))
+    JuMP.check_belongs_to_model(var_ref, model)
+    return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
 
 function MOI.get(model::JuMP.Model, attr::ReverseObjectiveFunction)

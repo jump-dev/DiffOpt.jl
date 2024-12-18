@@ -128,7 +128,7 @@ function create_evaluator(form::Form)
     return evaluator
 end
 
-function is_less_inequality(::MOI.ConstraintIndex{F, MOI.LessThan}) where {F}
+function is_less_inequality(::MOI.ConstraintIndex{F, S}) where {F, S<:MOI.LessThan}
     return true
 end
 
@@ -140,7 +140,7 @@ function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F, S}
     return false
 end
 
-function is_greater_inequality(::MOI.ConstraintIndex{F, MOI.GreaterThan}) where {F}
+function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F, S<:MOI.GreaterThan}
     return true
 end
 
@@ -155,10 +155,10 @@ function find_inequealities(model::Form)
     geq_locations = zeros(num_cons)
     for con in keys(model.list_of_constraint)
         if is_less_inequality(con)
-            leq_locations[constraints_2_nlp_index[con].value] = true
+            leq_locations[model.constraints_2_nlp_index[con].value] = true
         end
         if is_greater_inequality(con)
-            geq_locations[constraints_2_nlp_index[con].value] = true
+            geq_locations[model.constraints_2_nlp_index[con].value] = true
         end
     end
     return findall(x -> x ==1, leq_locations), findall(x -> x ==1, geq_locations)
@@ -197,9 +197,10 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     num_ineq = num_leq + num_geq
     has_up = model.cache.has_up
     has_low = model.cache.has_low
-    cons = sort(collect(keys(form.nlp_index_2_constraint)), by=x->x.value)
+    cons = model.cache.cons #sort(collect(keys(form.nlp_index_2_constraint)), by=x->x.value)
+    model_cons = [form.nlp_index_2_constraint[con] for con in cons]
     # Primal solution: value.([primal_vars; slack_vars])
-    X = [model.x; model.s]
+    X = [model.x; [model.s[con.value] for con in model_cons]]
 
     # value and dual of the lower bounds
     V_L = spzeros(num_vars+num_ineq)
@@ -219,7 +220,7 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     for (i, con) in enumerate(cons[geq_locations])
         # By convention jump dual will allways be positive for geq constraints
         # but for ipopt it will be positive if min problem and negative if max problem
-        V_L[num_vars+i] = model.y[form.nlp_index_2_constraint[con]] * sense_multiplier
+        V_L[num_vars+i] = model.y[form.nlp_index_2_constraint[con].value] * sense_multiplier
         #
         if sense_multiplier == 1.0
             V_L[num_vars+i] <= -tol && @info "Dual of geq constraint must be positive" i V_L[num_vars+i]
@@ -244,7 +245,7 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     for (i, con) in enumerate(cons[leq_locations])
         # By convention jump dual will allways be negative for leq constraints
         # but for ipopt it will be positive if min problem and negative if max problem
-        V_U[num_vars+num_geq+i] = model.y[form.nlp_index_2_constraint[con]] * (- sense_multiplier)
+        V_U[num_vars+num_geq+i] = model.y[form.nlp_index_2_constraint[con].value] * (- sense_multiplier)
         # dual.(con) * (- sense_multiplier)
         if sense_multiplier == 1.0
             V_U[num_vars+num_geq+i] <= -tol && @info "Dual of leq constraint must be positive" i V_U[num_vars+i]
@@ -433,7 +434,7 @@ sense_mult(model::Model) = objective_sense(model) == MOI.MIN_SENSE ? 1.0 : -1.0
 
 Compute the sensitivity of the solution given sensitivity of the parameters (Δp).
 """
-function compute_sensitivity(model::Model, tol=1e-6)
+function compute_sensitivity(model::Model; tol=1e-6)
     # Solution and bounds
     X, V_L, X_L, V_U, X_U, leq_locations, geq_locations, ineq_locations, has_up, has_low, cons = compute_solution_and_bounds(model; tol=tol)
     # Compute derivatives
