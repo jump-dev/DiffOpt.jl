@@ -41,6 +41,8 @@ mutable struct Form <: MOI.ModelLike
     constraint_lower_bounds::Dict{Int, MOI.ConstraintIndex}
     constraints_2_nlp_index::Dict{MOI.ConstraintIndex, MOI.Nonlinear.ConstraintIndex}
     nlp_index_2_constraint::Dict{MOI.Nonlinear.ConstraintIndex, MOI.ConstraintIndex}
+    leq_values::Dict{MOI.ConstraintIndex, Float64}
+    geq_values::Dict{MOI.ConstraintIndex, Float64}
 end
 
 Form() = Form(
@@ -50,7 +52,9 @@ Form() = Form(
     Dict{Int, Float64}(), Dict{Int, Float64}(),
     Dict{Int, MOI.ConstraintIndex}(), Dict{Int, MOI.ConstraintIndex}(),
     Dict{MOI.ConstraintIndex, MOI.Nonlinear.ConstraintIndex}(),
-    Dict{MOI.Nonlinear.ConstraintIndex, MOI.ConstraintIndex}()
+    Dict{MOI.Nonlinear.ConstraintIndex, MOI.ConstraintIndex}(),
+    Dict{MOI.ConstraintIndex, Float64}(),
+    Dict{MOI.ConstraintIndex, Float64}()
 )
 
 function MOI.is_valid(model::Form, ref::MOI.VariableIndex) 
@@ -95,12 +99,26 @@ function MOI.supports_constraint(
     S<:Union{
         MOI.GreaterThan{Float64},
         MOI.LessThan{Float64},
-        MOI.Interval{Float64},
+        # MOI.Interval{Float64},
         MOI.EqualTo{Float64},
         MOI.Parameter{Float64}
     }
 }
     return true
+end
+
+function add_leq_geq(form::Form, idx::MOI.ConstraintIndex, set::MOI.GreaterThan)
+    form.geq_values[idx] = set.lower
+    return
+end
+
+function add_leq_geq(form::Form, idx::MOI.ConstraintIndex, set::MOI.LessThan)
+    form.leq_values[idx] = set.upper
+    return
+end
+
+function add_leq_geq(::Form, ::MOI.ConstraintIndex, ::MOI.EqualTo)
+    return
 end
 
 function MOI.add_constraint(
@@ -115,13 +133,14 @@ function MOI.add_constraint(
     S<:Union{
         MOI.GreaterThan{Float64},
         MOI.LessThan{Float64},
-        MOI.Interval{Float64},
+        # MOI.Interval{Float64},
         MOI.EqualTo{Float64},
     }
 }
     form.num_constraints += 1
     idx_nlp = MOI.Nonlinear.add_constraint(form.model, func, set)
     idx = MOI.ConstraintIndex{F, S}(form.num_constraints)
+    add_leq_geq(form, idx, set)
     form.list_of_constraint[idx] = idx
     form.constraints_2_nlp_index[idx] = idx_nlp
     form.nlp_index_2_constraint[idx_nlp] = idx

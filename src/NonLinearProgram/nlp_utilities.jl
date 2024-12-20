@@ -198,9 +198,13 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     has_up = model.cache.has_up
     has_low = model.cache.has_low
     cons = model.cache.cons #sort(collect(keys(form.nlp_index_2_constraint)), by=x->x.value)
-    model_cons = [form.nlp_index_2_constraint[con] for con in cons]
     # Primal solution: value.([primal_vars; slack_vars])
-    X = [model.x; [model.s[con.value] for con in model_cons]]
+    model_cons_leq = [form.nlp_index_2_constraint[con] for con in cons[leq_locations]]
+    model_cons_geq = [form.nlp_index_2_constraint[con] for con in cons[geq_locations]]
+    s_leq = [model.s[con.value] for con in model_cons_leq] - [form.leq_values[con] for con in model_cons_leq]
+    s_geq = [model.s[con.value] for con in model_cons_geq] - [form.geq_values[con] for con in model_cons_geq]
+    primal_idx = [i.value for i in model.cache.primal_vars]
+    X = [model.x[primal_idx]; s_leq; s_geq]
 
     # value and dual of the lower bounds
     V_L = spzeros(num_vars+num_ineq)

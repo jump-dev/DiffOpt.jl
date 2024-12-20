@@ -75,16 +75,11 @@ function analytic_jacobian(x, p)
     return hcat(g_2_J, g_1_J)'[:,:]
 end
 
-function test_create_evaluator(model, x)
-    @testset "Create NLP model" begin
-        nlp, rows = create_nlp_model(model)
-        @test nlp isa MOI.Nonlinear.Model
-        @test rows isa Vector{ConstraintRef}
-    end
+function test_create_evaluator(nlp_model)
     @testset "Create Evaluator" begin
-        evaluator, rows = create_evaluator(model; x = x)
-        @test evaluator isa MOI.Nonlinear.Evaluator
-        @test rows isa Vector{ConstraintRef}
+        cache = DiffOpt.NonLinearProgram._cache_evaluator!(nlp_model)
+        @test cache.evaluator isa MOI.Nonlinear.Evaluator
+        @test cache.cons isa Vector{MOI.Nonlinear.ConstraintIndex}
     end
 end
 
@@ -96,19 +91,21 @@ function test_compute_optimal_hess_jacobian()
         optimize!(model)
         @assert is_solved_and_feasible(model)
         # Create evaluator
-        test_create_evaluator(model, [x; params])
-        evaluator, rows = create_evaluator(model; x = [x; params])
-        # Compute Hessian and Jacobian
-        num_var = length(x)
-        full_hessian, full_jacobian = compute_optimal_hess_jac(evaluator, rows, [x; params])
-        hessian = full_hessian[1:num_var, 1:num_var]
+        nlp_model = DiffOpt._diff(model.moi_backend.optimizer.model).model
+        test_create_evaluator(nlp_model)
+        cons = nlp_model.cache.cons
+        y = [nlp_model.y[nlp_model.model.nlp_index_2_constraint[row].value] for row in cons]
+        hessian, jacobian = DiffOpt.NonLinearProgram.compute_optimal_hess_jac(nlp_model, cons)
         # Check Hessian
-        @test all(hessian .≈ analytic_hessian(value.(x), 1.0, -dual.(cons), value.(params)))
-        # TODO: Test hessial of parameters
+        primal_idx = [i.value for i in nlp_model.cache.primal_vars]
+        params_idx = [i.value for i in nlp_model.cache.params]
+        @test all(isapprox(hessian[primal_idx,primal_idx], analytic_hessian(nlp_model.x[primal_idx], 1.0, -y, nlp_model.x[params_idx]); atol = 1))
         # Check Jacobian
-        @test all(full_jacobian .≈ analytic_jacobian(value.(x), value.(params)))
+        @test all(isapprox(jacobian[:,[primal_idx; params_idx]], analytic_jacobian(nlp_model.x[primal_idx], nlp_model.x[params_idx])))
     end
 end
+
+test_compute_optimal_hess_jacobian()
 
 ################################################
 #=
@@ -122,7 +119,7 @@ end
 # ∂x/∂p = ∂g/∂p
 
 DICT_PROBLEMS_Analytical_no_cc = Dict(
-    "geq no impact" => (p_a=[1.5], Δp=[0.2], Δs_a=[0.0; -0.2; 0.0; 0.0; 0.0; 0.0; 0.0], model_generator=create_jump_model_1),
+    "geq no impact" => (p_a=[1.5], Δp=[0.2], Δx=[0.0], Δy=[0.0; 0.0], Δv=[], model_generator=create_jump_model_1),
     "geq impact" => (p_a=[2.1], Δp=[0.2], Δs_a=[0.2; 0.0; 0.2; 0.4; 0.0; 0.4; 0.0], model_generator=create_jump_model_1),
     "geq bound impact" => (p_a=[2.1], Δp=[0.2], Δs_a=[0.2; 0.0; 0.4; 0.0; 0.4], model_generator=create_jump_model_2),
     "leq no impact" => (p_a=[-1.5], Δp=[-0.2], Δs_a=[0.0; 0.2; 0.0; 0.0; 0.0; 0.0; 0.0], model_generator=create_jump_model_3),
@@ -134,16 +131,18 @@ DICT_PROBLEMS_Analytical_no_cc = Dict(
 )
 
 function test_compute_derivatives_Analytical(DICT_PROBLEMS)
-    @testset "Compute Derivatives Analytical: $problem_name" for (problem_name, (p_a, Δp, Δs_a, model_generator)) in DICT_PROBLEMS
+    @testset "Compute Derivatives Analytical: $problem_name" for (problem_name, (p_a, Δp, Δx, Δy, Δv, model_generator)) in DICT_PROBLEMS
         # OPT Problem
         model, primal_vars, cons, params = model_generator()
         set_parameter_value.(params, p_a)
         optimize!(model)
         @assert is_solved_and_feasible(model)
-        MOI.set.(model, DiffOpt.ForwardParameter(), params[1], Δp)
-        DiffOpt.forward_differentiate!(model::Model; params=params)
+        # Set pertubations
+        MOI.set.(model, DiffOpt.ForwardParameter(), params, Δp)
         # Compute derivatives
-        (Δs, sp_approx), evaluator, cons = compute_sensitivity(model, Δp; primal_vars, params)
+        DiffOpt.forward_differentiate!(model)
+        # test sensitivities primal_vars
+        @test all(isapprox.([MOI.get(model, DiffOpt.ForwardVariablePrimal(), var) for var in primal_vars], Δx; atol = 1e-4))
         # Check sensitivities
         @test all(isapprox.(Δs[1:length(Δs_a)], Δs_a; atol = 1e-4))
     end
