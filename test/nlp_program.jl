@@ -119,8 +119,8 @@ test_compute_optimal_hess_jacobian()
 # ∂x/∂p = ∂g/∂p
 
 DICT_PROBLEMS_Analytical_no_cc = Dict(
-    "geq no impact" => (p_a=[1.5], Δp=[0.2], Δx=[0.0], Δy=[0.0; 0.0], Δv=[], model_generator=create_jump_model_1),
-    "geq impact" => (p_a=[2.1], Δp=[0.2], Δs_a=[0.2; 0.0; 0.2; 0.4; 0.0; 0.4; 0.0], model_generator=create_jump_model_1),
+    "geq no impact" => (p_a=[1.5], Δp=[0.2], Δx=[0.0], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_1),
+    "geq impact" => (p_a=[2.1], Δp=[0.2], Δx=[0.2], Δy=[0.4; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_1),
     "geq bound impact" => (p_a=[2.1], Δp=[0.2], Δs_a=[0.2; 0.0; 0.4; 0.0; 0.4], model_generator=create_jump_model_2),
     "leq no impact" => (p_a=[-1.5], Δp=[-0.2], Δs_a=[0.0; 0.2; 0.0; 0.0; 0.0; 0.0; 0.0], model_generator=create_jump_model_3),
     "leq impact" => (p_a=[-2.1], Δp=[-0.2], Δs_a=[-0.2; 0.0; -0.2], model_generator=create_jump_model_3),
@@ -129,6 +129,20 @@ DICT_PROBLEMS_Analytical_no_cc = Dict(
     "geq no impact max" => (p_a=[1.5], Δp=[0.2], Δs_a=[0.0; -0.2; 0.0; 0.0; 0.0], model_generator=create_jump_model_5),
     "geq impact max" => (p_a=[2.1], Δp=[0.2], Δs_a=[0.2; 0.0; 0.2], model_generator=create_jump_model_5),
 )
+
+using Revise
+using DiffOpt
+using JuMP
+using Ipopt
+using Test
+include("test/data/nlp_problems.jl")
+p_a=[2.1]
+Δp=[0.2]
+Δx=[0.2]
+Δy=[0.4; 0.0]
+Δvu=[]
+Δvl=[]
+model_generator=create_jump_model_1
 
 function test_compute_derivatives_Analytical(DICT_PROBLEMS)
     @testset "Compute Derivatives Analytical: $problem_name" for (problem_name, (p_a, Δp, Δx, Δy, Δv, model_generator)) in DICT_PROBLEMS
@@ -141,10 +155,23 @@ function test_compute_derivatives_Analytical(DICT_PROBLEMS)
         MOI.set.(model, DiffOpt.ForwardParameter(), params, Δp)
         # Compute derivatives
         DiffOpt.forward_differentiate!(model)
-        # test sensitivities primal_vars
-        @test all(isapprox.([MOI.get(model, DiffOpt.ForwardVariablePrimal(), var) for var in primal_vars], Δx; atol = 1e-4))
-        # Check sensitivities
-        @test all(isapprox.(Δs[1:length(Δs_a)], Δs_a; atol = 1e-4))
+        # Test sensitivities primal_vars
+        if !isempty(Δx)
+            @test all(isapprox.([MOI.get(model, DiffOpt.ForwardVariablePrimal(), var) for var in primal_vars], Δx; atol = 1e-4))
+        end
+        # Test sensitivities cons
+        if !isempty(Δy)
+            @test all(isapprox.([MOI.get(model, DiffOpt.ForwardConstraintDual(), con) for con in cons], Δy; atol = 1e-4))
+        end
+        # Test sensitivities dual vars
+        if !isempty(Δvu) #TODO: check sign
+            primal_vars_upper = [v for v in primal_vars if has_upper_bound(v)]
+            @test all(isapprox.([MOI.get(model, DiffOpt.ForwardConstraintDual(), UpperBoundRef(var)) for var in primal_vars_upper], Δvu; atol = 1e-4))
+        end
+        if !isempty(Δvl)
+            primal_vars_lower = [v for v in primal_vars if has_lower_bound(v)]
+            @test all(isapprox.([MOI.get(model, DiffOpt.ForwardConstraintDual(), LowerBoundRef(var)) for var in primal_vars_lower], Δvl; atol = 1e-4))
+        end
     end
 end
 

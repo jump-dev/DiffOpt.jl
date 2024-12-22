@@ -304,10 +304,11 @@ function build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
 
     # Function Derivatives
     hessian, jacobian = compute_optimal_hess_jac(model, cons)
-
+    primal_idx = [i.value for i in model.cache.primal_vars]
+    params_idx = [i.value for i in model.cache.params]
     # Hessian of the lagrangian wrt the primal variables
     W = spzeros(num_vars + num_ineq, num_vars + num_ineq)
-    W[1:num_vars, 1:num_vars] = hessian[1:num_vars, 1:num_vars]
+    W[1:num_vars, 1:num_vars] = hessian[primal_idx, primal_idx]
     # Jacobian of the constraints
     A = spzeros(num_cons, num_vars + num_ineq)
     # A is the Jacobian of: c(x) = b and c(x) <= b and c(x) >= b, possibly all mixed up.
@@ -316,7 +317,7 @@ function build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
     # c(x) - b - su = 0, su <= 0
     # c(x) - b - sl = 0, sl >= 0
     # Jacobian of the constraints wrt the primal variables
-    A[:, 1:num_vars] = jacobian[:, 1:num_vars]
+    A[:, 1:num_vars] = jacobian[:, primal_idx]
     # Jacobian of the constraints wrt the slack variables
     for (i,j) in enumerate(geq_locations)
         A[j, num_vars+i] = -1
@@ -326,9 +327,9 @@ function build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
     end
     # Partial second derivative of the lagrangian wrt primal solution and parameters
     ∇ₓₚL = spzeros(num_vars + num_ineq, num_parms)
-    ∇ₓₚL[1:num_vars, :] = hessian[1:num_vars, num_vars+1:end]
+    ∇ₓₚL[1:num_vars, :] = hessian[primal_idx, params_idx]
     # Partial derivative of the equality constraintswith wrt parameters
-    ∇ₚC = jacobian[:, num_vars+1:end]
+    ∇ₚC = jacobian[:, params_idx]
 
     # M matrix
     # M = [

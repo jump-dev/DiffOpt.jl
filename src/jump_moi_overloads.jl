@@ -48,6 +48,16 @@ function MOI.get(
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
 
+function MOI.get(
+    model::JuMP.Model,
+    attr::ForwardConstraintDual,
+    con_ref::JuMP.ConstraintRef,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    moi_func = MOI.get(JuMP.backend(model), attr, JuMP.index(con_ref))
+    return JuMP.jump_function(model, moi_func)
+end
+
 function MOI.get(model::JuMP.Model, attr::ReverseObjectiveFunction)
     func = MOI.get(JuMP.backend(model), attr)
     return JuMP.jump_function(model, func)

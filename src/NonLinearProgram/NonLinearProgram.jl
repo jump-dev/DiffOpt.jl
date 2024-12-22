@@ -490,13 +490,12 @@ function MOI.get(
     end
     try 
         idx = model.cache.dual_mapping[ci.value]
+        return model.forw_grad_cache.dual_Δs[idx]
     catch
         error("ConstraintIndex not found in dual mapping.")
     end
-    return model.forw_grad_cache.dual_Δs[idx, :]
 end
 
-# TODO: get for the reverse mode
 function MOI.get(
     model::Model,
     ::DiffOpt.ReverseParameter,

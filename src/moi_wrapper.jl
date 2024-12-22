@@ -671,6 +671,19 @@ function MOI.get(
     )
 end
 
+function MOI.get(
+    model::Optimizer,
+    attr::ForwardConstraintDual,
+    ci::MOI.ConstraintIndex,
+)
+    return MOI.get(
+                _checked_diff(model, attr, :reverse_differentiate!),
+                attr,
+                model.index_map[ci],
+            )
+    
+end
+
 function MOI.supports(
     ::Optimizer,
     ::ReverseVariablePrimal,
