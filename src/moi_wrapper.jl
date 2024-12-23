@@ -677,11 +677,10 @@ function MOI.get(
     ci::MOI.ConstraintIndex,
 )
     return MOI.get(
-                _checked_diff(model, attr, :reverse_differentiate!),
-                attr,
-                model.index_map[ci],
-            )
-    
+        _checked_diff(model, attr, :reverse_differentiate!),
+        attr,
+        model.index_map[ci],
+    )
 end
 
 function MOI.supports(
@@ -710,11 +709,7 @@ function MOI.set(
     return
 end
 
-function MOI.get(
-    model::Optimizer,
-    ::ForwardParameter,
-    vi::MOI.VariableIndex,
-)
+function MOI.get(model::Optimizer, ::ForwardParameter, vi::MOI.VariableIndex)
     return get(model.input_cache.dp, vi, 0.0)
 end
 

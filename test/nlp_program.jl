@@ -40,21 +40,21 @@ function analytic_hessian(x, σ, μ, p)
 end
 
 function analytic_jacobian(x, p)
-    g_1_J = [   
+    g_1_J = [
         2.0 * x[1], # ∂g_1/∂x_1
         0.0,       # ∂g_1/∂x_2
         -1.0,      # ∂g_1/∂p_1 
         0.0,      # ∂g_1/∂p_2
-        0.0      # ∂g_1/∂p_3
+        0.0,      # ∂g_1/∂p_3
     ]
     g_2_J = [
         p[1] * 2.0 * (x[1] + x[2]), # ∂g_2/∂x_1
         2.0 * (x[1] + x[2]),        # ∂g_2/∂x_2
         (x[1] + x[2])^2,            # ∂g_2/∂p_1
         -1.0,                        # ∂g_2/∂p_2
-        0.0                         # ∂g_2/∂p_3
+        0.0,                         # ∂g_2/∂p_3
     ]
-    return hcat(g_2_J, g_1_J)'[:,:]
+    return hcat(g_2_J, g_1_J)'[:, :]
 end
 
 function _test_create_evaluator(nlp_model)
@@ -76,14 +76,37 @@ function test_compute_optimal_hess_jacobian()
         nlp_model = DiffOpt._diff(model.moi_backend.optimizer.model).model
         _test_create_evaluator(nlp_model)
         cons = nlp_model.cache.cons
-        y = [nlp_model.y[nlp_model.model.nlp_index_2_constraint[row].value] for row in cons]
-        hessian, jacobian = DiffOpt.NonLinearProgram.compute_optimal_hess_jac(nlp_model, cons)
+        y = [
+            nlp_model.y[nlp_model.model.nlp_index_2_constraint[row].value]
+            for row in cons
+        ]
+        hessian, jacobian =
+            DiffOpt.NonLinearProgram.compute_optimal_hess_jac(nlp_model, cons)
         # Check Hessian
         primal_idx = [i.value for i in nlp_model.cache.primal_vars]
         params_idx = [i.value for i in nlp_model.cache.params]
-        @test all(isapprox(hessian[primal_idx,primal_idx], analytic_hessian(nlp_model.x[primal_idx], 1.0, -y, nlp_model.x[params_idx]); atol = 1))
+        @test all(
+            isapprox(
+                hessian[primal_idx, primal_idx],
+                analytic_hessian(
+                    nlp_model.x[primal_idx],
+                    1.0,
+                    -y,
+                    nlp_model.x[params_idx],
+                );
+                atol = 1,
+            ),
+        )
         # Check Jacobian
-        @test all(isapprox(jacobian[:,[primal_idx; params_idx]], analytic_jacobian(nlp_model.x[primal_idx], nlp_model.x[params_idx])))
+        @test all(
+            isapprox(
+                jacobian[:, [primal_idx; params_idx]],
+                analytic_jacobian(
+                    nlp_model.x[primal_idx],
+                    nlp_model.x[params_idx],
+                ),
+            ),
+        )
     end
 end
 
@@ -93,25 +116,101 @@ end
 =#
 ################################################
 
-
 # f(x, p) = 0 
 # x = g(p)
 # ∂x/∂p = ∂g/∂p
 
 DICT_PROBLEMS_Analytical_no_cc = Dict(
-    "geq no impact" => (p_a=[1.5], Δp=[0.2], Δx=[0.0], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_1),
-    "geq impact" => (p_a=[2.1], Δp=[0.2], Δx=[0.2], Δy=[0.4; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_1),
-    "geq bound impact" => (p_a=[2.1], Δp=[0.2], Δx=[0.2], Δy=[0.4], Δvu=[], Δvl=[0.0], model_generator=create_jump_model_2),
-    "leq no impact" => (p_a=[-1.5], Δp=[-0.2], Δx=[0.0], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_3),
-    "leq impact" => (p_a=[-2.1], Δp=[-0.2], Δx=[-0.2], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_3),
-    "leq no impact max" => (p_a=[2.1], Δp=[0.2], Δx=[0.0], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_4),
-    "leq impact max" => (p_a=[1.5], Δp=[0.2], Δx=[0.2], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_4),
-    "geq no impact max" => (p_a=[1.5], Δp=[0.2], Δx=[0.0], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_5),
-    "geq impact max" => (p_a=[2.1], Δp=[0.2], Δx=[0.2], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_5),
+    "geq no impact" => (
+        p_a = [1.5],
+        Δp = [0.2],
+        Δx = [0.0],
+        Δy = [0.0; 0.0],
+        Δvu = [],
+        Δvl = [],
+        model_generator = create_jump_model_1,
+    ),
+    "geq impact" => (
+        p_a = [2.1],
+        Δp = [0.2],
+        Δx = [0.2],
+        Δy = [0.4; 0.0],
+        Δvu = [],
+        Δvl = [],
+        model_generator = create_jump_model_1,
+    ),
+    "geq bound impact" => (
+        p_a = [2.1],
+        Δp = [0.2],
+        Δx = [0.2],
+        Δy = [0.4],
+        Δvu = [],
+        Δvl = [0.0],
+        model_generator = create_jump_model_2,
+    ),
+    "leq no impact" => (
+        p_a = [-1.5],
+        Δp = [-0.2],
+        Δx = [0.0],
+        Δy = [0.0; 0.0],
+        Δvu = [],
+        Δvl = [],
+        model_generator = create_jump_model_3,
+    ),
+    "leq impact" => (
+        p_a = [-2.1],
+        Δp = [-0.2],
+        Δx = [-0.2],
+        Δy = [0.0; 0.0],
+        Δvu = [],
+        Δvl = [],
+        model_generator = create_jump_model_3,
+    ),
+    "leq no impact max" => (
+        p_a = [2.1],
+        Δp = [0.2],
+        Δx = [0.0],
+        Δy = [0.0; 0.0],
+        Δvu = [],
+        Δvl = [],
+        model_generator = create_jump_model_4,
+    ),
+    "leq impact max" => (
+        p_a = [1.5],
+        Δp = [0.2],
+        Δx = [0.2],
+        Δy = [0.0; 0.0],
+        Δvu = [],
+        Δvl = [],
+        model_generator = create_jump_model_4,
+    ),
+    "geq no impact max" => (
+        p_a = [1.5],
+        Δp = [0.2],
+        Δx = [0.0],
+        Δy = [0.0; 0.0],
+        Δvu = [],
+        Δvl = [],
+        model_generator = create_jump_model_5,
+    ),
+    "geq impact max" => (
+        p_a = [2.1],
+        Δp = [0.2],
+        Δx = [0.2],
+        Δy = [0.0; 0.0],
+        Δvu = [],
+        Δvl = [],
+        model_generator = create_jump_model_5,
+    ),
 )
 
-function test_compute_derivatives_Analytical(;DICT_PROBLEMS=DICT_PROBLEMS_Analytical_no_cc)
-    @testset "Compute Derivatives Analytical: $problem_name" for (problem_name, (p_a, Δp, Δx, Δy, Δvu, Δvl, model_generator)) in DICT_PROBLEMS
+function test_compute_derivatives_Analytical(;
+    DICT_PROBLEMS = DICT_PROBLEMS_Analytical_no_cc,
+)
+    @testset "Compute Derivatives Analytical: $problem_name" for (
+        problem_name,
+        (p_a, Δp, Δx, Δy, Δvu, Δvl, model_generator),
+    ) in DICT_PROBLEMS
         # OPT Problem
         model, primal_vars, cons, params = model_generator()
         set_parameter_value.(params, p_a)
@@ -123,20 +222,62 @@ function test_compute_derivatives_Analytical(;DICT_PROBLEMS=DICT_PROBLEMS_Analyt
         DiffOpt.forward_differentiate!(model)
         # Test sensitivities primal_vars
         if !isempty(Δx)
-            @test all(isapprox.([MOI.get(model, DiffOpt.ForwardVariablePrimal(), var) for var in primal_vars], Δx; atol = 1e-4))
+            @test all(
+                isapprox.(
+                    [
+                        MOI.get(model, DiffOpt.ForwardVariablePrimal(), var) for
+                        var in primal_vars
+                    ],
+                    Δx;
+                    atol = 1e-4,
+                ),
+            )
         end
         # Test sensitivities cons
         if !isempty(Δy)
-            @test all(isapprox.([MOI.get(model, DiffOpt.ForwardConstraintDual(), con) for con in cons], Δy; atol = 1e-4))
+            @test all(
+                isapprox.(
+                    [
+                        MOI.get(model, DiffOpt.ForwardConstraintDual(), con) for
+                        con in cons
+                    ],
+                    Δy;
+                    atol = 1e-4,
+                ),
+            )
         end
         # Test sensitivities dual vars
         if !isempty(Δvu)
             primal_vars_upper = [v for v in primal_vars if has_upper_bound(v)]
-            @test all(isapprox.([MOI.get(model, DiffOpt.ForwardConstraintDual(), UpperBoundRef(var)) for var in primal_vars_upper], Δvu; atol = 1e-4))
+            @test all(
+                isapprox.(
+                    [
+                        MOI.get(
+                            model,
+                            DiffOpt.ForwardConstraintDual(),
+                            UpperBoundRef(var),
+                        ) for var in primal_vars_upper
+                    ],
+                    Δvu;
+                    atol = 1e-4,
+                ),
+            )
         end
         if !isempty(Δvl)
             primal_vars_lower = [v for v in primal_vars if has_lower_bound(v)]
-            @test all(isapprox.([MOI.get(model, DiffOpt.ForwardConstraintDual(), LowerBoundRef(var)) for var in primal_vars_lower], Δvl; atol = 1e-4))
+            @test all(
+                isapprox.(
+                    [
+                        MOI.get(
+                            model,
+                            DiffOpt.ForwardConstraintDual(),
+                            LowerBoundRef(var),
+                        ) for var in primal_vars_lower
+                    ],
+                    Δvl;
+                    atol = 1e-4,
+                ),
+            )
         end
     end
 end
@@ -155,29 +296,103 @@ function stack_solution(model, p_a, params, primal_vars, cons)
 end
 
 DICT_PROBLEMS_no_cc = Dict(
-    "QP_sIpopt" => (p_a=[4.5; 1.0], Δp=[0.001; 0.0], model_generator=create_nonlinear_jump_model_sipopt),
-    "NLP_1" => (p_a=[3.0; 2.0; 200], Δp=[0.001; 0.0; 0.0], model_generator=create_nonlinear_jump_model_1),
-    "NLP_1_2" => (p_a=[3.0; 2.0; 200], Δp=[0.0; 0.001; 0.0], model_generator=create_nonlinear_jump_model_1),
-    "NLP_1_3" => (p_a=[3.0; 2.0; 200], Δp=[0.0; 0.0; 0.001], model_generator=create_nonlinear_jump_model_1),
-    "NLP_1_4" => (p_a=[3.0; 2.0; 200], Δp=[0.1; 0.5; 0.5], model_generator=create_nonlinear_jump_model_1),
-    "NLP_1_4" => (p_a=[3.0; 2.0; 200], Δp=[0.5; -0.5; 0.1], model_generator=create_nonlinear_jump_model_1),
-    "NLP_2" => (p_a=[3.0; 2.0; 10], Δp=[0.01; 0.0; 0.0], model_generator=create_nonlinear_jump_model_2),
-    "NLP_2_2" => (p_a=[3.0; 2.0; 10], Δp=[-0.1; 0.0; 0.0], model_generator=create_nonlinear_jump_model_2),
-    "NLP_3" => (p_a=[3.0; 2.0; 10], Δp=[0.001; 0.0; 0.0], model_generator=create_nonlinear_jump_model_3),
-    "NLP_3_2" => (p_a=[3.0; 2.0; 10], Δp=[0.0; 0.001; 0.0], model_generator=create_nonlinear_jump_model_3),
-    "NLP_3_3" => (p_a=[3.0; 2.0; 10], Δp=[0.0; 0.0; 0.001], model_generator=create_nonlinear_jump_model_3),
-    "NLP_3_4" => (p_a=[3.0; 2.0; 10], Δp=[0.5; 0.001; 0.5], model_generator=create_nonlinear_jump_model_3),
-    "NLP_3_5" => (p_a=[3.0; 2.0; 10], Δp=[0.1; 0.3; 0.1], model_generator=create_nonlinear_jump_model_3),
-    "NLP_3_6" => (p_a=[3.0; 2.0; 10], Δp=[0.1; 0.2; -0.5], model_generator=create_nonlinear_jump_model_3),
-    "NLP_4" => (p_a=[1.0; 2.0; 100], Δp=[0.001; 0.0; 0.0], model_generator=create_nonlinear_jump_model_4),
-    "NLP_5" => (p_a=[1.0; 2.0; 100], Δp=[0.0; 0.001; 0.0], model_generator=create_nonlinear_jump_model_5),
-    "NLP_6" => (p_a=[100.0; 200.0], Δp=[0.2; 0.5], model_generator=create_nonlinear_jump_model_6),
+    "QP_sIpopt" => (
+        p_a = [4.5; 1.0],
+        Δp = [0.001; 0.0],
+        model_generator = create_nonlinear_jump_model_sipopt,
+    ),
+    "NLP_1" => (
+        p_a = [3.0; 2.0; 200],
+        Δp = [0.001; 0.0; 0.0],
+        model_generator = create_nonlinear_jump_model_1,
+    ),
+    "NLP_1_2" => (
+        p_a = [3.0; 2.0; 200],
+        Δp = [0.0; 0.001; 0.0],
+        model_generator = create_nonlinear_jump_model_1,
+    ),
+    "NLP_1_3" => (
+        p_a = [3.0; 2.0; 200],
+        Δp = [0.0; 0.0; 0.001],
+        model_generator = create_nonlinear_jump_model_1,
+    ),
+    "NLP_1_4" => (
+        p_a = [3.0; 2.0; 200],
+        Δp = [0.1; 0.5; 0.5],
+        model_generator = create_nonlinear_jump_model_1,
+    ),
+    "NLP_1_4" => (
+        p_a = [3.0; 2.0; 200],
+        Δp = [0.5; -0.5; 0.1],
+        model_generator = create_nonlinear_jump_model_1,
+    ),
+    "NLP_2" => (
+        p_a = [3.0; 2.0; 10],
+        Δp = [0.01; 0.0; 0.0],
+        model_generator = create_nonlinear_jump_model_2,
+    ),
+    "NLP_2_2" => (
+        p_a = [3.0; 2.0; 10],
+        Δp = [-0.1; 0.0; 0.0],
+        model_generator = create_nonlinear_jump_model_2,
+    ),
+    "NLP_3" => (
+        p_a = [3.0; 2.0; 10],
+        Δp = [0.001; 0.0; 0.0],
+        model_generator = create_nonlinear_jump_model_3,
+    ),
+    "NLP_3_2" => (
+        p_a = [3.0; 2.0; 10],
+        Δp = [0.0; 0.001; 0.0],
+        model_generator = create_nonlinear_jump_model_3,
+    ),
+    "NLP_3_3" => (
+        p_a = [3.0; 2.0; 10],
+        Δp = [0.0; 0.0; 0.001],
+        model_generator = create_nonlinear_jump_model_3,
+    ),
+    "NLP_3_4" => (
+        p_a = [3.0; 2.0; 10],
+        Δp = [0.5; 0.001; 0.5],
+        model_generator = create_nonlinear_jump_model_3,
+    ),
+    "NLP_3_5" => (
+        p_a = [3.0; 2.0; 10],
+        Δp = [0.1; 0.3; 0.1],
+        model_generator = create_nonlinear_jump_model_3,
+    ),
+    "NLP_3_6" => (
+        p_a = [3.0; 2.0; 10],
+        Δp = [0.1; 0.2; -0.5],
+        model_generator = create_nonlinear_jump_model_3,
+    ),
+    "NLP_4" => (
+        p_a = [1.0; 2.0; 100],
+        Δp = [0.001; 0.0; 0.0],
+        model_generator = create_nonlinear_jump_model_4,
+    ),
+    "NLP_5" => (
+        p_a = [1.0; 2.0; 100],
+        Δp = [0.0; 0.001; 0.0],
+        model_generator = create_nonlinear_jump_model_5,
+    ),
+    "NLP_6" => (
+        p_a = [100.0; 200.0],
+        Δp = [0.2; 0.5],
+        model_generator = create_nonlinear_jump_model_6,
+    ),
 )
 
-function test_compute_derivatives_Finite_Diff(;DICT_PROBLEMS=DICT_PROBLEMS_no_cc)
-    @testset "Compute Derivatives FiniteDiff: $problem_name" for (problem_name, (p_a, Δp, model_generator)) in DICT_PROBLEMS, ismin in [true, false]
+function test_compute_derivatives_Finite_Diff(;
+    DICT_PROBLEMS = DICT_PROBLEMS_no_cc,
+)
+    @testset "Compute Derivatives FiniteDiff: $problem_name" for (
+            problem_name,
+            (p_a, Δp, model_generator),
+        ) in DICT_PROBLEMS,
+        ismin in [true, false]
         # OPT Problem
-        model, primal_vars, cons, params = model_generator(;ismin=ismin)
+        model, primal_vars, cons, params = model_generator(; ismin = ismin)
         set_parameter_value.(params, p_a)
         optimize!(model)
         @assert is_solved_and_feasible(model)
@@ -185,10 +400,19 @@ function test_compute_derivatives_Finite_Diff(;DICT_PROBLEMS=DICT_PROBLEMS_no_cc
         MOI.set.(model, DiffOpt.ForwardParameter(), params, Δp)
         # Compute derivatives
         DiffOpt.forward_differentiate!(model)
-        Δx = [MOI.get(model, DiffOpt.ForwardVariablePrimal(), var) for var in primal_vars]
-        Δy = [MOI.get(model, DiffOpt.ForwardConstraintDual(), con) for con in cons]
+        Δx = [
+            MOI.get(model, DiffOpt.ForwardVariablePrimal(), var) for
+            var in primal_vars
+        ]
+        Δy = [
+            MOI.get(model, DiffOpt.ForwardConstraintDual(), con) for con in cons
+        ]
         # Compute derivatives using finite differences
-        ∂s_fd = FiniteDiff.finite_difference_jacobian((p) -> stack_solution(model, p, params, primal_vars, cons), p_a) * Δp
+        ∂s_fd =
+            FiniteDiff.finite_difference_jacobian(
+                (p) -> stack_solution(model, p, params, primal_vars, cons),
+                p_a,
+            ) * Δp
         # Test sensitivities primal_vars
         @test all(isapprox.(Δx, ∂s_fd[1:length(primal_vars)]; atol = 1e-4))
         # Test sensitivities cons
@@ -244,10 +468,12 @@ function test_differentiating_non_trivial_convex_qp_jump()
     db = grads_actual[6]
 
     for (i, ci) in enumerate(c_le)
-        @test -dh[i] ≈ -MOI.get(model, DiffOpt.ReverseParameter(), p_le[i]) atol = 1e-2 rtol = 1e-2
+        @test -dh[i] ≈ -MOI.get(model, DiffOpt.ReverseParameter(), p_le[i]) atol =
+            1e-2 rtol = 1e-2
     end
     for (i, ci) in enumerate(c_eq)
-        @test -db[i] ≈ -MOI.get(model, DiffOpt.ReverseParameter(), p_eq[i]) atol = 1e-2 rtol = 1e-2
+        @test -db[i] ≈ -MOI.get(model, DiffOpt.ReverseParameter(), p_eq[i]) atol =
+            1e-2 rtol = 1e-2
     end
 
     return

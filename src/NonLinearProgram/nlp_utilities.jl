@@ -27,7 +27,10 @@ end
 
 Compute the optimal Hessian of the Lagrangian.
 """
-function compute_optimal_hessian(model::Model, rows::Vector{MOI.Nonlinear.ConstraintIndex})
+function compute_optimal_hessian(
+    model::Model,
+    rows::Vector{MOI.Nonlinear.ConstraintIndex},
+)
     sense_multiplier = sense_mult(model)
     evaluator = model.cache.evaluator
     y = [model.y[model.model.nlp_index_2_constraint[row].value] for row in rows]
@@ -37,7 +40,13 @@ function compute_optimal_hessian(model::Model, rows::Vector{MOI.Nonlinear.Constr
     V = zeros(length(hessian_sparsity))
     # The signals are being sdjusted to match the Ipopt convention (inner.mult_g)
     # but we don't know if we need to adjust the objective function multiplier
-    MOI.eval_hessian_lagrangian(evaluator, V, model.x, 1.0, - sense_multiplier * y)
+    MOI.eval_hessian_lagrangian(
+        evaluator,
+        V,
+        model.x,
+        1.0,
+        -sense_multiplier * y,
+    )
     num_vars = length(model.x)
     H = SparseArrays.sparse(I, J, V, num_vars, num_vars)
     return fill_off_diagonal(H)
@@ -48,7 +57,10 @@ end
 
 Compute the optimal Jacobian of the constraints.
 """
-function compute_optimal_jacobian(model::Model, rows::Vector{MOI.Nonlinear.ConstraintIndex})
+function compute_optimal_jacobian(
+    model::Model,
+    rows::Vector{MOI.Nonlinear.ConstraintIndex},
+)
     evaluator = model.cache.evaluator
     jacobian_sparsity = MOI.jacobian_structure(evaluator)
     I = [i for (i, _) in jacobian_sparsity]
@@ -64,10 +76,13 @@ end
 
 Compute the optimal Hessian of the Lagrangian and Jacobian of the constraints.
 """
-function compute_optimal_hess_jac(model::Model, rows::Vector{MOI.Nonlinear.ConstraintIndex})
+function compute_optimal_hess_jac(
+    model::Model,
+    rows::Vector{MOI.Nonlinear.ConstraintIndex},
+)
     hessian = compute_optimal_hessian(model, rows)
     jacobian = compute_optimal_jacobian(model, rows)
-    
+
     return hessian, jacobian
 end
 
@@ -79,7 +94,11 @@ Create the evaluator for the NLP.
 function create_evaluator(form::Form)
     nlp = form.model
     backend = MOI.Nonlinear.SparseReverseMode()
-    evaluator = MOI.Nonlinear.Evaluator(nlp, backend, MOI.VariableIndex.(1:form.num_variables))
+    evaluator = MOI.Nonlinear.Evaluator(
+        nlp,
+        backend,
+        MOI.VariableIndex.(1:form.num_variables),
+    )
     MOI.initialize(evaluator, [:Hess, :Jac])
     return evaluator
 end
@@ -89,18 +108,24 @@ end
 
 Check if the constraint is a less than inequality.
 """
-function is_less_inequality(::MOI.ConstraintIndex{F, S}) where {F<:Union{MOI.ScalarNonlinearFunction,
-    MOI.ScalarQuadraticFunction{Float64},
-    MOI.ScalarAffineFunction{Float64},
-}, S<:MOI.LessThan}
+function is_less_inequality(
+    ::MOI.ConstraintIndex{F,S},
+) where {
+    F<:Union{
+        MOI.ScalarNonlinearFunction,
+        MOI.ScalarQuadraticFunction{Float64},
+        MOI.ScalarAffineFunction{Float64},
+    },
+    S<:MOI.LessThan,
+}
     return true
 end
 
-function is_less_inequality(::MOI.ConstraintIndex{F, S}) where {F, S}
+function is_less_inequality(::MOI.ConstraintIndex{F,S}) where {F,S}
     return false
 end
 
-function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F, S}
+function is_greater_inequality(::MOI.ConstraintIndex{F,S}) where {F,S}
     return false
 end
 
@@ -109,10 +134,16 @@ end
 
 Check if the constraint is a greater than inequality.
 """
-function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F<:Union{MOI.ScalarNonlinearFunction,
-    MOI.ScalarQuadraticFunction{Float64},
-    MOI.ScalarAffineFunction{Float64},
-}, S<:MOI.GreaterThan}
+function is_greater_inequality(
+    ::MOI.ConstraintIndex{F,S},
+) where {
+    F<:Union{
+        MOI.ScalarNonlinearFunction,
+        MOI.ScalarQuadraticFunction{Float64},
+        MOI.ScalarAffineFunction{Float64},
+    },
+    S<:MOI.GreaterThan,
+}
     return true
 end
 
@@ -133,7 +164,8 @@ function find_inequealities(model::Form)
             geq_locations[model.constraints_2_nlp_index[con].value] = true
         end
     end
-    return findall(x -> x ==1, leq_locations), findall(x -> x ==1, geq_locations)
+    return findall(x -> x == 1, leq_locations),
+    findall(x -> x == 1, geq_locations)
 end
 
 """
@@ -141,7 +173,7 @@ end
 
 Compute the solution and bounds of the primal variables.
 """
-function compute_solution_and_bounds(model::Model; tol=1e-6)
+function compute_solution_and_bounds(model::Model; tol = 1e-6)
     sense_multiplier = sense_mult(model)
     num_vars = get_num_primal_vars(model)
     form = model.model
@@ -156,24 +188,32 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     primal_vars = model.cache.primal_vars
     cons = model.cache.cons
     # Primal solution: value.([primal_vars; slack_vars])
-    model_cons_leq = [form.nlp_index_2_constraint[con] for con in cons[leq_locations]]
-    model_cons_geq = [form.nlp_index_2_constraint[con] for con in cons[geq_locations]]
-    s_leq = [model.s[con.value] for con in model_cons_leq] - [form.leq_values[con] for con in model_cons_leq]
-    s_geq = [model.s[con.value] for con in model_cons_geq] - [form.geq_values[con] for con in model_cons_geq]
+    model_cons_leq =
+        [form.nlp_index_2_constraint[con] for con in cons[leq_locations]]
+    model_cons_geq =
+        [form.nlp_index_2_constraint[con] for con in cons[geq_locations]]
+    s_leq =
+        [model.s[con.value] for con in model_cons_leq] - [form.leq_values[con] for con in model_cons_leq]
+    s_geq =
+        [model.s[con.value] for con in model_cons_geq] - [form.geq_values[con] for con in model_cons_geq]
     primal_idx = [i.value for i in model.cache.primal_vars]
     X = [model.x[primal_idx]; s_leq; s_geq]
 
     # value and dual of the lower bounds
-    V_L = spzeros(num_vars+num_ineq)
-    X_L = spzeros(num_vars+num_ineq)
+    V_L = spzeros(num_vars + num_ineq)
+    X_L = spzeros(num_vars + num_ineq)
     for (i, j) in enumerate(has_low)
-        V_L[j] = model.y[form.constraint_lower_bounds[primal_vars[j].value].value] * sense_multiplier
+        V_L[j] =
+            model.y[form.constraint_lower_bounds[primal_vars[j].value].value] *
+            sense_multiplier
         #dual.(LowerBoundRef(primal_vars[j])) * sense_multiplier
         #
         if sense_multiplier == 1.0
-            V_L[j] <= -tol && @info "Dual of lower bound must be positive" i V_L[j]
+            V_L[j] <= -tol &&
+                @info "Dual of lower bound must be positive" i V_L[j]
         else
-            V_L[j] >= tol && @info "Dual of lower bound must be negative" i V_L[j]
+            V_L[j] >= tol &&
+                @info "Dual of lower bound must be negative" i V_L[j]
         end
         #
         X_L[j] = form.lower_bounds[primal_vars[j].value]
@@ -181,24 +221,31 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     for (i, con) in enumerate(cons[geq_locations])
         # By convention jump dual will allways be positive for geq constraints
         # but for ipopt it will be positive if min problem and negative if max problem
-        V_L[num_vars+i] = model.y[form.nlp_index_2_constraint[con].value] * sense_multiplier
+        V_L[num_vars+i] =
+            model.y[form.nlp_index_2_constraint[con].value] * sense_multiplier
         #
         if sense_multiplier == 1.0
-            V_L[num_vars+i] <= -tol && @info "Dual of geq constraint must be positive" i V_L[num_vars+i]
+            V_L[num_vars+i] <= -tol &&
+                @info "Dual of geq constraint must be positive" i V_L[num_vars+i]
         else
-            V_L[num_vars+i] >= tol && @info "Dual of geq constraint must be negative" i V_L[num_vars+i]
+            V_L[num_vars+i] >= tol &&
+                @info "Dual of geq constraint must be negative" i V_L[num_vars+i]
         end
     end
     # value and dual of the upper bounds
-    V_U = spzeros(num_vars+num_ineq)
-    X_U = spzeros(num_vars+num_ineq)
+    V_U = spzeros(num_vars + num_ineq)
+    X_U = spzeros(num_vars + num_ineq)
     for (i, j) in enumerate(has_up)
-        V_U[j] = model.y[form.constraint_upper_bounds[primal_vars[j].value].value] * (- sense_multiplier)
+        V_U[j] =
+            model.y[form.constraint_upper_bounds[primal_vars[j].value].value] *
+            (-sense_multiplier)
         # dual.(UpperBoundRef(primal_vars[j])) * (- sense_multiplier)
         if sense_multiplier == 1.0
-            V_U[j] <= -tol && @info "Dual of upper bound must be positive" i V_U[i]
+            V_U[j] <= -tol &&
+                @info "Dual of upper bound must be positive" i V_U[i]
         else
-            V_U[j] >= tol && @info "Dual of upper bound must be negative" i V_U[i]
+            V_U[j] >= tol &&
+                @info "Dual of upper bound must be negative" i V_U[i]
         end
         #
         X_U[j] = form.upper_bounds[primal_vars[j].value]
@@ -206,15 +253,29 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     for (i, con) in enumerate(cons[leq_locations])
         # By convention jump dual will allways be negative for leq constraints
         # but for ipopt it will be positive if min problem and negative if max problem
-        V_U[num_vars+num_geq+i] = model.y[form.nlp_index_2_constraint[con].value] * (- sense_multiplier)
+        V_U[num_vars+num_geq+i] =
+            model.y[form.nlp_index_2_constraint[con].value] *
+            (-sense_multiplier)
         # dual.(con) * (- sense_multiplier)
         if sense_multiplier == 1.0
-            V_U[num_vars+num_geq+i] <= -tol && @info "Dual of leq constraint must be positive" i V_U[num_vars+i]
+            V_U[num_vars+num_geq+i] <= -tol &&
+                @info "Dual of leq constraint must be positive" i V_U[num_vars+i]
         else
-            V_U[num_vars+num_geq+i] >= tol && @info "Dual of leq constraint must be negative" i V_U[num_vars+i]
+            V_U[num_vars+num_geq+i] >= tol &&
+                @info "Dual of leq constraint must be negative" i V_U[num_vars+i]
         end
     end
-    return X, V_L, X_L, V_U, X_U, leq_locations, geq_locations, ineq_locations, vcat(has_up, collect(num_vars+num_geq+1:num_vars+num_geq+num_leq)), vcat(has_low, collect(num_vars+1:num_vars+num_geq)), cons
+    return X,
+    V_L,
+    X_L,
+    V_U,
+    X_U,
+    leq_locations,
+    geq_locations,
+    ineq_locations,
+    vcat(has_up, collect(num_vars+num_geq+1:num_vars+num_geq+num_leq)),
+    vcat(has_low, collect(num_vars+1:num_vars+num_geq)),
+    cons
 end
 
 """
@@ -222,9 +283,19 @@ end
 
 Build the M (KKT Jacobian w.r.t. solution) and N (KKT Jacobian w.r.t. parameters) matrices for the sensitivity analysis.
 """
-function build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
-    _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z},
-    has_up::Vector{Z}, has_low::Vector{Z}
+function build_M_N(
+    model::Model,
+    cons::Vector{MOI.Nonlinear.ConstraintIndex},
+    _X::AbstractVector,
+    _V_L::AbstractVector,
+    _X_L::AbstractVector,
+    _V_U::AbstractVector,
+    _X_U::AbstractVector,
+    leq_locations::Vector{Z},
+    geq_locations::Vector{Z},
+    ineq_locations::Vector{Z},
+    has_up::Vector{Z},
+    has_low::Vector{Z},
 ) where {Z<:Integer}
     # Setting
     num_vars = get_num_primal_vars(model)
@@ -239,8 +310,8 @@ function build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
     X_ub = spzeros(num_up, num_up)
     V_L = spzeros(num_low, num_vars + num_ineq)
     V_U = spzeros(num_up, num_vars + num_ineq)
-    I_L = spzeros(num_vars + num_ineq,  num_low)
-    I_U = spzeros(num_vars + num_ineq,  num_up)
+    I_L = spzeros(num_vars + num_ineq, num_low)
+    I_U = spzeros(num_vars + num_ineq, num_up)
 
     # value and dual of the lower bounds
     for (i, j) in enumerate(has_low)
@@ -272,10 +343,10 @@ function build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
     # Jacobian of the constraints wrt the primal variables
     A[:, 1:num_vars] = jacobian[:, primal_idx]
     # Jacobian of the constraints wrt the slack variables
-    for (i,j) in enumerate(geq_locations)
+    for (i, j) in enumerate(geq_locations)
         A[j, num_vars+i] = -1
     end
-    for (i,j) in enumerate(leq_locations)
+    for (i, j) in enumerate(leq_locations)
         A[j, num_vars+i] = -1
     end
     # Partial second derivative of the lagrangian wrt primal solution and parameters
@@ -292,16 +363,25 @@ function build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
     #     [V_U 0 0 0 (X_U - X)]
     # ]
     len_w = num_vars + num_ineq
-    M = spzeros(len_w + num_cons + num_low + num_up, len_w + num_cons + num_low + num_up)
+    M = spzeros(
+        len_w + num_cons + num_low + num_up,
+        len_w + num_cons + num_low + num_up,
+    )
 
     M[1:len_w, 1:len_w] = W
-    M[1:len_w, len_w + 1 : len_w + num_cons] = A'
+    M[1:len_w, len_w+1:len_w+num_cons] = A'
     M[len_w+1:len_w+num_cons, 1:len_w] = A
     M[1:len_w, len_w+num_cons+1:len_w+num_cons+num_low] = I_L
     M[len_w+num_cons+1:len_w+num_cons+num_low, 1:len_w] = V_L
-    M[len_w+num_cons+1:len_w+num_cons+num_low, len_w+num_cons+1:len_w+num_cons+num_low] = X_lb
+    M[
+        len_w+num_cons+1:len_w+num_cons+num_low,
+        len_w+num_cons+1:len_w+num_cons+num_low,
+    ] = X_lb
     M[len_w+num_cons+num_low+1:len_w+num_cons+num_low+num_up, 1:len_w] = V_U
-    M[len_w+num_cons+num_low+1:len_w+num_cons+num_low+num_up, len_w+num_cons+num_low+1:len_w+num_cons+num_low+num_up] = X_ub
+    M[
+        len_w+num_cons+num_low+1:len_w+num_cons+num_low+num_up,
+        len_w+num_cons+num_low+1:len_w+num_cons+num_low+num_up,
+    ] = X_ub
     M[1:len_w, len_w+num_cons+num_low+1:end] = I_U
 
     # N matrix
@@ -318,9 +398,15 @@ end
 
 Inertia correction for the factorization of the KKT matrix. Sparse version.
 """
-function inertia_corrector_factorization(M::SparseMatrixCSC, num_w, num_cons; st=1e-6, max_corrections=50)
+function inertia_corrector_factorization(
+    M::SparseMatrixCSC,
+    num_w,
+    num_cons;
+    st = 1e-6,
+    max_corrections = 50,
+)
     # Factorization
-    K = lu(M; check=false)
+    K = lu(M; check = false)
     # Inertia correction
     status = K.status
     num_c = 0
@@ -330,7 +416,7 @@ function inertia_corrector_factorization(M::SparseMatrixCSC, num_w, num_cons; st
     while status == 1 && num_c < max_corrections
         println("Inertia correction")
         M = M + st * diag_mat
-        K = lu(M; check=false)
+        K = lu(M; check = false)
         status = K.status
         num_c += 1
     end
@@ -346,14 +432,14 @@ end
 
 Inertia correction for the factorization of the KKT matrix. Dense version.
 """
-function inertia_corrector_factorization(M; st=1e-6, max_corrections=50)
+function inertia_corrector_factorization(M; st = 1e-6, max_corrections = 50)
     num_c = 0
-    if cond(M) > 1/st
+    if cond(M) > 1 / st
         @warn "Inertia correction"
         M = M + st * I(size(M, 1))
         num_c += 1
     end
-    while cond(M) > 1/st && num_c < max_corrections
+    while cond(M) > 1 / st && num_c < max_corrections
         M = M + st * I(size(M, 1))
         num_c += 1
     end
@@ -372,11 +458,34 @@ end
 
 Compute the derivatives of the solution w.r.t. the parameters without accounting for active set changes.
 """
-function compute_derivatives_no_relax(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
-    _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z},
-    has_up::Vector{Z}, has_low::Vector{Z}
+function compute_derivatives_no_relax(
+    model::Model,
+    cons::Vector{MOI.Nonlinear.ConstraintIndex},
+    _X::AbstractVector,
+    _V_L::AbstractVector,
+    _X_L::AbstractVector,
+    _V_U::AbstractVector,
+    _X_U::AbstractVector,
+    leq_locations::Vector{Z},
+    geq_locations::Vector{Z},
+    ineq_locations::Vector{Z},
+    has_up::Vector{Z},
+    has_low::Vector{Z},
 ) where {Z<:Integer}
-    M, N = build_M_N(model, cons, _X, _V_L, _X_L, _V_U, _X_U, leq_locations, geq_locations, ineq_locations, has_up, has_low)
+    M, N = build_M_N(
+        model,
+        cons,
+        _X,
+        _V_L,
+        _X_L,
+        _V_U,
+        _X_U,
+        leq_locations,
+        geq_locations,
+        ineq_locations,
+        has_up,
+        has_low,
+    )
 
     # Sesitivity of the solution (primal-dual_constraints-dual_bounds) w.r.t. the parameters
     num_vars = get_num_primal_vars(model)
@@ -389,8 +498,8 @@ function compute_derivatives_no_relax(model::Model, cons::Vector{MOI.Nonlinear.C
     ∂s = zeros(size(M, 1), size(N, 2))
     # ∂s = - (K \ N) # Sensitivity
     ldiv!(∂s, K, N)
-    ∂s = - ∂s
-    
+    ∂s = -∂s
+
     return ∂s, K, N
 end
 
@@ -401,12 +510,35 @@ sense_mult(model::Model) = objective_sense(model) == MOI.MIN_SENSE ? 1.0 : -1.0
 
 Compute the sensitivity of the solution given sensitivity of the parameters (Δp).
 """
-function compute_sensitivity(model::Model; tol=1e-6)
+function compute_sensitivity(model::Model; tol = 1e-6)
     # Solution and bounds
-    X, V_L, X_L, V_U, X_U, leq_locations, geq_locations, ineq_locations, has_up, has_low, cons = compute_solution_and_bounds(model; tol=tol)
+    X,
+    V_L,
+    X_L,
+    V_U,
+    X_U,
+    leq_locations,
+    geq_locations,
+    ineq_locations,
+    has_up,
+    has_low,
+    cons = compute_solution_and_bounds(model; tol = tol)
     # Compute derivatives
     # ∂s = [∂x; ∂λ; ∂ν_L; ∂ν_U]
-    ∂s, K, N = compute_derivatives_no_relax(model, cons, X, V_L, X_L, V_U, X_U, leq_locations, geq_locations, ineq_locations, has_up, has_low)
+    ∂s, K, N = compute_derivatives_no_relax(
+        model,
+        cons,
+        X,
+        V_L,
+        X_L,
+        V_U,
+        X_U,
+        leq_locations,
+        geq_locations,
+        ineq_locations,
+        has_up,
+        has_low,
+    )
     ## Adjust signs based on JuMP convention
     num_vars = get_num_primal_vars(model)
     num_cons = get_num_constraints(model)
