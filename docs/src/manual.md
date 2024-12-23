@@ -1,9 +1,5 @@
 # Manual
 
-!!! note
-    As of now, this package only works for optimization models that can be written either in convex conic form or convex quadratic form.
-
-
 ## Supported objectives & constraints - scheme 1
 
 For `QPTH`/`OPTNET` style backend, the package supports following `Function-in-Set` constraints: 
@@ -16,6 +12,12 @@ For `QPTH`/`OPTNET` style backend, the package supports following `Function-in-S
 |    `ScalarAffineFunction`    |    `GreaterThan`    |
 |    `ScalarAffineFunction`    |    `LessThan`    |
 |    `ScalarAffineFunction`    |    `EqualTo`    |
+|    `ScalarQuadraticFunction`    |    `GreaterThan`    |
+|    `ScalarQuadraticFunction`    |    `LessThan`    |
+|    `ScalarQuadraticFunction`    |    `EqualTo`    |
+|    `ScalarNonlinearFunction`    |    `GreaterThan`    |
+|    `ScalarNonlinearFunction`    |    `LessThan`    |
+|    `ScalarNonlinearFunction`    |    `EqualTo`    |
 
 and the following objective types: 
 
@@ -24,6 +26,7 @@ and the following objective types:
 |   `VariableIndex`   |
 |   `ScalarAffineFunction`   |
 | `ScalarQuadraticFunction`  | 
+| `ScalarNonlinearFunction`  |
 
 
 ## Supported objectives & constraints - scheme 2
@@ -71,7 +74,7 @@ DiffOpt requires taking projections and finding projection gradients of vectors 
 ## Conic problem formulation
 
 !!! note
-    As of now, the package is using `SCS` geometric form for affine expressions in cones.
+    As of now, when defining a conic or convex quadratic problem, the package is using `SCS` geometric form for affine expressions in cones.
 
 Consider a convex conic optimization problem in its primal (P) and dual (D) forms:
 ```math

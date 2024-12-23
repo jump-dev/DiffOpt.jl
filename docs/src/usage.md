@@ -56,3 +56,38 @@ MOI.set(model, DiffOpt.ForwardObjectiveFunction(), ones(2) ⋅ x)
 DiffOpt.forward_differentiate!(model)
 grad_x = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), x)
 ```
+
+3. To differentiate a general nonlinear program, we can use the `forward_differentiate!` method with perturbations in the objective function and constraints through perturbations in the problem parameters. For example, consider the following nonlinear program:
+```julia
+model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+@variable(model, p ∈ MOI.Parameter(0.1))
+@variable(model, x >= p)
+@variable(model, y >= 0)
+@objective(model, Min, x^2 + y^2)
+@constraint(model, con, x + y >= 1)
+
+# Solve
+JuMP.optimize!(model)
+
+# Set parameter pertubations
+MOI.set(model, DiffOpt.ForwardParameter(), params[1], 0.2)
+
+# forward differentiate
+DiffOpt.forward_differentiate!(model)
+
+# Retrieve sensitivities
+dx = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x)
+dy = MOI.get(model, DiffOpt.ForwardVariablePrimal(), y)
+```
+
+or we can use the `reverse_differentiate!` method:
+```julia
+# Set Primal Pertubations
+MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+
+# Reverse differentiation
+DiffOpt.reverse_differentiate!(model)
+
+# Retrieve reverse sensitivities (example usage)
+dp= MOI.get(model, DiffOpt.ReverseParameter(), p)
+```
