@@ -121,31 +121,17 @@ test_compute_optimal_hess_jacobian()
 DICT_PROBLEMS_Analytical_no_cc = Dict(
     "geq no impact" => (p_a=[1.5], Δp=[0.2], Δx=[0.0], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_1),
     "geq impact" => (p_a=[2.1], Δp=[0.2], Δx=[0.2], Δy=[0.4; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_1),
-    "geq bound impact" => (p_a=[2.1], Δp=[0.2], Δs_a=[0.2; 0.0; 0.4; 0.0; 0.4], model_generator=create_jump_model_2),
-    "leq no impact" => (p_a=[-1.5], Δp=[-0.2], Δs_a=[0.0; 0.2; 0.0; 0.0; 0.0; 0.0; 0.0], model_generator=create_jump_model_3),
-    "leq impact" => (p_a=[-2.1], Δp=[-0.2], Δs_a=[-0.2; 0.0; -0.2], model_generator=create_jump_model_3),
-    "leq no impact max" => (p_a=[2.1], Δp=[0.2], Δs_a=[0.0; -0.2; 0.0; 0.0; 0.0], model_generator=create_jump_model_4),
-    "leq impact max" => (p_a=[1.5], Δp=[0.2], Δs_a=[0.2; 0.0; 0.2], model_generator=create_jump_model_4),
-    "geq no impact max" => (p_a=[1.5], Δp=[0.2], Δs_a=[0.0; -0.2; 0.0; 0.0; 0.0], model_generator=create_jump_model_5),
-    "geq impact max" => (p_a=[2.1], Δp=[0.2], Δs_a=[0.2; 0.0; 0.2], model_generator=create_jump_model_5),
+    "geq bound impact" => (p_a=[2.1], Δp=[0.2], Δx=[0.2], Δy=[0.4], Δvu=[], Δvl=[0.0], model_generator=create_jump_model_2),
+    "leq no impact" => (p_a=[-1.5], Δp=[-0.2], Δx=[0.0], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_3),
+    "leq impact" => (p_a=[-2.1], Δp=[-0.2], Δx=[-0.2], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_3),
+    "leq no impact max" => (p_a=[2.1], Δp=[0.2], Δx=[0.0], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_4),
+    "leq impact max" => (p_a=[1.5], Δp=[0.2], Δx=[0.2], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_4),
+    "geq no impact max" => (p_a=[1.5], Δp=[0.2], Δx=[0.0], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_5),
+    "geq impact max" => (p_a=[2.1], Δp=[0.2], Δx=[0.2], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_5),
 )
 
-using Revise
-using DiffOpt
-using JuMP
-using Ipopt
-using Test
-include("test/data/nlp_problems.jl")
-p_a=[2.1]
-Δp=[0.2]
-Δx=[0.2]
-Δy=[0.4; 0.0]
-Δvu=[]
-Δvl=[]
-model_generator=create_jump_model_1
-
 function test_compute_derivatives_Analytical(DICT_PROBLEMS)
-    @testset "Compute Derivatives Analytical: $problem_name" for (problem_name, (p_a, Δp, Δx, Δy, Δv, model_generator)) in DICT_PROBLEMS
+    @testset "Compute Derivatives Analytical: $problem_name" for (problem_name, (p_a, Δp, Δx, Δy, Δvu, Δvl, model_generator)) in DICT_PROBLEMS
         # OPT Problem
         model, primal_vars, cons, params = model_generator()
         set_parameter_value.(params, p_a)
@@ -164,7 +150,7 @@ function test_compute_derivatives_Analytical(DICT_PROBLEMS)
             @test all(isapprox.([MOI.get(model, DiffOpt.ForwardConstraintDual(), con) for con in cons], Δy; atol = 1e-4))
         end
         # Test sensitivities dual vars
-        if !isempty(Δvu) #TODO: check sign
+        if !isempty(Δvu)
             primal_vars_upper = [v for v in primal_vars if has_upper_bound(v)]
             @test all(isapprox.([MOI.get(model, DiffOpt.ForwardConstraintDual(), UpperBoundRef(var)) for var in primal_vars_upper], Δvu; atol = 1e-4))
         end
@@ -174,6 +160,8 @@ function test_compute_derivatives_Analytical(DICT_PROBLEMS)
         end
     end
 end
+
+test_compute_derivatives_Analytical(DICT_PROBLEMS_Analytical_no_cc)
 
 ################################################
 #=

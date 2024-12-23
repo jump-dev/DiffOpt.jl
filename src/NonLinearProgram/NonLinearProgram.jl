@@ -167,6 +167,7 @@ function MOI.add_constraint(
     form.num_constraints += 1
     form.lower_bounds[var_idx.value] = set.lower
     idx = MOI.ConstraintIndex{F, S}(form.num_constraints)
+    form.list_of_constraint[idx] = idx
     form.constraint_lower_bounds[var_idx.value] = idx
     return idx
 end
@@ -179,6 +180,7 @@ function MOI.add_constraint(
     form.num_constraints += 1
     form.upper_bounds[var_idx.value] = set.upper
     idx = MOI.ConstraintIndex{F, S}(form.num_constraints)
+    form.list_of_constraint[idx] = idx
     form.constraint_upper_bounds[var_idx.value] = idx
     return idx
 end
@@ -191,7 +193,7 @@ function MOI.get(form::Form, ::MOI.NumberOfConstraints{F,S}) where {F,S}
     return length(form.list_of_constraint[F,S])
 end
 
-function MOI.get(form::Form, ::MOI.ConstraintPrimalStart)
+function MOI.get(::Form, ::MOI.ConstraintPrimalStart)
     return 
 end
 
@@ -279,6 +281,19 @@ function MOI.set(
     )
 end
 
+function MOI.supports(
+    ::Model,
+    ::MOI.ConstraintDualStart,
+    ::Type{MOI.ConstraintIndex{MOI.VariableIndex,S}},
+) where {S<:Union{
+        MOI.GreaterThan{Float64},
+        MOI.LessThan{Float64},
+        MOI.EqualTo{Float64},
+        MOI.Interval{Float64},
+    }}
+    return true
+end
+
 function MOI.set(
     model::Model,
     ::MOI.ConstraintDualStart,
@@ -328,7 +343,7 @@ all_params(model::Model) = all_params(model.model)
 all_primal_vars(form::Form) = setdiff(all_variables(form), all_params(form))
 all_primal_vars(model::Model) = all_primal_vars(model.model)
 
-get_num_constraints(form::Form) = length(form.list_of_constraint)
+get_num_constraints(form::Form) = length(form.constraints_2_nlp_index)
 get_num_constraints(model::Model) = get_num_constraints(model.model)
 get_num_primal_vars(form::Form) = length(all_primal_vars(form))
 get_num_primal_vars(model::Model) = get_num_primal_vars(model.model)
@@ -349,14 +364,12 @@ function _cache_evaluator!(model::Model)
     leq_locations, geq_locations = find_inequealities(form)
     num_leq = length(leq_locations)
     num_geq = length(geq_locations)
-    has_up = findall(i-> haskey(form.upper_bounds, i), primal_vars)
-    has_low = findall(i-> haskey(form.lower_bounds, i), primal_vars)
+    has_up = findall(i-> haskey(form.upper_bounds, i.value), primal_vars)
+    has_low = findall(i-> haskey(form.lower_bounds, i.value), primal_vars)
     num_low = length(has_low)
     num_up = length(has_up)
 
     # Create unified dual mapping
-    # TODO: This assumes that these are all possible constraints available. We should change to either a dict or a sparse array
-    # TODO: Check that the variable equal to works - Perhaps use bridge to change from equal to <= and >=
     dual_mapping = Vector{Int}(undef, form.num_constraints)
     for (ci, cni) in form.constraints_2_nlp_index
         dual_mapping[ci.value] = cni.value
@@ -364,14 +377,14 @@ function _cache_evaluator!(model::Model)
 
     # Add bounds to dual mapping
     offset = num_constraints
-    for (i, var_idx) in enumerate(has_low)
+    for (i, var_idx) in enumerate(primal_vars[has_low])
         # offset + i
-        dual_mapping[form.constraint_lower_bounds[var_idx].value] = offset + i
+        dual_mapping[form.constraint_lower_bounds[var_idx.value].value] = offset + i
     end
     offset += num_low
-    for (i, var_idx) in enumerate(has_up)
+    for (i, var_idx) in enumerate(primal_vars[has_up])
         # offset + i
-        dual_mapping[form.constraint_upper_bounds[var_idx].value] = offset + i
+        dual_mapping[form.constraint_upper_bounds[var_idx.value].value] = offset + i
     end
 
     num_slacks = num_leq + num_geq
@@ -423,7 +436,6 @@ function DiffOpt.reverse_differentiate!(model::Model)
         Δs = compute_sensitivity(model)
         num_primal = length(cache.primal_vars)
         Δx = zeros(num_primal)
-        # [model.input_cache.dx[i] for i in cache.primal_vars]
         for (i, var_idx) in enumerate(cache.primal_vars)
             if haskey(model.input_cache.dx, var_idx)
                 Δx[i] = model.input_cache.dx[var_idx]
@@ -434,29 +446,25 @@ function DiffOpt.reverse_differentiate!(model::Model)
         num_up = length(cache.has_up)
         num_low = length(cache.has_low)
         Δdual = zeros(num_constraints + num_up + num_low)
-        # Δdual[1:num_constraints] = [model.input_cache.dy[form.nlp_index_2_constraint[nlp_ci]] for nlp_ci in cache.cons]
-        # Δdual[num_constraints+1:num_constraints+num_low] = [model.input_cache.dy[form.constraint_lower_bounds[form.primal_vars[i]].value] for i in cache.has_low]
-        # Δdual[num_constraints+num_low+1:end] = [model.input_cache.dy[form.constraint_upper_bounds[form.primal_vars[i]].value] for i in cache.has_up]
         for (i, ci) in enumerate(cache.cons)
             idx = form.nlp_index_2_constraint[ci]
             if haskey(model.input_cache.dy, idx)
                 Δdual[i] = model.input_cache.dy[idx]
             end
         end
-        for (i, var_idx) in enumerate(cache.has_low)
-            idx = form.constraint_lower_bounds[var_idx].value
+        for (i, var_idx) in enumerate(cache.primal_vars[cache.has_low])
+            idx = form.constraint_lower_bounds[var_idx.value].value
             if haskey(model.input_cache.dy, idx)
                 Δdual[num_constraints + i] = model.input_cache.dy[idx]
             end
         end
-        for (i, var_idx) in enumerate(cache.has_up)
-            idx = form.constraint_upper_bounds[var_idx].value
+        for (i, var_idx) in enumerate(cache.primal_vars[cache.has_up])
+            idx = form.constraint_upper_bounds[var_idx.value].value
             if haskey(model.input_cache.dy, idx)
                 Δdual[num_constraints + num_low + i] = model.input_cache.dy[idx]
             end
         end
         # Extract primal and dual sensitivities
-        # TODO: multiply everyone together before indexing
         Δw = zeros(size(Δs, 1))
         Δw[1:num_primal] = Δx
         Δw[cache.index_duals] = Δdual

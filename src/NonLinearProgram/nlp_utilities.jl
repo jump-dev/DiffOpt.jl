@@ -128,7 +128,10 @@ function create_evaluator(form::Form)
     return evaluator
 end
 
-function is_less_inequality(::MOI.ConstraintIndex{F, S}) where {F, S<:MOI.LessThan}
+function is_less_inequality(::MOI.ConstraintIndex{F, S}) where {F<:Union{MOI.ScalarNonlinearFunction,
+    MOI.ScalarQuadraticFunction{Float64},
+    MOI.ScalarAffineFunction{Float64},
+}, S<:MOI.LessThan}
     return true
 end
 
@@ -140,7 +143,10 @@ function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F, S}
     return false
 end
 
-function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F, S<:MOI.GreaterThan}
+function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F<:Union{MOI.ScalarNonlinearFunction,
+    MOI.ScalarQuadraticFunction{Float64},
+    MOI.ScalarAffineFunction{Float64},
+}, S<:MOI.GreaterThan}
     return true
 end
 
@@ -197,6 +203,7 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     num_ineq = num_leq + num_geq
     has_up = model.cache.has_up
     has_low = model.cache.has_low
+    primal_vars = model.cache.primal_vars
     cons = model.cache.cons #sort(collect(keys(form.nlp_index_2_constraint)), by=x->x.value)
     # Primal solution: value.([primal_vars; slack_vars])
     model_cons_leq = [form.nlp_index_2_constraint[con] for con in cons[leq_locations]]
@@ -210,7 +217,7 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     V_L = spzeros(num_vars+num_ineq)
     X_L = spzeros(num_vars+num_ineq)
     for (i, j) in enumerate(has_low)
-        V_L[j] = model.y[form.constraint_lower_bounds[j].value] * sense_multiplier
+        V_L[j] = model.y[form.constraint_lower_bounds[primal_vars[j].value].value] * sense_multiplier
         #dual.(LowerBoundRef(primal_vars[j])) * sense_multiplier
         #
         if sense_multiplier == 1.0
@@ -219,7 +226,7 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
             V_L[j] >= tol && @info "Dual of lower bound must be negative" i V_L[j]
         end
         #
-        X_L[j] = form.lower_bounds[j]
+        X_L[j] = form.lower_bounds[primal_vars[j].value]
     end
     for (i, con) in enumerate(cons[geq_locations])
         # By convention jump dual will allways be positive for geq constraints
@@ -236,7 +243,7 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     V_U = spzeros(num_vars+num_ineq)
     X_U = spzeros(num_vars+num_ineq)
     for (i, j) in enumerate(has_up)
-        V_U[j] = model.y[form.constraint_upper_bounds[j].value] * (- sense_multiplier)
+        V_U[j] = model.y[form.constraint_upper_bounds[primal_vars[j].value].value] * (- sense_multiplier)
         # dual.(UpperBoundRef(primal_vars[j])) * (- sense_multiplier)
         if sense_multiplier == 1.0
             V_U[j] <= -tol && @info "Dual of upper bound must be positive" i V_U[i]
@@ -244,7 +251,7 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
             V_U[j] >= tol && @info "Dual of upper bound must be negative" i V_U[i]
         end
         #
-        X_U[j] = form.upper_bounds[j]
+        X_U[j] = form.upper_bounds[primal_vars[j].value]
     end
     for (i, con) in enumerate(cons[leq_locations])
         # By convention jump dual will allways be negative for leq constraints
@@ -445,5 +452,18 @@ function compute_sensitivity(model::Model; tol=1e-6)
     # Compute derivatives
     # ∂s = [∂x; ∂λ; ∂ν_L; ∂ν_U]
     ∂s, K, N = compute_derivatives_no_relax(model, cons, X, V_L, X_L, V_U, X_U, leq_locations, geq_locations, ineq_locations, has_up, has_low)
+    ## Adjust signs based on JuMP convention
+    num_vars = get_num_primal_vars(model)
+    num_cons = get_num_constraints(model)
+    num_ineq = length(ineq_locations)
+    num_w = num_vars + num_ineq
+    num_lower = length(has_low)
+    sense_multiplier = sense_mult(model)
+    # Duals
+    ∂s[num_w+1:num_w+num_cons, :] *= -sense_multiplier
+    # Dual bounds lower
+    ∂s[num_w+num_cons+1:num_w+num_cons+num_lower, :] *= sense_multiplier
+    # Dual bounds upper
+    ∂s[num_w+num_cons+num_lower+1:end, :] *= -sense_multiplier
     return ∂s
 end
