@@ -1,24 +1,7 @@
-"""
-    create_nlp_model(model::JuMP.Model)
-
-Create a Nonlinear Programming (NLP) model from a JuMP model.
-"""
-# function create_nlp_model(model::JuMP.Model)
-#     rows = Vector{JuMP.ConstraintRef}(undef, 0)
-#     nlp = MOI.Nonlinear.Model()
-#     for (F, S) in list_of_constraint_types(model)
-#         if F <: JuMP.VariableRef && !(S <: MathOptInterface.EqualTo{Float64})
-#             continue  # Skip variable bounds
-#         end
-#         for ci in all_constraints(model, F, S)
-#             push!(rows, ci)
-#             object = constraint_object(ci)
-#             MOI.Nonlinear.add_constraint(nlp, object.func, object.set)
-#         end
-#     end
-#     MOI.Nonlinear.set_objective(nlp, objective_function(model))
-#     return nlp, rows
-# end
+# Copyright (c) 2020: Andrew Rosemberg and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 """
     fill_off_diagonal(H)
@@ -38,9 +21,6 @@ function fill_off_diagonal(H)
     end
     return ret
 end
-
-sense_mult(x) = JuMP.objective_sense(owner_model(x)) == MOI.MIN_SENSE ? 1.0 : -1.0
-sense_mult(x::Vector) = sense_mult(x[1])
 
 """
     compute_optimal_hessian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
@@ -91,35 +71,11 @@ function compute_optimal_hess_jac(model::Model, rows::Vector{MOI.Nonlinear.Const
     return hessian, jacobian
 end
 
-# """
-#     all_primal_vars(model::JuMP.Model)
-
-# Get all the primal variables in the model.
-# """
-# all_primal_vars(model::JuMP.Model) = filter(x -> !is_parameter(x), all_variables(model))
-
-# """
-#     all_params(model::JuMP.Model)
-
-# Get all the parameters in the model.
-# """
-# all_params(model::JuMP.Model) = filter(x -> is_parameter(x), all_variables(model))
-
 """
-    create_evaluator(model::JuMP.Model; x=all_variables(model))
+    create_evaluator(form::Form)
 
-Create an evaluator for the model.
+Create the evaluator for the NLP.
 """
-JuMP.index(x::JuMP.Containers.DenseAxisArray) = index.(x).data
-
-# function create_evaluator(model::JuMP.Model; x=all_variables(model))
-#     nlp, rows = create_nlp_model(model)
-#     backend = MOI.Nonlinear.SparseReverseMode()
-#     evaluator = MOI.Nonlinear.Evaluator(nlp, backend, vcat(index.(x)...))
-#     MOI.initialize(evaluator, [:Hess, :Jac])
-#     return evaluator, rows
-# end
-
 function create_evaluator(form::Form)
     nlp = form.model
     backend = MOI.Nonlinear.SparseReverseMode()
@@ -128,6 +84,11 @@ function create_evaluator(form::Form)
     return evaluator
 end
 
+"""
+    is_less_inequality(con::MOI.ConstraintIndex{F, S}) where {F, S}
+
+Check if the constraint is a less than inequality.
+"""
 function is_less_inequality(::MOI.ConstraintIndex{F, S}) where {F<:Union{MOI.ScalarNonlinearFunction,
     MOI.ScalarQuadraticFunction{Float64},
     MOI.ScalarAffineFunction{Float64},
@@ -143,6 +104,11 @@ function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F, S}
     return false
 end
 
+"""
+    is_greater_inequality(con::MOI.ConstraintIndex{F, S}) where {F, S}
+
+Check if the constraint is a greater than inequality.
+"""
 function is_greater_inequality(::MOI.ConstraintIndex{F, S}) where {F<:Union{MOI.ScalarNonlinearFunction,
     MOI.ScalarQuadraticFunction{Float64},
     MOI.ScalarAffineFunction{Float64},
@@ -171,23 +137,7 @@ function find_inequealities(model::Form)
 end
 
 """
-    get_slack_inequality(con::JuMP.ConstraintRef)
-
-Get the reference to the canonical function that is equivalent to the slack variable of the inequality constraint.
-"""
-# function get_slack_inequality(con::JuMP.ConstraintRef)
-#     set_type = typeof(MOI.get(owner_model(con), MOI.ConstraintSet(), con))
-#     obj = constraint_object(con)
-#     if set_type <: MOI.LessThan
-#         # c(x) <= b --> slack = c(x) - b | slack <= 0
-#         return obj.func - obj.set.upper 
-#     end
-#     # c(x) >= b --> slack = c(x) - b | slack >= 0
-#     return obj.func - obj.set.lower
-# end
-
-"""
-    compute_solution_and_bounds(primal_vars::Vector{JuMP.VariableRef}, cons::Vector{C}) where C<:JuMP.ConstraintRef
+    compute_solution_and_bounds(model::Model; tol=1e-6)
 
 Compute the solution and bounds of the primal variables.
 """
@@ -204,7 +154,7 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
     has_up = model.cache.has_up
     has_low = model.cache.has_low
     primal_vars = model.cache.primal_vars
-    cons = model.cache.cons #sort(collect(keys(form.nlp_index_2_constraint)), by=x->x.value)
+    cons = model.cache.cons
     # Primal solution: value.([primal_vars; slack_vars])
     model_cons_leq = [form.nlp_index_2_constraint[con] for con in cons[leq_locations]]
     model_cons_geq = [form.nlp_index_2_constraint[con] for con in cons[geq_locations]]
@@ -268,11 +218,7 @@ function compute_solution_and_bounds(model::Model; tol=1e-6)
 end
 
 """
-    build_M_N(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{JuMP.ConstraintRef},
-    primal_vars::Vector{JuMP.VariableRef}, params::Vector{JuMP.VariableRef}, 
-    _X::Vector, _V_L::Vector, _X_L::Vector, _V_U::Vector, _X_U::Vector, ineq_locations::Vector{Z},
-    has_up::Vector{Z}, has_low::Vector{Z}
-) where {Z<:Integer}
+    build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex}, _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z}, has_up::Vector{Z}, has_low::Vector{Z})
 
 Build the M (KKT Jacobian w.r.t. solution) and N (KKT Jacobian w.r.t. parameters) matrices for the sensitivity analysis.
 """
@@ -367,6 +313,11 @@ function build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
     return M, N
 end
 
+"""
+    inertia_corrector_factorization(M::SparseMatrixCSC, num_w, num_cons; st=1e-6, max_corrections=50)
+
+Inertia correction for the factorization of the KKT matrix. Sparse version.
+"""
 function inertia_corrector_factorization(M::SparseMatrixCSC, num_w, num_cons; st=1e-6, max_corrections=50)
     # Factorization
     K = lu(M; check=false)
@@ -390,6 +341,11 @@ function inertia_corrector_factorization(M::SparseMatrixCSC, num_w, num_cons; st
     return K
 end
 
+"""
+    inertia_corrector_factorization(M::Matrix, num_w, num_cons; st=1e-6, max_corrections=50)
+
+Inertia correction for the factorization of the KKT matrix. Dense version.
+"""
 function inertia_corrector_factorization(M; st=1e-6, max_corrections=50)
     num_c = 0
     if cond(M) > 1/st
@@ -409,11 +365,10 @@ function inertia_corrector_factorization(M; st=1e-6, max_corrections=50)
 end
 
 """
-    compute_derivatives_no_relax(evaluator::MOI.Nonlinear.Evaluator, cons::Vector{JuMP.ConstraintRef},
-        primal_vars::Vector{JuMP.VariableRef}, params::Vector{JuMP.VariableRef},
-        _X::Vector, _V_L::Vector, _X_L::Vector, _V_U::Vector, _X_U::Vector, ineq_locations::Vector{Z},
+    compute_derivatives_no_relax(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
+        _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z},
         has_up::Vector{Z}, has_low::Vector{Z}
-    ) where {Z<:Integer}
+    )
 
 Compute the derivatives of the solution w.r.t. the parameters without accounting for active set changes.
 """
@@ -442,7 +397,7 @@ end
 sense_mult(model::Model) = objective_sense(model) == MOI.MIN_SENSE ? 1.0 : -1.0
 
 """
-    compute_sensitivity(model::JuMP.Model; primal_vars=all_primal_vars(model), params=all_params(model))
+    compute_sensitivity(model::Model; tol=1e-6)
 
 Compute the sensitivity of the solution given sensitivity of the parameters (Δp).
 """

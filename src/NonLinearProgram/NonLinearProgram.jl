@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Andrew Rosemberg and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 module NonLinearProgram
 
 import DiffOpt
@@ -28,6 +33,7 @@ Base.@kwdef struct ReverseCache
     Δp::Vector{Float64}  # Sensitivity for parameters
 end
 
+# Define the form of the NLP
 mutable struct Form <: MOI.ModelLike
     model::MOI.Nonlinear.Model
     num_variables::Int
@@ -404,6 +410,7 @@ function _cache_evaluator!(model::Model)
 
     num_slacks = num_leq + num_geq
     num_w = num_primal + num_slacks
+    # Create index for dual variables
     index_duals = [num_w+1:num_w+num_constraints; num_w+num_constraints+1:num_w+num_constraints+num_low; num_w+num_constraints+num_low+num_geq+1:num_w+num_constraints+num_low+num_geq+num_up]
     cons = sort(collect(keys(form.nlp_index_2_constraint)), by=x->x.value)
 

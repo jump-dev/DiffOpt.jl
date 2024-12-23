@@ -1,42 +1,24 @@
+module TestNLPProgram
+
+using DiffOpt
 using JuMP
 using Ipopt
 using Test
 using FiniteDiff
+import DelimitedFiles
 
-include("test/data/nlp_problems.jl")
+include(joinpath(@__DIR__, "data/nlp_problems.jl"))
 
-# Example usage
-# using Revise
-# using DiffOpt
-# using JuMP
-# using Ipopt
-# using Test
-
-# model, vars, cons, params = create_jump_model_1()
-# set_parameter_value.(params, [2.1])
-# JuMP.optimize!(model)
-
-# ### Forward differentiation
-
-# # set parameter pertubations
-# MOI.set(model, DiffOpt.ForwardParameter(), params[1], 0.2)
-
-# # forward differentiate
-# DiffOpt.forward_differentiate!(model)
-
-# # get sensitivities
-# MOI.get(model, DiffOpt.ForwardVariablePrimal(), vars[1])
-
-# ### Reverse differentiation
-
-# # set variable pertubations
-# MOI.set(model, DiffOpt.ReverseVariablePrimal(), vars[1], 1.0)
-
-# # reverse differentiate
-# DiffOpt.reverse_differentiate!(model)
-
-# # get sensitivities
-# dp = MOI.get(model, DiffOpt.ReverseParameter(), params[1])
+function runtests()
+    for name in names(@__MODULE__; all = true)
+        if startswith("$name", "test_")
+            @testset "$(name)" begin
+                getfield(@__MODULE__, name)()
+            end
+        end
+    end
+    return
+end
 
 ################################################
 #=
@@ -75,7 +57,7 @@ function analytic_jacobian(x, p)
     return hcat(g_2_J, g_1_J)'[:,:]
 end
 
-function test_create_evaluator(nlp_model)
+function _test_create_evaluator(nlp_model)
     @testset "Create Evaluator" begin
         cache = DiffOpt.NonLinearProgram._cache_evaluator!(nlp_model)
         @test cache.evaluator isa MOI.Nonlinear.Evaluator
@@ -92,7 +74,7 @@ function test_compute_optimal_hess_jacobian()
         @assert is_solved_and_feasible(model)
         # Create evaluator
         nlp_model = DiffOpt._diff(model.moi_backend.optimizer.model).model
-        test_create_evaluator(nlp_model)
+        _test_create_evaluator(nlp_model)
         cons = nlp_model.cache.cons
         y = [nlp_model.y[nlp_model.model.nlp_index_2_constraint[row].value] for row in cons]
         hessian, jacobian = DiffOpt.NonLinearProgram.compute_optimal_hess_jac(nlp_model, cons)
@@ -104,8 +86,6 @@ function test_compute_optimal_hess_jacobian()
         @test all(isapprox(jacobian[:,[primal_idx; params_idx]], analytic_jacobian(nlp_model.x[primal_idx], nlp_model.x[params_idx])))
     end
 end
-
-test_compute_optimal_hess_jacobian()
 
 ################################################
 #=
@@ -130,7 +110,7 @@ DICT_PROBLEMS_Analytical_no_cc = Dict(
     "geq impact max" => (p_a=[2.1], Δp=[0.2], Δx=[0.2], Δy=[0.0; 0.0], Δvu=[], Δvl=[], model_generator=create_jump_model_5),
 )
 
-function test_compute_derivatives_Analytical(DICT_PROBLEMS)
+function test_compute_derivatives_Analytical(;DICT_PROBLEMS=DICT_PROBLEMS_Analytical_no_cc)
     @testset "Compute Derivatives Analytical: $problem_name" for (problem_name, (p_a, Δp, Δx, Δy, Δvu, Δvl, model_generator)) in DICT_PROBLEMS
         # OPT Problem
         model, primal_vars, cons, params = model_generator()
@@ -160,8 +140,6 @@ function test_compute_derivatives_Analytical(DICT_PROBLEMS)
         end
     end
 end
-
-test_compute_derivatives_Analytical(DICT_PROBLEMS_Analytical_no_cc)
 
 ################################################
 #=
@@ -196,9 +174,8 @@ DICT_PROBLEMS_no_cc = Dict(
     "NLP_6" => (p_a=[100.0; 200.0], Δp=[0.2; 0.5], model_generator=create_nonlinear_jump_model_6),
 )
 
-function test_compute_derivatives_Finite_Diff(DICT_PROBLEMS, iscc=false)
-    # @testset "Compute Derivatives: $problem_name" 
-    for (problem_name, (p_a, Δp, model_generator)) in DICT_PROBLEMS, ismin in [true, false]
+function test_compute_derivatives_Finite_Diff(;DICT_PROBLEMS=DICT_PROBLEMS_no_cc)
+    @testset "Compute Derivatives FiniteDiff: $problem_name" for (problem_name, (p_a, Δp, model_generator)) in DICT_PROBLEMS, ismin in [true, false]
         # OPT Problem
         model, primal_vars, cons, params = model_generator(;ismin=ismin)
         set_parameter_value.(params, p_a)
@@ -219,4 +196,63 @@ function test_compute_derivatives_Finite_Diff(DICT_PROBLEMS, iscc=false)
     end
 end
 
-test_compute_derivatives_Finite_Diff(DICT_PROBLEMS_no_cc)
+################################################
+#=
+# Test Sensitivity through Reverse Mode
+=#
+################################################
+
+# Copied from test/jump.jl and adapated for nlp interface
+function test_differentiating_non_trivial_convex_qp_jump()
+    nz = 10
+    nineq_le = 25
+    neq = 10
+    # read matrices from files
+    names = ["P", "q", "G", "h", "A", "b"]
+    matrices = []
+    for name in names
+        filename = joinpath(@__DIR__, "data", "$name.txt")
+        push!(matrices, DelimitedFiles.readdlm(filename, ' ', Float64, '\n'))
+    end
+    Q, q, G, h, A, b = matrices
+    q = vec(q)
+    h = vec(h)
+    b = vec(b)
+    model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    MOI.set(model, MOI.Silent(), true)
+    @variable(model, x[1:nz])
+    @variable(model, p_le[1:nineq_le] ∈ MOI.Parameter.(0.0))
+    @variable(model, p_eq[1:neq] ∈ MOI.Parameter.(0.0))
+    @objective(model, Min, x' * Q * x + q' * x)
+    @constraint(model, c_le, G * x .<= h + p_le)
+    @constraint(model, c_eq, A * x .== b + p_eq)
+    optimize!(model)
+    MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+    # compute gradients
+    DiffOpt.reverse_differentiate!(model)
+    # read gradients from files
+    param_names = ["dP", "dq", "dG", "dh", "dA", "db"]
+    grads_actual = []
+    for name in param_names
+        filename = joinpath(@__DIR__, "data", "$(name).txt")
+        push!(
+            grads_actual,
+            DelimitedFiles.readdlm(filename, ' ', Float64, '\n'),
+        )
+    end
+    dh = grads_actual[4]
+    db = grads_actual[6]
+
+    for (i, ci) in enumerate(c_le)
+        @test -dh[i] ≈ -MOI.get(model, DiffOpt.ReverseParameter(), p_le[i]) atol = 1e-2 rtol = 1e-2
+    end
+    for (i, ci) in enumerate(c_eq)
+        @test -db[i] ≈ -MOI.get(model, DiffOpt.ReverseParameter(), p_eq[i]) atol = 1e-2 rtol = 1e-2
+    end
+
+    return
+end
+
+end # module
+
+TestNLPProgram.runtests()
