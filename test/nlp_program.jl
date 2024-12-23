@@ -169,71 +169,11 @@ test_compute_derivatives_Analytical(DICT_PROBLEMS_Analytical_no_cc)
 =#
 ################################################
 
-function eval_model_jump(model, primal_vars, cons, params, p_val)
-    set_parameter_value.(params, p_val)
+function stack_solution(model, p_a, params, primal_vars, cons)
+    set_parameter_value.(params, p_a)
     optimize!(model)
     @assert is_solved_and_feasible(model)
-    return value.(primal_vars), dual.(cons), [dual.(LowerBoundRef(v)) for v in primal_vars if has_lower_bound(v)], [dual.(UpperBoundRef(v)) for v in primal_vars if has_upper_bound(v)]
-end
-
-function stack_solution(cons, leq_locations, geq_locations, x, _λ, ν_L, ν_U)
-    ineq_locations = vcat(geq_locations, leq_locations)
-    return Float64[x; value.(get_slack_inequality.(cons[ineq_locations])); _λ; ν_L; _λ[geq_locations]; ν_U; _λ[leq_locations]]
-end
-
-function print_wrong_sensitive(Δs, Δs_fd, primal_vars, cons, leq_locations, geq_locations)
-    ineq_locations = vcat(geq_locations, leq_locations)
-    println("Some sensitivities are not correct: \n")
-    # primal vars
-    num_primal_vars = length(primal_vars)
-    for (i, v) in enumerate(primal_vars)
-        if !isapprox(Δs[i], Δs_fd[i]; atol = 1e-6)
-            println("Primal var: ", v, " | Δs: ", Δs[i], " | Δs_fd: ", Δs_fd[i])
-        end
-    end
-    # slack vars
-    num_slack_vars = length(ineq_locations)
-    num_w = num_slack_vars + num_primal_vars
-    for (i, c) in enumerate(cons[ineq_locations])
-        if !isapprox(Δs[i + num_primal_vars], Δs_fd[i + num_primal_vars] ; atol = 1e-6)
-            println("Slack var: ", c, " | Δs: ", Δs[i + num_primal_vars], " | Δs_fd: ", Δs_fd[i + num_primal_vars])
-        end
-    end
-    # dual vars
-    num_cons = length(cons)
-    for (i, c) in enumerate(cons)
-        if !isapprox(Δs[i + num_w], Δs_fd[i + num_w] ; atol = 1e-6)
-            println("Dual var: ", c, " | Δs: ", Δs[i + num_w], " | Δs_fd: ", Δs_fd[i + num_w])
-        end
-    end
-    # dual lower bound primal vars
-    var_lower = [v for v in primal_vars if has_lower_bound(v)]
-    num_lower_bounds = length(var_lower)
-    for (i, v) in enumerate(var_lower)
-        if !isapprox(Δs[i + num_w + num_cons], Δs_fd[i + num_w + num_cons] ; atol = 1e-6)
-            lower_bound_ref = LowerBoundRef(v)
-            println("lower bound dual: ", lower_bound_ref, " | Δs: ", Δs[i + num_w + num_cons], " | Δs_fd: ", Δs_fd[i + num_w + num_cons])
-        end
-    end
-    # dual lower bound slack vars
-    for (i, c) in enumerate(cons[geq_locations])
-        if !isapprox(Δs[i + num_w + num_cons + num_lower_bounds], Δs_fd[i + num_w + num_cons + num_lower_bounds] ; atol = 1e-6)
-            println("lower bound slack dual: ", c, " | Δs: ", Δs[i + num_w + num_cons + num_lower_bounds], " | Δs_fd: ", Δs_fd[i + num_w + num_cons + num_lower_bounds])
-        end
-    end
-    for (i, c) in enumerate(cons[leq_locations])
-        if !isapprox(Δs[i + num_w + num_cons + num_lower_bounds + length(geq_locations)], Δs_fd[i + num_w + num_cons + num_lower_bounds + length(geq_locations)] ; atol = 1e-6)
-            println("upper bound slack dual: ", c, " | Δs: ", Δs[i + num_w + num_cons + num_lower_bounds + length(geq_locations)], " | Δs_fd: ", Δs_fd[i + num_w + num_cons + num_lower_bounds + length(geq_locations)])
-        end
-    end
-    # dual upper bound primal vars
-    var_upper = [v for v in primal_vars if has_upper_bound(v)]
-    for (i, v) in enumerate(var_upper)
-        if !isapprox(Δs[i + num_w + num_cons + num_lower_bounds + num_slack_vars], Δs_fd[i + num_w + num_cons + num_lower_bounds + num_slack_vars] ; atol = 1e-6)
-            upper_bound_ref = UpperBoundRef(v)
-            println("upper bound dual: ", upper_bound_ref, " | Δs: ", Δs[i + num_w + num_cons + num_lower_bounds + num_slack_vars], " | Δs_fd: ", Δs_fd[i + num_w + num_cons + num_lower_bounds + num_slack_vars])
-        end
-    end
+    return [value.(primal_vars); dual.(cons)]
 end
 
 DICT_PROBLEMS_no_cc = Dict(
@@ -256,44 +196,27 @@ DICT_PROBLEMS_no_cc = Dict(
     "NLP_6" => (p_a=[100.0; 200.0], Δp=[0.2; 0.5], model_generator=create_nonlinear_jump_model_6),
 )
 
-
-DICT_PROBLEMS_cc = Dict(
-    "QP_JuMP" => (p_a=[1.0; 2.0; 100.0], Δp=[-0.5; 0.5; 0.1], model_generator=create_nonlinear_jump_model),
-    "QP_sIpopt2" => (p_a=[5.0; 1.0], Δp=[-0.5; 0.0], model_generator=create_nonlinear_jump_model_sipopt),
-)
-
 function test_compute_derivatives_Finite_Diff(DICT_PROBLEMS, iscc=false)
     # @testset "Compute Derivatives: $problem_name" 
     for (problem_name, (p_a, Δp, model_generator)) in DICT_PROBLEMS, ismin in [true, false]
         # OPT Problem
         model, primal_vars, cons, params = model_generator(;ismin=ismin)
-        eval_model_jump(model, primal_vars, cons, params, p_a)
-        println("$problem_name: ", model)
+        set_parameter_value.(params, p_a)
+        optimize!(model)
+        @assert is_solved_and_feasible(model)
+        # Set pertubations
+        MOI.set.(model, DiffOpt.ForwardParameter(), params, Δp)
         # Compute derivatives
-        # Δp = [0.001; 0.0; 0.0]
-        p_b = p_a .+ Δp
-        (Δs, sp_approx), evaluator, cons = compute_sensitivity(model, Δp; primal_vars, params)
-        leq_locations, geq_locations = find_inequealities(cons)
-        sa = stack_solution(cons, leq_locations, geq_locations, eval_model_jump(model, primal_vars, cons, params, p_a)...)
-        # Check derivatives using finite differences
-        ∂s_fd = FiniteDiff.finite_difference_jacobian((p) -> stack_solution(cons, leq_locations, geq_locations, eval_model_jump(model, primal_vars, cons, params, p)...), p_a)
-        Δs_fd = ∂s_fd * Δp
-        # actual solution
-        sp = stack_solution(cons, leq_locations, geq_locations, eval_model_jump(model, primal_vars, cons, params, p_b)...)
-        # Check sensitivities
-        num_important = length(primal_vars) + length(cons)
-        test_derivatives = all(isapprox.(Δs, Δs_fd; rtol = 1e-5, atol=1e-6))
-        test_approx = all(isapprox.(sp[1:num_important], sp_approx[1:num_important]; rtol = 1e-5, atol=1e-6))
-        if test_derivatives || (iscc && test_approx)
-            println("All sensitivities are correct")
-        elseif iscc && !test_approx
-            @show Δp
-            println("Fail Approximations")
-            print_wrong_sensitive(Δs, sp.-sa, primal_vars, cons, leq_locations, geq_locations)
-        else
-            @show Δp
-            print_wrong_sensitive(Δs, Δs_fd, primal_vars, cons, leq_locations, geq_locations)
-        end
-        println("--------------------")
+        DiffOpt.forward_differentiate!(model)
+        Δx = [MOI.get(model, DiffOpt.ForwardVariablePrimal(), var) for var in primal_vars]
+        Δy = [MOI.get(model, DiffOpt.ForwardConstraintDual(), con) for con in cons]
+        # Compute derivatives using finite differences
+        ∂s_fd = FiniteDiff.finite_difference_jacobian((p) -> stack_solution(model, p, params, primal_vars, cons), p_a) * Δp
+        # Test sensitivities primal_vars
+        @test all(isapprox.(Δx, ∂s_fd[1:length(primal_vars)]; atol = 1e-4))
+        # Test sensitivities cons
+        @test all(isapprox.(Δy, ∂s_fd[length(primal_vars)+1:end]; atol = 1e-4))
     end
 end
+
+test_compute_derivatives_Finite_Diff(DICT_PROBLEMS_no_cc)

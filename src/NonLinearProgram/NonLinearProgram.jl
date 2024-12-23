@@ -149,6 +149,21 @@ end
 
 function MOI.add_constraint(
     form::Form,
+    func::F,
+    set::S
+) where {F<:MOI.VariableIndex, S<:MOI.EqualTo}
+    form.num_constraints += 1
+    idx_nlp = MOI.Nonlinear.add_constraint(form.model, func, set)
+    idx = MOI.ConstraintIndex{F, S}(form.num_constraints)
+    add_leq_geq(form, idx, set)
+    form.list_of_constraint[idx] = idx
+    form.constraints_2_nlp_index[idx] = idx_nlp
+    form.nlp_index_2_constraint[idx_nlp] = idx
+    return idx
+end
+
+function MOI.add_constraint(
+    form::Form,
     idx::F,
     set::S
 ) where {F<:MOI.VariableIndex, S<:MOI.Parameter{Float64}}
