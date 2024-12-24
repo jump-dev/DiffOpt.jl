@@ -64,7 +64,7 @@ MOI.set(model, MOI.Silent(), true)
 
 # Define the objective and solve
 
-@objective(model, Min, λ * LinearAlgebra.dot(w, w) + sum(ξ),)
+@objective(model, Min, λ * LinearAlgebra.dot(w, w) + sum(ξ))
 
 optimize!(model)
 
