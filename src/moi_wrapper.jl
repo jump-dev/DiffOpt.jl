@@ -4,7 +4,37 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 """
-    diff_optimizer(optimizer_constructor)::Optimizer
+    DiffMethod
+
+An enum to define the differentiation method.
+
+## Values
+
+Possible values are:
+
+ * [`DIFF_AUTOMATIC`]: Automatic differentiation: tries all differentiation methods and chooses the first that works. This can be slower than manually choosing a method.
+ * [`DIFF_CONIC`]: Conic optimization based differentiation: works for conic programs or programs that can be transformed into conic programs by JuMP.
+ * [`DIFF_QUADRATIC`]: Quadratic optimization based differentiation: works for quadratic programs or programs that can be transformed into conic programs by JuMP.
+"""
+@enum(DiffMethod, DIFF_AUTOMATIC, DIFF_CONIC, DIFF_QUADRATIC)
+
+@doc(
+    "Automatic differentiation: tries all differentiation methods and chooses the first that works. This can be slower than manually choosing a method.",
+    DIFF_AUTOMATIC
+)
+
+@doc(
+    "Conic optimization based differentiation: works for conic programs or programs that can be transformed into conic programs by JuMP.",
+    DIFF_CONIC
+)
+
+@doc(
+    "Quadratic optimization based differentiation: works for quadratic programs or programs that can be transformed into conic programs by JuMP.",
+    DIFF_QUADRATIC
+)
+
+"""
+    diff_optimizer(optimizer_constructor)
 
 Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer
 and other utility methods. Results (primal, dual and slack values) are obtained
@@ -21,19 +51,33 @@ julia> x = model.add_variable(model)
 julia> model.add_constraint(model, ...)
 ```
 """
-function diff_optimizer(optimizer_constructor)::Optimizer
+function diff_optimizer(
+    optimizer_constructor;
+    method = DIFF_AUTOMATIC,
+    with_parametric_opt_interface::Bool = false,
+    with_bridge_type = Float64,
+    with_cache::Bool = true,
+)
     optimizer =
-        MOI.instantiate(optimizer_constructor; with_bridge_type = Float64)
+        MOI.instantiate(optimizer_constructor; with_bridge_type = with_bridge_type)
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
     # the model information from `optimizer`. However, 1) `optimizer` may not
     # implement some getters or it may be inefficient and 2) the getters may be
     # unimplemented or inefficient through some bridges.
     # For this reason we add a cache layer, the same cache JuMP adds.
-    caching_opt = MOI.Utilities.CachingOptimizer(
-        MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
-        optimizer,
-    )
-    return Optimizer(caching_opt)
+    caching_opt = if with_cache
+        MOI.Utilities.CachingOptimizer(
+            MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
+            optimizer,
+        )
+    else
+        optimizer
+    end
+    if with_parametric_opt_interface
+        return POI.Optimizer(Optimizer(caching_opt, method = method))
+    else
+        return Optimizer(caching_opt, method = method)
+    end
 end
 
 mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
@@ -49,10 +93,18 @@ mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
     # sensitivity input cache using MOI like sparse format
     input_cache::InputCache
 
-    function Optimizer(optimizer::OT) where {OT<:MOI.ModelLike}
+    function Optimizer(optimizer::OT; method = DIFF_AUTOMATIC) where {OT<:MOI.ModelLike}
         output =
             new{OT}(optimizer, Any[], nothing, nothing, nothing, InputCache())
-        add_all_model_constructors(output)
+        if method == DIFF_CONIC
+            add_conic_model_constructor(output)
+        elseif method == DIFF_QUADRATIC
+            add_quadratic_model_constructor(output)
+        elseif method == DIFF_AUTOMATIC
+            add_all_model_constructors(output)
+        else
+            add_model_constructor(output, method)
+        end
         return output
     end
 end
@@ -550,6 +602,11 @@ function forward_differentiate!(model::Optimizer)
         )
     end
     return forward_differentiate!(diff)
+end
+
+function empty_input_sensitivities!(model::Optimizer)
+    empty!(model.input_cache)
+    return
 end
 
 function _instantiate_with_bridges(model_constructor)
