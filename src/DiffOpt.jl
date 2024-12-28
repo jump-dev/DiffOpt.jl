@@ -40,16 +40,6 @@ function add_all_model_constructors(model)
     return
 end
 
-function add_conic_model_constructor(model)
-    add_model_constructor(model, ConicProgram.Model)
-    return
-end
-
-function add_quadratic_model_constructor(model)
-    add_model_constructor(model, QuadraticProgram.Model)
-    return
-end
-
 export diff_optimizer
 
 end # module

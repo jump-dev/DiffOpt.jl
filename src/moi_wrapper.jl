@@ -4,36 +4,6 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 """
-    DiffMethod
-
-An enum to define the differentiation method.
-
-## Values
-
-Possible values are:
-
- * [`DIFF_AUTOMATIC`]: Automatic differentiation: tries all differentiation methods and chooses the first that works. This can be slower than manually choosing a method.
- * [`DIFF_CONIC`]: Conic optimization based differentiation: works for conic programs or programs that can be transformed into conic programs by JuMP.
- * [`DIFF_QUADRATIC`]: Quadratic optimization based differentiation: works for quadratic programs or programs that can be transformed into conic programs by JuMP.
-"""
-@enum(DiffMethod, DIFF_AUTOMATIC, DIFF_CONIC, DIFF_QUADRATIC)
-
-@doc(
-    "Automatic differentiation: tries all differentiation methods and chooses the first that works. This can be slower than manually choosing a method.",
-    DIFF_AUTOMATIC
-)
-
-@doc(
-    "Conic optimization based differentiation: works for conic programs or programs that can be transformed into conic programs by JuMP.",
-    DIFF_CONIC
-)
-
-@doc(
-    "Quadratic optimization based differentiation: works for quadratic programs or programs that can be transformed into conic programs by JuMP.",
-    DIFF_QUADRATIC
-)
-
-"""
     diff_optimizer(optimizer_constructor)
 
 Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer
@@ -53,7 +23,7 @@ julia> model.add_constraint(model, ...)
 """
 function diff_optimizer(
     optimizer_constructor;
-    method = DIFF_AUTOMATIC,
+    method = nothing,
     with_parametric_opt_interface::Bool = false,
     with_bridge_type = Float64,
     with_cache::Bool = true,
@@ -97,18 +67,13 @@ mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
 
     function Optimizer(
         optimizer::OT;
-        method = DIFF_AUTOMATIC,
+        method = nothing,
     ) where {OT<:MOI.ModelLike}
         output =
             new{OT}(optimizer, Any[], nothing, nothing, nothing, InputCache())
-        if method == DIFF_CONIC
-            add_conic_model_constructor(output)
-        elseif method == DIFF_QUADRATIC
-            add_quadratic_model_constructor(output)
-        elseif method == DIFF_AUTOMATIC
-            add_all_model_constructors(output)
-        else
-            add_model_constructor(output, method)
+        add_all_model_constructors(output)
+        if method !== nothing
+            output.model_constructor = method
         end
         return output
     end
