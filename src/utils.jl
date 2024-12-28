@@ -3,6 +3,8 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+# Helpers for objective function
+
 # Representation of MOI functions using SparseArrays
 # Might be able to replace in the future by a function in MOI, see
 # https://github.com/jump-dev/MathOptInterface.jl/pull/1238
@@ -152,6 +154,8 @@ function sparse_array_representation(
     )
 end
 
+# Helpers for scalar constraints
+
 # In the future, we could replace by https://github.com/jump-dev/MathOptInterface.jl/pull/1238
 """
     VectorScalarAffineFunction{T, VT} <: MOI.AbstractScalarFunction
@@ -228,6 +232,8 @@ function JuMP.coefficient(
     return JuMP.coefficient(func.affine, vi)
 end
 
+# Helpers for Vector constraints
+
 """
     MatrixVectorAffineFunction{T, VT} <: MOI.AbstractVectorFunction
 
@@ -258,6 +264,17 @@ function Base.convert(
 end
 function standard_form(func::MatrixVectorAffineFunction{T}) where {T}
     return convert(MOI.VectorAffineFunction{T}, func)
+end
+
+_get_terms(f::VectorScalarAffineFunction) = f.terms
+_get_constant(f::VectorScalarAffineFunction) = f.constant
+function _vectorize(vec::Vector{T}) where {T<:VectorScalarAffineFunction}
+    terms = LazyArrays.@~ LazyArrays.ApplyArray(hcat, _get_terms.(vec)...)'
+    constants = LazyArrays.ApplyArray(vcat, _get_constant.(vec)...)
+    AT = typeof(terms)
+    VT = typeof(constants)
+    ret = MatrixVectorAffineFunction{AT,VT}(terms, constants)
+    return ret
 end
 
 # Only used for testing at the moment so performance is not critical so

@@ -646,6 +646,30 @@ function test_diff_errors()
     return
 end
 
+function test_scalarize_bridge()
+    using JuMP, DiffOpt, HiGHS
+
+    b = [1.0, 2.0]
+
+    m = Model(
+        () -> DiffOpt.diff_optimizer(
+            HiGHS.Optimizer;
+            with_parametric_opt_interface = true,
+        ),
+    )
+    @variable(m, x[1:2] >= 0)
+    @variable(m, c[1:2] in MOI.Parameter.(b))
+    @constraint(m, con, x <= c)
+    @objective(m, Max, sum(x))
+    optimize!(m)
+
+    MOI.set(m, DiffOpt.ReverseVariablePrimal(), m[:x][1], 1.0)
+    DiffOpt.reverse_differentiate!(m)
+    @test MOI.get.(m, DiffOpt.ReverseConstraintSet(), ParameterRef.(c)) == [1, 0]
+
+    return
+end
+
 end # module
 
 TestParameters.runtests()
