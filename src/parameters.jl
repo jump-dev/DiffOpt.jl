@@ -7,12 +7,8 @@
 
 MOI.supports(::POI.Optimizer, ::ForwardObjectiveFunction) = false
 
-function MOI.set(
-    ::POI.Optimizer,
-    ::ForwardObjectiveFunction,
-    _,
-)
-    error(
+function MOI.set(::POI.Optimizer, ::ForwardObjectiveFunction, _)
+    return error(
         "Forward objective function is not supported when " *
         "`with_parametric_opt_interface` is set to `true` in " *
         "`diff_optimizer`." *
@@ -28,7 +24,7 @@ function MOI.set(
     ::MOI.ConstraintIndex,
     _,
 )
-    error(
+    return error(
         "Forward constraint function is not supported when " *
         "`with_parametric_opt_interface` is set to `true` in " *
         "`diff_optimizer`." *
@@ -38,11 +34,8 @@ end
 
 MOI.supports(::POI.Optimizer, ::ReverseObjectiveFunction) = false
 
-function MOI.get(
-    ::POI.Optimizer,
-    ::ReverseObjectiveFunction,
-)
-    error(
+function MOI.get(::POI.Optimizer, ::ReverseObjectiveFunction)
+    return error(
         "Reverse objective function is not supported when " *
         "`with_parametric_opt_interface` is set to `true` in " *
         "`diff_optimizer`." *
@@ -57,7 +50,7 @@ function MOI.get(
     ::ReverseConstraintFunction,
     ::MOI.ConstraintIndex,
 )
-    error(
+    return error(
         "Reverse constraint function is not supported when " *
         "`with_parametric_opt_interface` is set to `true` in " *
         "`diff_optimizer`." *
@@ -77,10 +70,15 @@ mutable struct SensitivityData{T}
 end
 
 function SensitivityData{T}() where {T}
-    return SensitivityData{T}(Dict{MOI.VariableIndex,T}(), Dict{MOI.VariableIndex,T}())
+    return SensitivityData{T}(
+        Dict{MOI.VariableIndex,T}(),
+        Dict{MOI.VariableIndex,T}(),
+    )
 end
 
-function _get_sensitivity_data(model::POI.Optimizer{T})::SensitivityData{T} where {T}
+function _get_sensitivity_data(
+    model::POI.Optimizer{T},
+)::SensitivityData{T} where {T}
     _initialize_sensitivity_data!(model)
     return model.ext[:_sensitivity_data]::SensitivityData{T}
 end
@@ -100,7 +98,7 @@ function _constraint_set_forward!(
     model::POI.Optimizer{T},
     affine_constraint_cache_dict,
     ::Type{P},
-) where {T, P <: POI.ParametricAffineFunction}
+) where {T,P<:POI.ParametricAffineFunction}
     sensitivity_data = _get_sensitivity_data(model)
     for (inner_ci, pf) in affine_constraint_cache_dict
         cte = zero(T)
@@ -127,7 +125,7 @@ function _constraint_set_forward!(
     model::POI.Optimizer{T},
     vector_affine_constraint_cache_dict,
     ::Type{P},
-) where {T, P <: POI.ParametricVectorAffineFunction}
+) where {T,P<:POI.ParametricVectorAffineFunction}
     sensitivity_data = _get_sensitivity_data(model)
     for (inner_ci, pf) in vector_affine_constraint_cache_dict
         cte = zeros(T, length(pf.c))
@@ -154,7 +152,7 @@ function _constraint_set_forward!(
     model::POI.Optimizer{T},
     quadratic_constraint_cache_dict,
     ::Type{P},
-) where {T, P <: POI.ParametricQuadraticFunction}
+) where {T,P<:POI.ParametricQuadraticFunction}
     sensitivity_data = _get_sensitivity_data(model)
     for (inner_ci, pf) in quadratic_constraint_cache_dict
         cte = zero(T)
@@ -167,14 +165,18 @@ function _constraint_set_forward!(
         for term in POI.quadratic_parameter_parameter_terms(pf)
             p_1 = term.variable_1
             p_2 = term.variable_2
-            sensitivity_1 = get(sensitivity_data.parameter_input_forward, p_1, 0.0)
-            sensitivity_2 = get(sensitivity_data.parameter_input_forward, p_2, 0.0)
+            sensitivity_1 =
+                get(sensitivity_data.parameter_input_forward, p_1, 0.0)
+            sensitivity_2 =
+                get(sensitivity_data.parameter_input_forward, p_2, 0.0)
             cte +=
-                sensitivity_1 * term.coefficient *
+                sensitivity_1 *
+                term.coefficient *
                 MOI.get(model, MOI.VariablePrimal(), p_2) /
                 ifelse(term.variable_1 === term.variable_2, 2, 1)
             cte +=
-                sensitivity_2 * term.coefficient *
+                sensitivity_2 *
+                term.coefficient *
                 MOI.get(model, MOI.VariablePrimal(), p_1) /
                 ifelse(term.variable_1 === term.variable_2, 2, 1)
         end
@@ -227,7 +229,10 @@ end
 
 function _quadratic_objective_set_forward!(model::POI.Optimizer{T}) where {T}
     cte = zero(T)
-    pf = MOI.get(model, POI.ParametricObjectiveFunction{POI.ParametricQuadraticFunction{T}}())
+    pf = MOI.get(
+        model,
+        POI.ParametricObjectiveFunction{POI.ParametricQuadraticFunction{T}}(),
+    )
     sensitivity_data = _get_sensitivity_data(model)
     for term in POI.affine_parameter_terms(pf)
         p = term.variable
@@ -240,13 +245,13 @@ function _quadratic_objective_set_forward!(model::POI.Optimizer{T}) where {T}
         sensitivity_1 = get(sensitivity_data.parameter_input_forward, p_1, 0.0)
         sensitivity_2 = get(sensitivity_data.parameter_input_forward, p_2, 0.0)
         cte +=
-            sensitivity_1 * term.coefficient *
+            sensitivity_1 *
+            term.coefficient *
             MOI.get(model, MOI.VariablePrimal(), p_2) /
             ifelse(term.variable_1 === term.variable_2, 2, 1)
-        cte +=
-            sensitivity_2 * term.coefficient
-            MOI.get(model, MOI.VariablePrimal(), p_1) /
-            ifelse(term.variable_1 === term.variable_2, 2, 1)
+        cte += sensitivity_2 * term.coefficient
+        MOI.get(model, MOI.VariablePrimal(), p_1) /
+        ifelse(term.variable_1 === term.variable_2, 2, 1)
     end
     terms = MOI.ScalarAffineTerm{T}[]
     sizehint!(terms, length(POI.quadratic_parameter_variable_terms(pf)))
@@ -282,7 +287,10 @@ function forward_differentiate!(model::POI.Optimizer{T}) where {T}
     empty_input_sensitivities!(model)
     ctr_types = MOI.get(model, POI.ListOfParametricConstraintTypesPresent())
     for (F, S, P) in ctr_types
-        dict = MOI.get(model, POI.DictOfParametricConstraintIndicesAndFunctions{F, S, P}())
+        dict = MOI.get(
+            model,
+            POI.DictOfParametricConstraintIndicesAndFunctions{F,S,P}(),
+        )
         _constraint_set_forward!(model, dict, P)
     end
     obj_type = MOI.get(model, POI.ParametricObjectiveType())
@@ -342,7 +350,7 @@ function _constraint_get_reverse!(
     model::POI.Optimizer{T},
     affine_constraint_cache_dict,
     ::Type{P},
-) where {T, P <: POI.ParametricAffineFunction}
+) where {T,P<:POI.ParametricAffineFunction}
     sensitivity_data = _get_sensitivity_data(model)
     for (inner_ci, pf) in affine_constraint_cache_dict
         terms = POI.affine_parameter_terms(pf)
@@ -350,11 +358,7 @@ function _constraint_get_reverse!(
             continue
         end
         grad_pf_cte = MOI.constant(
-            MOI.get(
-                model.optimizer,
-                ReverseConstraintFunction(),
-                inner_ci,
-            ),
+            MOI.get(model.optimizer, ReverseConstraintFunction(), inner_ci),
         )
         for term in terms
             p = term.variable
@@ -370,7 +374,7 @@ function _constraint_get_reverse!(
     model::POI.Optimizer{T},
     vector_affine_constraint_cache_dict,
     ::Type{P},
-) where {T, P <: POI.ParametricVectorAffineFunction}
+) where {T,P<:POI.ParametricVectorAffineFunction}
     sensitivity_data = _get_sensitivity_data(model)
     for (inner_ci, pf) in vector_affine_constraint_cache_dict
         terms = POI.vector_affine_parameter_terms(pf)
@@ -378,11 +382,7 @@ function _constraint_get_reverse!(
             continue
         end
         grad_pf_cte = MOI.constant(
-            MOI.get(
-                model.optimizer,
-                ReverseConstraintFunction(),
-                inner_ci,
-            ),
+            MOI.get(model.optimizer, ReverseConstraintFunction(), inner_ci),
         )
         for term in terms
             p = term.scalar_term.variable
@@ -399,7 +399,7 @@ function _constraint_get_reverse!(
     model::POI.Optimizer{T},
     quadratic_constraint_cache_dict,
     ::Type{P},
-) where {T, P <: POI.ParametricQuadraticFunction}
+) where {T,P<:POI.ParametricQuadraticFunction}
     sensitivity_data = _get_sensitivity_data(model)
     for (inner_ci, pf) in quadratic_constraint_cache_dict
         p_terms = POI.affine_parameter_terms(pf)
@@ -408,11 +408,8 @@ function _constraint_get_reverse!(
         if isempty(p_terms) && isempty(pp_terms) && isempty(pv_terms)
             continue
         end
-        grad_pf = MOI.get(
-            model.optimizer,
-            ReverseConstraintFunction(),
-            inner_ci,
-        )
+        grad_pf =
+            MOI.get(model.optimizer, ReverseConstraintFunction(), inner_ci)
         grad_pf_cte = MOI.constant(grad_pf)
         for term in p_terms
             p = term.variable
@@ -429,12 +426,14 @@ function _constraint_get_reverse!(
             # ANS: probably because it was SET
             sensitivity_data.parameter_output_backward[p_1] =
                 value_1 +
-                term.coefficient * grad_pf_cte *
+                term.coefficient *
+                grad_pf_cte *
                 MOI.get(model, MOI.VariablePrimal(), p_2) /
                 ifelse(term.variable_1 === term.variable_2, 1, 1)
             sensitivity_data.parameter_output_backward[p_2] =
                 value_2 +
-                term.coefficient * grad_pf_cte *
+                term.coefficient *
+                grad_pf_cte *
                 MOI.get(model, MOI.VariablePrimal(), p_1) /
                 ifelse(term.variable_1 === term.variable_2, 1, 1)
         end
@@ -450,7 +449,10 @@ function _constraint_get_reverse!(
 end
 
 function _affine_objective_get_reverse!(model::POI.Optimizer{T}) where {T}
-    pf = MOI.get(model, POI.ParametricObjectiveFunction{POI.ParametricAffineFunction{T}}())
+    pf = MOI.get(
+        model,
+        POI.ParametricObjectiveFunction{POI.ParametricAffineFunction{T}}(),
+    )
     terms = POI.affine_parameter_terms(pf)
     if isempty(terms)
         return
@@ -467,7 +469,10 @@ function _affine_objective_get_reverse!(model::POI.Optimizer{T}) where {T}
     return
 end
 function _quadratic_objective_get_reverse!(model::POI.Optimizer{T}) where {T}
-    pf = MOI.get(model, POI.ParametricObjectiveFunction{POI.ParametricQuadraticFunction{T}}())
+    pf = MOI.get(
+        model,
+        POI.ParametricObjectiveFunction{POI.ParametricQuadraticFunction{T}}(),
+    )
     p_terms = POI.affine_parameter_terms(pf)
     pp_terms = POI.quadratic_parameter_parameter_terms(pf)
     pv_terms = POI.quadratic_parameter_variable_terms(pf)
@@ -490,12 +495,14 @@ function _quadratic_objective_get_reverse!(model::POI.Optimizer{T}) where {T}
         value_2 = get!(sensitivity_data.parameter_output_backward, p_2, 0.0)
         sensitivity_data.parameter_output_backward[p_1] =
             value_1 +
-            term.coefficient * grad_pf_cte *
+            term.coefficient *
+            grad_pf_cte *
             MOI.get(model, MOI.VariablePrimal(), p_2) /
             ifelse(term.variable_1 === term.variable_2, 2, 1)
         sensitivity_data.parameter_output_backward[p_2] =
             value_2 +
-            term.coefficient * grad_pf_cte *
+            term.coefficient *
+            grad_pf_cte *
             MOI.get(model, MOI.VariablePrimal(), p_1) /
             ifelse(term.variable_1 === term.variable_2, 2, 1)
     end
@@ -513,10 +520,16 @@ function reverse_differentiate!(model::POI.Optimizer)
     reverse_differentiate!(model.optimizer)
     sensitivity_data = _get_sensitivity_data(model)
     empty!(sensitivity_data.parameter_output_backward)
-    sizehint!(sensitivity_data.parameter_output_backward, length(model.parameters))
+    sizehint!(
+        sensitivity_data.parameter_output_backward,
+        length(model.parameters),
+    )
     ctr_types = MOI.get(model, POI.ListOfParametricConstraintTypesPresent())
     for (F, S, P) in ctr_types
-        dict = MOI.get(model, POI.DictOfParametricConstraintIndicesAndFunctions{F, S, P}())
+        dict = MOI.get(
+            model,
+            POI.DictOfParametricConstraintIndicesAndFunctions{F,S,P}(),
+        )
         _constraint_get_reverse!(model, dict, P)
     end
     obj_type = MOI.get(model, POI.ParametricObjectiveType())
@@ -528,12 +541,25 @@ function reverse_differentiate!(model::POI.Optimizer)
     return
 end
 
-function _is_parameter(model::POI.Optimizer{T}, variable::MOI.VariableIndex) where {T}
-    MOI.is_valid(model, MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}(variable.value))
+function _is_parameter(
+    model::POI.Optimizer{T},
+    variable::MOI.VariableIndex,
+) where {T}
+    return MOI.is_valid(
+        model,
+        MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}(variable.value),
+    )
 end
 
-function _is_variable(model::POI.Optimizer{T}, variable::MOI.VariableIndex) where {T}
-    MOI.is_valid(model, variable) && !MOI.is_valid(model, MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}(variable.value))
+function _is_variable(
+    model::POI.Optimizer{T},
+    variable::MOI.VariableIndex,
+) where {T}
+    return MOI.is_valid(model, variable) &&
+           !MOI.is_valid(
+        model,
+        MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}(variable.value),
+    )
 end
 
 function MOI.set(
@@ -597,16 +623,22 @@ function set_forward_parameter(
     variable::JuMP.VariableRef,
     value::Number,
 )
-    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(variable), value)
+    return MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(variable),
+        value,
+    )
 end
 
 """
 """
-function get_reverse_parameter(
-    model::JuMP.Model,
-    variable::JuMP.VariableRef,
-)
-    return MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(variable))
+function get_reverse_parameter(model::JuMP.Model, variable::JuMP.VariableRef)
+    return MOI.get(
+        model,
+        DiffOpt.ReverseConstraintSet(),
+        ParameterRef(variable),
+    )
 end
 
 """
@@ -616,14 +648,11 @@ function set_reverse_variable(
     variable::JuMP.VariableRef,
     value::Number,
 )
-    MOI.set(model, DiffOpt.ReverseVariablePrimal(), variable, value)
+    return MOI.set(model, DiffOpt.ReverseVariablePrimal(), variable, value)
 end
 
 """
 """
-function get_forward_variable(
-    model::JuMP.Model,
-    variable::JuMP.VariableRef,
-)
+function get_forward_variable(model::JuMP.Model, variable::JuMP.VariableRef)
     return MOI.get(model, DiffOpt.ForwardVariablePrimal(), variable)
 end

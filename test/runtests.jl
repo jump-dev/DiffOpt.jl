@@ -5,7 +5,10 @@
 
 # TODO: remove this
 import Pkg
-Pkg.add(url="https://github.com/jump-dev/ParametricOptInterface.jl", rev="jg/diff2") 
+Pkg.add(;
+    url = "https://github.com/jump-dev/ParametricOptInterface.jl",
+    rev = "jg/diff2",
+)
 
 using Test
 

@@ -58,8 +58,10 @@ function diff_optimizer(
     with_bridge_type = Float64,
     with_cache::Bool = true,
 )
-    optimizer =
-        MOI.instantiate(optimizer_constructor; with_bridge_type = with_bridge_type)
+    optimizer = MOI.instantiate(
+        optimizer_constructor;
+        with_bridge_type = with_bridge_type,
+    )
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
     # the model information from `optimizer`. However, 1) `optimizer` may not
     # implement some getters or it may be inefficient and 2) the getters may be
@@ -74,9 +76,9 @@ function diff_optimizer(
         optimizer
     end
     if with_parametric_opt_interface
-        return POI.Optimizer(Optimizer(caching_opt, method = method))
+        return POI.Optimizer(Optimizer(caching_opt; method = method))
     else
-        return Optimizer(caching_opt, method = method)
+        return Optimizer(caching_opt; method = method)
     end
 end
 
@@ -93,7 +95,10 @@ mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
     # sensitivity input cache using MOI like sparse format
     input_cache::InputCache
 
-    function Optimizer(optimizer::OT; method = DIFF_AUTOMATIC) where {OT<:MOI.ModelLike}
+    function Optimizer(
+        optimizer::OT;
+        method = DIFF_AUTOMATIC,
+    ) where {OT<:MOI.ModelLike}
         output =
             new{OT}(optimizer, Any[], nothing, nothing, nothing, InputCache())
         if method == DIFF_CONIC
