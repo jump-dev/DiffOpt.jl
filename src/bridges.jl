@@ -59,9 +59,7 @@ function MOI.get(
     attr::ReverseConstraintFunction,
     bridge::MOI.Bridges.Constraint.ScalarizeBridge,
 )
-    return _vectorize(
-        MOI.get.(model, attr, bridge.scalar_constraints),
-    )
+    return _vectorize(MOI.get.(model, attr, bridge.scalar_constraints))
 end
 
 function MOI.get(
