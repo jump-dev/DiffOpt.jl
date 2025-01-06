@@ -378,7 +378,7 @@ function _cache_evaluator!(model::Model)
     evaluator = create_evaluator(form)
     num_constraints = get_num_constraints(form)
     # Analyze constraints and bounds
-    leq_locations, geq_locations = find_inequealities(form)
+    leq_locations, geq_locations = find_inequalities(form)
     num_leq = length(leq_locations)
     num_geq = length(geq_locations)
     has_up = findall(i -> haskey(form.upper_bounds, i.value), primal_vars)

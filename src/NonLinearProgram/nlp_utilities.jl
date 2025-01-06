@@ -25,7 +25,7 @@ end
 """
     compute_optimal_hessian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
 
-Compute the optimal Hessian of the Lagrangian.
+Compute the Hessian of the Lagrangian calculated at the optimal solution.
 """
 function compute_optimal_hessian(
     model::Model,
@@ -38,7 +38,7 @@ function compute_optimal_hessian(
     I = [i for (i, _) in hessian_sparsity]
     J = [j for (_, j) in hessian_sparsity]
     V = zeros(length(hessian_sparsity))
-    # The signals are being sdjusted to match the Ipopt convention (inner.mult_g)
+    # The signals are being adjusted to match the Ipopt convention (inner.mult_g)
     # but we don't know if we need to adjust the objective function multiplier
     MOI.eval_hessian_lagrangian(
         evaluator,
@@ -55,7 +55,7 @@ end
 """
     compute_optimal_jacobian(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
 
-Compute the optimal Jacobian of the constraints.
+Compute the Jacobian of the constraints calculated at the optimal solution.
 """
 function compute_optimal_jacobian(
     model::Model,
@@ -74,7 +74,7 @@ end
 """
     compute_optimal_hess_jac(evaluator::MOI.Nonlinear.Evaluator, rows::Vector{JuMP.ConstraintRef}, x::Vector{JuMP.VariableRef})
 
-Compute the optimal Hessian of the Lagrangian and Jacobian of the constraints.
+Compute the Hessian of the Lagrangian and Jacobian of the constraints calculated at the optimal solution.
 """
 function compute_optimal_hess_jac(
     model::Model,
@@ -148,11 +148,11 @@ function is_greater_inequality(
 end
 
 """
-    find_inequealities(cons::Vector{JuMP.ConstraintRef})
+    find_inequalities(cons::Vector{JuMP.ConstraintRef})
 
 Find the indices of the inequality constraints.
 """
-function find_inequealities(model::Form)
+function find_inequalities(model::Form)
     num_cons = length(model.list_of_constraint)
     leq_locations = zeros(num_cons)
     geq_locations = zeros(num_cons)
@@ -279,11 +279,11 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
 end
 
 """
-    build_M_N(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex}, _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z}, has_up::Vector{Z}, has_low::Vector{Z})
+    build_sensitivity_matrices(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex}, _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z}, has_up::Vector{Z}, has_low::Vector{Z})
 
 Build the M (KKT Jacobian w.r.t. solution) and N (KKT Jacobian w.r.t. parameters) matrices for the sensitivity analysis.
 """
-function build_M_N(
+function build_sensitivity_matrices(
     model::Model,
     cons::Vector{MOI.Nonlinear.ConstraintIndex},
     _X::AbstractVector,
@@ -472,7 +472,7 @@ function compute_derivatives_no_relax(
     has_up::Vector{Z},
     has_low::Vector{Z},
 ) where {Z<:Integer}
-    M, N = build_M_N(
+    M, N = build_sensitivity_matrices(
         model,
         cons,
         _X,
@@ -487,7 +487,7 @@ function compute_derivatives_no_relax(
         has_low,
     )
 
-    # Sesitivity of the solution (primal-dual_constraints-dual_bounds) w.r.t. the parameters
+    # Sensitivity of the solution (primal-dual_constraints-dual_bounds) w.r.t. the parameters
     num_vars = get_num_primal_vars(model)
     num_cons = get_num_constraints(model)
     num_ineq = length(ineq_locations)
@@ -498,7 +498,7 @@ function compute_derivatives_no_relax(
     ∂s = zeros(size(M, 1), size(N, 2))
     # ∂s = - (K \ N) # Sensitivity
     ldiv!(∂s, K, N)
-    ∂s = -∂s
+    ∂s = -∂s # multiply by -1 since we used ∂s as an auxilary variable to calculate K \ N
 
     return ∂s, K, N
 end
