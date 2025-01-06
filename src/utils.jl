@@ -239,6 +239,7 @@ struct MatrixVectorAffineFunction{AT,VT} <: MOI.AbstractVectorFunction
     terms::AT
     constants::VT
 end
+
 MOI.constant(func::MatrixVectorAffineFunction) = func.constants
 function Base.convert(
     ::Type{MOI.VectorAffineFunction{T}},
@@ -269,14 +270,23 @@ function MOIU.isapprox_zero(
     return MOIU.isapprox_zero(standard_form(func), tol)
 end
 
-_scalar(::Type{<:MatrixVectorAffineFunction}) = VectorScalarAffineFunction
-_scalar(::Type{<:SparseVectorAffineFunction}) = SparseScalarAffineFunction
+function MOI.Utilities.scalar_type(::Type{<:MatrixVectorAffineFunction})
+    return VectorScalarAffineFunction
+end
+
+function MOI.Utilities.scalar_type(::Type{<:SparseVectorAffineFunction})
+    return SparseScalarAffineFunction
+end
+
 
 function Base.getindex(
     it::MOI.Utilities.ScalarFunctionIterator{F},
     output_index::Integer,
 ) where {F<:Union{MatrixVectorAffineFunction,SparseVectorAffineFunction}}
-    return _scalar(F)(it.f.terms[output_index, :], it.f.constants[output_index])
+    return MOI.Utilities.scalar_type(F)(
+        it.f.terms[output_index, :],
+        it.f.constants[output_index],
+    )
 end
 
 function _index_map_to_oneto!(index_map, v::MOI.VariableIndex)
