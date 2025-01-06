@@ -278,7 +278,6 @@ function MOI.Utilities.scalar_type(::Type{<:SparseVectorAffineFunction})
     return SparseScalarAffineFunction
 end
 
-
 function Base.getindex(
     it::MOI.Utilities.ScalarFunctionIterator{F},
     output_index::Integer,
