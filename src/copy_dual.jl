@@ -103,7 +103,7 @@ function _copy_dual(dest::MOI.ModelLike, src::MOI.ModelLike, index_map)
         )
     end
     # Same as in `JuMP.set_start_values`
-    # Needed for models which bridge `min f(x)` into `min t; t >= f(x)`.
+    # Needed for models which bridge `min f(x)` into `min t such that t >= f(x)`.
     MOI.set(dest, MOI.Bridges.Objective.SlackBridgePrimalDualStart(), nothing)
     return
 end
