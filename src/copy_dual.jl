@@ -11,45 +11,6 @@ struct ObjectiveFunctionAttribute{A,F} <: MOI.AbstractModelAttribute
     attr::A
 end
 
-"""
-    struct ObjectiveDualStart <: MOI.AbstractModelAttribute end
-
-If the objective function had a dual, it would be `-1` for the Lagrangian
-function to be the same.
-When the `MOI.Bridges.Objective.SlackBridge` is used, it creates a constraint.
-The dual of this constraint is therefore `-1` as well.
-When setting this attribute, it allows to set the constraint dual of this
-constraint.
-"""
-struct ObjectiveDualStart <: MOI.AbstractModelAttribute end
-# Defining it for `MOI.set` leads to ambiguity
-function MOI.throw_set_error_fallback(
-    ::MOI.ModelLike,
-    ::ObjectiveDualStart,
-    value,
-)
-    return nothing
-end
-
-"""
-    struct ObjectiveSlackGapPrimalStart <: MOI.AbstractModelAttribute end
-
-If the objective function had a dual, it would be `-1` for the Lagrangian
-function to be the same.
-When the `MOI.Bridges.Objective.SlackBridge` is used, it creates a constraint.
-The dual of this constraint is therefore `-1` as well.
-When setting this attribute, it allows to set the constraint dual of this
-constraint.
-"""
-struct ObjectiveSlackGapPrimalStart <: MOI.AbstractModelAttribute end
-function MOI.throw_set_error_fallback(
-    ::MOI.ModelLike,
-    ::ObjectiveSlackGapPrimalStart,
-    value,
-)
-    return nothing
-end
-
 function MOI.get(
     b::MOI.Bridges.AbstractBridgeOptimizer,
     attr::ObjectiveFunctionAttribute{A,F},
@@ -100,11 +61,7 @@ end
 
 function MOI.set(
     b::MOI.Bridges.AbstractBridgeOptimizer,
-    attr::Union{
-        ObjectiveDualStart,
-        ObjectiveSlackGapPrimalStart,
-        ForwardObjectiveFunction,
-    },
+    attr::ForwardObjectiveFunction,
     value,
 )
     if MOI.Bridges.is_objective_bridged(b)
@@ -119,34 +76,6 @@ function MOI.set(
     else
         return MOI.set(b.model, attr, value)
     end
-end
-
-function MOI.set(
-    model::MOI.ModelLike,
-    ::ObjectiveFunctionAttribute{ObjectiveDualStart},
-    b::MOI.Bridges.Objective.SlackBridge,
-    value,
-)
-    return MOI.set(model, MOI.ConstraintDualStart(), b.constraint, value)
-end
-
-function MOI.set(
-    model::MOI.ModelLike,
-    ::ObjectiveFunctionAttribute{ObjectiveSlackGapPrimalStart},
-    b::MOI.Bridges.Objective.SlackBridge{T},
-    value,
-) where {T}
-    # `f(x) - slack = value` so `slack = f(x) - value`
-    fun = MOI.get(model, MOI.ConstraintFunction(), b.constraint)
-    set = MOI.get(model, MOI.ConstraintSet(), b.constraint)
-    MOI.Utilities.operate!(-, T, fun, MOI.constant(set))
-    # `fun = f - slack` so we remove the term `-slack` to get `f`
-    f = MOI.Utilities.remove_variable(fun, b.slack)
-    f_val = MOI.Utilities.eval_variables(f) do v
-        return MOI.get(model, MOI.VariablePrimalStart(), v)
-    end
-    MOI.set(model, MOI.VariablePrimalStart(), b.slack, f_val - value)
-    return MOI.set(model, MOI.ConstraintPrimalStart(), b.constraint, value)
 end
 
 function _copy_dual(dest::MOI.ModelLike, src::MOI.ModelLike, index_map)
@@ -173,8 +102,10 @@ function _copy_dual(dest::MOI.ModelLike, src::MOI.ModelLike, index_map)
             MOI.ConstraintDual(),
         )
     end
-    MOI.set(dest, ObjectiveDualStart(), -1.0)
-    return MOI.set(dest, ObjectiveSlackGapPrimalStart(), 0.0)
+    # Same as in `JuMP.set_start_values`
+    # Needed for models which bridge `min f(x)` into `min t such that t >= f(x)`.
+    MOI.set(dest, MOI.Bridges.Objective.SlackBridgePrimalDualStart(), nothing)
+    return
 end
 
 function _copy_constraint_start(
