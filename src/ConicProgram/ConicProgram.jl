@@ -155,6 +155,9 @@ function MOI.set(
     )
 end
 
+# The following `supports` methods are needed because
+# `MOI.set(::MOI.ModelLike, ::SlackBridgePrimalDualStart, ::SlackBridge, ::Nothing)`
+# checks that the model supports these starting value attributes.
 function MOI.supports(
     ::Model,
     ::Union{MOI.VariablePrimalStart},
