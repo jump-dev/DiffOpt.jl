@@ -155,6 +155,22 @@ function MOI.set(
     )
 end
 
+function MOI.supports(
+    ::Model,
+    ::Union{MOI.VariablePrimalStart},
+    ::Type{<:MOI.VariableIndex},
+)
+    return true
+end
+
+function MOI.supports(
+    ::Model,
+    ::Union{MOI.ConstraintDualStart,MOI.ConstraintPrimalStart},
+    ::Type{<:MOI.ConstraintIndex},
+)
+    return true
+end
+
 function MOI.set(
     model::Model,
     ::MOI.ConstraintDualStart,
