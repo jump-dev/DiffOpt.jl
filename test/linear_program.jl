@@ -8,7 +8,6 @@ module TestLinearProgram
 using Test
 import DiffOpt
 import HiGHS
-import Ipopt
 import MathOptInterface as MOI
 import SCS
 
@@ -54,7 +53,7 @@ function test_differentiating_a_simple_LP_with_GreaterThan_constraint()
     # s.t. x >= 3
     nz = 1
     qp_test_with_solutions(
-        Ipopt.Optimizer;
+        HiGHS.Optimizer;
         q = ones(nz),
         G = -ones(1, nz),
         h = [-3.0],
