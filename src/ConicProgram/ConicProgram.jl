@@ -183,6 +183,14 @@ function _gradient_cache(model::Model)
         )
     b = model.model.constraints.constants
 
+    if any(isnan, model.y) || length(model.y) < length(b)
+        error("Some constraints are missing a value for the `ConstraintDualStart` attribute.")
+    end
+
+    if any(isnan, model.s) || length(model.s) < length(b)
+        error("Some constraints are missing a value for the `ConstraintPrimalStart` attribute.")
+    end
+
     if MOI.get(model, MOI.ObjectiveSense()) == MOI.FEASIBILITY_SENSE
         c = SparseArrays.spzeros(size(A, 2))
     else
