@@ -31,7 +31,80 @@ examples, tutorials, and an API reference.
 
 ## Use with JuMP
 
-Use DiffOpt with JuMP by following this brief example:
+### DiffOpt-JuMP API with `Parameters`
+
+```julia
+using JuMP, DiffOpt, HiGHS
+
+# model = Model(
+#     () -> DiffOpt.diff_optimizer(
+#         HiGHS.Optimizer;
+#         with_parametric_opt_interface = true,
+#     ),
+# )
+model = DiffOpt.diff_model(
+    HiGHS.Optimizer;
+    with_parametric_opt_interface = true,
+)
+set_silent(model)
+
+p_val = 4.0
+pc_val = 2.0
+@variable(model, x)
+@variable(model, p in Parameter(p_val))
+@variable(model, pc in Parameter(pc_val))
+@constraint(model, cons, pc * x >= 3 * p) #??? InvalidConstraintRef TODO
+@objective(model, Min, 2x)
+optimize!(model)
+@show value(x) == 3 * p_val / pc_val
+
+# the function is
+# x(p, pc) = 3p / pc
+# hence,
+# dx/dp = 3 / pc
+# dx/dpc = -3p / pc^2
+
+# First, try forward mode AD
+
+# differentiate w.r.t. p
+direction_p = 3.0
+DiffOpt.set_forward_parameter(model, p, direction_p)
+DiffOpt.forward_differentiate!(model)
+@show DiffOpt.get_forward_variable(model, x) == direction_p * 3 / pc_val
+
+# update p and pc
+p_val = 2.0
+pc_val = 6.0
+set_parameter_value(p, p_val)
+set_parameter_value(pc, pc_val)
+# re-optimize
+optimize!(model)
+# check solution
+@show value(x) ≈ 3 * p_val / pc_val
+
+# stop differentiating with respect to p
+DiffOpt.empty_input_sensitivities!(model)
+# differentiate w.r.t. pc
+direction_pc = 10.0
+DiffOpt.set_forward_parameter(model, pc, direction_pc)
+DiffOpt.forward_differentiate!(model)
+@show abs(DiffOpt.get_forward_variable(model, x) -
+    -direction_pc * 3 * p_val / pc_val^2) < 1e-5
+
+# always a good practice to clear previously set sensitivities
+DiffOpt.empty_input_sensitivities!(model)
+# Now, reverse model AD
+direction_x = 10.0
+DiffOpt.set_reverse_variable(model, x, direction_x)
+DiffOpt.reverse_differentiate!(model)
+@show DiffOpt.get_reverse_parameter(model, p) == direction_x * 3 / pc_val
+@show abs(DiffOpt.get_reverse_parameter(model, pc) -
+    -direction_x * 3 * p_val / pc_val^2) < 1e-5
+```
+
+### Low level DiffOpt-JuMP API:
+
+A brief example:
 
 ```julia
 using JuMP, DiffOpt, HiGHS

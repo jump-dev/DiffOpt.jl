@@ -19,6 +19,7 @@ include("utils.jl")
 include("product_of_sets.jl")
 include("diff_opt.jl")
 include("moi_wrapper.jl")
+include("jump_wrapper.jl")
 include("jump_moi_overloads.jl")
 include("parameters.jl")
 
@@ -41,5 +42,9 @@ function add_all_model_constructors(model)
 end
 
 export diff_optimizer
+
+
+# TODO
+# add precompilation statements
 
 end # module
