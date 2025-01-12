@@ -268,6 +268,25 @@ function _enlarge_set(vec::Vector, idx, value)
     return
 end
 
+# The following `supports` methods are needed because
+# `MOI.set(::MOI.ModelLike, ::SlackBridgePrimalDualStart, ::SlackBridge, ::Nothing)`
+# checks that the model supports these starting value attributes.
+function MOI.supports(
+    ::AbstractModel,
+    ::MOI.VariablePrimalStart,
+    ::Type{<:MOI.VariableIndex},
+)
+    return true
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::Union{MOI.ConstraintDualStart,MOI.ConstraintPrimalStart},
+    ::Type{<:MOI.ConstraintIndex},
+)
+    return true
+end
+
 function MOI.get(
     model::AbstractModel,
     ::MOI.VariablePrimalStart,

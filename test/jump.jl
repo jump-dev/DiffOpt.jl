@@ -465,7 +465,7 @@ function test_differentiating_simple_socp()
     db = zeros(5)
     dc = zeros(3)
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), vv, 1.0)
-    @test_broken DiffOpt.reverse_differentiate!(model)
+    DiffOpt.reverse_differentiate!(model)
     # TODO add tests
     return
 end

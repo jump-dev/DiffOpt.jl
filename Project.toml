@@ -1,7 +1,7 @@
 name = "DiffOpt"
 uuid = "930fe3bc-9c6b-11ea-2d94-6184641e85e7"
 authors = ["Akshay Sharma", "Mathieu Besançon", "Joaquim Dias Garcia", "Benoît Legat", "Oscar Dowson"]
-version = "0.4.2"
+version = "0.4.3"
 
 [deps]
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
@@ -22,6 +22,6 @@ ChainRulesCore = "1"
 IterativeSolvers = "0.9"
 JuMP = "1"
 LazyArrays = "0.21, 0.22, 1"
-MathOptInterface = "1.14.1"
+MathOptInterface = "1.18"
 MathOptSetDistances = "0.2.7"
 julia = "1.6"
