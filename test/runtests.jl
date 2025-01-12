@@ -3,13 +3,6 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-# TODO: remove this
-import Pkg
-Pkg.add(;
-    url = "https://github.com/jump-dev/ParametricOptInterface.jl",
-    rev = "jg/diff2",
-)
-
 using Test
 
 @testset "$file" for file in readdir(@__DIR__)
