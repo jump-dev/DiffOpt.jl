@@ -36,15 +36,11 @@ examples, tutorials, and an API reference.
 ```julia
 using JuMP, DiffOpt, HiGHS
 
-# model = Model(
-#     () -> DiffOpt.diff_optimizer(
-#         HiGHS.Optimizer;
-#         with_parametric_opt_interface = true,
-#     ),
-# )
-model = DiffOpt.diff_model(
-    HiGHS.Optimizer;
-    with_parametric_opt_interface = true,
+model = Model(
+    () -> DiffOpt.diff_optimizer(
+        HiGHS.Optimizer;
+        with_parametric_opt_interface = true,
+    ),
 )
 set_silent(model)
 
@@ -68,9 +64,9 @@ optimize!(model)
 
 # differentiate w.r.t. p
 direction_p = 3.0
-DiffOpt.set_forward_parameter(model, p, direction_p)
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), direction_p)
 DiffOpt.forward_differentiate!(model)
-@show DiffOpt.get_forward_variable(model, x) == direction_p * 3 / pc_val
+@show MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) == direction_p * 3 / pc_val
 
 # update p and pc
 p_val = 2.0
@@ -86,19 +82,19 @@ optimize!(model)
 DiffOpt.empty_input_sensitivities!(model)
 # differentiate w.r.t. pc
 direction_pc = 10.0
-DiffOpt.set_forward_parameter(model, pc, direction_pc)
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(pc), direction_pc)
 DiffOpt.forward_differentiate!(model)
-@show abs(DiffOpt.get_forward_variable(model, x) -
+@show abs(MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) -
     -direction_pc * 3 * p_val / pc_val^2) < 1e-5
 
 # always a good practice to clear previously set sensitivities
 DiffOpt.empty_input_sensitivities!(model)
 # Now, reverse model AD
 direction_x = 10.0
-DiffOpt.set_reverse_variable(model, x, direction_x)
+MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, direction_x)
 DiffOpt.reverse_differentiate!(model)
-@show DiffOpt.get_reverse_parameter(model, p) == direction_x * 3 / pc_val
-@show abs(DiffOpt.get_reverse_parameter(model, pc) -
+@show MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) == direction_x * 3 / pc_val
+@show abs(MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(pc)) -
     -direction_x * 3 * p_val / pc_val^2) < 1e-5
 ```
 
