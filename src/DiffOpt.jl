@@ -42,7 +42,6 @@ end
 
 export diff_optimizer
 
-
 # TODO
 # add precompilation statements
 
