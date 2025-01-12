@@ -278,13 +278,14 @@ function _quadratic_objective_set_forward!(model::POI.Optimizer{T}) where {T}
     return
 end
 
-function empty_input_sensitivities!(model::POI.Optimizer)
+function empty_input_sensitivities!(model::POI.Optimizer{T}) where {T}
     empty_input_sensitivities!(model.optimizer)
+    model.ext[:_sensitivity_data] = SensitivityData{T}()
     return
 end
 
 function forward_differentiate!(model::POI.Optimizer{T}) where {T}
-    empty_input_sensitivities!(model)
+    empty_input_sensitivities!(model.optimizer)
     ctr_types = MOI.get(model, POI.ListOfParametricConstraintTypesPresent())
     for (F, S, P) in ctr_types
         dict = MOI.get(
@@ -575,21 +576,6 @@ function MOI.set(
     return
 end
 
-# MOI.is_set_by_optimize(::ReverseParameter) = true
-
-# function MOI.get(
-#     model::POI.Optimizer,
-#     ::ReverseParameter,
-#     variable::MOI.VariableIndex,
-# )
-#     if _is_variable(model, variable)
-#         error("Trying to get a backward parameter sensitivity for a variable")
-#     end
-#     p = variable
-#     sensitivity_data = _get_sensitivity_data(model)
-#     return get(sensitivity_data.parameter_output_backward, p, 0.0)
-# end
-
 MOI.is_set_by_optimize(::ReverseConstraintSet) = true
 
 function MOI.get(
@@ -614,45 +600,4 @@ function MOI.get(
 )
     JuMP.check_belongs_to_model(var_ref, model)
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
-end
-
-"""
-"""
-function set_forward_parameter(
-    model::JuMP.Model,
-    variable::JuMP.VariableRef,
-    value::Number,
-)
-    return MOI.set(
-        model,
-        DiffOpt.ForwardConstraintSet(),
-        ParameterRef(variable),
-        value,
-    )
-end
-
-"""
-"""
-function get_reverse_parameter(model::JuMP.Model, variable::JuMP.VariableRef)
-    return MOI.get(
-        model,
-        DiffOpt.ReverseConstraintSet(),
-        ParameterRef(variable),
-    )
-end
-
-"""
-"""
-function set_reverse_variable(
-    model::JuMP.Model,
-    variable::JuMP.VariableRef,
-    value::Number,
-)
-    return MOI.set(model, DiffOpt.ReverseVariablePrimal(), variable, value)
-end
-
-"""
-"""
-function get_forward_variable(model::JuMP.Model, variable::JuMP.VariableRef)
-    return MOI.get(model, DiffOpt.ForwardVariablePrimal(), variable)
 end
