@@ -42,47 +42,35 @@ function test_diff_rhs()
     # the function is
     # x(p) = 3p, hence x'(p) = 3
     # differentiate w.r.t. p
-    # MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 1)
-    DiffOpt.set_forward_parameter(model, p, 1)
+    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 1)
     DiffOpt.forward_differentiate!(model)
-    # @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 3
-    @test DiffOpt.get_forward_variable(model, x) ≈ 3
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 3
     # again with different "direction"
-    # MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 2)
-    DiffOpt.set_forward_parameter(model, p, 2)
+    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 2)
     DiffOpt.forward_differentiate!(model)
-    # @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 6
-    @test DiffOpt.get_forward_variable(model, x) ≈ 6
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 6
     #
     set_parameter_value(p, 2.0)
     optimize!(model)
     @test value(x) ≈ 6
     # differentiate w.r.t. p
-    # MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 1)
-    DiffOpt.set_forward_parameter(model, p, 1)
+    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 1)
     DiffOpt.forward_differentiate!(model)
-    # @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 3
-    @test DiffOpt.get_forward_variable(model, x) ≈ 3
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 3
     # again with different "direction"
-    # MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 2)
-    DiffOpt.set_forward_parameter(model, p, 2)
+    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 2)
     DiffOpt.forward_differentiate!(model)
-    # @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 6
-    @test DiffOpt.get_forward_variable(model, x) ≈ 6
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 6
     #
     # test reverse mode
     #
-    # MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1)
-    DiffOpt.set_reverse_variable(model, x, 1)
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1)
     DiffOpt.reverse_differentiate!(model)
-    # @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈ 3
-    @test DiffOpt.get_reverse_parameter(model, p) ≈ 3
+    @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈ 3
     # again with different "direction"
-    # MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 2)
-    DiffOpt.set_reverse_variable(model, x, 2)
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 2)
     DiffOpt.reverse_differentiate!(model)
-    # @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈ 6
-    @test DiffOpt.get_reverse_parameter(model, p) ≈ 6
+    @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈ 6
     return
 end
 
