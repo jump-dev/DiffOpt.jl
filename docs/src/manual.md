@@ -28,7 +28,7 @@ and the following objective types:
 
 ## Supported objectives & constraints - `ConicProgram` backend
 
-For the `ConicProgram` backend backend, the package supports following `Function-in-Set` constraints: 
+For the `ConicProgram` backend, the package supports following `Function-in-Set` constraints: 
 
 |  MOI Function | MOI Set |
 |:-------|:---------------|

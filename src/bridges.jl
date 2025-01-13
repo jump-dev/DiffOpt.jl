@@ -47,9 +47,9 @@ end
 function MOI.set(
     model::MOI.ModelLike,
     attr::ForwardConstraintFunction,
-    bridge::MOI.Bridges.Constraint.ScalarizeBridge{T},
+    bridge::MOI.Bridges.Constraint.ScalarizeBridge,
     value,
-) where {T}
+)
     MOI.set.(model, attr, bridge.scalar_constraints, value)
     return
 end
