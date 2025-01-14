@@ -60,13 +60,6 @@ You can create a differentiable optimizer over an existing MOI solver by using t
 diff_optimizer
 ```
 
-## Creating a differentiable JuMP model
-
-You initialize a differentiable JuMP model by using the `diff_model` utility. 
-```@docs
-diff_model
-```
-
 ## Projections on cone sets
 
 DiffOpt requires taking projections and finding projection gradients of vectors while computing the jacobians. For this purpose, we use [MathOptSetDistances.jl](https://github.com/matbesancon/MathOptSetDistances.jl), which is a dedicated package for computing set distances, projections and projection gradients.
