@@ -39,7 +39,9 @@ function diff_optimizer(
     # For this reason we add a cache layer, the same cache JuMP adds.
     caching_opt = if with_cache
         MOI.Utilities.CachingOptimizer(
-            MOI.Utilities.UniversalFallback(MOI.Utilities.Model{with_bridge_type}()),
+            MOI.Utilities.UniversalFallback(
+                MOI.Utilities.Model{with_bridge_type}(),
+            ),
             optimizer,
         )
     else

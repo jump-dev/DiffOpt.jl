@@ -76,21 +76,21 @@ function SensitivityData{T}() where {T}
     )
 end
 
+const _SENSITIVITY_DATA = :_sensitivity_data
+
 function _get_sensitivity_data(
     model::POI.Optimizer{T},
 )::SensitivityData{T} where {T}
     _initialize_sensitivity_data!(model)
-    return model.ext[:_sensitivity_data]::SensitivityData{T}
+    return model.ext[_SENSITIVITY_DATA]::SensitivityData{T}
 end
 
 function _initialize_sensitivity_data!(model::POI.Optimizer{T}) where {T}
-    if !haskey(model.ext, :_sensitivity_data)
-        model.ext[:_sensitivity_data] = SensitivityData{T}()
+    if !haskey(model.ext, _SENSITIVITY_DATA)
+        model.ext[_SENSITIVITY_DATA] = SensitivityData{T}()
     end
     return
 end
-
-const DoubleDictInner = MOI.Utilities.DoubleDicts.DoubleDictInner
 
 # forward mode
 
@@ -280,7 +280,7 @@ end
 
 function empty_input_sensitivities!(model::POI.Optimizer{T}) where {T}
     empty_input_sensitivities!(model.optimizer)
-    model.ext[:_sensitivity_data] = SensitivityData{T}()
+    model.ext[_SENSITIVITY_DATA] = SensitivityData{T}()
     return
 end
 
@@ -303,21 +303,6 @@ function forward_differentiate!(model::POI.Optimizer{T}) where {T}
     forward_differentiate!(model.optimizer)
     return
 end
-
-# function MOI.set(
-#     model::POI.Optimizer,
-#     ::ForwardParameter,
-#     variable::MOI.VariableIndex,
-#     value::Number,
-# )
-#     if _is_variable(model, variable)
-#         error("Trying to set a forward parameter sensitivity for a variable")
-#     end
-#     parameter = variable
-#     sensitivity_data = _get_sensitivity_data(model)
-#     sensitivity_data.parameter_input_forward[parameter] = value
-#     return
-# end
 
 function MOI.set(
     model::POI.Optimizer,
