@@ -14,8 +14,9 @@ import MathOptInterface as MOI
 import HiGHS
 import SCS
 
-Base.isapprox(x::MOI.Parameter, y::MOI.Parameter; atol = 1e-10) =
-    isapprox(x.value, y.value, atol = atol)
+function Base.isapprox(x::MOI.Parameter, y::MOI.Parameter; atol = 1e-10)
+    return isapprox(x.value, y.value; atol = atol)
+end
 
 function runtests()
     for name in names(@__MODULE__; all = true)

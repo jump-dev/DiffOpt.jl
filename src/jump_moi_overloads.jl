@@ -108,7 +108,12 @@ function MOI.set(
     set::JuMP.AbstractScalarSet,
 )
     JuMP.check_belongs_to_model(con_ref, model)
-    return MOI.set(JuMP.backend(model), attr, JuMP.index(con_ref), JuMP.moi_set(set))
+    return MOI.set(
+        JuMP.backend(model),
+        attr,
+        JuMP.index(con_ref),
+        JuMP.moi_set(set),
+    )
 end
 
 """
