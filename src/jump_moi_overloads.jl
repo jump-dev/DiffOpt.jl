@@ -80,6 +80,42 @@ function MOI.get(
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
 
+# extras to handle model_dirty
+
+function MOI.get(
+    model::JuMP.Model,
+    attr::ReverseConstraintSet,
+    var_ref::JuMP.ConstraintRef,
+)
+    JuMP.check_belongs_to_model(var_ref, model)
+    return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintSet,
+    con_ref::JuMP.ConstraintRef,
+    set::MOI.AbstractScalarSet,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(JuMP.backend(model), attr, JuMP.index(con_ref), set)
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintSet,
+    con_ref::JuMP.ConstraintRef,
+    set::JuMP.AbstractScalarSet,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(
+        JuMP.backend(model),
+        attr,
+        JuMP.index(con_ref),
+        JuMP.moi_set(set),
+    )
+end
+
 """
     abstract type AbstractLazyScalarFunction <: MOI.AbstractScalarFunction end
 
@@ -307,6 +343,11 @@ function forward_differentiate!(model::JuMP.Model)
     return forward_differentiate!(JuMP.backend(model))
 end
 
+function empty_input_sensitivities!(model::JuMP.Model)
+    empty_input_sensitivities!(JuMP.backend(model))
+    return
+end
+
 # MOI.Utilities
 
 function reverse_differentiate!(model::MOI.Utilities.CachingOptimizer)
@@ -317,6 +358,11 @@ function forward_differentiate!(model::MOI.Utilities.CachingOptimizer)
     return forward_differentiate!(model.optimizer)
 end
 
+function empty_input_sensitivities!(model::MOI.Utilities.CachingOptimizer)
+    empty_input_sensitivities!(model.optimizer)
+    return
+end
+
 # MOIB
 
 function reverse_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer)
@@ -325,4 +371,9 @@ end
 
 function forward_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer)
     return forward_differentiate!(model.model)
+end
+
+function empty_input_sensitivities!(model::MOI.Bridges.AbstractBridgeOptimizer)
+    empty_input_sensitivities!(model.model)
+    return
 end
