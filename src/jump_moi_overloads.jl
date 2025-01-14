@@ -80,6 +80,37 @@ function MOI.get(
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
 
+# extras to handle model_dirty
+
+function MOI.get(
+    model::JuMP.Model,
+    attr::ReverseConstraintSet,
+    var_ref::JuMP.ConstraintRef,
+)
+    JuMP.check_belongs_to_model(var_ref, model)
+    return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintSet,
+    con_ref::JuMP.ConstraintRef,
+    set::MOI.AbstractScalarSet,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(JuMP.backend(model), attr, JuMP.index(con_ref), set)
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintSet,
+    con_ref::JuMP.ConstraintRef,
+    set::JuMP.AbstractScalarSet,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(JuMP.backend(model), attr, JuMP.index(con_ref), JuMP.moi_set(set))
+end
+
 """
     abstract type AbstractLazyScalarFunction <: MOI.AbstractScalarFunction end
 

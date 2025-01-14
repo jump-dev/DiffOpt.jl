@@ -14,6 +14,9 @@ import MathOptInterface as MOI
 import HiGHS
 import SCS
 
+Base.isapprox(x::MOI.Parameter, y::MOI.Parameter; atol = 1e-10) =
+    isapprox(x.value, y.value, atol = atol)
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -42,11 +45,21 @@ function test_diff_rhs()
     # the function is
     # x(p) = 3p, hence x'(p) = 3
     # differentiate w.r.t. p
-    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 1)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(1.0),
+    )
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 3
     # again with different "direction"
-    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 2)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(2.0),
+    )
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 6
     #
@@ -54,11 +67,21 @@ function test_diff_rhs()
     optimize!(model)
     @test value(x) ≈ 6
     # differentiate w.r.t. p
-    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 1)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(1.0),
+    )
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 3
     # again with different "direction"
-    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), 2)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(2.0),
+    )
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 6
     #
@@ -66,11 +89,13 @@ function test_diff_rhs()
     #
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1)
     DiffOpt.reverse_differentiate!(model)
-    @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈ 3
+    @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈
+          MOI.Parameter(3.0)
     # again with different "direction"
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 2)
     DiffOpt.reverse_differentiate!(model)
-    @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈ 6
+    @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈
+          MOI.Parameter(6.0)
     return
 end
 
@@ -99,12 +124,12 @@ function test_diff_vector_rhs()
         set_parameter_value(p, p_val)
         optimize!(model)
         @test isapprox(value(x), 3 * p_val, atol = 1e-3)
-        for direction in 0:3
+        for direction in 0.0:3.0
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(p),
-                direction,
+                Parameter(direction),
             )
             DiffOpt.forward_differentiate!(model)
             @test isapprox(
@@ -117,7 +142,7 @@ function test_diff_vector_rhs()
             DiffOpt.reverse_differentiate!(model)
             @test isapprox(
                 MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)),
-                direction * 3,
+                MOI.Parameter(direction * 3),
                 atol = 1e-3,
             )
         end
@@ -145,12 +170,12 @@ function test_affine_changes()
     # the function is
     # x(p, pc) = 3p / pc, hence dx/dp = 3 / pc, dx/dpc = -3p / pc^2
     # differentiate w.r.t. p
-    for direction_p in 1:1#2
+    for direction_p in 1.0:2.0
         MOI.set(
             model,
             DiffOpt.ForwardConstraintSet(),
             ParameterRef(p),
-            direction_p,
+            Parameter(direction_p),
         )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
@@ -162,12 +187,12 @@ function test_affine_changes()
     optimize!(model)
     @test value(x) ≈ 3 * p_val / pc_val
     # differentiate w.r.t. p
-    for direction_p in 1:2
+    for direction_p in 1.0:2.0
         MOI.set(
             model,
             DiffOpt.ForwardConstraintSet(),
             ParameterRef(p),
-            direction_p,
+            Parameter(direction_p),
         )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
@@ -176,13 +201,18 @@ function test_affine_changes()
     # differentiate w.r.t. pc
     # stop differentiating with respect to p
     direction_p = 0.0
-    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), direction_p)
-    for direction_pc in 1:2
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(direction_p),
+    )
+    for direction_pc in 1.0:2.0
         MOI.set(
             model,
             DiffOpt.ForwardConstraintSet(),
             ParameterRef(pc),
-            direction_pc,
+            Parameter(direction_pc),
         )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
@@ -193,12 +223,12 @@ function test_affine_changes()
     set_parameter_value(pc, pc_val)
     optimize!(model)
     @test value(x) ≈ 3 * p_val / pc_val
-    for direction_pc in 1:1#2
+    for direction_pc in 1.0:2.0
         MOI.set(
             model,
             DiffOpt.ForwardConstraintSet(),
             ParameterRef(pc),
-            direction_pc,
+            Parameter(direction_pc),
         )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
@@ -210,13 +240,13 @@ function test_affine_changes()
             model,
             DiffOpt.ForwardConstraintSet(),
             ParameterRef(p),
-            direction_p,
+            Parameter(direction_p),
         )
         MOI.set(
             model,
             DiffOpt.ForwardConstraintSet(),
             ParameterRef(pc),
-            direction_pc,
+            Parameter(direction_pc),
         )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
@@ -247,18 +277,18 @@ function test_affine_changes_compact()
         set_parameter_value(pc, pc_val)
         optimize!(model)
         @test value(x) ≈ 3 * p_val / pc_val
-        for direction_pc in 0:2, direction_p in 0:2
+        for direction_pc in 0.0:2.0, direction_p in 0.0:2.0
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(p),
-                direction_p,
+                Parameter(direction_p),
             )
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(pc),
-                direction_pc,
+                Parameter(direction_pc),
             )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
@@ -272,12 +302,12 @@ function test_affine_changes_compact()
                 model,
                 DiffOpt.ReverseConstraintSet(),
                 ParameterRef(p),
-            ) ≈ direction_x * 3 / pc_val
+            ) ≈ MOI.Parameter(direction_x * 3 / pc_val)
             @test MOI.get(
                 model,
                 DiffOpt.ReverseConstraintSet(),
                 ParameterRef(pc),
-            ) ≈ -direction_x * 3 * p_val / pc_val^2
+            ) ≈ MOI.Parameter(-direction_x * 3 * p_val / pc_val^2)
         end
     end
     return
@@ -324,36 +354,41 @@ function test_quadratic_rhs_changes()
         optimize!(model)
         @test value(x) ≈
               (1 + 3 * p_val * q_val + 5 * r_val^2 + 7 * s_val) / (11 * t_val)
-        for dir_p in 0:2, dir_q in 0:2, dir_r in 0:2, dir_s in 0:2, dir_t in 0:2
+        for dir_p in 0.0:2.0,
+            dir_q in 0.0:2.0,
+            dir_r in 0.0:2.0,
+            dir_s in 0.0:2.0,
+            dir_t in 0.0:2.0
+
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(p),
-                dir_p,
+                Parameter(dir_p),
             )
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(q),
-                dir_q,
+                Parameter(dir_q),
             )
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(r),
-                dir_r,
+                Parameter(dir_r),
             )
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(s),
-                dir_s,
+                Parameter(dir_s),
             )
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(t),
-                dir_t,
+                Parameter(dir_t),
             )
             DiffOpt.forward_differentiate!(model)
             @test isapprox(
@@ -374,29 +409,31 @@ function test_quadratic_rhs_changes()
             DiffOpt.reverse_differentiate!(model)
             @test isapprox(
                 MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)),
-                dir_x * 3 * q_val / (11 * t_val),
+                MOI.Parameter(dir_x * 3 * q_val / (11 * t_val)),
                 atol = 1e-10,
             )
             @test isapprox(
                 MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(q)),
-                dir_x * 3 * p_val / (11 * t_val),
+                MOI.Parameter(dir_x * 3 * p_val / (11 * t_val)),
                 atol = 1e-10,
             )
             @test isapprox(
                 MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(r)),
-                dir_x * 10 * r_val / (11 * t_val),
+                MOI.Parameter(dir_x * 10 * r_val / (11 * t_val)),
                 atol = 1e-10,
             )
             @test isapprox(
                 MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(s)),
-                dir_x * 7 / (11 * t_val),
+                MOI.Parameter(dir_x * 7 / (11 * t_val)),
                 atol = 1e-10,
             )
             @test isapprox(
                 MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(t)),
-                dir_x * (
-                    -(1 + 3 * p_val * q_val + 5 * r_val^2 + 7 * s_val) /
-                    (11 * t_val^2)
+                MOI.Parameter(
+                    dir_x * (
+                        -(1 + 3 * p_val * q_val + 5 * r_val^2 + 7 * s_val) /
+                        (11 * t_val^2)
+                    ),
                 ),
                 atol = 1e-10,
             )
@@ -427,18 +464,18 @@ function test_affine_changes_compact_max()
         set_parameter_value(pc, pc_val)
         optimize!(model)
         @test value(x) ≈ 3 * p_val / pc_val
-        for direction_pc in 0:2, direction_p in 0:2
+        for direction_pc in 0.0:2.0, direction_p in 0.0:2.0
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(p),
-                direction_p,
+                Parameter(direction_p),
             )
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(pc),
-                direction_pc,
+                Parameter(direction_pc),
             )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
@@ -467,12 +504,12 @@ function test_diff_affine_objective()
         set_parameter_value(p, p_val)
         optimize!(model)
         @test value(x) ≈ 3
-        for direction_p in 0:2
+        for direction_p in 0.0:2.0
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(p),
-                direction_p,
+                Parameter(direction_p),
             )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 0.0
@@ -483,7 +520,7 @@ function test_diff_affine_objective()
                 model,
                 DiffOpt.ReverseConstraintSet(),
                 ParameterRef(p),
-            ) ≈ 0.0
+            ) ≈ MOI.Parameter(0.0)
         end
     end
     return
@@ -507,12 +544,12 @@ function test_diff_quadratic_objective()
         set_parameter_value(p, p_val)
         optimize!(model)
         @test value(x) ≈ 3
-        for direction_p in 0:2
+        for direction_p in 0.0:2.0
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(p),
-                direction_p,
+                Parameter(direction_p),
             )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 0.0
@@ -523,7 +560,7 @@ function test_diff_quadratic_objective()
                 model,
                 DiffOpt.ReverseConstraintSet(),
                 ParameterRef(p),
-            ) ≈ 0.0
+            ) ≈ MOI.Parameter(0.0)
         end
     end
     return
@@ -548,12 +585,12 @@ function test_quadratic_objective_qp()
         set_parameter_value(p, p_val)
         optimize!(model)
         @test value(x) ≈ -3p_val / 2 atol = 1e-4
-        for direction_p in 0:2
+        for direction_p in 0.0:2.0
             MOI.set(
                 model,
                 DiffOpt.ForwardConstraintSet(),
                 ParameterRef(p),
-                direction_p,
+                Parameter(direction_p),
             )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
@@ -565,7 +602,7 @@ function test_quadratic_objective_qp()
                 model,
                 DiffOpt.ReverseConstraintSet(),
                 ParameterRef(p),
-            ) ≈ direction_p * (-3 / 2) atol = 1e-4
+            ) ≈ MOI.Parameter(direction_p * (-3 / 2)) atol = 1e-4
         end
     end
     return
@@ -590,7 +627,7 @@ function test_diff_errors()
         model,
         DiffOpt.ForwardConstraintSet(),
         ParameterRef(x),
-        1,
+        Parameter(1.0),
     )
     @test_throws ErrorException MOI.set(
         model,

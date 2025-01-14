@@ -308,14 +308,14 @@ function MOI.set(
     model::POI.Optimizer,
     ::ForwardConstraintSet,
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
-    value::Number,
+    set::MOI.Parameter,
 ) where {T}
     variable = MOI.VariableIndex(ci.value)
     if _is_variable(model, variable)
         error("Trying to set a forward parameter sensitivity for a variable")
     end
     sensitivity_data = _get_sensitivity_data(model)
-    sensitivity_data.parameter_input_forward[variable] = value
+    sensitivity_data.parameter_input_forward[variable] = set.value
     return
 end
 
@@ -573,16 +573,7 @@ function MOI.get(
         error("Trying to get a backward parameter sensitivity for a variable")
     end
     sensitivity_data = _get_sensitivity_data(model)
-    return get(sensitivity_data.parameter_output_backward, variable, 0.0)
-end
-
-# extras to handle model_dirty
-
-function MOI.get(
-    model::JuMP.Model,
-    attr::ReverseConstraintSet,
-    var_ref::JuMP.ConstraintRef,
-)
-    JuMP.check_belongs_to_model(var_ref, model)
-    return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
+    return MOI.Parameter{T}(
+        get(sensitivity_data.parameter_output_backward, variable, 0.0),
+    )
 end
