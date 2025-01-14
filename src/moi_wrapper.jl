@@ -28,10 +28,7 @@ function diff_optimizer(
     with_bridge_type = Float64,
     with_cache::Bool = true,
 )
-    optimizer = MOI.instantiate(
-        optimizer_constructor;
-        with_bridge_type = with_bridge_type,
-    )
+    optimizer = MOI.instantiate(optimizer_constructor; with_bridge_type)
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
     # the model information from `optimizer`. However, 1) `optimizer` may not
     # implement some getters or it may be inefficient and 2) the getters may be
