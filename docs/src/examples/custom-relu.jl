@@ -32,7 +32,7 @@ function matrix_relu(
     @variable(model, x[1:layer_size, 1:batch_size] >= 0)
     @objective(model, Min, x[:]'x[:] - 2y[:]'x[:])
     optimize!(model)
-    return value.(x)
+    return Float32.(value.(x))
 end
 
 # Define the reverse differentiation rule, for the function we defined above.
@@ -76,13 +76,13 @@ m = Flux.Chain(
 
 N = 1000 # batch size
 ## Preprocessing train data
-imgs = MLDatasets.MNIST.traintensor(1:N)
-labels = MLDatasets.MNIST.trainlabels(1:N)
+imgs = MLDatasets.MNIST(split=:train).features[:,:,1:N]
+labels = MLDatasets.MNIST(split=:train).targets[1:N]
 train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), N)) # stack images
 train_Y = Flux.onehotbatch(labels, 0:9);
 ## Preprocessing test data
-test_imgs = MLDatasets.MNIST.testtensor(1:N)
-test_labels = MLDatasets.MNIST.testlabels(1:N)
+test_imgs = MLDatasets.MNIST(split=:test).features[:,:,1:N]
+test_labels = MLDatasets.MNIST(split=:test).targets[1:N];
 test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), N))
 test_Y = Flux.onehotbatch(test_labels, 0:9);
 
@@ -97,19 +97,12 @@ dataset = repeated((train_X, train_Y), epochs);
 # ## Network training
 
 # training loss function, Flux optimizer
-custom_loss(x, y) = Flux.crossentropy(m(x), y)
-opt = Flux.Adam()
-evalcb = () -> @show(custom_loss(train_X, train_Y))
+custom_loss(m, x, y) = Flux.crossentropy(m(x), y)
+opt = Flux.setup(Flux.Adam(), m)
 
 # Train to optimize network parameters
 
-@time Flux.train!(
-    custom_loss,
-    Flux.params(m),
-    dataset,
-    opt,
-    cb = Flux.throttle(evalcb, 5),
-);
+@time Flux.train!(custom_loss, m, dataset, opt);
 
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.
