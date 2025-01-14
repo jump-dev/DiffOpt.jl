@@ -122,13 +122,13 @@ m = Flux.Chain(
 
 M = 500 # batch size
 ## Preprocessing train data
-imgs = MLDatasets.MNIST(split=:train).features[:,:,1:M]
-labels = MLDatasets.MNIST(split=:train).targets[1:M]
+imgs = MLDatasets.MNIST(; split = :train).features[:, :, 1:M]
+labels = MLDatasets.MNIST(; split = :train).targets[1:M]
 train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), M)) # stack images
 train_Y = Flux.onehotbatch(labels, 0:9);
 ## Preprocessing test data
-test_imgs = MLDatasets.MNIST(split=:test).features[:,:,1:M]
-test_labels = MLDatasets.MNIST(split=:test).targets[1:M]
+test_imgs = MLDatasets.MNIST(; split = :test).features[:, :, 1:M]
+test_labels = MLDatasets.MNIST(; split = :test).targets[1:M]
 test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), M))
 test_Y = Flux.onehotbatch(test_labels, 0:9);
 
