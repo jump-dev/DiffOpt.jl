@@ -4,7 +4,7 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 """
-    diff_optimizer(optimizer_constructor)::Optimizer
+    diff_optimizer(optimizer_constructor)
 
 Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer
 and other utility methods. Results (primal, dual and slack values) are obtained
@@ -17,23 +17,38 @@ One define a differentiable model by using any solver of choice. Example:
 julia> import DiffOpt, HiGHS
 
 julia> model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
+julia> set_attribute(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model) # optional selection of diff method
 julia> x = model.add_variable(model)
 julia> model.add_constraint(model, ...)
 ```
 """
-function diff_optimizer(optimizer_constructor)::Optimizer
-    optimizer =
-        MOI.instantiate(optimizer_constructor; with_bridge_type = Float64)
+function diff_optimizer(
+    optimizer_constructor;
+    with_parametric_opt_interface::Bool = false,
+    with_bridge_type = Float64,
+    with_cache::Bool = true,
+)
+    optimizer = MOI.instantiate(optimizer_constructor; with_bridge_type)
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
     # the model information from `optimizer`. However, 1) `optimizer` may not
     # implement some getters or it may be inefficient and 2) the getters may be
     # unimplemented or inefficient through some bridges.
     # For this reason we add a cache layer, the same cache JuMP adds.
-    caching_opt = MOI.Utilities.CachingOptimizer(
-        MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
-        optimizer,
-    )
-    return Optimizer(caching_opt)
+    caching_opt = if with_cache
+        MOI.Utilities.CachingOptimizer(
+            MOI.Utilities.UniversalFallback(
+                MOI.Utilities.Model{with_bridge_type}(),
+            ),
+            optimizer,
+        )
+    else
+        optimizer
+    end
+    if with_parametric_opt_interface
+        return POI.Optimizer(Optimizer(caching_opt))
+    else
+        return Optimizer(caching_opt)
+    end
 end
 
 mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
@@ -476,6 +491,14 @@ end
 Determines which subtype of [`DiffOpt.AbstractModel`](@ref) to use for
 differentiation. When set to `nothing`, the first one out of
 `model.model_constructors` that support the problem is used.
+
+Examples:
+
+```julia
+julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.QuadraticProgram.Model)
+
+julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.ConicProgram.Model)
+```
 """
 struct ModelConstructor <: MOI.AbstractOptimizerAttribute end
 
@@ -552,6 +575,11 @@ function forward_differentiate!(model::Optimizer)
     return forward_differentiate!(diff)
 end
 
+function empty_input_sensitivities!(model::Optimizer)
+    empty!(model.input_cache)
+    return
+end
+
 function _instantiate_with_bridges(model_constructor)
     model = MOI.Bridges.LazyBridgeOptimizer(MOI.instantiate(model_constructor))
     # We don't add any variable bridge here because:
@@ -590,7 +618,11 @@ function _diff(model::Optimizer)
             end
             if isnothing(model.diff)
                 error(
-                    "No differentiation model supports the problem. If you believe it should be supported, say by `DiffOpt.QuadraticProgram.Model`, use `MOI.set(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model)` and try again to see an error indicating why it is not supported.",
+                    "No differentiation model supports the problem. If you " *
+                    "believe it should be supported, say by " *
+                    "`DiffOpt.QuadraticProgram.Model`, use " *
+                    "`MOI.set(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model)`" *
+                    "and try again to see an error indicating why it is not supported.",
                 )
             end
         else
