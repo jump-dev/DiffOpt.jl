@@ -622,7 +622,7 @@ function _diff(model::Optimizer)
                     "believe it should be supported, say by " *
                     "`DiffOpt.QuadraticProgram.Model`, use " *
                     "`MOI.set(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model)`" *
-                    "and try again to see an error indicating why it is not supported."
+                    "and try again to see an error indicating why it is not supported.",
                 )
             end
         else
