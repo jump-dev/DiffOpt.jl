@@ -17,13 +17,13 @@ One define a differentiable model by using any solver of choice. Example:
 julia> import DiffOpt, HiGHS
 
 julia> model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
+julia> set_attribute(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model) # optional selection of diff method
 julia> x = model.add_variable(model)
 julia> model.add_constraint(model, ...)
 ```
 """
 function diff_optimizer(
     optimizer_constructor;
-    method = nothing,
     with_parametric_opt_interface::Bool = false,
     with_bridge_type = Float64,
     with_cache::Bool = true,
@@ -45,9 +45,9 @@ function diff_optimizer(
         optimizer
     end
     if with_parametric_opt_interface
-        return POI.Optimizer(Optimizer(caching_opt; method = method))
+        return POI.Optimizer(Optimizer(caching_opt))
     else
-        return Optimizer(caching_opt; method = method)
+        return Optimizer(caching_opt)
     end
 end
 
@@ -64,16 +64,10 @@ mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
     # sensitivity input cache using MOI like sparse format
     input_cache::InputCache
 
-    function Optimizer(
-        optimizer::OT;
-        method = nothing,
-    ) where {OT<:MOI.ModelLike}
+    function Optimizer(optimizer::OT) where {OT<:MOI.ModelLike}
         output =
             new{OT}(optimizer, Any[], nothing, nothing, nothing, InputCache())
         add_all_model_constructors(output)
-        if method !== nothing
-            output.model_constructor = method
-        end
         return output
     end
 end
@@ -497,6 +491,14 @@ end
 Determines which subtype of [`DiffOpt.AbstractModel`](@ref) to use for
 differentiation. When set to `nothing`, the first one out of
 `model.model_constructors` that support the problem is used.
+
+Examples:
+
+```julia
+julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.QuadraticProgram.Model)
+
+julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.ConicProgram.Model)
+```
 """
 struct ModelConstructor <: MOI.AbstractOptimizerAttribute end
 
@@ -616,7 +618,11 @@ function _diff(model::Optimizer)
             end
             if isnothing(model.diff)
                 error(
-                    "No differentiation model supports the problem. If you believe it should be supported, say by `DiffOpt.QuadraticProgram.Model`, use `MOI.set(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model)` and try again to see an error indicating why it is not supported.",
+                    "No differentiation model supports the problem. If you " *
+                    "believe it should be supported, say by " *
+                    "`DiffOpt.QuadraticProgram.Model`, use " *
+                    "`MOI.set(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model)`" *
+                    "and try again to see an error indicating why it is not supported."
                 )
             end
         else
