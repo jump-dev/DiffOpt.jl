@@ -42,9 +42,9 @@ function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where {T}
     function pullback_matrix_relu(dl_dx)
         ## some value from the backpropagation (e.g., loss) is denoted by `l`
         ## so `dl_dy` is the derivative of `l` wrt `y`
-        x = model[:x] # load decision variable `x` into scope
-        dl_dy = zeros(T, size(dl_dx))
-        dl_dq = zeros(T, size(dl_dx))
+        x = model[:x]::Matrix{JuMP.VariableRef} # load decision variable `x` into scope
+        dl_dy = zeros(T, size(x))
+        dl_dq = zeros(T, size(x))
         ## set sensitivities
         MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x[:], dl_dx[:])
         ## compute grad

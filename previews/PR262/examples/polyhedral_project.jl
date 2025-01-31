@@ -75,12 +75,12 @@ function ChainRulesCore.rrule(
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     xv = polytope(y; model = model)
     function pullback_matrix_projection(dl_dx)
-        layer_size, batch_size = size(dl_dx)
         dl_dx = ChainRulesCore.unthunk(dl_dx)
         ##  `dl_dy` is the derivative of `l` wrt `y`
-        x = model[:x]
+        x = model[:x]::Matrix{JuMP.VariableRef}
+        layer_size, batch_size = size(x)
         ## grad wrt input parameters
-        dl_dy = zeros(size(dl_dx))
+        dl_dy = zeros(size(x))
         ## grad wrt layer parameters
         dl_dw = zero.(polytope.w)
         dl_db = zero(polytope.b)
