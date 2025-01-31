@@ -63,6 +63,17 @@ The output solution differentials can be queried with the attribute
 function forward_differentiate! end
 
 """
+    empty_input_sensitivities!(model::MOI.ModelLike)
+
+Empty the input sensitivities of the model.
+Sets to zero all the sensitivities set by the user with method such as:
+- `MOI.set(model, DiffOpt.ReverseVariablePrimal(), variable_index, value)`
+- `MOI.set(model, DiffOpt.ForwardObjectiveFunction(), expression)`
+- `MOI.set(model, DiffOpt.ForwardConstraintFunction(), index, expression)`
+"""
+function empty_input_sensitivities! end
+
+"""
     ForwardObjectiveFunction <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to set input data to forward differentiation, that

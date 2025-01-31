@@ -36,7 +36,7 @@ PMLR, 2017. https://arxiv.org/pdf/1703.00443.pdf
 """
 function qp_test(
     solver,
-    diff_model,
+    _diff_model,
     lt::Bool,
     set_zero::Bool,
     canonicalize::Bool;
@@ -88,7 +88,7 @@ function qp_test(
     atol = ATOL,
     rtol = RTOL,
 )
-    is_conic_qp = !all(iszero, Q) && diff_model == DiffOpt.ConicProgram.Model
+    is_conic_qp = !all(iszero, Q) && _diff_model == DiffOpt.ConicProgram.Model
     n = length(q)
     @assert n == LinearAlgebra.checksquare(Q)
     @assert n == size(A, 2)
@@ -162,7 +162,7 @@ function qp_test(
     end
     @_test(convert(Vector{Float64}, _λ), λ)
 
-    MOI.set(model, DiffOpt.ModelConstructor(), diff_model)
+    MOI.set(model, DiffOpt.ModelConstructor(), _diff_model)
 
     #dobjb = v' * (dQb / 2.0) * v + dqb' * v
     # TODO, it should .-
@@ -344,7 +344,7 @@ function qp_test(
     return
 end
 
-function qp_test(solver, diff_model; kws...)
+function qp_test(solver, _diff_model; kws...)
     @testset "With $(lt ? "LessThan" : "GreaterThan") constraints" for lt in [
         true,
         #false,
@@ -359,7 +359,7 @@ function qp_test(solver, diff_model; kws...)
                 true,
                 #false,
             ]
-                qp_test(solver, diff_model, lt, set_zero, canonicalize; kws...)
+                qp_test(solver, _diff_model, lt, set_zero, canonicalize; kws...)
             end
         end
     end
@@ -367,11 +367,11 @@ function qp_test(solver, diff_model; kws...)
 end
 
 function qp_test(solver; kws...)
-    @testset "With $diff_model" for diff_model in [
+    @testset "With $_diff_model" for _diff_model in [
         DiffOpt.QuadraticProgram.Model,
         DiffOpt.ConicProgram.Model,
     ]
-        qp_test(solver, diff_model; kws...)
+        qp_test(solver, _diff_model; kws...)
     end
     return
 end

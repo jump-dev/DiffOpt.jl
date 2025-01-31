@@ -43,6 +43,25 @@ function MOI.get(
         MOI.get(model, attr, bridge.vector_constraint),
     )[1]
 end
+
+function MOI.set(
+    model::MOI.ModelLike,
+    attr::ForwardConstraintFunction,
+    bridge::MOI.Bridges.Constraint.ScalarizeBridge,
+    value,
+)
+    MOI.set.(model, attr, bridge.scalar_constraints, value)
+    return
+end
+
+function MOI.get(
+    model::MOI.ModelLike,
+    attr::ReverseConstraintFunction,
+    bridge::MOI.Bridges.Constraint.ScalarizeBridge,
+)
+    return _vectorize(MOI.get.(model, attr, bridge.scalar_constraints))
+end
+
 function MOI.get(
     model::MOI.ModelLike,
     attr::DiffOpt.ReverseConstraintFunction,
