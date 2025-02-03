@@ -412,7 +412,7 @@ function inertia_corrector_factorization(
     num_c = 0
     diag_mat = ones(size(M, 1))
     diag_mat[num_w+1:num_w+num_cons] .= -1
-    diag_mat = sparse(diagm(diag_mat))
+    diag_mat = SparseArrays.spdiagm(diag_mat)
     while status == 1 && num_c < max_corrections
         println("Inertia correction")
         M = M + st * diag_mat
