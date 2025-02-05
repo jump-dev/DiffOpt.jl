@@ -373,7 +373,7 @@ get_num_params(model::Model) = get_num_params(model.model)
 function _cache_evaluator!(model::Model)
     form = model.model
     # Retrieve and sort primal variables by index
-    params = params = sort(all_params(form); by = x -> x.value)
+    params = sort(all_params(form); by = x -> x.value)
     primal_vars = sort(all_primal_vars(form); by = x -> x.value)
     num_primal = length(primal_vars)
 
