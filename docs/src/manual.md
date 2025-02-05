@@ -55,7 +55,6 @@ and the following objective types:
 
 Other conic sets such as `RotatedSecondOrderCone` and `PositiveSemidefiniteConeSquare` are supported through bridges.
 
-
 ## Creating a differentiable MOI optimizer
 
 You can create a differentiable optimizer over an existing MOI solver by using the `diff_optimizer` utility. 
