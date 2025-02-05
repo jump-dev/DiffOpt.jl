@@ -585,11 +585,6 @@ function empty_input_sensitivities!(model::Optimizer)
     return
 end
 
-function empty_input_sensitivities!(model::Optimizer)
-    empty!(model.input_cache)
-    return
-end
-
 function _instantiate_with_bridges(model_constructor)
     model = MOI.Bridges.LazyBridgeOptimizer(MOI.instantiate(model_constructor))
     # We don't add any variable bridge here because:
