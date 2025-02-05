@@ -8,7 +8,7 @@
 
 Filling the off-diagonal elements of a sparse matrix to make it symmetric.
 """
-function fill_off_diagonal(H)
+function fill_off_diagonal(H::SparseMatrixCSC)
     ret = H + H'
     row_vals = SparseArrays.rowvals(ret)
     non_zeros = SparseArrays.nonzeros(ret)
@@ -49,7 +49,7 @@ function compute_optimal_hessian(
     )
     num_vars = length(model.x)
     H = SparseArrays.sparse(I, J, V, num_vars, num_vars)
-    return fill_off_diagonal(H)
+    return H
 end
 
 """
