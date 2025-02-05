@@ -217,7 +217,6 @@ function test_compute_derivatives_Analytical(;
         optimize!(model)
         @assert is_solved_and_feasible(model)
         # Set pertubations
-        # MOI.set.(model, DiffOpt.ForwardParameter(), params, Δp) # TODO: DELETE LINE
         MOI.set.(model, DiffOpt.ForwardConstraintSet(), ParameterRef.(params), Parameter.(Δp))
         # Compute derivatives
         DiffOpt.forward_differentiate!(model)
@@ -398,7 +397,6 @@ function test_compute_derivatives_Finite_Diff(;
         optimize!(model)
         @assert is_solved_and_feasible(model)
         # Set pertubations
-        # MOI.set.(model, DiffOpt.ForwardParameter(), params, Δp) # TODO: DELETE LINE
         MOI.set.(model, DiffOpt.ForwardConstraintSet(), ParameterRef.(params), Parameter.(Δp))
         # Compute derivatives
         DiffOpt.forward_differentiate!(model)

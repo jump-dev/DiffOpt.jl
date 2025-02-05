@@ -512,7 +512,7 @@ function MOI.set(model::Optimizer, ::ModelConstructor, model_constructor)
     return
 end
 
-function reverse_differentiate!(model::Optimizer)
+function reverse_differentiate!(model::Optimizer; kwargs...)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st, (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
         error(
@@ -523,7 +523,7 @@ function reverse_differentiate!(model::Optimizer)
     for (vi, value) in model.input_cache.dx
         MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
     end
-    return reverse_differentiate!(diff)
+    return reverse_differentiate!(diff; kwargs...)
 end
 
 function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
@@ -538,7 +538,7 @@ function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
     return
 end
 
-function forward_differentiate!(model::Optimizer)
+function forward_differentiate!(model::Optimizer; kwargs...)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st, (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
         error(
@@ -577,7 +577,7 @@ function forward_differentiate!(model::Optimizer)
             diff.model.input_cache.dp[model.index_map[vi]] = value
         end
     end
-    return forward_differentiate!(diff)
+    return forward_differentiate!(diff; kwargs...)
 end
 
 function empty_input_sensitivities!(model::Optimizer)

@@ -434,14 +434,14 @@ function _cache_evaluator!(model::Model)
     return model.cache
 end
 
-function DiffOpt.forward_differentiate!(model::Model)
+function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6, st = 1e-6, max_corrections = 50, allow_intertia_correction = true)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
         Δp = [model.input_cache.dp[form.var2ci[i]] for i in cache.params]
 
         # Compute Jacobian
-        Δs = compute_sensitivity(model)
+        Δs = compute_sensitivity(model; tol = tol, st = st, max_corrections = max_corrections, allow_intertia_correction = allow_intertia_correction)
 
         # Extract primal and dual sensitivities
         primal_Δs = Δs[1:length(model.cache.primal_vars), :] * Δp # Exclude slacks
@@ -455,13 +455,13 @@ function DiffOpt.forward_differentiate!(model::Model)
     return nothing
 end
 
-function DiffOpt.reverse_differentiate!(model::Model)
+function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6, st = 1e-6, max_corrections = 50, allow_intertia_correction = true)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
 
         # Compute Jacobian
-        Δs = compute_sensitivity(model)
+        Δs = compute_sensitivity(model; tol = tol, st = st, max_corrections = max_corrections, allow_intertia_correction = allow_intertia_correction)
         num_primal = length(cache.primal_vars)
         Δx = zeros(num_primal)
         for (i, var_idx) in enumerate(cache.primal_vars)
