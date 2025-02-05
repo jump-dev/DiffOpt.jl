@@ -1,4 +1,4 @@
-# Copyright (c) 2020: Andrew Rosemberg and contributors
+# Copyright (c) 2025: Andrew Rosemberg and contributors
 #
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
@@ -41,6 +41,7 @@ mutable struct Form <: MOI.ModelLike
     sense::MOI.OptimizationSense
     list_of_constraint::MOI.Utilities.DoubleDicts.IndexDoubleDict
     var2param::Dict{MOI.VariableIndex,MOI.Nonlinear.ParameterIndex}
+    var2ci::Dict{MOI.VariableIndex,MOI.ConstraintIndex}
     upper_bounds::Dict{Int,Float64}
     lower_bounds::Dict{Int,Float64}
     constraint_upper_bounds::Dict{Int,MOI.ConstraintIndex}
@@ -65,6 +66,7 @@ function Form()
         MOI.MIN_SENSE,
         MOI.Utilities.DoubleDicts.IndexDoubleDict(),
         Dict{MOI.VariableIndex,MOI.Nonlinear.ParameterIndex}(),
+        Dict{MOI.VariableIndex,MOI.ConstraintIndex}(),
         Dict{Int,Float64}(),
         Dict{Int,Float64}(),
         Dict{Int,MOI.ConstraintIndex}(),
@@ -187,8 +189,9 @@ function MOI.add_constraint(
     form.num_constraints += 1
     p = MOI.Nonlinear.add_parameter(form.model, set.value)
     form.var2param[idx] = p
-    idx = MOI.ConstraintIndex{F,S}(form.num_constraints)
-    return idx
+    idx_ci = MOI.ConstraintIndex{F,S}(form.num_constraints)
+    form.var2ci[idx] = idx_ci
+    return idx_ci
 end
 
 function MOI.add_constraint(
@@ -434,7 +437,8 @@ end
 function DiffOpt.forward_differentiate!(model::Model)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
-        Δp = [model.input_cache.dp[i] for i in cache.params]
+        form = model.model
+        Δp = [model.input_cache.dp[form.var2ci[i]] for i in cache.params]
 
         # Compute Jacobian
         Δs = compute_sensitivity(model)
@@ -494,6 +498,10 @@ function DiffOpt.reverse_differentiate!(model::Model)
         Δw[cache.index_duals] = Δdual
         Δp = Δs' * Δw
 
+        # Order by ConstraintIndex
+        varorder = sort(collect(keys(form.var2ci)); by = x -> form.var2ci[x].value)
+        Δp = [Δp[form.var2param[var_idx].value] for var_idx in varorder]
+
         model.back_grad_cache = ReverseCache(; Δp = Δp)
     end
     return nothing
@@ -528,11 +536,10 @@ end
 
 function MOI.get(
     model::Model,
-    ::DiffOpt.ReverseParameter,
-    pi::MOI.VariableIndex,
-)
-    form = model.model
-    return model.back_grad_cache.Δp[form.var2param[pi].value]
+    ::DiffOpt.ReverseConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+) where {T}
+    return MOI.Parameter{T}(model.back_grad_cache.Δp[ci.value],)
 end
 
 end # module NonLinearProgram

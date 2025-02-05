@@ -50,15 +50,6 @@ end
 
 function MOI.get(
     model::JuMP.Model,
-    attr::ReverseParameter,
-    var_ref::JuMP.VariableRef,
-)
-    JuMP.check_belongs_to_model(var_ref, model)
-    return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
-end
-
-function MOI.get(
-    model::JuMP.Model,
     attr::ForwardConstraintDual,
     con_ref::JuMP.ConstraintRef,
 )

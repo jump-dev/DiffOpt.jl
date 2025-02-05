@@ -13,7 +13,7 @@ const MOIDD = MOI.Utilities.DoubleDicts
 
 Base.@kwdef mutable struct InputCache
     dx::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()# dz for QP
-    dp::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()
+    dp::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}()
     dy::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}()
     # ds
     # dy #= [d\lambda, d\nu] for QP
@@ -139,19 +139,9 @@ MOI.set(model, DiffOpt.ReverseVariablePrimal(), x)
 """
 struct ReverseVariablePrimal <: MOI.AbstractVariableAttribute end
 
-"""
-    ForwardParameter <: MOI.AbstractVariableAttribute
+struct ForwardConstraintSet <: MOI.AbstractConstraintAttribute end
 
-A `MOI.AbstractVariableAttribute` to set input data to forward differentiation,
-that is, problem input data.
-
-For instance, to set the tangent of the variable of index `vi`, do the
-following:
-```julia
-MOI.set(model, DiffOpt.ForwardParameter(), x)
-```
-"""
-struct ForwardParameter <: MOI.AbstractVariableAttribute end
+struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
 
 """
     ReverseConstraintDual <: MOI.AbstractConstraintAttribute
@@ -164,22 +154,6 @@ MOI.set(model, DiffOpt.ReverseConstraintDual(), x)
 ```
 """
 struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
-
-"""
-    ReverseParameter <: MOI.AbstractVariableAttribute
-
-A `MOI.AbstractVariableAttribute` to get output data from reverse differentiation,
-that is, problem input data.
-
-For instance, to get the tangent of the variable of index `vi` corresponding to
-the tangents given to `ReverseVariablePrimal`, do the following:
-```julia
-MOI.get(model, DiffOpt.ReverseParameter(), vi)
-```
-"""
-struct ReverseParameter <: MOI.AbstractVariableAttribute end
-
-MOI.is_set_by_optimize(::ReverseParameter) = true
 
 """
     ForwardConstraintDual <: MOI.AbstractConstraintAttribute
@@ -388,16 +362,6 @@ function MOI.set(
     val,
 )
     model.input_cache.dy[vi] = val
-    return
-end
-
-function MOI.set(
-    model::AbstractModel,
-    ::ForwardParameter,
-    pi::MOI.VariableIndex,
-    val,
-)
-    model.input_cache.dp[pi] = val
     return
 end
 

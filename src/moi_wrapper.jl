@@ -574,7 +574,7 @@ function forward_differentiate!(model::Optimizer)
     end
     if model.input_cache.dp !== nothing
         for (vi, value) in model.input_cache.dp
-            MOI.set(diff, ForwardParameter(), model.index_map[vi], value)
+            diff.model.input_cache.dp[model.index_map[vi]] = value
         end
     end
     return forward_differentiate!(diff)
@@ -693,13 +693,13 @@ end
 
 function MOI.get(
     model::Optimizer,
-    attr::ReverseParameter,
-    vi::MOI.VariableIndex,
+    attr::ReverseConstraintSet,
+    ci::MOI.ConstraintIndex,
 )
     return MOI.get(
         _checked_diff(model, attr, :reverse_differentiate!),
         attr,
-        model.index_map[vi],
+        model.index_map[ci],
     )
 end
 
@@ -725,24 +725,10 @@ end
 
 function MOI.supports(
     ::Optimizer,
-    ::ForwardParameter,
-    ::Type{MOI.VariableIndex},
-)
+    ::ForwardConstraintSet,
+    ::Type{MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}},
+) where {T}
     return true
-end
-
-function MOI.set(
-    model::Optimizer,
-    ::ForwardParameter,
-    vi::MOI.VariableIndex,
-    val,
-)
-    model.input_cache.dp[vi] = val
-    return
-end
-
-function MOI.get(model::Optimizer, ::ForwardParameter, vi::MOI.VariableIndex)
-    return get(model.input_cache.dp, vi, 0.0)
 end
 
 function MOI.get(
