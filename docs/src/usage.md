@@ -57,37 +57,64 @@ DiffOpt.forward_differentiate!(model)
 grad_x = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), x)
 ```
 
-3. To differentiate a general nonlinear program, we can use the `forward_differentiate!` method with perturbations in the objective function and constraints through perturbations in the problem parameters. For example, consider the following nonlinear program:
+3. To differentiate a general nonlinear program, have to use the API for Parameterized JuMP models. For example, consider the following nonlinear program:
+
 ```julia
+using JuMP, DiffOpt, HiGHS
+
 model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
-@variable(model, p ∈ MOI.Parameter(0.1))
-@variable(model, x >= p)
-@variable(model, y >= 0)
-@objective(model, Min, x^2 + y^2)
-@constraint(model, con, x + y >= 1)
+set_silent(model)
 
-# Solve
-JuMP.optimize!(model)
+p_val = 4.0
+pc_val = 2.0
+@variable(model, x)
+@variable(model, p in Parameter(p_val))
+@variable(model, pc in Parameter(pc_val))
+@constraint(model, cons, pc * x >= 3 * p)
+@objective(model, Min, 2x)
+optimize!(model)
+@show value(x) == 3 * p_val / pc_val
 
-# Set parameter pertubations
-MOI.set(model, DiffOpt.ForwardParameter(), params[1], 0.2)
+# the function is
+# x(p, pc) = 3p / pc
+# hence,
+# dx/dp = 3 / pc
+# dx/dpc = -3p / pc^2
 
-# forward differentiate
+# First, try forward mode AD
+
+# differentiate w.r.t. p
+direction_p = 3.0
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(direction_p))
 DiffOpt.forward_differentiate!(model)
+@show MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) == direction_p * 3 / pc_val
 
-# Retrieve sensitivities
-dx = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x)
-dy = MOI.get(model, DiffOpt.ForwardVariablePrimal(), y)
-```
+# update p and pc
+p_val = 2.0
+pc_val = 6.0
+set_parameter_value(p, p_val)
+set_parameter_value(pc, pc_val)
+# re-optimize
+optimize!(model)
+# check solution
+@show value(x) ≈ 3 * p_val / pc_val
 
-or we can use the `reverse_differentiate!` method:
-```julia
-# Set Primal Pertubations
-MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+# stop differentiating with respect to p
+DiffOpt.empty_input_sensitivities!(model)
+# differentiate w.r.t. pc
+direction_pc = 10.0
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(pc), Parameter(direction_pc))
+DiffOpt.forward_differentiate!(model)
+@show abs(MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) -
+    -direction_pc * 3 * p_val / pc_val^2) < 1e-5
 
-# Reverse differentiation
+# always a good practice to clear previously set sensitivities
+DiffOpt.empty_input_sensitivities!(model)
+# Now, reverse model AD
+direction_x = 10.0
+MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, direction_x)
 DiffOpt.reverse_differentiate!(model)
-
-# Retrieve reverse sensitivities (example usage)
-dp= MOI.get(model, DiffOpt.ReverseParameter(), p)
+@show MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) == MOI.Parameter(direction_x * 3 / pc_val)
+@show abs(MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(pc)).value -
+    -direction_x * 3 * p_val / pc_val^2) < 1e-5
 ```
