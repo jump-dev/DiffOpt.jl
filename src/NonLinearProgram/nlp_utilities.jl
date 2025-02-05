@@ -49,7 +49,7 @@ function compute_optimal_hessian(
     )
     num_vars = length(model.x)
     H = SparseArrays.sparse(I, J, V, num_vars, num_vars)
-    return H
+    return fill_off_diagonal(H)
 end
 
 """
