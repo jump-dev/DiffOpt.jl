@@ -673,7 +673,12 @@ end
 
 # Credit to @klamike
 function test_empty_cache()
-    m = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer, with_parametric_opt_interface=true))
+    m = Model(
+        () -> DiffOpt.diff_optimizer(
+            HiGHS.Optimizer;
+            with_parametric_opt_interface = true,
+        ),
+    )
     @variable(m, x)
     @variable(m, p ∈ Parameter(1.0))
     @variable(m, q ∈ Parameter(2.0))
@@ -686,10 +691,18 @@ function test_empty_cache()
     function get_sensitivity(m, xᵢ, pᵢ)
         DiffOpt.empty_input_sensitivities!(m)
         @test DiffOpt.isempty(unsafe_backend(m).optimizer.input_cache)
-        if !isnothing(unsafe_backend(m).optimizer.diff) && !isnothing(unsafe_backend(m).optimizer.diff.model.input_cache)
-            @test DiffOpt.isempty(unsafe_backend(m).optimizer.diff.model.input_cache)
+        if !isnothing(unsafe_backend(m).optimizer.diff) &&
+           !isnothing(unsafe_backend(m).optimizer.diff.model.input_cache)
+            @test DiffOpt.isempty(
+                unsafe_backend(m).optimizer.diff.model.input_cache,
+            )
         end
-        MOI.set(m, DiffOpt.ForwardConstraintSet(), ParameterRef(pᵢ), Parameter(1.0))
+        MOI.set(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef(pᵢ),
+            Parameter(1.0),
+        )
         DiffOpt.forward_differentiate!(m)
         return MOI.get(m, DiffOpt.ForwardVariablePrimal(), xᵢ)
     end
