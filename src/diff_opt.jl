@@ -35,13 +35,6 @@ function Base.empty!(cache::InputCache)
     return
 end
 
-function Base.isempty(cache::InputCache)
-    return isempty(cache.dx) &&
-           isempty(cache.scalar_constraints) &&
-           isempty(cache.vector_constraints) &&
-           cache.objective === nothing
-end
-
 """
     reverse_differentiate!(model::MOI.ModelLike)
 

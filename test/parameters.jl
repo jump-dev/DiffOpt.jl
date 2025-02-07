@@ -671,6 +671,13 @@ function test_diff_errors()
     return
 end
 
+function is_empty(cache::DiffOpt.InputCache)
+    return isempty(cache.dx) &&
+           isempty(cache.scalar_constraints) &&
+           isempty(cache.vector_constraints) &&
+           cache.objective === nothing
+end
+
 # Credit to @klamike
 function test_empty_cache()
     m = Model(
@@ -690,10 +697,10 @@ function test_empty_cache()
 
     function get_sensitivity(m, xᵢ, pᵢ)
         DiffOpt.empty_input_sensitivities!(m)
-        @test DiffOpt.isempty(unsafe_backend(m).optimizer.input_cache)
+        @test is_empty(unsafe_backend(m).optimizer.input_cache)
         if !isnothing(unsafe_backend(m).optimizer.diff) &&
            !isnothing(unsafe_backend(m).optimizer.diff.model.input_cache)
-            @test DiffOpt.isempty(
+            @test is_empty(
                 unsafe_backend(m).optimizer.diff.model.input_cache,
             )
         end
