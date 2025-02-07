@@ -436,7 +436,12 @@ end
 
 Inertia correction for the factorization of the KKT matrix. Dense version.
 """
-function inertia_corrector_factorization(M; st = 1e-6, max_corrections = 50, allow_inertia_correction = true)
+function inertia_corrector_factorization(
+    M;
+    st = 1e-6,
+    max_corrections = 50,
+    allow_inertia_correction = true,
+)
     num_c = 0
     if cond(M) > 1 / st
         @assert allow_inertia_correction "Inertia correction needed but not allowed"
@@ -476,7 +481,9 @@ function compute_derivatives_no_relax(
     ineq_locations::Vector{Z},
     has_up::Vector{Z},
     has_low::Vector{Z};
-    st = 1e-6, max_corrections = 50, allow_inertia_correction = true
+    st = 1e-6,
+    max_corrections = 50,
+    allow_inertia_correction = true,
 ) where {Z<:Integer}
     M, N = build_sensitivity_matrices(
         model,
@@ -497,9 +504,13 @@ function compute_derivatives_no_relax(
     num_vars = get_num_primal_vars(model)
     num_cons = get_num_constraints(model)
     num_ineq = length(ineq_locations)
-    K = inertia_corrector_factorization(M, num_vars + num_ineq, num_cons; 
-        st = st, max_corrections = max_corrections,
-        allow_inertia_correction = allow_inertia_correction
+    K = inertia_corrector_factorization(
+        M,
+        num_vars + num_ineq,
+        num_cons;
+        st = st,
+        max_corrections = max_corrections,
+        allow_inertia_correction = allow_inertia_correction,
     ) # Factorization
     if isnothing(K)
         return zeros(size(M, 1), size(N, 2)), K, N
@@ -519,7 +530,13 @@ sense_mult(model::Model) = objective_sense(model) == MOI.MIN_SENSE ? 1.0 : -1.0
 
 Compute the sensitivity of the solution given sensitivity of the parameters (Δp).
 """
-function compute_sensitivity(model::Model; tol = 1e-6, st = 1e-6, max_corrections = 50, allow_inertia_correction = true)
+function compute_sensitivity(
+    model::Model;
+    tol = 1e-6,
+    st = 1e-6,
+    max_corrections = 50,
+    allow_inertia_correction = true,
+)
     # Solution and bounds
     X,
     V_L,
@@ -547,8 +564,9 @@ function compute_sensitivity(model::Model; tol = 1e-6, st = 1e-6, max_correction
         ineq_locations,
         has_up,
         has_low;
-        st = st, max_corrections = max_corrections,
-        allow_inertia_correction = allow_inertia_correction
+        st = st,
+        max_corrections = max_corrections,
+        allow_inertia_correction = allow_inertia_correction,
     )
     ## Adjust signs based on JuMP convention
     num_vars = get_num_primal_vars(model)

@@ -434,7 +434,13 @@ function _cache_evaluator!(model::Model)
     return model.cache
 end
 
-function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6, st = 1e-6, max_corrections = 50, allow_inertia_correction = true)
+function DiffOpt.forward_differentiate!(
+    model::Model;
+    tol = 1e-6,
+    st = 1e-6,
+    max_corrections = 50,
+    allow_inertia_correction = true,
+)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
@@ -448,7 +454,13 @@ function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6, st = 1e-6, max
         end
 
         # Compute Jacobian
-        Δs = compute_sensitivity(model; tol = tol, st = st, max_corrections = max_corrections, allow_inertia_correction = allow_inertia_correction)
+        Δs = compute_sensitivity(
+            model;
+            tol = tol,
+            st = st,
+            max_corrections = max_corrections,
+            allow_inertia_correction = allow_inertia_correction,
+        )
 
         # Extract primal and dual sensitivities
         primal_Δs = Δs[1:length(model.cache.primal_vars), :] * Δp # Exclude slacks
@@ -462,13 +474,25 @@ function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6, st = 1e-6, max
     return nothing
 end
 
-function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6, st = 1e-6, max_corrections = 50, allow_inertia_correction = true)
+function DiffOpt.reverse_differentiate!(
+    model::Model;
+    tol = 1e-6,
+    st = 1e-6,
+    max_corrections = 50,
+    allow_inertia_correction = true,
+)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
 
         # Compute Jacobian
-        Δs = compute_sensitivity(model; tol = tol, st = st, max_corrections = max_corrections, allow_inertia_correction = allow_inertia_correction)
+        Δs = compute_sensitivity(
+            model;
+            tol = tol,
+            st = st,
+            max_corrections = max_corrections,
+            allow_inertia_correction = allow_inertia_correction,
+        )
         num_primal = length(cache.primal_vars)
         Δx = zeros(num_primal)
         for (i, var_idx) in enumerate(cache.primal_vars)
@@ -506,7 +530,8 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6, st = 1e-6, max
         Δp = Δs' * Δw
 
         # Order by ConstraintIndex
-        varorder = sort(collect(keys(form.var2ci)); by = x -> form.var2ci[x].value)
+        varorder =
+            sort(collect(keys(form.var2ci)); by = x -> form.var2ci[x].value)
         Δp = [Δp[form.var2param[var_idx].value] for var_idx in varorder]
 
         model.back_grad_cache = ReverseCache(; Δp = Δp)
@@ -546,7 +571,7 @@ function MOI.get(
     ::DiffOpt.ReverseConstraintSet,
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
 ) where {T}
-    return MOI.Parameter{T}(model.back_grad_cache.Δp[ci.value],)
+    return MOI.Parameter{T}(model.back_grad_cache.Δp[ci.value])
 end
 
 end # module NonLinearProgram

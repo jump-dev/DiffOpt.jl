@@ -217,7 +217,12 @@ function test_compute_derivatives_Analytical(;
         optimize!(model)
         @assert is_solved_and_feasible(model)
         # Set pertubations
-        MOI.set.(model, DiffOpt.ForwardConstraintSet(), ParameterRef.(params), Parameter.(Δp))
+        MOI.set.(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(params),
+            Parameter.(Δp),
+        )
         # Compute derivatives
         DiffOpt.forward_differentiate!(model)
         # Test sensitivities primal_vars
@@ -397,7 +402,12 @@ function test_compute_derivatives_Finite_Diff(;
         optimize!(model)
         @assert is_solved_and_feasible(model)
         # Set pertubations
-        MOI.set.(model, DiffOpt.ForwardConstraintSet(), ParameterRef.(params), Parameter.(Δp))
+        MOI.set.(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(params),
+            Parameter.(Δp),
+        )
         # Compute derivatives
         DiffOpt.forward_differentiate!(model)
         Δx = [
@@ -468,12 +478,20 @@ function test_differentiating_non_trivial_convex_qp_jump()
     db = grads_actual[6]
 
     for (i, ci) in enumerate(c_le)
-        @test -dh[i] ≈ -MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p_le[i])).value atol =
-            1e-2 rtol = 1e-2
+        @test -dh[i] ≈
+              -MOI.get(
+            model,
+            DiffOpt.ReverseConstraintSet(),
+            ParameterRef(p_le[i]),
+        ).value atol = 1e-2 rtol = 1e-2
     end
     for (i, ci) in enumerate(c_eq)
-        @test -db[i] ≈ -MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p_eq[i])).value atol =
-            1e-2 rtol = 1e-2
+        @test -db[i] ≈
+              -MOI.get(
+            model,
+            DiffOpt.ReverseConstraintSet(),
+            ParameterRef(p_eq[i]),
+        ).value atol = 1e-2 rtol = 1e-2
     end
 
     return
