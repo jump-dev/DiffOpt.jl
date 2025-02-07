@@ -671,6 +671,55 @@ function test_diff_errors()
     return
 end
 
+function is_empty(cache::DiffOpt.InputCache)
+    return isempty(cache.dx) &&
+           isempty(cache.scalar_constraints) &&
+           isempty(cache.vector_constraints) &&
+           cache.objective === nothing
+end
+
+# Credit to @klamike
+function test_empty_cache()
+    m = Model(
+        () -> DiffOpt.diff_optimizer(
+            HiGHS.Optimizer;
+            with_parametric_opt_interface = true,
+        ),
+    )
+    @variable(m, x)
+    @variable(m, p ∈ Parameter(1.0))
+    @variable(m, q ∈ Parameter(2.0))
+    @constraint(m, x ≥ p)
+    @constraint(m, x ≥ q)
+    @objective(m, Min, x)
+    optimize!(m)
+    @assert is_solved_and_feasible(m)
+
+    function get_sensitivity(m, xᵢ, pᵢ)
+        DiffOpt.empty_input_sensitivities!(m)
+        @test is_empty(unsafe_backend(m).optimizer.input_cache)
+        if !isnothing(unsafe_backend(m).optimizer.diff) &&
+           !isnothing(unsafe_backend(m).optimizer.diff.model.input_cache)
+            @test is_empty(unsafe_backend(m).optimizer.diff.model.input_cache)
+        end
+        MOI.set(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef(pᵢ),
+            Parameter(1.0),
+        )
+        DiffOpt.forward_differentiate!(m)
+        return MOI.get(m, DiffOpt.ForwardVariablePrimal(), xᵢ)
+    end
+
+    sp1 = get_sensitivity(m, x, p)
+    sp2 = get_sensitivity(m, x, q)
+    sp3 = get_sensitivity(m, x, p)
+    @test sp1 ≈ sp3
+    @test sp2 ≠ sp3
+    return
+end
+
 end # module
 
 TestParameters.runtests()
