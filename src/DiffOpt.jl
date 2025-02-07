@@ -15,8 +15,6 @@ import MathOptSetDistances as MOSD
 import ParametricOptInterface as POI
 import SparseArrays
 
-import Base.isempty
-
 include("utils.jl")
 include("product_of_sets.jl")
 include("diff_opt.jl")
