@@ -700,9 +700,7 @@ function test_empty_cache()
         @test is_empty(unsafe_backend(m).optimizer.input_cache)
         if !isnothing(unsafe_backend(m).optimizer.diff) &&
            !isnothing(unsafe_backend(m).optimizer.diff.model.input_cache)
-            @test is_empty(
-                unsafe_backend(m).optimizer.diff.model.input_cache,
-            )
+            @test is_empty(unsafe_backend(m).optimizer.diff.model.input_cache)
         end
         MOI.set(
             m,
