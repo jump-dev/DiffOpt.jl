@@ -438,7 +438,14 @@ function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6, st = 1e-6, max
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
-        Δp = [model.input_cache.dp[form.var2ci[i]] for i in cache.params]
+        # Δp = [model.input_cache.dp[form.var2ci[i]] for i in cache.params]
+        Δp = zeros(length(cache.params))
+        for (i, var_idx) in enumerate(cache.params)
+            ky = form.var2ci[var_idx]
+            if haskey(model.input_cache.dp, ky)
+                Δp[i] = model.input_cache.dp[ky]
+            end
+        end
 
         # Compute Jacobian
         Δs = compute_sensitivity(model; tol = tol, st = st, max_corrections = max_corrections, allow_inertia_correction = allow_inertia_correction)
