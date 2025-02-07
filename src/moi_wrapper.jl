@@ -523,6 +523,9 @@ function reverse_differentiate!(model::Optimizer; kwargs...)
     for (vi, value) in model.input_cache.dx
         MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
     end
+    for (vi, value) in model.input_cache.dy
+        MOI.set(diff, ReverseConstraintDual(), model.index_map[vi], value)
+    end
     return reverse_differentiate!(diff; kwargs...)
 end
 
