@@ -35,7 +35,7 @@ function Base.empty!(cache::InputCache)
     return
 end
 
-function isempty(cache::InputCache)
+function Base.isempty(cache::InputCache)
     return isempty(cache.dx) && isempty(cache.scalar_constraints) &&
         isempty(cache.vector_constraints) && cache.objective === nothing
 end
