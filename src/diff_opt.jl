@@ -13,6 +13,8 @@ const MOIDD = MOI.Utilities.DoubleDicts
 
 Base.@kwdef mutable struct InputCache
     dx::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()# dz for QP
+    dp::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}()
+    dy::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}()
     # ds
     # dy #= [d\lambda, d\nu] for QP
     # FIXME Would it be possible to have a DoubleDict where the value depends
@@ -29,6 +31,8 @@ end
 
 function Base.empty!(cache::InputCache)
     empty!(cache.dx)
+    empty!(cache.dp)
+    empty!(cache.dy)
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
@@ -36,7 +40,7 @@ function Base.empty!(cache::InputCache)
 end
 
 """
-    reverse_differentiate!(model::MOI.ModelLike)
+    reverse_differentiate!(model::MOI.ModelLike; kwargs...)
 
 Wrapper method for the backward pass / reverse differentiation.
 This method will consider as input a currently solved problem and differentials
@@ -47,7 +51,7 @@ attributes [`ReverseObjectiveFunction`](@ref) and [`ReverseConstraintFunction`](
 function reverse_differentiate! end
 
 """
-    forward_differentiate!(model::Optimizer)
+    forward_differentiate!(model::Optimizer; kwargs...)
 
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and
@@ -134,6 +138,37 @@ MOI.set(model, DiffOpt.ReverseVariablePrimal(), x)
 ```
 """
 struct ReverseVariablePrimal <: MOI.AbstractVariableAttribute end
+
+struct ForwardConstraintSet <: MOI.AbstractConstraintAttribute end
+
+struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
+
+"""
+    ReverseConstraintDual <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to set input data from reverse differentiation.
+
+For instance, to set the sensitivity wrt the dual of constraint of index `ci` do the following:
+```julia
+MOI.set(model, DiffOpt.ReverseConstraintDual(), x)
+```
+"""
+struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
+
+"""
+    ForwardConstraintDual <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to get output data from forward differentiation for the dual variable.
+
+For instance, to get the sensitivity of the dual of constraint of index `ci` with respect to the parameter perturbation, do the following:
+
+```julia
+MOI.get(model, DiffOpt.ForwardConstraintDual(), ci)
+```
+"""
+struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
+
+MOI.is_set_by_optimize(::ForwardConstraintDual) = true
 
 """
     ReverseObjectiveFunction <: MOI.AbstractModelAttribute
@@ -317,6 +352,16 @@ function MOI.set(
     val,
 )
     model.input_cache.dx[vi] = val
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
+    ::ReverseConstraintDual,
+    vi::MOI.ConstraintIndex,
+    val,
+)
+    model.input_cache.dy[vi] = val
     return
 end
 
