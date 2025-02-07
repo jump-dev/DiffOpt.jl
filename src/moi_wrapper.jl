@@ -578,7 +578,7 @@ end
 function empty_input_sensitivities!(model::Optimizer)
     empty!(model.input_cache)
     if model.diff !== nothing
-        empty_input_sensitivities!(model.diff)
+        empty!(model.diff.model.input_cache)
     end
     return
 end

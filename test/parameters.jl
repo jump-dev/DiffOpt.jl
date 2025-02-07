@@ -686,7 +686,7 @@ function test_empty_cache()
     function get_sensitivity(m, xᵢ, pᵢ)
         DiffOpt.empty_input_sensitivities!(m)
         @test DiffOpt.isempty(unsafe_backend(m).optimizer.input_cache)
-        if !isnothing(unsafe_backend(m).optimizer.diff.model.input_cache)
+        if !isnothing(unsafe_backend(m).optimizer.diff) && !isnothing(unsafe_backend(m).optimizer.diff.model.input_cache)
             @test DiffOpt.isempty(unsafe_backend(m).optimizer.diff.model.input_cache)
         end
         MOI.set(m, DiffOpt.ForwardConstraintSet(), ParameterRef(pᵢ), Parameter(1.0))
