@@ -197,7 +197,7 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
     s_geq =
         [model.s[con.value] for con in model_cons_geq] - [form.geq_values[con] for con in model_cons_geq]
     primal_idx = [i.value for i in model.cache.primal_vars]
-    X = [model.x[primal_idx]; s_leq; s_geq]
+    X = [model.x[primal_idx]; s_geq; s_leq]
 
     # value and dual of the lower bounds
     V_L = spzeros(num_vars + num_ineq)
@@ -347,7 +347,7 @@ function build_sensitivity_matrices(
         A[j, num_vars+i] = -1
     end
     for (i, j) in enumerate(leq_locations)
-        A[j, num_vars+i] = -1
+        A[j, num_vars+length(geq_locations)+i] = -1
     end
     # Partial second derivative of the lagrangian wrt primal solution and parameters
     ∇ₓₚL = spzeros(num_vars + num_ineq, num_parms)

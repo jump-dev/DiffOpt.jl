@@ -116,6 +116,131 @@ end
 =#
 ################################################
 
+function test_analytical_simple(; P = 2) # Number of parameters
+    @testset "Bounds Bounds" begin
+        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer, with_parametric_opt_interface=false))
+
+        @variable(m, 0 ≤ x[1:P] ≤ 1)
+        @variable(m, p[1:P] ∈ Parameter.(0.5))
+
+        @constraint(m, x .≥ p)
+
+        @objective(m, Min, sum(x))
+
+        optimize!(m)
+        @assert is_solved_and_feasible(m)
+
+        # Set pertubations
+        Δp = [0.1 for _ in 1:P]
+        MOI.set.(m, DiffOpt.ForwardConstraintSet(), ParameterRef.(p), Parameter.(Δp))
+
+        # Compute derivatives
+        DiffOpt.forward_differentiate!(m)
+
+        # Test sensitivities
+        @test all(
+            isapprox(
+                [MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P],
+                [0.1 for _ in 1:P],
+                atol = 1e-8,
+            ),
+        )
+    end
+    @testset "Bounds as RHS constraints" begin
+        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer, with_parametric_opt_interface=false))
+
+        @variable(m, x[1:P])
+        @constraint(m, x .≥ 0)
+        @constraint(m, x .≤ 1)
+        @variable(m, p[1:P] ∈ Parameter.(0.5))
+
+        @constraint(m, x .≥ p)
+
+        @objective(m, Min, sum(x))
+
+        optimize!(m)
+        @assert is_solved_and_feasible(m)
+
+        # Set pertubations
+        Δp = [0.1 for _ in 1:P]
+        MOI.set.(m, DiffOpt.ForwardConstraintSet(), ParameterRef.(p), Parameter.(Δp))
+
+        # Compute derivatives
+        DiffOpt.forward_differentiate!(m)
+
+        # Test sensitivities
+        @test all(
+            isapprox(
+                [MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P],
+                [0.1 for _ in 1:P],
+                atol = 1e-8,
+            ),
+        )
+    end
+    @testset "Bounds as Mixed constraints" begin
+        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer, with_parametric_opt_interface=false))
+
+        @variable(m, x[1:P])
+        @constraint(m, 0 .≤ x)
+        @constraint(m, x .≤ 1)
+        @variable(m, p[1:P] ∈ Parameter.(0.5))
+
+        @constraint(m, x .≥ p)
+
+        @objective(m, Min, sum(x))
+
+        optimize!(m)
+        @assert is_solved_and_feasible(m)
+
+        # Set pertubations
+        Δp = [0.1 for _ in 1:P]
+        MOI.set.(m, DiffOpt.ForwardConstraintSet(), ParameterRef.(p), Parameter.(Δp))
+
+        # Compute derivatives
+        DiffOpt.forward_differentiate!(m)
+
+        # Test sensitivities
+        @test all(
+            isapprox(
+                [MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P],
+                [0.1 for _ in 1:P],
+                atol = 1e-8,
+            ),
+        )
+    end
+    @testset "Bounds as LHS constraints" begin
+        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer, with_parametric_opt_interface=false))
+
+        @variable(m, x[1:P])
+        @constraint(m, 0 .≤ x)
+        @constraint(m, 1 .≥ x)
+        @variable(m, p[1:P] ∈ Parameter.(0.5))
+
+        @constraint(m, x .≥ p)
+
+        @objective(m, Min, sum(x))
+
+        optimize!(m)
+        @assert is_solved_and_feasible(m)
+
+        # Set pertubations
+        Δp = [0.1 for _ in 1:P]
+        MOI.set.(m, DiffOpt.ForwardConstraintSet(), ParameterRef.(p), Parameter.(Δp))
+
+        # Compute derivatives
+        DiffOpt.forward_differentiate!(m)
+
+        # Test sensitivities
+        @test all(
+            isapprox(
+                [MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P],
+                [0.1 for _ in 1:P],
+                atol = 1e-8,
+            ),
+        )
+    end
+end
+
 # f(x, p) = 0 
 # x = g(p)
 # ∂x/∂p = ∂g/∂p
