@@ -118,7 +118,12 @@ end
 
 function test_analytical_simple(; P = 2) # Number of parameters
     @testset "Bounds Bounds" begin
-        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer, with_parametric_opt_interface=false))
+        m = Model(
+            () -> DiffOpt.diff_optimizer(
+                Ipopt.Optimizer;
+                with_parametric_opt_interface = false,
+            ),
+        )
 
         @variable(m, 0 ≤ x[1:P] ≤ 1)
         @variable(m, p[1:P] ∈ Parameter.(0.5))
@@ -132,7 +137,12 @@ function test_analytical_simple(; P = 2) # Number of parameters
 
         # Set pertubations
         Δp = [0.1 for _ in 1:P]
-        MOI.set.(m, DiffOpt.ForwardConstraintSet(), ParameterRef.(p), Parameter.(Δp))
+        MOI.set.(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(p),
+            Parameter.(Δp),
+        )
 
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
@@ -140,14 +150,22 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # Test sensitivities
         @test all(
             isapprox(
-                [MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P],
-                [0.1 for _ in 1:P],
+                [
+                    MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for
+                    i in 1:P
+                ],
+                [0.1 for _ in 1:P];
                 atol = 1e-8,
             ),
         )
     end
     @testset "Bounds as RHS constraints" begin
-        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer, with_parametric_opt_interface=false))
+        m = Model(
+            () -> DiffOpt.diff_optimizer(
+                Ipopt.Optimizer;
+                with_parametric_opt_interface = false,
+            ),
+        )
 
         @variable(m, x[1:P])
         @constraint(m, x .≥ 0)
@@ -163,7 +181,12 @@ function test_analytical_simple(; P = 2) # Number of parameters
 
         # Set pertubations
         Δp = [0.1 for _ in 1:P]
-        MOI.set.(m, DiffOpt.ForwardConstraintSet(), ParameterRef.(p), Parameter.(Δp))
+        MOI.set.(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(p),
+            Parameter.(Δp),
+        )
 
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
@@ -171,14 +194,22 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # Test sensitivities
         @test all(
             isapprox(
-                [MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P],
-                [0.1 for _ in 1:P],
+                [
+                    MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for
+                    i in 1:P
+                ],
+                [0.1 for _ in 1:P];
                 atol = 1e-8,
             ),
         )
     end
     @testset "Bounds as Mixed constraints" begin
-        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer, with_parametric_opt_interface=false))
+        m = Model(
+            () -> DiffOpt.diff_optimizer(
+                Ipopt.Optimizer;
+                with_parametric_opt_interface = false,
+            ),
+        )
 
         @variable(m, x[1:P])
         @constraint(m, 0 .≤ x)
@@ -194,7 +225,12 @@ function test_analytical_simple(; P = 2) # Number of parameters
 
         # Set pertubations
         Δp = [0.1 for _ in 1:P]
-        MOI.set.(m, DiffOpt.ForwardConstraintSet(), ParameterRef.(p), Parameter.(Δp))
+        MOI.set.(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(p),
+            Parameter.(Δp),
+        )
 
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
@@ -202,14 +238,22 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # Test sensitivities
         @test all(
             isapprox(
-                [MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P],
-                [0.1 for _ in 1:P],
+                [
+                    MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for
+                    i in 1:P
+                ],
+                [0.1 for _ in 1:P];
                 atol = 1e-8,
             ),
         )
     end
     @testset "Bounds as LHS constraints" begin
-        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer, with_parametric_opt_interface=false))
+        m = Model(
+            () -> DiffOpt.diff_optimizer(
+                Ipopt.Optimizer;
+                with_parametric_opt_interface = false,
+            ),
+        )
 
         @variable(m, x[1:P])
         @constraint(m, 0 .≤ x)
@@ -225,7 +269,12 @@ function test_analytical_simple(; P = 2) # Number of parameters
 
         # Set pertubations
         Δp = [0.1 for _ in 1:P]
-        MOI.set.(m, DiffOpt.ForwardConstraintSet(), ParameterRef.(p), Parameter.(Δp))
+        MOI.set.(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(p),
+            Parameter.(Δp),
+        )
 
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
@@ -233,8 +282,11 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # Test sensitivities
         @test all(
             isapprox(
-                [MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P],
-                [0.1 for _ in 1:P],
+                [
+                    MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for
+                    i in 1:P
+                ],
+                [0.1 for _ in 1:P];
                 atol = 1e-8,
             ),
         )
