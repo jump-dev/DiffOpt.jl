@@ -71,7 +71,7 @@ pc_val = 2.0
 @variable(model, p in Parameter(p_val))
 @variable(model, pc in Parameter(pc_val))
 @constraint(model, cons, pc * x >= 3 * p)
-@objective(model, Min, 2x)
+@objective(model, Min, x^4)
 optimize!(model)
 @show value(x) == 3 * p_val / pc_val
 

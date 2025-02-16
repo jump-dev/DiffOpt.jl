@@ -12,12 +12,6 @@ For `QuadraticProgram` backend, the package supports following `Function-in-Set`
 |    `ScalarAffineFunction`    |    `GreaterThan`    |
 |    `ScalarAffineFunction`    |    `LessThan`    |
 |    `ScalarAffineFunction`    |    `EqualTo`    |
-|    `ScalarQuadraticFunction`    |    `GreaterThan`    |
-|    `ScalarQuadraticFunction`    |    `LessThan`    |
-|    `ScalarQuadraticFunction`    |    `EqualTo`    |
-|    `ScalarNonlinearFunction`    |    `GreaterThan`    |
-|    `ScalarNonlinearFunction`    |    `LessThan`    |
-|    `ScalarNonlinearFunction`    |    `EqualTo`    |
 
 and the following objective types: 
 
@@ -26,7 +20,6 @@ and the following objective types:
 |   `VariableIndex`   |
 |   `ScalarAffineFunction`   |
 | `ScalarQuadraticFunction`  | 
-| `ScalarNonlinearFunction`  |
 
 
 ## Supported objectives & constraints - `ConicProgram` backend
@@ -54,6 +47,34 @@ and the following objective types:
 |   `ScalarAffineFunction`   |
 
 Other conic sets such as `RotatedSecondOrderCone` and `PositiveSemidefiniteConeSquare` are supported through bridges.
+
+## Supported objectives & constraints - `NonlinearProgram` backend
+
+For the `NonlinearProgram` backend, the package supports following `Function-in-Set` constraints:
+
+|  MOI Function | MOI Set |
+|:-------|:---------------|
+|    `VariableIndex`    |    `GreaterThan`    |
+|    `VariableIndex`    |    `LessThan`    |
+|    `VariableIndex`    |    `EqualTo`    |
+|    `ScalarAffineFunction`    |    `GreaterThan`    |
+|    `ScalarAffineFunction`    |    `LessThan`    |
+|    `ScalarAffineFunction`    |    `EqualTo`    |
+|    `ScalarQuadraticFunction`    |    `GreaterThan`    |
+|    `ScalarQuadraticFunction`    |    `LessThan`    |
+|    `ScalarQuadraticFunction`    |    `EqualTo`    |
+|    `ScalarNonlinearFunction`    |    `GreaterThan`    |
+|    `ScalarNonlinearFunction`    |    `LessThan`    |
+|    `ScalarNonlinearFunction`    |    `EqualTo`    |
+
+and the following objective types: 
+
+|  MOI Function |
+|:-------:|
+|   `VariableIndex`   |
+|   `ScalarAffineFunction`   |
+| `ScalarQuadraticFunction`  | 
+| `ScalarNonlinearFunction`  |
 
 ## Creating a differentiable MOI optimizer
 
