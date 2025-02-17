@@ -187,27 +187,29 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
     has_low = model.cache.has_low
     primal_vars = model.cache.primal_vars
     cons = model.cache.cons
-    # Primal solution: value.([primal_vars; slack_vars])
+    # MOI constraint indices of leq and geq constraints
     model_cons_leq =
         [form.nlp_index_2_constraint[con] for con in cons[leq_locations]]
     model_cons_geq =
         [form.nlp_index_2_constraint[con] for con in cons[geq_locations]]
+    # Value of the slack variables
+    # c(x) - b - su = 0, su <= 0
     s_leq =
         [model.s[con.value] for con in model_cons_leq] - [form.leq_values[con] for con in model_cons_leq]
+    # c(x) - b - sl = 0, sl >= 0
     s_geq =
         [model.s[con.value] for con in model_cons_geq] - [form.geq_values[con] for con in model_cons_geq]
     primal_idx = [i.value for i in model.cache.primal_vars]
-    X = [model.x[primal_idx]; s_geq; s_leq]
+    X = [model.x[primal_idx]; s_geq; s_leq] # Primal, Slack with Lower Bounds, Slack with Upper Bounds
 
-    # value and dual of the lower bounds
+    # Value and dual of the lower bounds
     V_L = spzeros(num_vars + num_ineq)
     X_L = spzeros(num_vars + num_ineq)
     for (i, j) in enumerate(has_low)
+        # Dual of the lower bounds of the primal variables
         V_L[j] =
             model.y[form.constraint_lower_bounds[primal_vars[j].value].value] *
             sense_multiplier
-        #dual.(LowerBoundRef(primal_vars[j])) * sense_multiplier
-        #
         if sense_multiplier == 1.0
             V_L[j] <= -tol &&
                 @info "Dual of lower bound must be positive" i V_L[j]
@@ -215,10 +217,11 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
             V_L[j] >= tol &&
                 @info "Dual of lower bound must be negative" i V_L[j]
         end
-        #
+        # Lower bounds of the primal variables
         X_L[j] = form.lower_bounds[primal_vars[j].value]
     end
     for (i, con) in enumerate(cons[geq_locations])
+        # Dual of the lower bounds of the slack variables
         # By convention jump dual will allways be positive for geq constraints
         # but for ipopt it will be positive if min problem and negative if max problem
         V_L[num_vars+i] =
@@ -236,46 +239,42 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
     V_U = spzeros(num_vars + num_ineq)
     X_U = spzeros(num_vars + num_ineq)
     for (i, j) in enumerate(has_up)
+        # Dual of the upper bounds of the primal variables
         V_U[j] =
             model.y[form.constraint_upper_bounds[primal_vars[j].value].value] *
             (-sense_multiplier)
-        # dual.(UpperBoundRef(primal_vars[j])) * (- sense_multiplier)
         if sense_multiplier == 1.0
-            V_U[j] <= -tol &&
-                @info "Dual of upper bound must be positive" i V_U[i]
+            @assert V_U[j] <= -tol "Dual of upper bound must be positive" i V_U[i]
         else
-            V_U[j] >= tol &&
-                @info "Dual of upper bound must be negative" i V_U[i]
+            @assert V_U[j] >= tol "Dual of upper bound must be negative" i V_U[i]
         end
-        #
+        # Upper bounds of the primal variables
         X_U[j] = form.upper_bounds[primal_vars[j].value]
     end
     for (i, con) in enumerate(cons[leq_locations])
+        # Dual of the upper bounds of the slack variables
         # By convention jump dual will allways be negative for leq constraints
         # but for ipopt it will be positive if min problem and negative if max problem
         V_U[num_vars+num_geq+i] =
             model.y[form.nlp_index_2_constraint[con].value] *
             (-sense_multiplier)
-        # dual.(con) * (- sense_multiplier)
         if sense_multiplier == 1.0
-            V_U[num_vars+num_geq+i] <= -tol &&
-                @info "Dual of leq constraint must be positive" i V_U[num_vars+i]
+            @assert V_U[num_vars+num_geq+i] <= -tol "Dual of leq constraint must be positive" i V_U[num_vars+i]
         else
-            V_U[num_vars+num_geq+i] >= tol &&
-                @info "Dual of leq constraint must be negative" i V_U[num_vars+i]
+            @assert V_U[num_vars+num_geq+i] >= tol "Dual of leq constraint must be negative" i V_U[num_vars+i]
         end
     end
-    return X,
-    V_L,
-    X_L,
-    V_U,
-    X_U,
-    leq_locations,
-    geq_locations,
-    ineq_locations,
-    vcat(has_up, collect(num_vars+num_geq+1:num_vars+num_geq+num_leq)),
-    vcat(has_low, collect(num_vars+1:num_vars+num_geq)),
-    cons
+    return X, # Primal and slack solution
+    V_L, # Dual of the lower bounds
+    X_L, # Lower bounds
+    V_U, # Dual of the upper bounds
+    X_U, # Upper bounds
+    leq_locations, # Indices of the leq constraints wrt the nlp constraints
+    geq_locations, # Indices of the geq constraints wrt the nlp constraints
+    ineq_locations, # Indices of the ineq constraints wrt the nlp constraints
+    vcat(has_up, collect(num_vars+num_geq+1:num_vars+num_geq+num_leq)), # Indices of variables with upper bounds (both primal and slack)
+    vcat(has_low, collect(num_vars+1:num_vars+num_geq)), # Indices of variables with lower bounds (both primal and slack)
+    cons # Vector of the nlp constraints
 end
 
 """
@@ -429,35 +428,6 @@ function inertia_corrector_factorization(
         return nothing
     end
     return K
-end
-
-"""
-    inertia_corrector_factorization(M::Matrix, num_w, num_cons; st=1e-6, max_corrections=50)
-
-Inertia correction for the factorization of the KKT matrix. Dense version.
-"""
-function inertia_corrector_factorization(
-    M;
-    st = 1e-6,
-    max_corrections = 50,
-    allow_inertia_correction = true,
-)
-    num_c = 0
-    if cond(M) > 1 / st
-        @assert allow_inertia_correction "Inertia correction needed but not allowed"
-        @info "Inertia correction needed"
-        M = M + st * I(size(M, 1))
-        num_c += 1
-    end
-    while cond(M) > 1 / st && num_c < max_corrections
-        M = M + st * I(size(M, 1))
-        num_c += 1
-    end
-    if num_c == max_corrections
-        @warn "Inertia correction failed"
-        return nothing
-    end
-    return lu(M)
 end
 
 """
