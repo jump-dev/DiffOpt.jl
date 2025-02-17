@@ -125,17 +125,17 @@ function MOI.supports_constraint(
     return true
 end
 
-function add_leq_geq(form::Form, idx::MOI.ConstraintIndex, set::MOI.GreaterThan)
+function _add_leq_geq(form::Form, idx::MOI.ConstraintIndex, set::MOI.GreaterThan)
     form.geq_values[idx] = set.lower
     return
 end
 
-function add_leq_geq(form::Form, idx::MOI.ConstraintIndex, set::MOI.LessThan)
+function _add_leq_geq(form::Form, idx::MOI.ConstraintIndex, set::MOI.LessThan)
     form.leq_values[idx] = set.upper
     return
 end
 
-function add_leq_geq(::Form, ::MOI.ConstraintIndex, ::MOI.EqualTo)
+function _add_leq_geq(::Form, ::MOI.ConstraintIndex, ::MOI.EqualTo)
     return
 end
 
@@ -159,7 +159,7 @@ function MOI.add_constraint(
     form.num_constraints += 1
     idx_nlp = MOI.Nonlinear.add_constraint(form.model, func, set)
     idx = MOI.ConstraintIndex{F,S}(form.num_constraints)
-    add_leq_geq(form, idx, set)
+    _add_leq_geq(form, idx, set)
     form.list_of_constraint[idx] = idx
     form.constraints_2_nlp_index[idx] = idx_nlp
     form.nlp_index_2_constraint[idx_nlp] = idx
@@ -174,7 +174,7 @@ function MOI.add_constraint(
     form.num_constraints += 1
     idx_nlp = MOI.Nonlinear.add_constraint(form.model, func, set)
     idx = MOI.ConstraintIndex{F,S}(form.num_constraints)
-    add_leq_geq(form, idx, set)
+    _add_leq_geq(form, idx, set)
     form.list_of_constraint[idx] = idx
     form.constraints_2_nlp_index[idx] = idx_nlp
     form.nlp_index_2_constraint[idx_nlp] = idx
