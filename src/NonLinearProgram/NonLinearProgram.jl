@@ -372,7 +372,7 @@ get_num_params(model::Model) = get_num_params(model.model)
 
 function _cache_evaluator!(model::Model)
     form = model.model
-    # Retrieve and sort primal variables by index
+    # Retrieve and sort primal variables by NLP index
     params = sort(all_params(form); by = x -> x.value)
     primal_vars = sort(all_primal_vars(form); by = x -> x.value)
     num_primal = length(primal_vars)
@@ -389,7 +389,7 @@ function _cache_evaluator!(model::Model)
     num_low = length(has_low)
     num_up = length(has_up)
 
-    # Create unified dual mapping
+    # Create unified dual mapping from constraint index to NLP index
     dual_mapping = Vector{Int}(undef, form.num_constraints)
     for (ci, cni) in form.constraints_2_nlp_index
         dual_mapping[ci.value] = cni.value
@@ -437,9 +437,6 @@ end
 function DiffOpt.forward_differentiate!(
     model::Model;
     tol = 1e-6,
-    st = 1e-6,
-    max_corrections = 50,
-    allow_inertia_correction = true,
 )
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
@@ -448,7 +445,7 @@ function DiffOpt.forward_differentiate!(
         Δp = zeros(length(cache.params))
         for (i, var_idx) in enumerate(cache.params)
             ky = form.var2ci[var_idx]
-            if haskey(model.input_cache.dp, ky)
+            if haskey(model.input_cache.dp, ky) # only for set sensitivities
                 Δp[i] = model.input_cache.dp[ky]
             end
         end
@@ -457,9 +454,6 @@ function DiffOpt.forward_differentiate!(
         Δs = compute_sensitivity(
             model;
             tol = tol,
-            st = st,
-            max_corrections = max_corrections,
-            allow_inertia_correction = allow_inertia_correction,
         )
 
         # Extract primal and dual sensitivities
@@ -477,9 +471,6 @@ end
 function DiffOpt.reverse_differentiate!(
     model::Model;
     tol = 1e-6,
-    st = 1e-6,
-    max_corrections = 50,
-    allow_inertia_correction = true,
 )
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
@@ -489,9 +480,6 @@ function DiffOpt.reverse_differentiate!(
         Δs = compute_sensitivity(
             model;
             tol = tol,
-            st = st,
-            max_corrections = max_corrections,
-            allow_inertia_correction = allow_inertia_correction,
         )
         num_primal = length(cache.primal_vars)
         # Fetch primal sensitivities

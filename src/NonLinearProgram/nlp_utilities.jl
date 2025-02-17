@@ -389,44 +389,6 @@ function build_sensitivity_matrices(
 end
 
 """
-    inertia_corrector_factorization(M::SparseMatrixCSC, num_w, num_cons; st=1e-6, max_corrections=50)
-
-Inertia correction for the factorization of the KKT matrix. Sparse version.
-"""
-function inertia_corrector_factorization(
-    M::SparseMatrixCSC,
-    num_w,
-    num_cons;
-    st = 1e-6,
-    max_corrections = 50,
-    allow_inertia_correction = true,
-)
-    # Factorization
-    K = lu(M; check = false)
-    # Inertia correction
-    status = K.status
-    num_c = 0
-    diag_mat = ones(size(M, 1))
-    diag_mat[num_w+1:num_w+num_cons] .= -1
-    diag_mat = SparseArrays.spdiagm(diag_mat)
-    if status == 1
-        @assert allow_inertia_correction "Inertia correction needed but not allowed"
-        @info "Inertia correction needed"
-    end
-    while status == 1 && num_c < max_corrections
-        M = M + st * diag_mat
-        K = lu(M; check = false)
-        status = K.status
-        num_c += 1
-    end
-    if status != 0
-        @warn "Inertia correction failed"
-        return nothing
-    end
-    return K
-end
-
-"""
     compute_derivatives_no_relax(model::Model, cons::Vector{MOI.Nonlinear.ConstraintIndex},
         _X::AbstractVector, _V_L::AbstractVector, _X_L::AbstractVector, _V_U::AbstractVector, _X_U::AbstractVector, leq_locations::Vector{Z}, geq_locations::Vector{Z}, ineq_locations::Vector{Z},
         has_up::Vector{Z}, has_low::Vector{Z}
@@ -447,9 +409,6 @@ function compute_derivatives_no_relax(
     ineq_locations::Vector{Z},
     has_up::Vector{Z},
     has_low::Vector{Z};
-    st = 1e-6,
-    max_corrections = 50,
-    allow_inertia_correction = true,
 ) where {Z<:Integer}
     M, N = build_sensitivity_matrices(
         model,
@@ -470,13 +429,10 @@ function compute_derivatives_no_relax(
     num_vars = get_num_primal_vars(model)
     num_cons = get_num_constraints(model)
     num_ineq = length(ineq_locations)
-    K = inertia_corrector_factorization(
+    K = model.input_cache.factorization(
         M,
         num_vars + num_ineq,
-        num_cons;
-        st = st,
-        max_corrections = max_corrections,
-        allow_inertia_correction = allow_inertia_correction,
+        num_cons
     ) # Factorization
     if isnothing(K)
         return zeros(size(M, 1), size(N, 2)), K, N
@@ -499,9 +455,6 @@ Compute the sensitivity of the solution given sensitivity of the parameters (Δp
 function compute_sensitivity(
     model::Model;
     tol = 1e-6,
-    st = 1e-6,
-    max_corrections = 50,
-    allow_inertia_correction = true,
 )
     # Solution and bounds
     X,
@@ -529,10 +482,7 @@ function compute_sensitivity(
         geq_locations,
         ineq_locations,
         has_up,
-        has_low;
-        st = st,
-        max_corrections = max_corrections,
-        allow_inertia_correction = allow_inertia_correction,
+        has_low
     )
     ## Adjust signs based on JuMP convention
     num_vars = get_num_primal_vars(model)

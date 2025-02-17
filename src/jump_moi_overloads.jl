@@ -23,6 +23,14 @@ end
 
 function MOI.set(
     model::JuMP.Model,
+    attr::MFactorization,
+    factorization::Function,
+)
+    return MOI.set(JuMP.backend(model), attr, factorization)
+end
+
+function MOI.set(
+    model::JuMP.Model,
     attr::ForwardObjectiveFunction,
     func::Number,
 )

@@ -512,7 +512,7 @@ function MOI.set(model::Optimizer, ::ModelConstructor, model_constructor)
     return
 end
 
-function reverse_differentiate!(model::Optimizer; kwargs...)
+function reverse_differentiate!(model::Optimizer)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st, (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
         error(
@@ -520,13 +520,14 @@ function reverse_differentiate!(model::Optimizer; kwargs...)
         )
     end
     diff = _diff(model)
+    MOI.set(diff, MFactorization(), model.input_cache.factorization)
     for (vi, value) in model.input_cache.dx
         MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
     end
     for (vi, value) in model.input_cache.dy
         MOI.set(diff, ReverseConstraintDual(), model.index_map[vi], value)
     end
-    return reverse_differentiate!(diff; kwargs...)
+    return reverse_differentiate!(diff)
 end
 
 function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
@@ -541,7 +542,7 @@ function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
     return
 end
 
-function forward_differentiate!(model::Optimizer; kwargs...)
+function forward_differentiate!(model::Optimizer)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st, (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
         error(
@@ -549,6 +550,7 @@ function forward_differentiate!(model::Optimizer; kwargs...)
         )
     end
     diff = _diff(model)
+    MOI.set(diff, MFactorization(), model.input_cache.factorization)
     if model.input_cache.objective !== nothing
         MOI.set(
             diff,
@@ -580,7 +582,7 @@ function forward_differentiate!(model::Optimizer; kwargs...)
             diff.model.input_cache.dp[model.index_map[vi]] = value
         end
     end
-    return forward_differentiate!(diff; kwargs...)
+    return forward_differentiate!(diff)
 end
 
 function empty_input_sensitivities!(model::Optimizer)
@@ -672,6 +674,8 @@ function MOI.get(model::Optimizer, attr::ReverseObjectiveFunction)
 end
 
 MOI.supports(::Optimizer, ::ForwardObjectiveFunction) = true
+
+MOI.supports(::Optimizer, ::MFactorization) = true
 
 function MOI.get(model::Optimizer, ::ForwardObjectiveFunction)
     return model.input_cache.objective
