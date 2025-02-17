@@ -255,9 +255,9 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
             model.y[form.nlp_index_2_constraint[con].value] *
             (-sense_multiplier)
         if sense_multiplier == 1.0
-            @assert V_U[num_vars+num_geq+i] <= -tol "Dual of leq constraint must be positive: $i $(V_U[num_vars+i])"
+            @assert V_U[num_vars+num_geq+i] >= -tol "Dual of leq constraint must be positive: $i $(V_U[num_vars+i])"
         else
-            @assert V_U[num_vars+num_geq+i] >= tol "Dual of leq constraint must be negative: $i $(V_U[num_vars+i])"
+            @assert V_U[num_vars+num_geq+i] <= tol "Dual of leq constraint must be negative: $i $(V_U[num_vars+i])"
         end
     end
     return X, # Primal and slack solution
