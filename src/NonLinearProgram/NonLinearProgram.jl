@@ -444,7 +444,7 @@ function DiffOpt.forward_differentiate!(
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
-        # Δp = [model.input_cache.dp[form.var2ci[i]] for i in cache.params]
+        # Fetch parameter sensitivities
         Δp = zeros(length(cache.params))
         for (i, var_idx) in enumerate(cache.params)
             ky = form.var2ci[var_idx]
@@ -494,13 +494,14 @@ function DiffOpt.reverse_differentiate!(
             allow_inertia_correction = allow_inertia_correction,
         )
         num_primal = length(cache.primal_vars)
+        # Fetch primal sensitivities
         Δx = zeros(num_primal)
         for (i, var_idx) in enumerate(cache.primal_vars)
             if haskey(model.input_cache.dx, var_idx)
                 Δx[i] = model.input_cache.dx[var_idx]
             end
         end
-        # ReverseConstraintDual
+        # Fetch dual sensitivities
         num_constraints = length(cache.cons)
         num_up = length(cache.has_up)
         num_low = length(cache.has_low)
@@ -523,7 +524,7 @@ function DiffOpt.reverse_differentiate!(
                 Δdual[num_constraints+num_low+i] = model.input_cache.dy[idx]
             end
         end
-        # Extract primal and dual sensitivities
+        # Extract Parameter sensitivities
         Δw = zeros(size(Δs, 1))
         Δw[1:num_primal] = Δx
         Δw[cache.index_duals] = Δdual

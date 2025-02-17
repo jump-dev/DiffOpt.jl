@@ -211,11 +211,9 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
             model.y[form.constraint_lower_bounds[primal_vars[j].value].value] *
             sense_multiplier
         if sense_multiplier == 1.0
-            V_L[j] <= -tol &&
-                @info "Dual of lower bound must be positive" i V_L[j]
+            @assert V_L[j] >= -tol "Dual of lower bound must be positive: $i $(V_L[i])"
         else
-            V_L[j] >= tol &&
-                @info "Dual of lower bound must be negative" i V_L[j]
+            @assert V_L[j] <= tol "Dual of lower bound must be negative: $i $(V_L[i])"
         end
         # Lower bounds of the primal variables
         X_L[j] = form.lower_bounds[primal_vars[j].value]
@@ -228,11 +226,9 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
             model.y[form.nlp_index_2_constraint[con].value] * sense_multiplier
         #
         if sense_multiplier == 1.0
-            V_L[num_vars+i] <= -tol &&
-                @info "Dual of geq constraint must be positive" i V_L[num_vars+i]
+            @assert V_L[num_vars+i] >= -tol "Dual of geq constraint must be positive: $i $(V_L[num_vars+i])"
         else
-            V_L[num_vars+i] >= tol &&
-                @info "Dual of geq constraint must be negative" i V_L[num_vars+i]
+            @assert V_L[num_vars+i] <= tol "Dual of geq constraint must be negative: $i $(V_L[num_vars+i])"
         end
     end
     # value and dual of the upper bounds
@@ -244,9 +240,9 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
             model.y[form.constraint_upper_bounds[primal_vars[j].value].value] *
             (-sense_multiplier)
         if sense_multiplier == 1.0
-            @assert V_U[j] <= -tol "Dual of upper bound must be positive" i V_U[i]
+            @assert V_U[j] >= -tol "Dual of upper bound must be positive: $i $(V_U[i])"
         else
-            @assert V_U[j] >= tol "Dual of upper bound must be negative" i V_U[i]
+            @assert V_U[j] <= tol "Dual of upper bound must be negative: $i $(V_U[i])"
         end
         # Upper bounds of the primal variables
         X_U[j] = form.upper_bounds[primal_vars[j].value]
@@ -259,9 +255,9 @@ function compute_solution_and_bounds(model::Model; tol = 1e-6)
             model.y[form.nlp_index_2_constraint[con].value] *
             (-sense_multiplier)
         if sense_multiplier == 1.0
-            @assert V_U[num_vars+num_geq+i] <= -tol "Dual of leq constraint must be positive" i V_U[num_vars+i]
+            @assert V_U[num_vars+num_geq+i] <= -tol "Dual of leq constraint must be positive: $i $(V_U[num_vars+i])"
         else
-            @assert V_U[num_vars+num_geq+i] >= tol "Dual of leq constraint must be negative" i V_U[num_vars+i]
+            @assert V_U[num_vars+num_geq+i] >= tol "Dual of leq constraint must be negative: $i $(V_U[num_vars+i])"
         end
     end
     return X, # Primal and slack solution
