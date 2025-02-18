@@ -125,7 +125,11 @@ function MOI.supports_constraint(
     return true
 end
 
-function _add_leq_geq(form::Form, idx::MOI.ConstraintIndex, set::MOI.GreaterThan)
+function _add_leq_geq(
+    form::Form,
+    idx::MOI.ConstraintIndex,
+    set::MOI.GreaterThan,
+)
     form.geq_values[idx] = set.lower
     return
 end
@@ -434,10 +438,7 @@ function _cache_evaluator!(model::Model)
     return model.cache
 end
 
-function DiffOpt.forward_differentiate!(
-    model::Model;
-    tol = 1e-6,
-)
+function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
@@ -451,10 +452,7 @@ function DiffOpt.forward_differentiate!(
         end
 
         # Compute Jacobian
-        Δs = _compute_sensitivity(
-            model;
-            tol = tol,
-        )
+        Δs = _compute_sensitivity(model; tol = tol)
 
         # Extract primal and dual sensitivities
         primal_Δs = Δs[1:length(model.cache.primal_vars), :] * Δp # Exclude slacks
@@ -468,19 +466,13 @@ function DiffOpt.forward_differentiate!(
     return nothing
 end
 
-function DiffOpt.reverse_differentiate!(
-    model::Model;
-    tol = 1e-6,
-)
+function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
 
         # Compute Jacobian
-        Δs = _compute_sensitivity(
-            model;
-            tol = tol,
-        )
+        Δs = _compute_sensitivity(model; tol = tol)
         num_primal = length(cache.primal_vars)
         # Fetch primal sensitivities
         Δx = zeros(num_primal)

@@ -769,11 +769,7 @@ function MOI.set(
     return
 end
 
-function MOI.set(
-    model::Optimizer,
-    ::MFactorization,
-    factorization,
-)
+function MOI.set(model::Optimizer, ::MFactorization, factorization)
     model.input_cache.factorization = factorization
     return
 end

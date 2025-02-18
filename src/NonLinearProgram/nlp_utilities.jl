@@ -434,11 +434,7 @@ function _compute_derivatives_no_relax(
     num_vars = _get_num_primal_vars(model)
     num_cons = _get_num_constraints(model)
     num_ineq = length(ineq_locations)
-    K = model.input_cache.factorization(
-        M,
-        num_vars + num_ineq,
-        num_cons
-    ) # Factorization
+    K = model.input_cache.factorization(M, num_vars + num_ineq, num_cons) # Factorization
     if isnothing(K)
         return zeros(size(M, 1), size(N, 2)), K, N
     end
@@ -457,10 +453,7 @@ _sense_mult(model::Model) = objective_sense(model) == MOI.MIN_SENSE ? 1.0 : -1.0
 
 Compute the sensitivity of the solution given sensitivity of the parameters (Δp).
 """
-function _compute_sensitivity(
-    model::Model;
-    tol = 1e-6,
-)
+function _compute_sensitivity(model::Model; tol = 1e-6)
     # Solution and bounds
     X,
     V_L,
@@ -487,7 +480,7 @@ function _compute_sensitivity(
         geq_locations,
         ineq_locations,
         has_up,
-        has_low
+        has_low,
     )
     ## Adjust signs based on JuMP convention
     num_vars = _get_num_primal_vars(model)

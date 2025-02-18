@@ -720,7 +720,11 @@ function test_changing_factorization()
     @test_throws MethodError DiffOpt.forward_differentiate!(m)
 
     # correct type and correct number of arguments
-    MOI.set(m, DiffOpt.MFactorization(), (M, num_w, num_constraints) -> SparseArrays.lu(M))
+    MOI.set(
+        m,
+        DiffOpt.MFactorization(),
+        (M, num_w, num_constraints) -> SparseArrays.lu(M),
+    )
 
     # Compute derivatives
     DiffOpt.forward_differentiate!(m)
@@ -728,16 +732,12 @@ function test_changing_factorization()
     # Test sensitivities
     @test all(
         isapprox(
-            [
-                MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for
-                i in 1:P
-            ],
+            [MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P],
             [0.1 for _ in 1:P];
             atol = 1e-8,
         ),
     )
 end
-
 
 end # module
 

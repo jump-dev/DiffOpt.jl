@@ -19,17 +19,20 @@ Lu-factorization. If no inertia correction is needed, it only performs the LU
 factorization.
 """
 struct LuFactorizationWithInertiaCorrection{T<:Real} <: Function
-    st::T 
+    st::T
     max_corrections::Int
 end
-function LuFactorizationWithInertiaCorrection(; st::T = 1e-6, max_corrections::Int = 50) where T
+function LuFactorizationWithInertiaCorrection(;
+    st::T = 1e-6,
+    max_corrections::Int = 50,
+) where {T}
     return LuFactorizationWithInertiaCorrection{T}(st, max_corrections)
 end
 
 function (lu_struct::LuFactorizationWithInertiaCorrection)(
     M::SparseArrays.SparseMatrixCSC,
     num_w,
-    num_cons
+    num_cons,
 )
     # Factorization
     K = SparseArrays.lu(M; check = false)
