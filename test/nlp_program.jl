@@ -720,11 +720,7 @@ function test_changing_factorization()
     @test_throws MethodError DiffOpt.forward_differentiate!(m)
 
     # correct type and correct number of arguments
-    MOI.set(
-        m,
-        DiffOpt.MFactorization(),
-        (M, model) -> SparseArrays.lu(M),
-    )
+    MOI.set(m, DiffOpt.MFactorization(), (M, model) -> SparseArrays.lu(M))
 
     # Compute derivatives
     DiffOpt.forward_differentiate!(m)

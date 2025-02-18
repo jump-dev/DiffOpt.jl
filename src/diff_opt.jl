@@ -28,7 +28,7 @@ Base.@kwdef mutable struct InputCache
     vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} =
         MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}}() # also includes G for QPs
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
-    factorization::Union{Nothing, Function} = nothing
+    factorization::Union{Nothing,Function} = nothing
 end
 
 function Base.empty!(cache::InputCache)

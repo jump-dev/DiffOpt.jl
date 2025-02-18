@@ -376,8 +376,11 @@ function _lu_with_inertia_correction(
     model::Model, # Model to extract number of variables and constraints
     st::T = 1e-6, # Step size for inertia correction
     max_corrections::Int = 50, # Maximum number of corrections
-) where T<:Real
-    num_w = _get_num_primal_vars(model) + length(model.cache.leq_locations) + length(model.cache.geq_locations)
+) where {T<:Real}
+    num_w =
+        _get_num_primal_vars(model) +
+        length(model.cache.leq_locations) +
+        length(model.cache.geq_locations)
     num_cons = _get_num_constraints(model)
     # Factorization
     K = SparseArrays.lu(M; check = false)
