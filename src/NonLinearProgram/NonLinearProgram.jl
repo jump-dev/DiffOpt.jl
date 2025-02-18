@@ -356,32 +356,32 @@ end
 
 include("nlp_utilities.jl")
 
-all_variables(form::Form) = MOI.VariableIndex.(1:form.num_variables)
-all_variables(model::Model) = all_variables(model.model)
-all_params(form::Form) = collect(keys(form.var2param))
-all_params(model::Model) = all_params(model.model)
-all_primal_vars(form::Form) = setdiff(all_variables(form), all_params(form))
-all_primal_vars(model::Model) = all_primal_vars(model.model)
+_all_variables(form::Form) = MOI.VariableIndex.(1:form.num_variables)
+_all_variables(model::Model) = _all_variables(model.model)
+_all_params(form::Form) = collect(keys(form.var2param))
+_all_params(model::Model) = _all_params(model.model)
+_all_primal_vars(form::Form) = setdiff(_all_variables(form), _all_params(form))
+_all_primal_vars(model::Model) = _all_primal_vars(model.model)
 
-get_num_constraints(form::Form) = length(form.constraints_2_nlp_index)
-get_num_constraints(model::Model) = get_num_constraints(model.model)
-get_num_primal_vars(form::Form) = length(all_primal_vars(form))
-get_num_primal_vars(model::Model) = get_num_primal_vars(model.model)
-get_num_params(form::Form) = length(all_params(form))
-get_num_params(model::Model) = get_num_params(model.model)
+_get_num_constraints(form::Form) = length(form.constraints_2_nlp_index)
+_get_num_constraints(model::Model) = _get_num_constraints(model.model)
+_get_num_primal_vars(form::Form) = length(_all_primal_vars(form))
+_get_num_primal_vars(model::Model) = _get_num_primal_vars(model.model)
+_get_num_params(form::Form) = length(_all_params(form))
+_get_num_params(model::Model) = _get_num_params(model.model)
 
 function _cache_evaluator!(model::Model)
     form = model.model
     # Retrieve and sort primal variables by NLP index
-    params = sort(all_params(form); by = x -> x.value)
-    primal_vars = sort(all_primal_vars(form); by = x -> x.value)
+    params = sort(_all_params(form); by = x -> x.value)
+    primal_vars = sort(_all_primal_vars(form); by = x -> x.value)
     num_primal = length(primal_vars)
 
     # Create evaluator and constraints
-    evaluator = create_evaluator(form)
-    num_constraints = get_num_constraints(form)
+    evaluator = _create_evaluator(form)
+    num_constraints = _get_num_constraints(form)
     # Analyze constraints and bounds
-    leq_locations, geq_locations = find_inequalities(form)
+    leq_locations, geq_locations = _find_inequalities(form)
     num_leq = length(leq_locations)
     num_geq = length(geq_locations)
     has_up = findall(i -> haskey(form.upper_bounds, i.value), primal_vars)
@@ -451,7 +451,7 @@ function DiffOpt.forward_differentiate!(
         end
 
         # Compute Jacobian
-        Δs = compute_sensitivity(
+        Δs = _compute_sensitivity(
             model;
             tol = tol,
         )
@@ -477,7 +477,7 @@ function DiffOpt.reverse_differentiate!(
         form = model.model
 
         # Compute Jacobian
-        Δs = compute_sensitivity(
+        Δs = _compute_sensitivity(
             model;
             tol = tol,
         )

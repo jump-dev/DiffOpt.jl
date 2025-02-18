@@ -82,7 +82,7 @@ function test_compute_optimal_hess_jacobian()
             for row in cons
         ]
         hessian, jacobian =
-            DiffOpt.NonLinearProgram.compute_optimal_hess_jac(nlp_model, cons)
+            DiffOpt.NonLinearProgram._compute_optimal_hess_jac(nlp_model, cons)
         # Check Hessian
         primal_idx = [i.value for i in nlp_model.cache.primal_vars]
         params_idx = [i.value for i in nlp_model.cache.params]
