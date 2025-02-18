@@ -6,6 +6,7 @@ using Ipopt
 using Test
 using FiniteDiff
 import DelimitedFiles
+using SparseArrays
 
 include(joinpath(@__DIR__, "data/nlp_problems.jl"))
 
@@ -673,6 +674,64 @@ function test_differentiating_non_trivial_convex_qp_jump()
 
     return
 end
+
+function test_changing_factorization()
+    P = 2
+    m = Model(
+        () -> DiffOpt.diff_optimizer(
+            Ipopt.Optimizer;
+            with_parametric_opt_interface = false,
+        ),
+    )
+
+    @variable(m, x[1:P])
+    @constraint(m, x .≥ 0)
+    @constraint(m, x .≤ 1)
+    @variable(m, p[1:P] ∈ Parameter.(0.5))
+
+    @constraint(m, x .≥ p)
+
+    @objective(m, Min, sum(x))
+
+    optimize!(m)
+    @assert is_solved_and_feasible(m)
+
+    # Set pertubations
+    Δp = [0.1 for _ in 1:P]
+    MOI.set.(
+        m,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef.(p),
+        Parameter.(Δp),
+    )
+
+    # wrong type
+    @test_throws MethodError MOI.set(m, DiffOpt.MFactorization(), 2)
+
+    # correct type but wrong number of arguments
+    MOI.set(m, DiffOpt.MFactorization(), SparseArrays.lu)
+
+    @test_throws MethodError DiffOpt.forward_differentiate!(m)
+
+    # correct type and correct number of arguments
+    MOI.set(m, DiffOpt.MFactorization(), (M, num_w, num_constraints) -> SparseArrays.lu(M))
+
+    # Compute derivatives
+    DiffOpt.forward_differentiate!(m)
+
+    # Test sensitivities
+    @test all(
+        isapprox(
+            [
+                MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[i]) for
+                i in 1:P
+            ],
+            [0.1 for _ in 1:P];
+            atol = 1e-8,
+        ),
+    )
+end
+
 
 end # module
 
