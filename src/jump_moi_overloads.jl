@@ -23,6 +23,14 @@ end
 
 function MOI.set(
     model::JuMP.Model,
+    attr::MFactorization,
+    factorization::Function,
+)
+    return MOI.set(JuMP.backend(model), attr, factorization)
+end
+
+function MOI.set(
+    model::JuMP.Model,
     attr::ForwardObjectiveFunction,
     func::Number,
 )
@@ -46,6 +54,16 @@ function MOI.set(
     func::Number,
 )
     return MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
+end
+
+function MOI.get(
+    model::JuMP.Model,
+    attr::ForwardConstraintDual,
+    con_ref::JuMP.ConstraintRef,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    moi_func = MOI.get(JuMP.backend(model), attr, JuMP.index(con_ref))
+    return JuMP.jump_function(model, moi_func)
 end
 
 function MOI.get(model::JuMP.Model, attr::ReverseObjectiveFunction)
@@ -352,11 +370,17 @@ end
 
 # MOI.Utilities
 
-function reverse_differentiate!(model::MOI.Utilities.CachingOptimizer)
+function reverse_differentiate!(
+    model::MOI.Utilities.CachingOptimizer;
+    kwargs...,
+)
     return reverse_differentiate!(model.optimizer)
 end
 
-function forward_differentiate!(model::MOI.Utilities.CachingOptimizer)
+function forward_differentiate!(
+    model::MOI.Utilities.CachingOptimizer;
+    kwargs...,
+)
     return forward_differentiate!(model.optimizer)
 end
 
@@ -367,11 +391,17 @@ end
 
 # MOIB
 
-function reverse_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer)
+function reverse_differentiate!(
+    model::MOI.Bridges.AbstractBridgeOptimizer;
+    kwargs...,
+)
     return reverse_differentiate!(model.model)
 end
 
-function forward_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer)
+function forward_differentiate!(
+    model::MOI.Bridges.AbstractBridgeOptimizer;
+    kwargs...,
+)
     return forward_differentiate!(model.model)
 end
 

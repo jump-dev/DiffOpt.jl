@@ -60,10 +60,6 @@ end
 
 # functions to be used with ParametricOptInterface.jl
 
-struct ForwardConstraintSet <: MOI.AbstractConstraintAttribute end
-
-struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
-
 mutable struct SensitivityData{T}
     parameter_input_forward::Dict{MOI.VariableIndex,T}
     parameter_output_backward::Dict{MOI.VariableIndex,T}
@@ -316,6 +312,16 @@ function MOI.set(
     end
     sensitivity_data = _get_sensitivity_data(model)
     sensitivity_data.parameter_input_forward[variable] = set.value
+    return
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::ForwardConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+    set::MOI.Parameter,
+) where {T}
+    model.input_cache.dp[ci] = set.value
     return
 end
 

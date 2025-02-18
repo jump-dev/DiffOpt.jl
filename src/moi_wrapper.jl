@@ -68,6 +68,7 @@ mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
         output =
             new{OT}(optimizer, Any[], nothing, nothing, nothing, InputCache())
         add_all_model_constructors(output)
+        add_default_factorization(output)
         return output
     end
 end
@@ -520,8 +521,12 @@ function reverse_differentiate!(model::Optimizer)
         )
     end
     diff = _diff(model)
+    MOI.set(diff, MFactorization(), model.input_cache.factorization)
     for (vi, value) in model.input_cache.dx
         MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
+    end
+    for (vi, value) in model.input_cache.dy
+        MOI.set(diff, ReverseConstraintDual(), model.index_map[vi], value)
     end
     return reverse_differentiate!(diff)
 end
@@ -546,6 +551,7 @@ function forward_differentiate!(model::Optimizer)
         )
     end
     diff = _diff(model)
+    MOI.set(diff, MFactorization(), model.input_cache.factorization)
     if model.input_cache.objective !== nothing
         MOI.set(
             diff,
@@ -571,6 +577,11 @@ function forward_differentiate!(model::Optimizer)
             model.index_map.con_map[F, S],
             model.input_cache.vector_constraints[F, S],
         )
+    end
+    if model.input_cache.dp !== nothing
+        for (vi, value) in model.input_cache.dp
+            diff.model.input_cache.dp[model.index_map[vi]] = value
+        end
     end
     return forward_differentiate!(diff)
 end
@@ -668,6 +679,8 @@ end
 
 MOI.supports(::Optimizer, ::ForwardObjectiveFunction) = true
 
+MOI.supports(::Optimizer, ::MFactorization) = true
+
 function MOI.get(model::Optimizer, ::ForwardObjectiveFunction)
     return model.input_cache.objective
 end
@@ -689,11 +702,43 @@ function MOI.get(
     )
 end
 
+function MOI.get(
+    model::Optimizer,
+    attr::ReverseConstraintSet,
+    ci::MOI.ConstraintIndex,
+)
+    return MOI.get(
+        _checked_diff(model, attr, :reverse_differentiate!),
+        attr,
+        model.index_map[ci],
+    )
+end
+
+function MOI.get(
+    model::Optimizer,
+    attr::ForwardConstraintDual,
+    ci::MOI.ConstraintIndex,
+)
+    return MOI.get(
+        _checked_diff(model, attr, :reverse_differentiate!),
+        attr,
+        model.index_map[ci],
+    )
+end
+
 function MOI.supports(
     ::Optimizer,
     ::ReverseVariablePrimal,
     ::Type{MOI.VariableIndex},
 )
+    return true
+end
+
+function MOI.supports(
+    ::Optimizer,
+    ::ForwardConstraintSet,
+    ::Type{MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}},
+) where {T}
     return true
 end
 
@@ -713,6 +758,29 @@ function MOI.set(
 )
     model.input_cache.dx[vi] = val
     return
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::ReverseConstraintDual,
+    vi::MOI.ConstraintIndex,
+    val,
+)
+    model.input_cache.dy[vi] = val
+    return
+end
+
+function MOI.set(model::Optimizer, ::MFactorization, factorization)
+    model.input_cache.factorization = factorization
+    return
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::ReverseConstraintDual,
+    vi::MOI.ConstraintIndex,
+)
+    return get(model.input_cache.dy, vi, 0.0)
 end
 
 function MOI.get(

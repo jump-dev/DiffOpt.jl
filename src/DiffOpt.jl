@@ -27,6 +27,7 @@ include("bridges.jl")
 
 include("QuadraticProgram/QuadraticProgram.jl")
 include("ConicProgram/ConicProgram.jl")
+include("NonLinearProgram/NonLinearProgram.jl")
 
 """
     add_all_model_constructors(model)
@@ -37,6 +38,13 @@ Add all constructors of [`AbstractModel`](@ref) defined in this package to
 function add_all_model_constructors(model)
     add_model_constructor(model, QuadraticProgram.Model)
     add_model_constructor(model, ConicProgram.Model)
+    add_model_constructor(model, NonLinearProgram.Model)
+    return
+end
+
+function add_default_factorization(model)
+    model.input_cache.factorization =
+        NonLinearProgram._lu_with_inertia_correction
     return
 end
 
