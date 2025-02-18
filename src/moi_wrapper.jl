@@ -68,6 +68,7 @@ mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
         output =
             new{OT}(optimizer, Any[], nothing, nothing, nothing, InputCache())
         add_all_model_constructors(output)
+        add_default_factorization(output)
         return output
     end
 end

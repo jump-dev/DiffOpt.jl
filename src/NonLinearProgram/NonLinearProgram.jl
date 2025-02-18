@@ -360,6 +360,51 @@ end
 
 include("nlp_utilities.jl")
 
+"""
+    function _lu_with_inertia_correction(
+        M::SparseArrays.SparseMatrixCSC, # Jacobian of KKT system
+        model::Model, # Model to extract number of variables and constraints
+        st::T = 1e-6, # Step size for inertia correction
+        max_corrections::Int = 50, # Maximum number of corrections
+    ) where T<:Real
+
+Lu-factorization with inertia correction. If no inertia correction is needed, it only performs the LU
+factorization.
+"""
+function _lu_with_inertia_correction(
+    M::SparseArrays.SparseMatrixCSC, # Jacobian of KKT system
+    model::Model, # Model to extract number of variables and constraints
+    st::T = 1e-6, # Step size for inertia correction
+    max_corrections::Int = 50, # Maximum number of corrections
+) where T<:Real
+    num_w = _get_num_primal_vars(model) + length(model.cache.leq_locations) + length(model.cache.geq_locations)
+    num_cons = _get_num_constraints(model)
+    # Factorization
+    K = SparseArrays.lu(M; check = false)
+    # Inertia correction
+    status = K.status
+    if status == 1
+        @info "Inertia correction needed. 
+            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+            and negative values for the Jacobian of the constraints."
+        num_c = 0
+        diag_mat = ones(size(M, 1))
+        diag_mat[num_w+1:num_w+num_cons] .= -1
+        diag_mat = SparseArrays.spdiagm(diag_mat)
+        while status == 1 && num_c < max_corrections
+            M = M + st * diag_mat
+            K = lu(M; check = false)
+            status = K.status
+            num_c += 1
+        end
+        if status != 0
+            @warn "Inertia correction failed."
+            return nothing
+        end
+    end
+    return K
+end
+
 _all_variables(form::Form) = MOI.VariableIndex.(1:form.num_variables)
 _all_variables(model::Model) = _all_variables(model.model)
 _all_params(form::Form) = collect(keys(form.var2param))

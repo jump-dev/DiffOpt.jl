@@ -433,10 +433,7 @@ function _compute_derivatives_no_relax(
     )
 
     # Sensitivity of the solution (primal-dual_constraints-dual_bounds) w.r.t. the parameters
-    num_vars = _get_num_primal_vars(model)
-    num_cons = _get_num_constraints(model)
-    num_ineq = length(ineq_locations)
-    K = model.input_cache.factorization(M, num_vars + num_ineq, num_cons) # Factorization
+    K = model.input_cache.factorization(M, model)
     if isnothing(K)
         return zeros(size(M, 1), size(N, 2)), K, N
     end

@@ -42,6 +42,11 @@ function add_all_model_constructors(model)
     return
 end
 
+function add_default_factorization(model)
+    model.input_cache.factorization = NonLinearProgram._lu_with_inertia_correction
+    return
+end
+
 export diff_optimizer
 
 # TODO

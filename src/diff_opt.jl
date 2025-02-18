@@ -11,53 +11,6 @@
 
 const MOIDD = MOI.Utilities.DoubleDicts
 
-"""
-    LuFactorizationWithInertiaCorrection{T<:Real}
-
-A callable struct to store the parameters for the inertia correction in the
-Lu-factorization. If no inertia correction is needed, it only performs the LU
-factorization.
-"""
-struct LuFactorizationWithInertiaCorrection{T<:Real} <: Function
-    st::T
-    max_corrections::Int
-end
-function LuFactorizationWithInertiaCorrection(;
-    st::T = 1e-6,
-    max_corrections::Int = 50,
-) where {T}
-    return LuFactorizationWithInertiaCorrection{T}(st, max_corrections)
-end
-
-function (lu_struct::LuFactorizationWithInertiaCorrection)(
-    M::SparseArrays.SparseMatrixCSC,
-    num_w,
-    num_cons,
-)
-    # Factorization
-    K = SparseArrays.lu(M; check = false)
-    # Inertia correction
-    status = K.status
-    if status == 1
-        @info "Inertia correction needed"
-        num_c = 0
-        diag_mat = ones(size(M, 1))
-        diag_mat[num_w+1:num_w+num_cons] .= -1
-        diag_mat = SparseArrays.spdiagm(diag_mat)
-        while status == 1 && num_c < lu_struct.max_corrections
-            M = M + lu_struct.st * diag_mat
-            K = lu(M; check = false)
-            status = K.status
-            num_c += 1
-        end
-        if status != 0
-            @warn "Inertia correction failed"
-            return nothing
-        end
-    end
-    return K
-end
-
 Base.@kwdef mutable struct InputCache
     dx::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()# dz for QP
     dp::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}() # Specifically for NonLinearProgram
@@ -75,7 +28,7 @@ Base.@kwdef mutable struct InputCache
     vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} =
         MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}}() # also includes G for QPs
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
-    factorization::Function = LuFactorizationWithInertiaCorrection()
+    factorization::Union{Nothing, Function} = nothing
 end
 
 function Base.empty!(cache::InputCache)
@@ -85,7 +38,6 @@ function Base.empty!(cache::InputCache)
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
-    cache.factorization = LuFactorizationWithInertiaCorrection()
     return
 end
 
@@ -151,8 +103,7 @@ implict function diferentiation needed to compute the sensitivities for
 The function will be called with the following signature:
 ```julia
 function factorization(M::SparseMatrixCSC{T<Real}, # The matrix to factorize
-    num_w::Int, # Number of primal and slack variables (can be ignored - useful for inertia correction)
-    num_cons::Int, # The number of constraints (can be ignored - useful for inertia correction)
+    model::NonLinearProgram.Model (can be ignored - useful for inertia correction)
 )
 ```
 

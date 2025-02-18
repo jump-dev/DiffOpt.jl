@@ -723,7 +723,7 @@ function test_changing_factorization()
     MOI.set(
         m,
         DiffOpt.MFactorization(),
-        (M, num_w, num_constraints) -> SparseArrays.lu(M),
+        (M, model) -> SparseArrays.lu(M),
     )
 
     # Compute derivatives
