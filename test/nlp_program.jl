@@ -675,6 +675,12 @@ function test_differentiating_non_trivial_convex_qp_jump()
     return
 end
 
+################################################
+#=
+# Test Changing Factorization routine
+=#
+################################################
+
 function test_changing_factorization()
     P = 2
     m = Model(
