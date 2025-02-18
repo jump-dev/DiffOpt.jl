@@ -355,7 +355,9 @@ function _build_sensitivity_matrices(
     # Partial derivative of the equality constraintswith wrt parameters
     ∇ₚC = jacobian[:, params_idx]
 
-    # M matrix
+    # M matrix - KKT Jacobian w.r.t. primal and dual solution
+    # Based on the implicit function diferentiation method used in sIpopt to derive sensitivities
+    # Ref: sIPOPT paper https://optimization-online.org/wp-content/uploads/2011/04/3008.pdf.
     # M = [
     #     [W A' -I I];
     #     [A 0 0 0];
