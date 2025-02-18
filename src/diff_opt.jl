@@ -87,7 +87,7 @@ function Base.empty!(cache::InputCache)
 end
 
 """
-    reverse_differentiate!(model::MOI.ModelLike; kwargs...)
+    reverse_differentiate!(model::MOI.ModelLike)
 
 Wrapper method for the backward pass / reverse differentiation.
 This method will consider as input a currently solved problem and differentials
@@ -98,7 +98,7 @@ attributes [`ReverseObjectiveFunction`](@ref) and [`ReverseConstraintFunction`](
 function reverse_differentiate! end
 
 """
-    forward_differentiate!(model::Optimizer; kwargs...)
+    forward_differentiate!(model::Optimizer)
 
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and

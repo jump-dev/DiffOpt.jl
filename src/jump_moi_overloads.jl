@@ -355,12 +355,12 @@ end
 
 # JuMP
 
-function reverse_differentiate!(model::JuMP.Model; kwargs...)
-    return reverse_differentiate!(JuMP.backend(model); kwargs...)
+function reverse_differentiate!(model::JuMP.Model)
+    return reverse_differentiate!(JuMP.backend(model))
 end
 
-function forward_differentiate!(model::JuMP.Model; kwargs...)
-    return forward_differentiate!(JuMP.backend(model); kwargs...)
+function forward_differentiate!(model::JuMP.Model)
+    return forward_differentiate!(JuMP.backend(model))
 end
 
 function empty_input_sensitivities!(model::JuMP.Model)
@@ -374,14 +374,14 @@ function reverse_differentiate!(
     model::MOI.Utilities.CachingOptimizer;
     kwargs...,
 )
-    return reverse_differentiate!(model.optimizer; kwargs...)
+    return reverse_differentiate!(model.optimizer)
 end
 
 function forward_differentiate!(
     model::MOI.Utilities.CachingOptimizer;
     kwargs...,
 )
-    return forward_differentiate!(model.optimizer; kwargs...)
+    return forward_differentiate!(model.optimizer)
 end
 
 function empty_input_sensitivities!(model::MOI.Utilities.CachingOptimizer)
@@ -395,14 +395,14 @@ function reverse_differentiate!(
     model::MOI.Bridges.AbstractBridgeOptimizer;
     kwargs...,
 )
-    return reverse_differentiate!(model.model; kwargs...)
+    return reverse_differentiate!(model.model)
 end
 
 function forward_differentiate!(
     model::MOI.Bridges.AbstractBridgeOptimizer;
     kwargs...,
 )
-    return forward_differentiate!(model.model; kwargs...)
+    return forward_differentiate!(model.model)
 end
 
 function empty_input_sensitivities!(model::MOI.Bridges.AbstractBridgeOptimizer)
