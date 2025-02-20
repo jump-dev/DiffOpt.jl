@@ -691,6 +691,49 @@ function test_differentiating_non_trivial_convex_qp_jump()
     return
 end
 
+function test_ReverseConstraintDual()
+    m = Model(
+        () -> DiffOpt.diff_optimizer(
+            Ipopt.Optimizer;
+            with_parametric_opt_interface = false,
+        ),
+    )
+
+    @variable(m, x[1:2])
+    @variable(m, p[1:2] ∈ Parameter.(0.5))
+    @constraint(m, con, x .≥ p)
+    @objective(m, Min, sum(x))
+    optimize!(m)
+    @assert is_solved_and_feasible(m)
+
+    # Set pertubations to dual variables
+    Δλ = [0.1 for _ in 1:2]
+    MOI.set.(
+        m,
+        DiffOpt.ReverseConstraintDual(),
+        con,
+        Δλ,
+    )
+
+    # Compute derivatives
+    DiffOpt.reverse_differentiate!(m)
+
+    # Test sensitivities ReverseConstraintSet
+    @test all(
+        isapprox(
+            [
+                MOI.get(
+                    m,
+                    DiffOpt.ReverseConstraintSet(),
+                    ParameterRef(p[i]),
+                ).value for i in 1:2
+            ],
+            zeros(2);
+            atol = 1e-8,
+        ),
+    )
+end
+
 ################################################
 #=
 # Test Factorization Routine
