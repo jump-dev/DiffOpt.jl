@@ -677,10 +677,6 @@ function MOI.get(model::Optimizer, attr::ReverseObjectiveFunction)
     )
 end
 
-MOI.supports(::Optimizer, ::ForwardObjectiveFunction) = true
-
-MOI.supports(::Optimizer, ::MFactorization) = true
-
 function MOI.get(model::Optimizer, ::ForwardObjectiveFunction)
     return model.input_cache.objective
 end
@@ -726,30 +722,6 @@ function MOI.get(
     )
 end
 
-function MOI.supports(
-    ::Optimizer,
-    ::ReverseVariablePrimal,
-    ::Type{MOI.VariableIndex},
-)
-    return true
-end
-
-function MOI.supports(
-    ::Optimizer,
-    ::ForwardConstraintSet,
-    ::Type{MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}},
-) where {T}
-    return true
-end
-
-function MOI.get(
-    model::Optimizer,
-    ::ReverseVariablePrimal,
-    vi::MOI.VariableIndex,
-)
-    return get(model.input_cache.dx, vi, 0.0)
-end
-
 function MOI.set(
     model::Optimizer,
     ::ReverseVariablePrimal,
@@ -773,14 +745,6 @@ end
 function MOI.set(model::Optimizer, ::MFactorization, factorization)
     model.input_cache.factorization = factorization
     return
-end
-
-function MOI.get(
-    model::Optimizer,
-    ::ReverseConstraintDual,
-    vi::MOI.ConstraintIndex,
-)
-    return get(model.input_cache.dy, vi, 0.0)
 end
 
 function MOI.get(

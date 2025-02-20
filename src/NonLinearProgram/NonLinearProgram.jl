@@ -99,10 +99,6 @@ function MOI.add_variables(form::Form, n)
     return idxs
 end
 
-function MOI.supports(form::Form, attribute, val)
-    return MOI.supports(form.model, attribute, val)
-end
-
 function MOI.supports_constraint(
     ::Form,
     ::Type{F},
@@ -309,21 +305,6 @@ function MOI.set(
 )
     MOI.throw_if_not_valid(model, ci)
     return DiffOpt._enlarge_set(model.s, ci.value, value)
-end
-
-function MOI.supports(
-    ::Model,
-    ::MOI.ConstraintDualStart,
-    ::Type{MOI.ConstraintIndex{MOI.VariableIndex,S}},
-) where {
-    S<:Union{
-        MOI.GreaterThan{Float64},
-        MOI.LessThan{Float64},
-        MOI.EqualTo{Float64},
-        MOI.Interval{Float64},
-    },
-}
-    return true
 end
 
 function MOI.set(
