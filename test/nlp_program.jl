@@ -7,6 +7,7 @@ using Test
 using FiniteDiff
 import DelimitedFiles
 using SparseArrays
+using LinearAlgebra
 
 include(joinpath(@__DIR__, "data/nlp_problems.jl"))
 
@@ -695,6 +696,41 @@ end
 # Test Factorization Routine
 =#
 ################################################
+
+# For ease of testing, we will define a simple situation 
+# where the Jacobian matrix of the KKT becomes needs inertia correction
+# minimize x1 + x2
+# x1 + 2x2 ≥ 1
+# 2x1 + x2 ≥ 1
+# x1 ≥ 0, x2 free.
+function test_inertia_correction()
+    # Intermediate optimization values
+    x1, x2 = [0.33, 0.33]
+    lambda1, lambda2 = [0.333, 0.00]
+    mu_val = 0.00
+
+    # Construct the Jacobian of the KKT matrix
+    M = [
+        0  0  -1  -2  -1;
+        0  0  -2  -1   0;
+        -lambda1  -2*lambda1  (1 - x1 - 2*x2)  0  0;
+        -2*lambda2  -lambda2  0  (1 - 2*x1 - x2)  0;
+        mu_val  0  0  0  x1
+    ]
+    # check that the matrix is singular
+    sparse_M = SparseArrays.SparseMatrixCSC(M)
+    K = lu(sparse_M, check = false)
+    @assert K.status == 1 # Fail
+
+    # test inertia correction
+    K = DiffOpt.NonLinearProgram._inertia_correction(SparseArrays.SparseMatrixCSC(M),
+        3,
+        2;
+        st = 1e-6,
+        max_corrections = 50
+    )
+    @test K.status == 0 # Success
+end
 
 function test_changing_factorization()
     P = 2

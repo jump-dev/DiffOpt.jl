@@ -361,6 +361,45 @@ end
 include("nlp_utilities.jl")
 
 """
+    _inertia_correction(
+        M::SparseArrays.SparseMatrixCSC,
+        num_cons::Int,
+        num_w::Int;
+        st::T = 1e-6,
+        max_corrections::Int = 50
+    ) where T<:Real
+
+Inertia correction for the Jacobian of the KKT system.
+Similar to the inertia correction in Ipopt.
+"""
+function _inertia_correction(
+    M::SparseArrays.SparseMatrixCSC,
+    num_cons::Int,
+    num_w::Int;
+    st::T = 1e-6,
+    max_corrections::Int = 50
+) where T<:Real
+    diag_mat = ones(size(M, 1))
+    diag_mat[num_w+1:num_w+num_cons] .= -1
+    diag_mat = SparseArrays.spdiagm(diag_mat)
+    J = M + st * diag_mat
+    K = lu(J; check = false)
+    status = K.status
+    num_c = 1
+    while status == 1 && num_c < max_corrections
+        J = J + st * diag_mat
+        K = lu(J; check = false)
+        status = K.status
+        num_c += 1
+    end
+    if status != 0
+        @warn "Inertia correction failed."
+        return nothing
+    end
+    return K
+end
+
+"""
     function _lu_with_inertia_correction(
         M::SparseArrays.SparseMatrixCSC, # Jacobian of KKT system
         model::Model, # Model to extract number of variables and constraints
@@ -390,20 +429,7 @@ function _lu_with_inertia_correction(
         @info "Inertia correction needed. 
             Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
             and negative values for the Jacobian of the constraints."
-        num_c = 0
-        diag_mat = ones(size(M, 1))
-        diag_mat[num_w+1:num_w+num_cons] .= -1
-        diag_mat = SparseArrays.spdiagm(diag_mat)
-        while status == 1 && num_c < max_corrections
-            M = M + st * diag_mat
-            K = lu(M; check = false)
-            status = K.status
-            num_c += 1
-        end
-        if status != 0
-            @warn "Inertia correction failed."
-            return nothing
-        end
+        K = _inertia_correction(M, num_cons, num_w; st = st, max_corrections = max_corrections)
     end
     return K
 end
