@@ -425,8 +425,8 @@ _get_num_params(model::Model) = _get_num_params(model.model)
 function _cache_evaluator!(model::Model)
     form = model.model
     # Retrieve and sort primal variables by NLP index
-    params = sort(_all_params(form); by = x -> x.value)
-    primal_vars = sort(_all_primal_vars(form); by = x -> x.value)
+    params = sort(_all_params(model); by = x -> x.value)
+    primal_vars = sort(_all_primal_vars(model); by = x -> x.value)
     num_primal = length(primal_vars)
 
     # Create evaluator and constraints

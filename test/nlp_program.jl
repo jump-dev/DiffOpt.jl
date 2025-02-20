@@ -129,7 +129,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
         @variable(m, 0 ≤ x[1:P] ≤ 1)
         @variable(m, p[1:P] ∈ Parameter.(0.5))
 
-        @constraint(m, x .≥ p)
+        @constraint(m, con, x .≥ p)
 
         @objective(m, Min, sum(x))
 
@@ -145,10 +145,25 @@ function test_analytical_simple(; P = 2) # Number of parameters
             Parameter.(Δp),
         )
 
+        # Test fetch sensitivities before computing
+        @test_throws ErrorException MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[1])
+        @test_throws ErrorException MOI.get(m, DiffOpt.ForwardConstraintDual(), con[1])
+
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
 
-        # Test sensitivities
+        # Test sensitivities 
+        @test_throws ErrorException MOI.get(m.moi_backend.optimizer.model.diff.model, DiffOpt.ForwardConstraintDual(), MOI.ConstraintIndex{MOI.ScalarQuadraticFunction{Float64}, MOI.EqualTo{Float64}}(11.0))
+        @test all(
+            isapprox(
+                [
+                    MOI.get(m, DiffOpt.ForwardConstraintDual(), con[i]) for
+                    i in 1:P
+                ],
+                [0.0 for _ in 1:P];
+                atol = 1e-8,
+            ),
+        )
         @test all(
             isapprox(
                 [
@@ -677,7 +692,7 @@ end
 
 ################################################
 #=
-# Test Changing Factorization routine
+# Test Factorization Routine
 =#
 ################################################
 
