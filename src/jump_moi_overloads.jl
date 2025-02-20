@@ -372,14 +372,12 @@ end
 
 function reverse_differentiate!(
     model::MOI.Utilities.CachingOptimizer;
-    kwargs...,
 )
     return reverse_differentiate!(model.optimizer)
 end
 
 function forward_differentiate!(
     model::MOI.Utilities.CachingOptimizer;
-    kwargs...,
 )
     return forward_differentiate!(model.optimizer)
 end
@@ -393,14 +391,12 @@ end
 
 function reverse_differentiate!(
     model::MOI.Bridges.AbstractBridgeOptimizer;
-    kwargs...,
 )
     return reverse_differentiate!(model.model)
 end
 
 function forward_differentiate!(
     model::MOI.Bridges.AbstractBridgeOptimizer;
-    kwargs...,
 )
     return forward_differentiate!(model.model)
 end
