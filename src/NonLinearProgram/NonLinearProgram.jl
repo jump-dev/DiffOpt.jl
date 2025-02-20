@@ -605,9 +605,6 @@ function MOI.get(
     ::DiffOpt.ForwardVariablePrimal,
     vi::MOI.VariableIndex,
 )
-    if model.forw_grad_cache === nothing
-        error("Forward differentiation has not been performed yet.")
-    end
     return model.forw_grad_cache.primal_Δs[vi]
 end
 
@@ -616,9 +613,6 @@ function MOI.get(
     ::DiffOpt.ForwardConstraintDual,
     ci::MOI.ConstraintIndex,
 )
-    if model.forw_grad_cache === nothing
-        error("Forward differentiation has not been performed yet.")
-    end
     try
         idx = model.cache.dual_mapping[ci.value]
         return model.forw_grad_cache.dual_Δs[idx]
