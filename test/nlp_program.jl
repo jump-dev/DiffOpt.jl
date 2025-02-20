@@ -147,14 +147,31 @@ function test_analytical_simple(; P = 2) # Number of parameters
         )
 
         # Test fetch sensitivities before computing
-        @test_throws ErrorException MOI.get(m, DiffOpt.ForwardVariablePrimal(), x[1])
-        @test_throws ErrorException MOI.get(m, DiffOpt.ForwardConstraintDual(), con[1])
+        @test_throws ErrorException MOI.get(
+            m,
+            DiffOpt.ForwardVariablePrimal(),
+            x[1],
+        )
+        @test_throws ErrorException MOI.get(
+            m,
+            DiffOpt.ForwardConstraintDual(),
+            con[1],
+        )
 
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
 
         # Test sensitivities 
-        @test_throws ErrorException MOI.get(m.moi_backend.optimizer.model.diff.model, DiffOpt.ForwardConstraintDual(), MOI.ConstraintIndex{MOI.ScalarQuadraticFunction{Float64}, MOI.EqualTo{Float64}}(11.0))
+        @test_throws ErrorException MOI.get(
+            m.moi_backend.optimizer.model.diff.model,
+            DiffOpt.ForwardConstraintDual(),
+            MOI.ConstraintIndex{
+                MOI.ScalarQuadraticFunction{Float64},
+                MOI.EqualTo{Float64},
+            }(
+                11.0,
+            ),
+        )
         @test all(
             isapprox(
                 [
@@ -708,12 +725,7 @@ function test_ReverseConstraintDual()
 
     # Set pertubations to dual variables
     Δλ = [0.1 for _ in 1:2]
-    MOI.set.(
-        m,
-        DiffOpt.ReverseConstraintDual(),
-        con,
-        Δλ,
-    )
+    MOI.set.(m, DiffOpt.ReverseConstraintDual(), con, Δλ)
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(m)
@@ -754,23 +766,24 @@ function test_inertia_correction()
 
     # Construct the Jacobian of the KKT matrix
     M = [
-        0  0  -1  -2  -1;
-        0  0  -2  -1   0;
-        -lambda1  -2*lambda1  (1 - x1 - 2*x2)  0  0;
-        -2*lambda2  -lambda2  0  (1 - 2*x1 - x2)  0;
-        mu_val  0  0  0  x1
+        0 0 -1 -2 -1
+        0 0 -2 -1 0
+        -lambda1 -2*lambda1 (1-x1-2*x2) 0 0
+        -2*lambda2 -lambda2 0 (1-2*x1-x2) 0
+        mu_val 0 0 0 x1
     ]
     # check that the matrix is singular
     sparse_M = SparseArrays.SparseMatrixCSC(M)
-    K = lu(sparse_M, check = false)
+    K = lu(sparse_M; check = false)
     @assert K.status == 1 # Fail
 
     # test inertia correction
-    K = DiffOpt.NonLinearProgram._inertia_correction(SparseArrays.SparseMatrixCSC(M),
+    K = DiffOpt.NonLinearProgram._inertia_correction(
+        SparseArrays.SparseMatrixCSC(M),
         3,
         2;
         st = 1e-6,
-        max_corrections = 50
+        max_corrections = 50,
     )
     @test K.status == 0 # Success
 end

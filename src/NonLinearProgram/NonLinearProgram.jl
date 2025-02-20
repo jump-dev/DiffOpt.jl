@@ -377,8 +377,8 @@ function _inertia_correction(
     num_cons::Int,
     num_w::Int;
     st::T = 1e-6,
-    max_corrections::Int = 50
-) where T<:Real
+    max_corrections::Int = 50,
+) where {T<:Real}
     diag_mat = ones(size(M, 1))
     diag_mat[num_w+1:num_w+num_cons] .= -1
     diag_mat = SparseArrays.spdiagm(diag_mat)
@@ -429,7 +429,13 @@ function _lu_with_inertia_correction(
         @info "Inertia correction needed. 
             Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
             and negative values for the Jacobian of the constraints."
-        K = _inertia_correction(M, num_cons, num_w; st = st, max_corrections = max_corrections)
+        K = _inertia_correction(
+            M,
+            num_cons,
+            num_w;
+            st = st,
+            max_corrections = max_corrections,
+        )
     end
     return K
 end
