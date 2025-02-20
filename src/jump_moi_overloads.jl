@@ -370,15 +370,11 @@ end
 
 # MOI.Utilities
 
-function reverse_differentiate!(
-    model::MOI.Utilities.CachingOptimizer;
-)
+function reverse_differentiate!(model::MOI.Utilities.CachingOptimizer;)
     return reverse_differentiate!(model.optimizer)
 end
 
-function forward_differentiate!(
-    model::MOI.Utilities.CachingOptimizer;
-)
+function forward_differentiate!(model::MOI.Utilities.CachingOptimizer;)
     return forward_differentiate!(model.optimizer)
 end
 
@@ -389,15 +385,11 @@ end
 
 # MOIB
 
-function reverse_differentiate!(
-    model::MOI.Bridges.AbstractBridgeOptimizer;
-)
+function reverse_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer;)
     return reverse_differentiate!(model.model)
 end
 
-function forward_differentiate!(
-    model::MOI.Bridges.AbstractBridgeOptimizer;
-)
+function forward_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer;)
     return forward_differentiate!(model.model)
 end
 
