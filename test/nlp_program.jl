@@ -727,6 +727,14 @@ function test_ReverseConstraintDual()
     Δλ = [0.1 for _ in 1:2]
     MOI.set.(m, DiffOpt.ReverseConstraintDual(), con, Δλ)
 
+    # test get ReverseConstraintDual
+    @test all(
+        [
+            MOI.get(m, DiffOpt.ReverseConstraintDual(), con[i]) == Δλ[i] for
+            i in 1:2
+        ]
+    )
+
     # Compute derivatives
     DiffOpt.reverse_differentiate!(m)
 
