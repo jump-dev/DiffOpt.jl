@@ -521,7 +521,11 @@ function reverse_differentiate!(model::Optimizer)
         )
     end
     diff = _diff(model)
-    MOI.set(diff, NonLinearKKTJacobianFactorization(), model.input_cache.factorization)
+    MOI.set(
+        diff,
+        NonLinearKKTJacobianFactorization(),
+        model.input_cache.factorization,
+    )
     for (vi, value) in model.input_cache.dx
         MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
     end
@@ -551,7 +555,11 @@ function forward_differentiate!(model::Optimizer)
         )
     end
     diff = _diff(model)
-    MOI.set(diff, NonLinearKKTJacobianFactorization(), model.input_cache.factorization)
+    MOI.set(
+        diff,
+        NonLinearKKTJacobianFactorization(),
+        model.input_cache.factorization,
+    )
     if model.input_cache.objective !== nothing
         MOI.set(
             diff,
@@ -746,7 +754,7 @@ function MOI.get(
     model::Optimizer,
     ::ReverseVariablePrimal,
     vi::MOI.VariableIndex,
-    )
+)
     return get(model.input_cache.dx, vi, 0.0)
 end
 
@@ -857,12 +865,16 @@ end
 function MOI.supports(
     model::Optimizer,
     ::NonLinearKKTJacobianFactorization,
-    ::Function
+    ::Function,
 )
     return true
 end
 
-function MOI.set(model::Optimizer, ::NonLinearKKTJacobianFactorization, factorization)
+function MOI.set(
+    model::Optimizer,
+    ::NonLinearKKTJacobianFactorization,
+    factorization,
+)
     model.input_cache.factorization = factorization
     return
 end

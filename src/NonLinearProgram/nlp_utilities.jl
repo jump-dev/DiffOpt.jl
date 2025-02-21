@@ -445,7 +445,9 @@ function _compute_derivatives_no_relax(
     return ∂s, K, N
 end
 
-_sense_mult(model::Model) = objective_sense(model) == MOI.MIN_SENSE ? 1.0 : -1.0
+function _sense_mult(model::Model)
+    return _objective_sense(model) == MOI.MIN_SENSE ? 1.0 : -1.0
+end
 
 """
     _compute_sensitivity(model::Model; tol=1e-6)
