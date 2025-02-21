@@ -294,8 +294,8 @@ function Model()
     )
 end
 
-objective_sense(form::Form) = form.sense
-objective_sense(model::Model) = objective_sense(model.model)
+_objective_sense(form::Form) = form.sense
+_objective_sense(model::Model) = _objective_sense(model.model)
 
 function MOI.set(
     model::Model,
