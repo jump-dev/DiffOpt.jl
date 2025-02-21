@@ -825,15 +825,15 @@ function test_changing_factorization()
     )
 
     # wrong type
-    @test_throws MethodError MOI.set(m, DiffOpt.MFactorization(), 2)
+    @test_throws MethodError MOI.set(m, DiffOpt.NonLinearKKTJacobianFactorization(), 2)
 
     # correct type but wrong number of arguments
-    MOI.set(m, DiffOpt.MFactorization(), SparseArrays.lu)
+    MOI.set(m, DiffOpt.NonLinearKKTJacobianFactorization(), SparseArrays.lu)
 
     @test_throws MethodError DiffOpt.forward_differentiate!(m)
 
     # correct type and correct number of arguments
-    MOI.set(m, DiffOpt.MFactorization(), (M, model) -> SparseArrays.lu(M))
+    MOI.set(m, DiffOpt.NonLinearKKTJacobianFactorization(), (M, model) -> SparseArrays.lu(M))
 
     # Compute derivatives
     DiffOpt.forward_differentiate!(m)

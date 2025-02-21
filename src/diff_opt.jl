@@ -94,11 +94,11 @@ where `x` and `y` are the relevant `MOI.VariableIndex`.
 struct ForwardObjectiveFunction <: MOI.AbstractModelAttribute end
 
 """
-    MFactorization <: MOI.AbstractModelAttribute
+    NonLinearKKTJacobianFactorization <: MOI.AbstractModelAttribute
 
-A `MOI.AbstractModelAttribute` to set which factorization function to use for the
-implict function diferentiation needed to compute the sensitivities for
-`NonLinearProgram` models.
+A `MOI.AbstractModelAttribute` to set which factorization method to use for the
+nonlinear KKT Jacobian matrix, necessary for the implict function
+diferentiation for `NonLinearProgram` models.
 
 The function will be called with the following signature:
 ```julia
@@ -107,13 +107,17 @@ function factorization(M::SparseMatrixCSC{T<Real}, # The matrix to factorize
 )
 ```
 
+* `M` is the matrix to factorize.
+* `model` is the nonlinear model data that generated `M`. This can be used for
+some factorization techniques such as LU with inertia correction.
+
 Can be set by the user to use a custom factorization function:
 
 ```julia
-MOI.set(model, DiffOpt.MFactorization(), factorization)
+MOI.set(model, DiffOpt.NonLinearKKTJacobianFactorization(), factorization)
 ```
 """
-struct MFactorization <: MOI.AbstractModelAttribute end
+struct NonLinearKKTJacobianFactorization <: MOI.AbstractModelAttribute end
 
 """
     ForwardConstraintFunction <: MOI.AbstractConstraintAttribute
@@ -371,7 +375,7 @@ end
 
 function MOI.set(
     model::AbstractModel,
-    ::MFactorization,
+    ::NonLinearKKTJacobianFactorization,
     factorization::Function,
 )
     model.input_cache.factorization = factorization

@@ -23,7 +23,7 @@ end
 
 function MOI.set(
     model::JuMP.Model,
-    attr::MFactorization,
+    attr::NonLinearKKTJacobianFactorization,
     factorization::Function,
 )
     return MOI.set(JuMP.backend(model), attr, factorization)
