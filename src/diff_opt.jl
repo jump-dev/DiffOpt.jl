@@ -176,9 +176,10 @@ struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
 
 A `MOI.AbstractConstraintAttribute` to set input data from reverse differentiation.
 
-For instance, to set the sensitivity wrt the dual of constraint of index `ci` do the following:
+For instance, to set the sensitivity `value` with respect to the dual variable of constraint
+with index `ci` do the following:
 ```julia
-MOI.set(model, DiffOpt.ReverseConstraintDual(), x)
+MOI.set(model, DiffOpt.ReverseConstraintDual(), ci, value)
 ```
 """
 struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
