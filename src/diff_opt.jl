@@ -13,6 +13,9 @@ const MOIDD = MOI.Utilities.DoubleDicts
 
 Base.@kwdef mutable struct InputCache
     dx::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()# dz for QP
+    dp::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}() # Specifically for NonLinearProgram
+    dy::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}()
+    # Dual sensitivity currently only works for NonLinearProgram
     # ds
     # dy #= [d\lambda, d\nu] for QP
     # FIXME Would it be possible to have a DoubleDict where the value depends
@@ -25,10 +28,13 @@ Base.@kwdef mutable struct InputCache
     vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} =
         MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}}() # also includes G for QPs
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
+    factorization::Union{Nothing,Function} = nothing
 end
 
 function Base.empty!(cache::InputCache)
     empty!(cache.dx)
+    empty!(cache.dp)
+    empty!(cache.dy)
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
@@ -88,6 +94,32 @@ where `x` and `y` are the relevant `MOI.VariableIndex`.
 struct ForwardObjectiveFunction <: MOI.AbstractModelAttribute end
 
 """
+    NonLinearKKTJacobianFactorization <: MOI.AbstractModelAttribute
+
+A `MOI.AbstractModelAttribute` to set which factorization method to use for the
+nonlinear KKT Jacobian matrix, necessary for the implict function
+diferentiation for `NonLinearProgram` models.
+
+The function will be called with the following signature:
+```julia
+function factorization(M::SparseMatrixCSC{T<Real}, # The matrix to factorize
+    model::NonLinearProgram.Model (can be ignored - useful for inertia correction)
+)
+```
+
+* `M` is the matrix to factorize.
+* `model` is the nonlinear model data that generated `M`. This can be used for
+some factorization techniques such as LU with inertia correction.
+
+Can be set by the user to use a custom factorization function:
+
+```julia
+MOI.set(model, DiffOpt.NonLinearKKTJacobianFactorization(), factorization)
+```
+"""
+struct NonLinearKKTJacobianFactorization <: MOI.AbstractModelAttribute end
+
+"""
     ForwardConstraintFunction <: MOI.AbstractConstraintAttribute
 
 A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
@@ -134,6 +166,38 @@ MOI.set(model, DiffOpt.ReverseVariablePrimal(), x)
 ```
 """
 struct ReverseVariablePrimal <: MOI.AbstractVariableAttribute end
+
+struct ForwardConstraintSet <: MOI.AbstractConstraintAttribute end
+
+struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
+
+"""
+    ReverseConstraintDual <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to set input data from reverse differentiation.
+
+For instance, to set the sensitivity `value` with respect to the dual variable of constraint
+with index `ci` do the following:
+```julia
+MOI.set(model, DiffOpt.ReverseConstraintDual(), ci, value)
+```
+"""
+struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
+
+"""
+    ForwardConstraintDual <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to get output data from forward differentiation for the dual variable.
+
+For instance, to get the sensitivity of the dual of constraint of index `ci` with respect to the parameter perturbation, do the following:
+
+```julia
+MOI.get(model, DiffOpt.ForwardConstraintDual(), ci)
+```
+"""
+struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
+
+MOI.is_set_by_optimize(::ForwardConstraintDual) = true
 
 """
     ReverseObjectiveFunction <: MOI.AbstractModelAttribute
@@ -312,11 +376,30 @@ end
 
 function MOI.set(
     model::AbstractModel,
+    ::NonLinearKKTJacobianFactorization,
+    factorization::Function,
+)
+    model.input_cache.factorization = factorization
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
     ::ReverseVariablePrimal,
     vi::MOI.VariableIndex,
     val,
 )
     model.input_cache.dx[vi] = val
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
+    ::ReverseConstraintDual,
+    vi::MOI.ConstraintIndex,
+    val,
+)
+    model.input_cache.dy[vi] = val
     return
 end
 

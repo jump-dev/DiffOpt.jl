@@ -609,7 +609,7 @@ function test_quadratic_objective_qp()
     return
 end
 
-function test_diff_errors()
+function test_diff_errors_POI()
     model = Model(
         () -> DiffOpt.diff_optimizer(
             HiGHS.Optimizer;
@@ -668,6 +668,56 @@ function test_diff_errors()
         cons,
     )
 
+    return
+end
+
+function test_diff_errors()
+    model = Model(
+        () -> DiffOpt.diff_optimizer(
+            HiGHS.Optimizer;
+            with_parametric_opt_interface = false,
+        ),
+    )
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in Parameter(3.0))
+    @constraint(model, cons, x >= 3 * p)
+    @objective(model, Min, 2x)
+    optimize!(model)
+    @test value(x) ≈ 9
+
+    @test_throws ErrorException MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(x),
+        Parameter(1.0),
+    )
+    # Not easily tested because hard to check if variable is a parameter
+    # @test_throws ErrorException MOI.set(
+    #     model,
+    #     DiffOpt.ReverseVariablePrimal(),
+    #     p,
+    #     1,
+    # )
+    @test_throws ErrorException MOI.get(
+        model,
+        DiffOpt.ForwardVariablePrimal(),
+        p,
+    )
+    @test_throws ErrorException MOI.get(
+        model,
+        DiffOpt.ReverseConstraintSet(),
+        ParameterRef(x),
+    )
+    @test_throws ErrorException MOI.get(
+        model,
+        DiffOpt.ReverseObjectiveFunction(),
+    )
+    @test_throws ErrorException MOI.get(
+        model,
+        DiffOpt.ReverseConstraintFunction(),
+        cons,
+    )
     return
 end
 

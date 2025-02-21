@@ -1,10 +1,6 @@
 # Manual
 
-!!! note
-    As of now, this package only works for optimization models that can be written either in convex conic form or convex quadratic form.
-
-
-## Supported objectives & constraints - `QuadraticProgram` backend
+## Supported objectives & constraints - scheme 1
 
 For `QuadraticProgram` backend, the package supports following `Function-in-Set` constraints: 
 
@@ -52,6 +48,33 @@ and the following objective types:
 
 Other conic sets such as `RotatedSecondOrderCone` and `PositiveSemidefiniteConeSquare` are supported through bridges.
 
+## Supported objectives & constraints - `NonlinearProgram` backend
+
+For the `NonlinearProgram` backend, the package supports following `Function-in-Set` constraints:
+
+|  MOI Function | MOI Set |
+|:-------|:---------------|
+|    `VariableIndex`    |    `GreaterThan`    |
+|    `VariableIndex`    |    `LessThan`    |
+|    `VariableIndex`    |    `EqualTo`    |
+|    `ScalarAffineFunction`    |    `GreaterThan`    |
+|    `ScalarAffineFunction`    |    `LessThan`    |
+|    `ScalarAffineFunction`    |    `EqualTo`    |
+|    `ScalarQuadraticFunction`    |    `GreaterThan`    |
+|    `ScalarQuadraticFunction`    |    `LessThan`    |
+|    `ScalarQuadraticFunction`    |    `EqualTo`    |
+|    `ScalarNonlinearFunction`    |    `GreaterThan`    |
+|    `ScalarNonlinearFunction`    |    `LessThan`    |
+|    `ScalarNonlinearFunction`    |    `EqualTo`    |
+
+and the following objective types: 
+
+|  MOI Function |
+|:-------:|
+|   `VariableIndex`   |
+|   `ScalarAffineFunction`   |
+| `ScalarQuadraticFunction`  | 
+| `ScalarNonlinearFunction`  |
 
 ## Creating a differentiable MOI optimizer
 
@@ -68,7 +91,7 @@ DiffOpt requires taking projections and finding projection gradients of vectors 
 ## Conic problem formulation
 
 !!! note
-    As of now, the package is using `SCS` geometric form for affine expressions in cones.
+    As of now, when defining a conic or convex quadratic problem, the package is using `SCS` geometric form for affine expressions in cones.
 
 Consider a convex conic optimization problem in its primal (P) and dual (D) forms:
 ```math
