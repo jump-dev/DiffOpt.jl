@@ -2,14 +2,12 @@
 """
 function diff_model(
     optimizer_constructor;
-    method = nothing,
     with_parametric_opt_interface::Bool = false,
     with_bridge_type = Float64,
     with_cache::Bool = true,
 )
     inner = diff_optimizer(
         optimizer_constructor;
-        method = method,
         with_parametric_opt_interface = with_parametric_opt_interface,
         with_bridge_type = with_bridge_type,
         with_cache = with_cache,
