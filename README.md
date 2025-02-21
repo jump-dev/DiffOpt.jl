@@ -122,6 +122,25 @@ constant(grad_exp)        # -1
 coefficient(grad_exp, x)  # -3
 ```
 
+## Citing DiffOpt.jl
+
+If you find DiffOpt.jl useful in your work, we kindly request that you cite the
+following [paper](https://pubsonline.informs.org/doi/10.1287/ijoc.2022.0283):
+```bibtex
+@article{besancon2023diffopt,
+    title={Flexible Differentiable Optimization via Model Transformations},
+    author={Besançon, Mathieu and Dias Garcia, Joaquim and Legat, Beno{\^\i}t and Sharma, Akshay},
+    journal={INFORMS Journal on Computing},
+    year={2023},
+    volume={36},
+    number={2},
+    pages={456--478},
+    doi={10.1287/ijoc.2022.0283},
+    publisher={INFORMS}
+}
+```
+A preprint of this paper is [freely available](https://arxiv.org/abs/2206.06135).
+
 ## GSOC2020
 
 DiffOpt began as a [NumFOCUS sponsored Google Summer of Code (2020) project](https://summerofcode.withgoogle.com/organizations/4727917315096576/?sp-page=2#5232064888045568)
