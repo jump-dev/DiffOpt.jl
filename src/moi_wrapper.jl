@@ -812,6 +812,26 @@ function MOI.get(model::Optimizer, attr::ForwardObjectiveSensitivity)
     return MOI.get(_checked_diff(model, attr, :forward_differentiate!), attr)
 end
 
+function MOI.get(
+    model::Optimizer,
+    attr::MOI.ConstraintDual,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+) where {T}
+    try
+        return MOI.get(
+            _checked_diff(model, attr, :forward_differentiate!),
+            attr,
+            model.index_map[ci],
+        )
+    catch
+        return MOI.get(
+            _checked_diff(model, attr, :reverse_differentiate!),
+            attr,
+            model.index_map[ci],
+        )
+    end
+end
+
 function MOI.supports(
     ::Optimizer,
     ::ReverseVariablePrimal,

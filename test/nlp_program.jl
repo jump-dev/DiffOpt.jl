@@ -160,6 +160,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # test Objective Sensitivity wrt parameters 
         df_dp = MOI.get(m, DiffOpt.ForwardObjectiveSensitivity())
         @test isapprox(df_dp, dot(dual.(con), Δp); atol = 1e-4)
+        @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
 
         # Test sensitivities 
         @test_throws ErrorException MOI.get(
@@ -839,6 +840,8 @@ function test_ReverseConstraintDual()
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(m)
+
+    @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
 
     # Test sensitivities ReverseConstraintSet
     @test all(
