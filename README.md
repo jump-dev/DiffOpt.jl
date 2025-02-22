@@ -33,15 +33,12 @@ examples, tutorials, and an API reference.
 
 ### DiffOpt-JuMP API with `Parameters`
 
+Here is an example with a Parametric **Linear Program**:
+
 ```julia
 using JuMP, DiffOpt, HiGHS
 
-model = Model(
-    () -> DiffOpt.diff_optimizer(
-        HiGHS.Optimizer;
-        with_parametric_opt_interface = true,
-    ),
-)
+model = DiffOpt.quadratic_diff_model(HiGHS.Optimizer)
 set_silent(model)
 
 p_val = 4.0
@@ -64,9 +61,9 @@ optimize!(model)
 
 # differentiate w.r.t. p
 direction_p = 3.0
-MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(direction_p))
+DiffOpt.set_forward_parameter(model, p, direction_p)
 DiffOpt.forward_differentiate!(model)
-@show MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) == direction_p * 3 / pc_val
+@show DiffOpt.get_forward_variable(model, x) == direction_p * 3 / pc_val
 
 # update p and pc
 p_val = 2.0
@@ -82,45 +79,30 @@ optimize!(model)
 DiffOpt.empty_input_sensitivities!(model)
 # differentiate w.r.t. pc
 direction_pc = 10.0
-MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(pc), Parameter(direction_pc))
+DiffOpt.set_forward_parameter(model, pc, direction_pc)
 DiffOpt.forward_differentiate!(model)
-@show abs(MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) -
+@show abs(DiffOpt.get_forward_variable(model, x) -
     -direction_pc * 3 * p_val / pc_val^2) < 1e-5
 
 # always a good practice to clear previously set sensitivities
 DiffOpt.empty_input_sensitivities!(model)
 # Now, reverse model AD
 direction_x = 10.0
-MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, direction_x)
+DiffOpt.set_reverse_variable(model, x, direction_x)
 DiffOpt.reverse_differentiate!(model)
-@show MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) == MOI.Parameter(direction_x * 3 / pc_val)
-@show abs(MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(pc)).value -
-    -direction_x * 3 * p_val / pc_val^2) < 1e-5
+@show DiffOpt.get_reverse_parameter(model, p) == direction_x * 3 / pc_val
+@show DiffOpt.get_reverse_parameter(model, pc) == -direction_x * 3 * p_val / pc_val^2
 ```
 
-### Low level DiffOpt-JuMP API:
+Available models:
+* `DiffOpt.quadratic_diff_model`: Quadratic Programs (QP) and Linear Programs
+(LP)
+* `DiffOpt.conic_diff_model`: Conic Programs (CP) and Linear Programs (LP)
+* `DiffOpt.nonlinear_diff_model`: Nonlinear Programs (NLP), Quadratic Program
+(QP) and Linear Programs (LP)
+* `DiffOpt.diff_model`: Nonlinear Programs (NLP), Conic Programs (CP),
+Quadratic Programs (QP) and Linear Programs (LP)
 
-A brief example:
-
-```julia
-using JuMP, DiffOpt, HiGHS
-# Create a model using the wrapper
-model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
-# Define your model and solve it
-@variable(model, x)
-@constraint(model, cons, x >= 3)
-@objective(model, Min, 2x)
-optimize!(model)
-# Choose the problem parameters to differentiate with respect to, and set their
-# perturbations.
-MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
-# Differentiate the model
-DiffOpt.reverse_differentiate!(model)
-# fetch the gradients
-grad_exp = MOI.get(model, DiffOpt.ReverseConstraintFunction(), cons)  # -3 x - 1
-constant(grad_exp)        # -1
-coefficient(grad_exp, x)  # -3
-```
 
 ## Citing DiffOpt.jl
 

@@ -48,6 +48,8 @@ function add_default_factorization(model)
     return
 end
 
+include("jump_wrapper.jl")
+
 export diff_optimizer
 
 # TODO

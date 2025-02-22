@@ -863,7 +863,7 @@ function MOI.get(model::Optimizer, attr::DifferentiateTimeSec)
 end
 
 function MOI.supports(
-    model::Optimizer,
+    ::Optimizer,
     ::NonLinearKKTJacobianFactorization,
     ::Function,
 )
