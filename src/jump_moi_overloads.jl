@@ -107,6 +107,31 @@ function MOI.get(
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
 
+function MOI.set(
+    model::JuMP.Model,
+    attr::ReverseVariablePrimal,
+    var_ref::JuMP.VariableRef,
+    val::Number,
+)
+    JuMP.check_belongs_to_model(var_ref, model)
+    return MOI.set(JuMP.backend(model), attr, JuMP.index(var_ref), val)
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ReverseConstraintDual,
+    con_ref::JuMP.ConstraintRef,
+    val::Number,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(JuMP.backend(model), attr, JuMP.index(con_ref), val)
+end
+
+function JuMP.dual(var_ref::JuMP.VariableRef; result::Int = 1)
+    JuMP.is_parameter(var_ref) || error("Variable is not a parameter")
+    return dual(ParameterRef(var_ref); result = result)
+end
+
 function MOI.get(
     model::JuMP.Model,
     attr::ReverseConstraintSet,
