@@ -672,17 +672,18 @@ function test_dual_wrt_parameters()
     @assert is_solved_and_feasible(model)
 
     # Set pertubations
-    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(0.1))
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(0.1),
+    )
 
     # Compute derivatives
     DiffOpt.forward_differentiate!(model)
 
     # Test dual wrt parameters
-    @test isapprox(
-        dual(p),
-        dual(con);
-        atol = 1e-4,
-    )
+    @test isapprox(dual(p), dual(con); atol = 1e-4)
 
     # Model 2
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
@@ -699,23 +700,24 @@ function test_dual_wrt_parameters()
     @constraint(model, con, p_prox == p) # dual fishing :)
     @constraint(model, x * sin(p_prox) >= 1)
     @constraint(model, x + p_prox >= 3)
-    @objective(model, Min, sum(x.^2))
+    @objective(model, Min, sum(x .^ 2))
 
     optimize!(model)
     @assert is_solved_and_feasible(model)
 
     # Set pertubations
-    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(0.1))
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(0.1),
+    )
 
     # Compute derivatives
     DiffOpt.forward_differentiate!(model)
 
     # Test dual wrt parameters
-    @test isapprox(
-        dual(p),
-        dual(con);
-        atol = 1e-4,
-    )
+    @test isapprox(dual(p), dual(con); atol = 1e-4)
 end
 
 ################################################
