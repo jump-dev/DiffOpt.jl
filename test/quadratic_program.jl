@@ -9,7 +9,6 @@ using Test
 import DelimitedFiles
 import DiffOpt
 import HiGHS
-import Ipopt
 import MathOptInterface as MOI
 import SCS
 
@@ -43,7 +42,7 @@ function test_forward_on_trivial_QP()
     ]
     h = [1, 0.7, 0.7, -1, 0, 0]
     qp_test_with_solutions(
-        Ipopt.Optimizer;
+        HiGHS.Optimizer;
         Q = Q,
         q = q,
         G = G,
@@ -68,12 +67,12 @@ function test_differentiating_trivial_qp_1()
     G = [1.0 1.0]
     h = [-1.0]
 
-    model = DiffOpt.diff_optimizer(Ipopt.Optimizer)
+    model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
     MOI.set(model, MOI.Silent(), true)
     x = MOI.add_variables(model, 2)
 
     qp_test_with_solutions(
-        Ipopt.Optimizer;
+        HiGHS.Optimizer;
         Q = Q,
         q = q,
         G = G,
@@ -96,7 +95,7 @@ end
 #     G = [1.0 1.0;]
 #     h = [-1.0;]
 #
-#     model = DiffOpt.diff_optimizer(Ipopt.Optimizer)
+#     model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
 #     x = MOI.add_variables(model, 2)
 #
 #     # define objective
@@ -149,7 +148,7 @@ function test_differentiating_qp_with_inequality_and_equality_constraints()
     A = [1.0 1.0 1.0;]
     b = [0.5]
     qp_test_with_solutions(
-        Ipopt.Optimizer;
+        HiGHS.Optimizer;
         Q = Q,
         q = q,
         G = G,
@@ -207,7 +206,7 @@ function test_differentiating_moi_examples_1()
     ]
     dh = [-0.35714284; -0.4285714]
     qp_test_with_solutions(
-        Ipopt.Optimizer;
+        HiGHS.Optimizer;
         Q = Q,
         q = q,
         G = G,
@@ -256,7 +255,7 @@ function test_differentiating_moi_examples_2()
     dA = [0.375 -1.075]
     db = [0.7]
     qp_test_with_solutions(
-        Ipopt.Optimizer;
+        HiGHS.Optimizer;
         Q = Q,
         q = q,
         G = G,
@@ -321,7 +320,7 @@ function test_differentiating_non_trivial_convex_qp_moi()
     dhb = vec(grads_actual[4])
     dbb = vec(grads_actual[6])
     qp_test(
-        Ipopt.Optimizer,
+        HiGHS.Optimizer,
         DiffOpt.QuadraticProgram.Model,
         true,
         true,
