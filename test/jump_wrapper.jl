@@ -11,6 +11,7 @@ import DiffOpt
 import HiGHS
 import Ipopt
 import SCS
+import ParametricOptInterface as POI
 import MathOptInterface as MOI
 
 const ATOL = 1e-3
@@ -36,8 +37,8 @@ function test_jump_api()
             # (DiffOpt.conic_diff_model, HiGHS.Optimizer),
             # (DiffOpt.conic_diff_model, SCS.Optimizer), # conicmodel has a issue with sign
             # (DiffOpt.conic_diff_model, Ipopt.Optimizer),
-            # (DiffOpt.nonlinear_diff_model, HiGHS.Optimizer), #  SQF ctr not supported?
-            # (DiffOpt.nonlinear_diff_model, SCS.Optimizer), # returns zero for sensitivity
+            # (DiffOpt.nonlinear_diff_model, ()->POI.Optimizer(HiGHS.Optimizer())), # wrong results
+            # (DiffOpt.nonlinear_diff_model, ()->POI.Optimizer(SCS.Optimizer())), # needs cache
             (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
         ],
         ineq in [true, false],
