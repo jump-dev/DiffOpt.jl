@@ -161,6 +161,8 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
 
+        @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
+
         # Test sensitivities 
         @test_throws ErrorException MOI.get(
             m.moi_backend.optimizer.model.diff.model,
@@ -735,6 +737,8 @@ function test_ReverseConstraintDual()
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(m)
+
+    @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
 
     # Test sensitivities ReverseConstraintSet
     @test all(

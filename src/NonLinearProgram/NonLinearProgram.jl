@@ -27,10 +27,12 @@ end
 Base.@kwdef struct ForwCache
     primal_Δs::Dict{MOI.VariableIndex,Float64}  # Sensitivity for primal variables (indexed by VariableIndex)
     dual_Δs::Vector{Float64}           # Sensitivity for constraints and bounds (indexed by ConstraintIndex)
+    dual_p::Dict{MOI.ConstraintIndex,Float64}  # Dual wrt parameters
 end
 
 Base.@kwdef struct ReverseCache
     Δp::Vector{Float64}  # Sensitivity for parameters
+    dual_p::Dict{MOI.ConstraintIndex,Float64}  # Dual wrt parameters
 end
 
 # Define the form of the NLP
@@ -513,15 +515,21 @@ function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6)
         end
 
         # Compute Jacobian
-        Δs = _compute_sensitivity(model; tol = tol)
+        Δs, df_dp = _compute_sensitivity(model; tol = tol)
 
         # Extract primal and dual sensitivities
         primal_Δs = Δs[1:length(model.cache.primal_vars), :] * Δp # Exclude slacks
         dual_Δs = Δs[cache.index_duals, :] * Δp # Includes constraints and bounds
 
+        # Dual wrt parameters
+        varorder =
+            sort(collect(keys(form.var2ci)); by = x -> form.var2ci[x].value)
+        dual_p = [df_dp[form.var2param[var_idx].value] for var_idx in varorder]
+
         model.forw_grad_cache = ForwCache(;
             primal_Δs = Dict(model.cache.primal_vars .=> primal_Δs),
             dual_Δs = dual_Δs,
+            dual_p = Dict([form.var2ci[var_idx] for var_idx in varorder] .=> dual_p),
         )
     end
     return nothing
@@ -533,7 +541,7 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
         form = model.model
 
         # Compute Jacobian
-        Δs = _compute_sensitivity(model; tol = tol)
+        Δs, df_dp = _compute_sensitivity(model; tol = tol)
         num_primal = length(cache.primal_vars)
         # Fetch primal sensitivities
         Δx = zeros(num_primal)
@@ -576,7 +584,12 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
             sort(collect(keys(form.var2ci)); by = x -> form.var2ci[x].value)
         Δp = [Δp[form.var2param[var_idx].value] for var_idx in varorder]
 
-        model.back_grad_cache = ReverseCache(; Δp = Δp)
+        # Dual wrt parameters
+        dual_p = [df_dp[form.var2param[var_idx].value] for var_idx in varorder]
+
+        model.back_grad_cache = ReverseCache(; Δp = Δp, 
+            dual_p = Dict([form.var2ci[var_idx] for var_idx in varorder] .=> dual_p),
+        )
     end
     return nothing
 end
@@ -608,6 +621,18 @@ function MOI.get(
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
 ) where {T}
     return MOI.Parameter{T}(model.back_grad_cache.Δp[ci.value])
+end
+
+function MOI.get(
+    model::Model,
+    ::MOI.ConstraintDual,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+) where {T}
+    if !isnothing(model.forw_grad_cache)
+        return model.forw_grad_cache.dual_p[ci]
+    else
+        return model.back_grad_cache.dual_p[ci]
+    end
 end
 
 end # module NonLinearProgram
