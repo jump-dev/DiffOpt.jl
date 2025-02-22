@@ -29,6 +29,7 @@ end
 
 function test_jump_api()
     for (MODEL, SOLVER) in [
+            (DiffOpt.diff_model, Ipopt.Optimizer),
             (DiffOpt.quadratic_diff_model, HiGHS.Optimizer),
             (DiffOpt.quadratic_diff_model, SCS.Optimizer),
             (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
