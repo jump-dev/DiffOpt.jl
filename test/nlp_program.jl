@@ -161,7 +161,9 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
 
-        @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
+        # test dual wrt parameters 
+        @test_throws ErrorException dual.(x)
+        @test all(isapprox.(dual.(p), dual.(con); atol = 1e-8))
 
         # Test sensitivities 
         @test_throws ErrorException MOI.get(
@@ -645,6 +647,79 @@ end
 
 ################################################
 #=
+# Test Dual wrt Parameters
+=#
+################################################
+
+function test_dual_wrt_parameters()
+    # Model 1
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+
+    # Parameters
+    @variable(model, p ∈ MOI.Parameter(1.5))
+    @variable(model, p_prox)
+
+    # Variables
+    @variable(model, x)
+
+    # Constraints
+    @constraint(model, con, p_prox == p) # dual fishing :)
+    @constraint(model, x * sin(p_prox) == 1)
+    @objective(model, Min, sum(x))
+
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+
+    # Set pertubations
+    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(0.1))
+
+    # Compute derivatives
+    DiffOpt.forward_differentiate!(model)
+
+    # Test dual wrt parameters
+    @test isapprox(
+        dual(p),
+        dual(con);
+        atol = 1e-4,
+    )
+
+    # Model 2
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+
+    # Parameters
+    @variable(model, p ∈ MOI.Parameter(1.5))
+    @variable(model, p_prox)
+
+    # Variables
+    @variable(model, x)
+
+    # Constraints
+    @constraint(model, con, p_prox == p) # dual fishing :)
+    @constraint(model, x * sin(p_prox) >= 1)
+    @constraint(model, x + p_prox >= 3)
+    @objective(model, Min, sum(x.^2))
+
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+
+    # Set pertubations
+    MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(0.1))
+
+    # Compute derivatives
+    DiffOpt.forward_differentiate!(model)
+
+    # Test dual wrt parameters
+    @test isapprox(
+        dual(p),
+        dual(con);
+        atol = 1e-4,
+    )
+end
+
+################################################
+#=
 # Test Sensitivity through Reverse Mode
 =#
 ################################################
@@ -738,7 +813,9 @@ function test_ReverseConstraintDual()
     # Compute derivatives
     DiffOpt.reverse_differentiate!(m)
 
-    @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
+    # Test dual wrt parameters
+    @test_throws ErrorException dual.(x)
+    @test all(isapprox.(dual.(p), dual.(con); atol = 1e-8))
 
     # Test sensitivities ReverseConstraintSet
     @test all(

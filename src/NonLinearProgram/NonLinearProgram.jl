@@ -524,12 +524,15 @@ function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6)
         # Dual wrt parameters
         varorder =
             sort(collect(keys(form.var2ci)); by = x -> form.var2ci[x].value)
-        dual_p = [df_dp[form.var2param[var_idx].value] for var_idx in varorder]
+        dual_p =
+            [df_dp[form.var2param[var_idx].value] for var_idx in varorder]
 
         model.forw_grad_cache = ForwCache(;
             primal_Δs = Dict(model.cache.primal_vars .=> primal_Δs),
             dual_Δs = dual_Δs,
-            dual_p = Dict([form.var2ci[var_idx] for var_idx in varorder] .=> dual_p),
+            dual_p = Dict(
+                [form.var2ci[var_idx] for var_idx in varorder] .=> dual_p,
+            ),
         )
     end
     return nothing
@@ -585,10 +588,14 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
         Δp = [Δp[form.var2param[var_idx].value] for var_idx in varorder]
 
         # Dual wrt parameters
-        dual_p = [df_dp[form.var2param[var_idx].value] for var_idx in varorder]
+        dual_p =
+            [df_dp[form.var2param[var_idx].value] for var_idx in varorder]
 
-        model.back_grad_cache = ReverseCache(; Δp = Δp, 
-            dual_p = Dict([form.var2ci[var_idx] for var_idx in varorder] .=> dual_p),
+        model.back_grad_cache = ReverseCache(;
+            Δp = Δp,
+            dual_p = Dict(
+                [form.var2ci[var_idx] for var_idx in varorder] .=> dual_p,
+            ),
         )
     end
     return nothing
