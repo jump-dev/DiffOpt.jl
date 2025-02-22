@@ -118,3 +118,46 @@ DiffOpt.reverse_differentiate!(model)
 @show abs(MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(pc)).value -
     -direction_x * 3 * p_val / pc_val^2) < 1e-5
 ```
+
+## Calculating dual with respect to parameters (currently only supported for Nonlinear Programs)
+
+Consider a differentiable model with parameters `p` and `pc` as in the previous example:
+
+```julia
+using JuMP, DiffOpt, HiGHS
+
+model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+set_silent(model)
+
+p_val = 4.0
+pc_val = 2.0
+@variable(model, x)
+@variable(model, p in Parameter(p_val))
+@variable(model, pc in Parameter(pc_val))
+@constraint(model, cons, pc * x >= 3 * p)
+@objective(model, Min, x^4)
+optimize!(model)
+
+direction_p = 3.0
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(direction_p))
+DiffOpt.forward_differentiate!(model)
+
+```
+
+Using Lagrandian duality we could already calculate the dual variables with respect to the constraints.
+So, if the parameter only appears in the RHS of the constraints, calculating the dual with respect to the parameter equivalent to calculating the dual with respect to the constraints the parameter appears in (e.g, `cons` in this case for parameter `p`).
+
+On the other hand, if the parameter appears in the LHS of the constraints, we can calculate the dual with respect to the parameter using the sensitivities of the variables with respect to the parameter, \( \frac{\partial x}{\partial p} \), and the gradient of the objective with respect to the variables \( \frac{\partial f}{\partial x} \).
+
+```math
+\frac{\partial f}{\partial p} = \frac{\partial f}{\partial x} \frac{\partial x}{\partial p}
+```
+
+Both of these cases are supported in `DiffOpt`:
+
+```julia
+
+dual(p) # works
+
+dual(pc) # also works
+```
