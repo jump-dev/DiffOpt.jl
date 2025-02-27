@@ -66,6 +66,13 @@ function MOI.get(
     return JuMP.jump_function(model, moi_func)
 end
 
+function MOI.get(
+    model::JuMP.Model,
+    attr::ForwardObjectiveSensitivity,
+)
+    return MOI.get(JuMP.backend(model), attr)
+end
+
 function MOI.get(model::JuMP.Model, attr::ReverseObjectiveFunction)
     func = MOI.get(JuMP.backend(model), attr)
     return JuMP.jump_function(model, func)
@@ -125,6 +132,14 @@ function MOI.set(
 )
     JuMP.check_belongs_to_model(con_ref, model)
     return MOI.set(JuMP.backend(model), attr, JuMP.index(con_ref), val)
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ReverseObjectiveSensitivity,
+    val::Number,
+)
+    return MOI.set(JuMP.backend(model), attr, val)
 end
 
 function JuMP.dual(var_ref::JuMP.VariableRef; result::Int = 1)

@@ -16,6 +16,7 @@ Base.@kwdef mutable struct InputCache
     dp::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}() # Specifically for NonLinearProgram
     dy::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}()
     # Dual sensitivity currently only works for NonLinearProgram
+    dobj::Float64 = 0.0 # Objective input sensitivity for reverse differentiation
     # ds
     # dy #= [d\lambda, d\nu] for QP
     # FIXME Would it be possible to have a DoubleDict where the value depends
@@ -35,6 +36,7 @@ function Base.empty!(cache::InputCache)
     empty!(cache.dx)
     empty!(cache.dp)
     empty!(cache.dy)
+    cache.dobj = 0.0
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
@@ -185,6 +187,20 @@ MOI.set(model, DiffOpt.ReverseConstraintDual(), ci, value)
 struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
 
 """
+    ReverseObjectiveSensitivity <: MOI.AbstractModelAttribute
+
+A `MOI.AbstractModelAttribute` to set input data for reverse differentiation.
+
+For instance, to set the sensitivity of the parameter perturbation with respect to the
+objective function perturbation, do the following:
+
+```julia
+MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), value)
+```
+"""
+struct ReverseObjectiveSensitivity <: MOI.AbstractModelAttribute end
+
+"""
     ForwardConstraintDual <: MOI.AbstractConstraintAttribute
 
 A `MOI.AbstractConstraintAttribute` to get output data from forward differentiation for the dual variable.
@@ -198,6 +214,21 @@ MOI.get(model, DiffOpt.ForwardConstraintDual(), ci)
 struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
 
 MOI.is_set_by_optimize(::ForwardConstraintDual) = true
+
+"""
+    ForwardObjectiveSensitivity <: MOI.AbstractModelAttribute
+
+A `MOI.AbstractModelAttribute` to get output objective sensitivity data from forward differentiation.
+
+For instance, to get the sensitivity of the objective function with respect to the parameter perturbation, do the following:
+
+```julia
+MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+```
+"""
+struct ForwardObjectiveSensitivity <: MOI.AbstractModelAttribute end
+
+MOI.is_set_by_optimize(::ForwardObjectiveSensitivity) = true
 
 """
     ReverseObjectiveFunction <: MOI.AbstractModelAttribute
@@ -400,6 +431,15 @@ function MOI.set(
     val,
 )
     model.input_cache.dy[vi] = val
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
+    ::ReverseObjectiveSensitivity,
+    val,
+)
+    model.input_cache.dobj = val
     return
 end
 
