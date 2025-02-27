@@ -139,11 +139,6 @@ function MOI.set(
     return MOI.set(JuMP.backend(model), attr, val)
 end
 
-function JuMP.dual(var_ref::JuMP.VariableRef; result::Int = 1)
-    JuMP.is_parameter(var_ref) || error("Variable is not a parameter")
-    return dual(ParameterRef(var_ref); result = result)
-end
-
 function MOI.get(
     model::JuMP.Model,
     attr::ReverseConstraintSet,
