@@ -66,10 +66,7 @@ function MOI.get(
     return JuMP.jump_function(model, moi_func)
 end
 
-function MOI.get(
-    model::JuMP.Model,
-    attr::ForwardObjectiveSensitivity,
-)
+function MOI.get(model::JuMP.Model, attr::ForwardObjectiveSensitivity)
     return MOI.get(JuMP.backend(model), attr)
 end
 

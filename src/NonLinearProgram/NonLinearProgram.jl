@@ -585,9 +585,7 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
             sort(collect(keys(form.var2ci)); by = x -> form.var2ci[x].value)
         Δp = [Δp[form.var2param[var_idx].value] for var_idx in varorder]
 
-        model.back_grad_cache = ReverseCache(;
-            Δp = Δp,
-        )
+        model.back_grad_cache = ReverseCache(; Δp = Δp)
     end
     return nothing
 end
@@ -621,10 +619,7 @@ function MOI.get(
     return MOI.Parameter{T}(model.back_grad_cache.Δp[ci.value])
 end
 
-function MOI.get(
-    model::Model,
-    ::DiffOpt.ForwardObjectiveSensitivity,
-)
+function MOI.get(model::Model, ::DiffOpt.ForwardObjectiveSensitivity)
     return model.forw_grad_cache.dual_p
 end
 
