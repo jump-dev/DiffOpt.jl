@@ -213,8 +213,6 @@ MOI.get(model, DiffOpt.ForwardConstraintDual(), ci)
 """
 struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
 
-MOI.is_set_by_optimize(::ForwardConstraintDual) = true
-
 """
     ForwardObjectiveSensitivity <: MOI.AbstractModelAttribute
 
@@ -227,8 +225,6 @@ MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
 ```
 """
 struct ForwardObjectiveSensitivity <: MOI.AbstractModelAttribute end
-
-MOI.is_set_by_optimize(::ForwardObjectiveSensitivity) = true
 
 """
     ReverseObjectiveFunction <: MOI.AbstractModelAttribute
