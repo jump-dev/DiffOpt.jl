@@ -677,11 +677,7 @@ function test_ObjectiveSensitivity()
 
     # Set Too Many Sensitivities
     Δf = 0.5
-    MOI.set(
-        model,
-        DiffOpt.ReverseObjectiveSensitivity(),
-        Δf,
-    )
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
 
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
 
@@ -692,21 +688,13 @@ function test_ObjectiveSensitivity()
 
     # Set Reverse Objective Sensitivity
     Δf = 0.5
-    MOI.set(
-        model,
-        DiffOpt.ReverseObjectiveSensitivity(),
-        Δf,
-    )
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(model)
 
     # Test Objective Sensitivity wrt parameters
-    dp = MOI.get(
-        model,
-        DiffOpt.ReverseConstraintSet(),
-        ParameterRef(p),
-    ).value
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
     @test isapprox(dp, dual(con) * Δf; atol = 1e-4)
 
@@ -750,21 +738,13 @@ function test_ObjectiveSensitivity()
 
     # Set Reverse Objective Sensitivity
     Δf = 0.5
-    MOI.set(
-        model,
-        DiffOpt.ReverseObjectiveSensitivity(),
-        Δf,
-    )
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(model)
 
     # Test Objective Sensitivity wrt parameters
-    dp = MOI.get(
-        model,
-        DiffOpt.ReverseConstraintSet(),
-        ParameterRef(p),
-    ).value
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
     @test isapprox(dp, dual(con) * Δf; atol = 1e-4)
 end

@@ -554,11 +554,7 @@ function reverse_differentiate!(model::Optimizer)
     for (vi, value) in model.input_cache.dy
         MOI.set(diff, ReverseConstraintDual(), model.index_map[vi], value)
     end
-    MOI.set(
-        diff,
-        ReverseObjectiveSensitivity(),
-        model.input_cache.dobj,
-    )
+    MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
     return reverse_differentiate!(diff)
 end
 
@@ -816,16 +812,6 @@ function MOI.get(model::Optimizer, attr::ForwardObjectiveSensitivity)
     return MOI.get(_checked_diff(model, attr, :forward_differentiate!), attr)
 end
 
-function MOI.get(
-    model::Optimizer,
-    attr::ForwardObjectiveSensitivity,
-)
-    return MOI.get(
-        _checked_diff(model, attr, :forward_differentiate!),
-        attr,
-    )
-end
-
 function MOI.supports(
     ::Optimizer,
     ::ReverseVariablePrimal,
@@ -880,11 +866,7 @@ function MOI.set(
     return
 end
 
-function MOI.set(
-    model::Optimizer,
-    ::ReverseObjectiveSensitivity,
-    val,
-)
+function MOI.set(model::Optimizer, ::ReverseObjectiveSensitivity, val)
     model.input_cache.dobj = val
     return
 end

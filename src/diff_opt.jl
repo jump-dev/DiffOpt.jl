@@ -468,15 +468,6 @@ end
 
 function MOI.set(
     model::AbstractModel,
-    ::ReverseObjectiveSensitivity,
-    val,
-)
-    model.input_cache.dobj = val
-    return
-end
-
-function MOI.set(
-    model::AbstractModel,
     ::ForwardConstraintFunction,
     ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
