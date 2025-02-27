@@ -66,7 +66,10 @@ function MOI.get(
     return JuMP.jump_function(model, moi_func)
 end
 
-function MOI.get(model::JuMP.Model, attr::ForwardObjectiveSensitivity)
+function MOI.get(
+    model::JuMP.Model,
+    attr::ForwardObjectiveSensitivity,
+)
     return MOI.get(JuMP.backend(model), attr)
 end
 
@@ -137,6 +140,11 @@ function MOI.set(
     val::Number,
 )
     return MOI.set(JuMP.backend(model), attr, val)
+end
+
+function JuMP.dual(var_ref::JuMP.VariableRef; result::Int = 1)
+    JuMP.is_parameter(var_ref) || error("Variable is not a parameter")
+    return dual(ParameterRef(var_ref); result = result)
 end
 
 function MOI.get(

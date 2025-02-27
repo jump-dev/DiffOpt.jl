@@ -38,6 +38,7 @@ function Base.empty!(cache::InputCache)
     empty!(cache.dy)
     cache.dobj = 0.0
     empty!(cache.parameter_constraints)
+    cache.dobj = 0.0
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
@@ -461,6 +462,15 @@ function MOI.set(
 end
 
 function MOI.set(model::AbstractModel, ::ReverseObjectiveSensitivity, val)
+    model.input_cache.dobj = val
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
+    ::ReverseObjectiveSensitivity,
+    val,
+)
     model.input_cache.dobj = val
     return
 end
