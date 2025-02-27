@@ -151,3 +151,36 @@ On the other hand, if the parameter appears in the LHS of the constraints, we ca
 ```math
 \frac{\partial f}{\partial p} = \frac{\partial f}{\partial x} \frac{\partial x}{\partial p}
 ```
+
+In order to calculate the objective perturbation with respect to the parameter perturbation vector, we can use the following code:
+
+```julia
+# Always a good practice to clear previously set sensitivities
+DiffOpt.empty_input_sensitivities!(model)
+
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(3.0))
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p_c), Parameter(3.0))
+DiffOpt.forward_differentiate!(model)
+
+MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+```
+
+In the backward mode, we can calculate the parameter perturbation with respect to the objective perturbation:
+
+```julia
+# Always a good practice to clear previously set sensitivities
+DiffOpt.empty_input_sensitivities!(model)
+
+MOI.set(
+    model,
+    DiffOpt.ReverseObjectiveSensitivity(),
+    0.1,
+)
+
+DiffOpt.reverse_differentiate!(model)
+
+MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p))
+```
+
+It is important to note that the (reverse) parameter perturbation given an objective perturbation is somewhat equivalent to the perturbation with respect to solution (since one can be calculated from the other). Therefore, one cannot set both the objective sensitivity (`DiffOpt.ReverseObjectiveSensitivity`) and the solution sensitivity (e.g. `DiffOpt.ReverseVariablePrimal`) at the same time.
+```
