@@ -31,7 +31,7 @@ Base.@kwdef struct ForwCache
 end
 
 Base.@kwdef struct ReverseCache
-    Δp::Vector{Float64}  # Sensitivity for parameters
+    Δp::Dict{MOI.ConstraintIndex,Float64}  # Sensitivity for parameters
 end
 
 # Define the form of the NLP
@@ -580,12 +580,10 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
             Δp = Δs' * Δw
         end
 
-        # Order by ConstraintIndex
-        varorder =
-            sort(collect(keys(form.var2ci)); by = x -> form.var2ci[x].value)
-        Δp = [Δp[form.var2param[var_idx].value] for var_idx in varorder]
-
-        model.back_grad_cache = ReverseCache(; Δp = Δp)
+        Δp_dict = Dict{MOI.ConstraintIndex,Float64}(
+            form.var2ci[var_idx] => Δp[form.var2param[var_idx].value] for var_idx in keys(form.var2ci)
+        )
+        model.back_grad_cache = ReverseCache(; Δp = Δp_dict)
     end
     return nothing
 end
@@ -616,7 +614,7 @@ function MOI.get(
     ::DiffOpt.ReverseConstraintSet,
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
 ) where {T}
-    return MOI.Parameter{T}(model.back_grad_cache.Δp[ci.value])
+    return MOI.Parameter{T}(model.back_grad_cache.Δp[ci])
 end
 
 function MOI.get(model::Model, ::DiffOpt.ForwardObjectiveSensitivity)
