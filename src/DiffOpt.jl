@@ -14,7 +14,6 @@ import MathOptInterface as MOI
 import MathOptSetDistances as MOSD
 import ParametricOptInterface as POI
 import SparseArrays
-import JuMP: dual
 
 include("utils.jl")
 include("product_of_sets.jl")
