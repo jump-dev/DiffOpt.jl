@@ -27,7 +27,7 @@ function runtests()
     return
 end
 
-function _test_simple_socp(eq_vec::Bool) # FIXME: Does it make sense to still test vec?
+function _test_simple_socp(eq_vec::Bool)
     # referred from _soc2test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L1355
     # find reference diffcp python program here: https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_socp_1_py.ipynb
     # Problem SOC2
@@ -47,8 +47,11 @@ function _test_simple_socp(eq_vec::Bool) # FIXME: Does it make sense to still te
     y = @variable(model)
     t = @variable(model)
 
-    ceq = @constraint(model, -1.0t == -1.0)
-    
+    ceq = if eq_vec
+        @constraint(model, [t] .== [1.0])
+    else
+        @constraint(model, t == 1.0)
+    end
     cnon = @constraint(model, 1.0y >= 1 / √2)
     csoc = @constraint(model, [1.0t, 1.0x, 1.0y] in MOI.SecondOrderCone(3))
 
@@ -57,11 +60,16 @@ function _test_simple_socp(eq_vec::Bool) # FIXME: Does it make sense to still te
     optimize!(model)
 
     # set foward sensitivities
-    MOI.set(model, DiffOpt.ForwardConstraintFunction(), ceq, 1.0 * x)
+    if eq_vec 
+        MOI.set.(model, DiffOpt.ForwardConstraintFunction(), ceq, [1.0 * x])
+    else
+        MOI.set(model, DiffOpt.ForwardConstraintFunction(), ceq, 1.0 * x)
+    end
 
     DiffOpt.forward_differentiate!(model)
 
-    dx = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x)
+    dx = -0.9999908
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ dx atol=ATOL rtol=RTOL
 
     MOI.set(
         model,
@@ -72,7 +80,11 @@ function _test_simple_socp(eq_vec::Bool) # FIXME: Does it make sense to still te
 
     DiffOpt.reverse_differentiate!(model)
 
-    @test JuMP.coefficient(MOI.get(model, DiffOpt.ReverseConstraintFunction(), ceq), x) ≈ dx atol=ATOL rtol=RTOL
+    if eq_vec
+        @test all(isapprox.(JuMP.coefficient.(MOI.get.(model, DiffOpt.ReverseConstraintFunction(), ceq), x), dx, atol=ATOL, rtol=RTOL))
+    else
+        @test JuMP.coefficient(MOI.get(model, DiffOpt.ReverseConstraintFunction(), ceq), x) ≈ dx atol=ATOL rtol=RTOL
+    end
 
     DiffOpt.empty_input_sensitivities!(model)
 
@@ -80,7 +92,8 @@ function _test_simple_socp(eq_vec::Bool) # FIXME: Does it make sense to still te
 
     DiffOpt.forward_differentiate!(model)
 
-    dy = MOI.get(model, DiffOpt.ForwardVariablePrimal(), y)
+    dy = -0.707083
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), y) ≈ dy atol=ATOL rtol=RTOL
 
     MOI.set(
         model,
@@ -104,7 +117,8 @@ function _test_simple_socp(eq_vec::Bool) # FIXME: Does it make sense to still te
 
     DiffOpt.forward_differentiate!(model)
 
-    ds = MOI.get(model, DiffOpt.ForwardVariablePrimal(), t)
+    ds = 0.0
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), t) ≈ ds atol=ATOL rtol=RTOL
 
     MOI.set(
         model,
@@ -122,7 +136,7 @@ end
 
 test_differentiating_simple_SOCP_vector() = _test_simple_socp(true)
 
-# test_differentiating_simple_SOCP_scalar() = _test_simple_socp(false) # FIXME: Does it make sense to still test vec?
+test_differentiating_simple_SOCP_scalar() = _test_simple_socp(false)
 
 # refered from _psd0test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L3919
 # find equivalent diffcp program here: https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_1_py.ipynb
@@ -383,85 +397,134 @@ end
 function test_differentiating_conic_with_PSD_and_POS_constraints()
     # refer psdt2test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4306
     # find equivalent diffcp program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
-    model = DiffOpt.diff_optimizer(SCS.Optimizer)
-    MOI.set(model, MOI.Silent(), true)
-    x = MOI.add_variables(model, 7)
-    @test MOI.get(model, MOI.NumberOfVariables()) == 7
+    # model = DiffOpt.diff_optimizer(SCS.Optimizer)
+    # MOI.set(model, MOI.Silent(), true)
+    # x = MOI.add_variables(model, 7)
+    # @test MOI.get(model, MOI.NumberOfVariables()) == 7
+    # η = 10.0
+    # c1 = MOI.add_constraint(
+    #     model,
+    #     MOI.VectorAffineFunction(
+    #         MOI.VectorAffineTerm.(1, MOI.ScalarAffineTerm.(-1.0, x[1:6])),
+    #         [η],
+    #     ),
+    #     MOI.Nonnegatives(1),
+    # )
+    # c2 = MOI.add_constraint(
+    #     model,
+    #     MOI.VectorAffineFunction(
+    #         MOI.VectorAffineTerm.(1:6, MOI.ScalarAffineTerm.(1.0, x[1:6])),
+    #         zeros(6),
+    #     ),
+    #     MOI.Nonnegatives(6),
+    # )
+    # α = 0.8
+    # δ = 0.9
+    # c3 = MOI.add_constraint(
+    #     model,
+    #     MOI.VectorAffineFunction(
+    #         MOI.VectorAffineTerm.(
+    #             [fill(1, 7); fill(2, 5); fill(3, 6)],
+    #             MOI.ScalarAffineTerm.(
+    #                 [
+    #                     δ / 2,
+    #                     α,
+    #                     δ,
+    #                     δ / 4,
+    #                     δ / 8,
+    #                     0.0,
+    #                     -1.0,
+    #                     -δ / (2 * √2),
+    #                     -δ / 4,
+    #                     0,
+    #                     -δ / (8 * √2),
+    #                     0.0,
+    #                     δ / 2,
+    #                     δ - α,
+    #                     0,
+    #                     δ / 8,
+    #                     δ / 4,
+    #                     -1.0,
+    #                 ],
+    #                 [x[1:7]; x[1:3]; x[5:6]; x[1:3]; x[5:7]],
+    #             ),
+    #         ),
+    #         zeros(3),
+    #     ),
+    #     MOI.PositiveSemidefiniteConeTriangle(2),
+    # )
+    # c4 = MOI.add_constraint(
+    #     model,
+    #     MOI.VectorAffineFunction(
+    #         MOI.VectorAffineTerm.(
+    #             1,
+    #             MOI.ScalarAffineTerm.(0.0, [x[1:3]; x[5:6]]),
+    #         ),
+    #         [0.0],
+    #     ),
+    #     MOI.Zeros(1),
+    # )
+    # MOI.set(
+    #     model,
+    #     MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+    #     MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x[7])], 0.0),
+    # )
+    # MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
+    # MOI.optimize!(model)
+    # MOI.get(model, MOI.ObjectiveValue())
+    # # dc = ones(7)
+    # MOI.get.(model, MOI.VariablePrimal(), x)
+
+    # Make a JuMP model backed by DiffOpt.diff_optimizer(SCS.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(SCS.Optimizer))
+    set_silent(model)  # just to suppress solver output
+
+    @variable(model, x[1:7])
+    @test num_variables(model) == 7
+
     η = 10.0
-    c1 = MOI.add_constraint(
-        model,
-        MOI.VectorAffineFunction(
-            MOI.VectorAffineTerm.(1, MOI.ScalarAffineTerm.(-1.0, x[1:6])),
-            [η],
-        ),
-        MOI.Nonnegatives(1),
-    )
-    c2 = MOI.add_constraint(
-        model,
-        MOI.VectorAffineFunction(
-            MOI.VectorAffineTerm.(1:6, MOI.ScalarAffineTerm.(1.0, x[1:6])),
-            zeros(6),
-        ),
-        MOI.Nonnegatives(6),
-    )
+    # c1: sum(-x[1:6]) + η >= 0
+    c1 = @constraint(model, -sum(x[i] for i in 1:6) + η ≥ 0)
+
+    # c2: x[i] >= 0  for each i in 1:6
+    #     (this replicates MOI.Nonnegatives(6) on x[1:6])
+    c2 = [
+        @constraint(model, x[i] ≥ 0)
+        for i in 1:6
+    ]
+
+    # c3: A 2×2 PSD constraint. In raw MOI form you had
+    #     MOI.PositiveSemidefiniteConeTriangle(2),
+    #     which means a vector dimension=3 => [a11, a12, a22].
+    # We'll build that in JuMP with `[ [a11 a12]; [a12 a22] ] in PSDCone()`.
     α = 0.8
     δ = 0.9
-    c3 = MOI.add_constraint(
+    c3 = @constraint(
         model,
-        MOI.VectorAffineFunction(
-            MOI.VectorAffineTerm.(
-                [fill(1, 7); fill(2, 5); fill(3, 6)],
-                MOI.ScalarAffineTerm.(
-                    [
-                        δ / 2,
-                        α,
-                        δ,
-                        δ / 4,
-                        δ / 8,
-                        0.0,
-                        -1.0,
-                        -δ / (2 * √2),
-                        -δ / 4,
-                        0,
-                        -δ / (8 * √2),
-                        0.0,
-                        δ / 2,
-                        δ - α,
-                        0,
-                        δ / 8,
-                        δ / 4,
-                        -1.0,
-                    ],
-                    [x[1:7]; x[1:3]; x[5:6]; x[1:3]; x[5:7]],
-                ),
-            ),
-            zeros(3),
-        ),
-        MOI.PositiveSemidefiniteConeTriangle(2),
+        LinearAlgebra.Symmetric(hcat(
+            [((δ/2)*x[1] + α*x[2] + δ*x[3] + (δ/4)*x[4] + (δ/8)*x[5] - 1.0*x[7])   # a11
+            ((-(δ/(2*√2)))*x[1] - (δ/4)*x[2] - (δ/(8*√2))*x[5])],
+            [((-(δ/(2*√2)))*x[1] - (δ/4)*x[2] - (δ/(8*√2))*x[5])
+            ((δ/2)*x[1] + (δ - α)*x[2] + 0.0*x[3] + (δ/8)*x[5] + (δ/4)*x[6] - x[7])])
+        ) in PSDCone()
     )
-    c4 = MOI.add_constraint(
-        model,
-        MOI.VectorAffineFunction(
-            MOI.VectorAffineTerm.(
-                1,
-                MOI.ScalarAffineTerm.(0.0, [x[1:3]; x[5:6]]),
-            ),
-            [0.0],
-        ),
-        MOI.Zeros(1),
-    )
-    MOI.set(
-        model,
-        MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
-        MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x[7])], 0.0),
-    )
-    MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
-    MOI.optimize!(model)
-    # dc = ones(7)
+
+    # c4: In the original MOI example it was some "useless" constraint on x[1:3] + x[5:6].
+    #     For demonstration, we replicate a dimension=1 equality to zero:
+    c4 = @constraint(model, 0.0 * x[1] + 0.0 * x[2] + 0.0 * x[3] + 0.0 * x[5] + 0.0 * x[6] == 0)
+
+    # Make the objective: "maximize x[7]" exactly as in the original
+    @objective(model, Max, x[7])
+
+    # Solve
+    optimize!(model)
+
+    @test objective_value(model) ≈ 1.90192374 atol=ATOL rtol=RTOL
+
     MOI.set(
         model,
         DiffOpt.ForwardObjectiveFunction(),
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(ones(7), x), 0.0),
+       sum(x)
     )
     # db = ones(11)
     # dA = ones(11, 7)
@@ -469,27 +532,27 @@ function test_differentiating_conic_with_PSD_and_POS_constraints()
         model,
         DiffOpt.ForwardConstraintFunction(),
         c1,
-        MOI.Utilities.vectorize(ones(1, 7) * x + ones(1)),
+        sum(x) + 1,
     )
-    MOI.set(
+    MOI.set.(
         model,
         DiffOpt.ForwardConstraintFunction(),
         c2,
-        MOI.Utilities.vectorize(ones(6, 7) * x + ones(6)),
+        sum(x) + 1,
     )
-    MOI.set(
+    MOI.set.(
         model,
         DiffOpt.ForwardConstraintFunction(),
         c3,
-        MOI.Utilities.vectorize(ones(3, 7) * x + ones(3)),
+        sum(x) + 1,
     )
     MOI.set(
         model,
         DiffOpt.ForwardConstraintFunction(),
         c4,
-        MOI.Utilities.vectorize(ones(1, 7) * x + ones(1)),
+        sum(x) + 1,
     )
-    DiffOpt.forward_differentiate!(model)
+    DiffOpt.forward_differentiate!(model) # ERROR HERE
     @test model.diff.model.x ≈
           [20 / 3.0, 0.0, 10 / 3.0, 0.0, 0.0, 0.0, 1.90192379] atol = ATOL rtol =
         RTOL
