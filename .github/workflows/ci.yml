@@ -56,7 +56,7 @@ jobs:
           using Pkg
           Pkg.develop(PackageSpec(path=pwd()))
           Pkg.instantiate()
-      - run: julia --project=docs docs/make.jl
+      - run: julia --project=docs --color=yes docs/make.jl
         env:
           DATADEPS_ALWAYS_ACCEPT: true # For MLDatasets.MNIST
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
