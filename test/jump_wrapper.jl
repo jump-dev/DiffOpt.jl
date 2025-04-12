@@ -34,7 +34,7 @@ function test_jump_api()
             (DiffOpt.quadratic_diff_model, SCS.Optimizer),
             (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
             (DiffOpt.conic_diff_model, HiGHS.Optimizer),
-            (DiffOpt.conic_diff_model, SCS.Optimizer), # conicmodel has a issue with sign
+            (DiffOpt.conic_diff_model, SCS.Optimizer),
             (DiffOpt.conic_diff_model, Ipopt.Optimizer),
             # (DiffOpt.nonlinear_diff_model, HiGHS.Optimizer), #  SQF ctr not supported?
             # (DiffOpt.nonlinear_diff_model, SCS.Optimizer), # returns zero for sensitivity
