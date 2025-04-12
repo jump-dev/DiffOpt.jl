@@ -302,7 +302,7 @@ function DiffOpt.forward_differentiate!(model::Model)
             dAj,
             dAv,
         )
-        dA = SparseArrays.sparse(dAi, dAj, dAv, lines, cols)
+        dA = -SparseArrays.sparse(dAi, dAj, dAv, lines, cols)
 
         m = size(A, 1)
         n = size(A, 2)
