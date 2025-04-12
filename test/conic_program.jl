@@ -60,7 +60,7 @@ function _test_simple_socp(eq_vec::Bool)
     optimize!(model)
 
     # set foward sensitivities
-    if eq_vec 
+    if eq_vec
         MOI.set.(model, DiffOpt.ForwardConstraintFunction(), ceq, [1.0 * x])
     else
         MOI.set(model, DiffOpt.ForwardConstraintFunction(), ceq, 1.0 * x)
@@ -69,21 +69,30 @@ function _test_simple_socp(eq_vec::Bool)
     DiffOpt.forward_differentiate!(model)
 
     dx = -0.9999908
-    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ dx atol=ATOL rtol=RTOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ dx atol = ATOL rtol =
+        RTOL
 
-    MOI.set(
-        model,
-        DiffOpt.ReverseVariablePrimal(),
-        x,
-        1.0
-    )
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
 
     DiffOpt.reverse_differentiate!(model)
 
     if eq_vec
-        @test all(isapprox.(JuMP.coefficient.(MOI.get.(model, DiffOpt.ReverseConstraintFunction(), ceq), x), dx, atol=ATOL, rtol=RTOL))
+        @test all(
+            isapprox.(
+                JuMP.coefficient.(
+                    MOI.get.(model, DiffOpt.ReverseConstraintFunction(), ceq),
+                    x,
+                ),
+                dx,
+                atol = ATOL,
+                rtol = RTOL,
+            ),
+        )
     else
-        @test JuMP.coefficient(MOI.get(model, DiffOpt.ReverseConstraintFunction(), ceq), x) ≈ dx atol=ATOL rtol=RTOL
+        @test JuMP.coefficient(
+            MOI.get(model, DiffOpt.ReverseConstraintFunction(), ceq),
+            x,
+        ) ≈ dx atol = ATOL rtol = RTOL
     end
 
     DiffOpt.empty_input_sensitivities!(model)
@@ -93,21 +102,20 @@ function _test_simple_socp(eq_vec::Bool)
     DiffOpt.forward_differentiate!(model)
 
     dy = -0.707083
-    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), y) ≈ dy atol=ATOL rtol=RTOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), y) ≈ dy atol = ATOL rtol =
+        RTOL
 
-    MOI.set(
-        model,
-        DiffOpt.ReverseVariablePrimal(),
-        y,
-        1.0
-    )
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), y, 1.0)
 
     DiffOpt.reverse_differentiate!(model)
 
-    @test JuMP.coefficient(MOI.get(model, DiffOpt.ReverseConstraintFunction(), cnon), y) ≈ dy atol=ATOL rtol=RTOL
+    @test JuMP.coefficient(
+        MOI.get(model, DiffOpt.ReverseConstraintFunction(), cnon),
+        y,
+    ) ≈ dy atol = ATOL rtol = RTOL
 
     DiffOpt.empty_input_sensitivities!(model)
-    
+
     MOI.set(
         model,
         DiffOpt.ForwardConstraintFunction(),
@@ -118,20 +126,16 @@ function _test_simple_socp(eq_vec::Bool)
     DiffOpt.forward_differentiate!(model)
 
     ds = 0.0
-    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), t) ≈ ds atol=ATOL rtol=RTOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), t) ≈ ds atol = ATOL rtol =
+        RTOL
 
-    MOI.set(
-        model,
-        DiffOpt.ReverseVariablePrimal(),
-        t,
-        1.0
-    )
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), t, 1.0)
 
     DiffOpt.reverse_differentiate!(model)
 
     # FIXME: this is not working - https://github.com/jump-dev/DiffOpt.jl/issues/283
     # @test JuMP.coefficient(MOI.get(model, DiffOpt.ReverseConstraintFunction(), csoc).func.func.func, t.index) ≈ ds atol=ATOL rtol=RTOL
-    
+
     return
 end
 
@@ -494,7 +498,7 @@ end
 #         DiffOpt.reverse_differentiate!(model)
 #         @show JuMP.coefficient(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c2[i]), x[i])
 #     end
-    
+
 #     return
 # end
 
