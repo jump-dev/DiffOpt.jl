@@ -37,12 +37,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 9.98e-01  3.35e+00  2.27e+01 -1.27e+01  1.00e-01  1.46e-04
-    75| 5.98e-05  2.10e-06  1.25e-04 -6.72e+00  1.00e-01  4.15e-04
+     0| 9.98e-01  3.35e+00  2.27e+01 -1.27e+01  1.00e-01  1.72e-04
+    75| 5.98e-05  2.10e-06  1.25e-04 -6.72e+00  1.00e-01  4.54e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 4.16e-04s = setup: 4.81e-05s + solve: 3.68e-04s
-	 lin-sys: 2.30e-05s, cones: 2.25e-04s, accel: 3.90e-06s
+timings: total: 4.55e-04s = setup: 7.01e-05s + solve: 3.85e-04s
+	 lin-sys: 2.32e-05s, cones: 2.24e-04s, accel: 5.16e-06s
 ------------------------------------------------------------------
 objective = -6.721507
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
@@ -72,12 +72,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.02e+00  3.57e+00  3.24e+01 -3.42e+01  1.00e-01  1.34e-04
-    75| 2.52e-05  7.03e-07  7.14e-05 -1.74e+01  1.00e-01  4.72e-04
+     0| 1.02e+00  3.57e+00  3.24e+01 -3.42e+01  1.00e-01  1.81e-04
+    75| 2.52e-05  7.03e-07  7.14e-05 -1.74e+01  1.00e-01  5.12e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 4.74e-04s = setup: 5.85e-05s + solve: 4.15e-04s
-	 lin-sys: 3.17e-05s, cones: 2.70e-04s, accel: 4.32e-06s
+timings: total: 5.13e-04s = setup: 8.03e-05s + solve: 4.33e-04s
+	 lin-sys: 3.48e-05s, cones: 2.74e-04s, accel: 4.55e-06s
 ------------------------------------------------------------------
 objective = -17.447239
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
@@ -88,4 +88,4 @@ objective = -17.447239
   0.104399    0.213026   -0.0925064  -0.0515561
   0.213026    0.0483668   0.139549   -0.0925064
  -0.0925064   0.139549    0.0483668   0.213026
- -0.0515561  -0.0925064   0.213026    0.104399</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../polyhedral_project/">Polyhedral QP layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Monday 19 May 2025 20:09">Monday 19 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ -0.0515561  -0.0925064   0.213026    0.104399</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../polyhedral_project/">Polyhedral QP layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.4 on <span class="colophon-date" title="Monday 19 May 2025 20:11">Monday 19 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
