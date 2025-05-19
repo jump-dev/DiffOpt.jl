@@ -8,7 +8,10 @@ function MOI.get(
     attr::ObjectiveFunctionAttribute{ReverseObjectiveFunction,G},
     ::MOI.Bridges.Objective.FunctionConversionBridge{T,F,G},
 ) where {T,F,G}
-    return MOI.get(model, ObjectiveFunctionAttribute{ReverseObjectiveFunction,F}(attr.attr))
+    return MOI.get(
+        model,
+        ObjectiveFunctionAttribute{ReverseObjectiveFunction,F}(attr.attr),
+    )
 end
 
 function MOI.set(
@@ -17,7 +20,11 @@ function MOI.set(
     ::MOI.Bridges.Objective.FunctionConversionBridge{T,F,G},
     value,
 ) where {T,F,G}
-    return MOI.set(model, ObjectiveFunctionAttribute{ForwardObjectiveFunction,F}(attr.attr), value)
+    return MOI.set(
+        model,
+        ObjectiveFunctionAttribute{ForwardObjectiveFunction,F}(attr.attr),
+        value,
+    )
 end
 
 function MOI.get(

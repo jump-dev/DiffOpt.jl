@@ -31,6 +31,26 @@ function runtests()
     return
 end
 
+function test_single_variable_objective()
+    model = Model(() -> DiffOpt.diff_optimizer(SCS.Optimizer))
+    @variable(model, x[1:7] >= 0)
+    @constraint(model, c1, sum(x[i] for i in 1:6) == 10)
+    @constraint(model, c2, x[7] == 10)
+    @constraint(
+        model,
+        c3,
+        LinearAlgebra.Symmetric([
+            x[7] 0.0
+            0.0 x[1]
+        ]) in PSDCone()
+    )
+    @objective(model, Max, x[7])
+    optimize!(model)
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), sum(x))
+    DiffOpt.forward_differentiate!(model)
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[7]) == 0
+end
+
 function test_forward_on_trivial_qp()
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
     Q = [4.0 1.0; 1.0 2.0]
