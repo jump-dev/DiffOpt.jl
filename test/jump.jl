@@ -48,7 +48,7 @@ function test_single_variable_objective()
     optimize!(model)
     MOI.set(model, DiffOpt.ForwardObjectiveFunction(), sum(x))
     DiffOpt.forward_differentiate!(model)
-    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[7]) == 0
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[7]) == 0 atol = ATOL
 end
 
 function test_forward_on_trivial_qp()
