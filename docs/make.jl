@@ -43,8 +43,10 @@ end
 literate_directory(_EXAMPLE_DIR)
 
 makedocs(;
+    authors = "JuMP Community",
+    sitename = "DiffOpt.jl",
+    repo = "https://github.com/jump-dev/DiffOpt.jl",
     modules = [DiffOpt],
-    doctest = false,
     clean = true,
     format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", nothing) == "true",
@@ -61,10 +63,6 @@ makedocs(;
             f in readdir(_EXAMPLE_DIR) if endswith(f, ".md")
         ],
     ],
-    strict = true,  # See https://github.com/JuliaOpt/JuMP.jl/issues/1576
-    repo = "https://github.com/jump-dev/DiffOpt.jl",
-    sitename = "DiffOpt.jl",
-    authors = "JuMP Community",
 )
 
 deploydocs(; repo = "github.com/jump-dev/DiffOpt.jl.git", push_preview = true)
