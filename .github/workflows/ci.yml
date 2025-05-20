@@ -1,7 +1,14 @@
 name: CI
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+# needed to allow julia-actions/cache to delete old caches that it has created
+permissions:
+  actions: write
+  contents: read
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
@@ -17,21 +24,12 @@ jobs:
             os: windows-latest
             arch: x64
     steps:
-      - uses: actions/checkout@v3
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: actions/cache@v3
-        env:
-          cache-name: cache-artifacts
-        with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ env.cache-name }}-
-            ${{ runner.os }}-test-
-            ${{ runner.os }}-
+      - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         env:
@@ -48,23 +46,17 @@ jobs:
       # Fix for Plots with GR backend, see https://github.com/jheinen/GR.jl/issues/422
       GKSwstype: nul
     steps:
-      - uses: actions/checkout@v3
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
-      - shell: bash
-        run: julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd()))"
-      - shell: bash
-        run: julia --project=docs -e "using Pkg; Pkg.instantiate()"
-      - shell: bash
-        env:
-          DATADEPS_ALWAYS_ACCEPT: true # For MLDatasets.MNIST
+      - name: Install dependencies
+        shell: julia --color=yes --project=docs/ {0}
         run: |
-          julia --project=docs -e '
-            using Documenter: doctest
-            using DiffOpt
-            doctest(DiffOpt)'
-      - run: julia --project=docs docs/make.jl
+          using Pkg
+          Pkg.develop(PackageSpec(path=pwd()))
+          Pkg.instantiate()
+      - run: julia --project=docs --color=yes docs/make.jl
         env:
           DATADEPS_ALWAYS_ACCEPT: true # For MLDatasets.MNIST
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

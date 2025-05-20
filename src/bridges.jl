@@ -5,6 +5,30 @@
 
 function MOI.get(
     model::MOI.ModelLike,
+    attr::ObjectiveFunctionAttribute{ReverseObjectiveFunction,G},
+    ::MOI.Bridges.Objective.FunctionConversionBridge{T,F,G},
+) where {T,F,G}
+    return MOI.get(
+        model,
+        ObjectiveFunctionAttribute{ReverseObjectiveFunction,F}(attr.attr),
+    )
+end
+
+function MOI.set(
+    model::MOI.ModelLike,
+    attr::ObjectiveFunctionAttribute{ForwardObjectiveFunction,G},
+    ::MOI.Bridges.Objective.FunctionConversionBridge{T,F,G},
+    value,
+) where {T,F,G}
+    return MOI.set(
+        model,
+        ObjectiveFunctionAttribute{ForwardObjectiveFunction,F}(attr.attr),
+        value,
+    )
+end
+
+function MOI.get(
+    model::MOI.ModelLike,
     ::ObjectiveFunctionAttribute{ReverseObjectiveFunction},
     bridge::MOI.Bridges.Objective.SlackBridge,
 )
