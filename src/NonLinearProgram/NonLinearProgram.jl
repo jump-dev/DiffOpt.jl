@@ -114,11 +114,17 @@ function MOI.supports_constraint(
     S<:Union{
         MOI.GreaterThan{Float64},
         MOI.LessThan{Float64},
-        # MOI.Interval{Float64},
         MOI.EqualTo{Float64},
-        MOI.Parameter{Float64},
     },
 }
+    return true
+end
+
+function MOI.supports_constraint(
+    ::Form,
+    ::Type{MOI.VariableIndex},
+    ::Type{MOI.Parameter{Float64}},
+)
     return true
 end
 
