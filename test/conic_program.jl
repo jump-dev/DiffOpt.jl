@@ -399,108 +399,84 @@ function test_differentiating_conic_with_PSD_and_SOC_constraints()
     return
 end
 
-#FIXME: this test is not working - https://github.com/jump-dev/DiffOpt.jl/issues/285
-# Besides API errors, Reverse and Forward differentiation are not matching
-# function test_differentiating_conic_with_PSD_and_POS_constraints()
-#     # refer psdt2test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4306
-#     # find equivalent diffcp program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
-#     # Make a JuMP model backed by DiffOpt.diff_optimizer(SCS.Optimizer)
-#     model = Model(() -> DiffOpt.diff_optimizer(SCS.Optimizer))
-#     set_silent(model)  # just to suppress solver output
+function _build_simple_sdp()
+    # refer psdt2test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4306
+    # find equivalent diffcp program here - https://github.com/AKS1996/jump-gsoc-2020/blob/master/diffcp_sdp_3_py.ipynb
+    # Make a JuMP model backed by DiffOpt.diff_optimizer(SCS.Optimizer)
+    model = Model(() -> DiffOpt.diff_optimizer(SCS.Optimizer))
+    set_silent(model)  # just to suppress solver output
 
-#     @variable(model, x[1:7])
-#     @test num_variables(model) == 7
+    @variable(model, x[1:3])
 
-#     η = 10.0
-#     # c1: sum(-x[1:6]) + η >= 0
-#     c1 = @constraint(model, -sum(x[i] for i in 1:6) + η ≥ 0)
+    @constraint(model, c1, sum(x[i] for i in 1:3) == 4)
 
-#     # c2: x[i] >= 0  for each i in 1:6
-#     #     (this replicates MOI.Nonnegatives(6) on x[1:6])
-#     c2 = [
-#         @constraint(model, x[i] ≥ 0)
-#         for i in 1:6
-#     ]
+    @constraint(model, c2[i = 1:3], x[i] ≥ 0)
 
-#     # c3: A 2×2 PSD constraint. In raw MOI form you had
-#     #     MOI.PositiveSemidefiniteConeTriangle(2),
-#     #     which means a vector dimension=3 => [a11, a12, a22].
-#     # We'll build that in JuMP with `[ [a11 a12]; [a12 a22] ] in PSDCone()`.
-#     α = 0.8
-#     δ = 0.9
-#     c3 = @constraint(
-#         model,
-#         LinearAlgebra.Symmetric(hcat(
-#             [((δ/2)*x[1] + α*x[2] + δ*x[3] + (δ/4)*x[4] + (δ/8)*x[5] - 1.0*x[7])   # a11
-#             ((-(δ/(2*√2)))*x[1] - (δ/4)*x[2] - (δ/(8*√2))*x[5])],
-#             [((-(δ/(2*√2)))*x[1] - (δ/4)*x[2] - (δ/(8*√2))*x[5])
-#             ((δ/2)*x[1] + (δ - α)*x[2] + 0.0*x[3] + (δ/8)*x[5] + (δ/4)*x[6] - x[7])])
-#         ) in PSDCone()
-#     )
+    @constraint(model, x[1] == 2)
 
-#     # c4: In the original MOI example it was some "useless" constraint on x[1:3] + x[5:6].
-#     #     For demonstration, we replicate a dimension=1 equality to zero:
-#     c4 = @constraint(model, 0.0 * x[1] + 0.0 * x[2] + 0.0 * x[3] + 0.0 * x[5] + 0.0 * x[6] == 0)
+    @constraint(
+        model,
+        c3,
+        LinearAlgebra.Symmetric([
+            x[3]+1 2
+            2 2x[3]+2
+        ]) in PSDCone()
+    )
 
-#     # Make the objective: "maximize x[7]" exactly as in the original
-#     @objective(model, Max, x[7])
+    @objective(model, Min, 4x[3] + x[2])
+    return model
+end
 
-#     # Solve
-#     optimize!(model)
+function test_differentiating_conic_with_PSD_constraints()
+    model = _build_simple_sdp()
+    optimize!(model)
+    x = model[:x]
+    c1 = model[:c1]
+    c2 = model[:c2]
+    sx = value.(x)
+    @test sx ≈ [2.0, 3.0 - sqrt(2), sqrt(2) - 1] atol = ATOL rtol = RTOL
 
-#     @test objective_value(model) ≈ 1.90192374 atol=ATOL rtol=RTOL
+    for i in 1:3
+        _model = _build_simple_sdp()
+        JuMP.set_normalized_coefficient(_model[:c1], _model[:x][i], 1.001)
+        optimize!(_model)
+        _dx = (value(_model[:x][i]) - value(sx[i])) / 0.001
+        i in (1, 3) ? (@test abs(_dx) < 0.05) : (@test -1.6 < _dx < -1.45)
+        MOI.set(model, DiffOpt.ForwardConstraintFunction(), c1, x[i] + 0.0)
+        DiffOpt.forward_differentiate!(model)
+        _dx = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[i])
+        i in (1, 3) ? (@test abs(_dx) < 0.05) : (@test -1.6 < _dx < -1.45)
+        MOI.set(model, DiffOpt.ReverseVariablePrimal(), x[i], 1.0)
+        DiffOpt.reverse_differentiate!(model)
+        _dx = JuMP.coefficient(
+            MOI.get(model, DiffOpt.ReverseConstraintFunction(), c1),
+            x[i],
+        )
+        i in (1, 3) ? (@test abs(_dx) < 0.05) : (@test -1.6 < _dx < -1.45)
+        DiffOpt.empty_input_sensitivities!(model)
+    end
+    for i in 1:3
+        DiffOpt.empty_input_sensitivities!(model)
+        _model = _build_simple_sdp()
+        JuMP.set_normalized_coefficient(_model[:c2][i], _model[:x][i], 1.001)
+        optimize!(_model)
+        _dx = (value(_model[:x][i]) - value(sx[i])) / 0.001
+        @test abs(_dx) < 0.15
+        MOI.set(model, DiffOpt.ForwardConstraintFunction(), c2[i], x[i] + 0.0)
+        DiffOpt.forward_differentiate!(model)
+        _dx = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[i])
+        @test abs(_dx) < 0.15
+        MOI.set(model, DiffOpt.ReverseVariablePrimal(), x[i], 1.0)
+        DiffOpt.reverse_differentiate!(model)
+        _dx = JuMP.coefficient(
+            MOI.get(model, DiffOpt.ReverseConstraintFunction(), c2[i]),
+            x[i],
+        )
+        @test abs(_dx) < 0.15
+    end
 
-#     # MOI.set(
-#     #     model,
-#     #     DiffOpt.ForwardObjectiveFunction(),
-#     #     3*x[7]
-#     # ) # FIXME: ERROR when forward_differentiate
-
-#     dx = [2.81765  7.35515e-6  3.33222  1.73763e-5  1.58653e-5  1.74104e-5  0.3617]
-#     for i=1:7
-#         @show i
-#         MOI.set(
-#             model,
-#             DiffOpt.ForwardConstraintFunction(),
-#             c1,
-#             x[i]+0.0
-#         )
-#         DiffOpt.forward_differentiate!(model)
-#         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[i]) ≈ dx[i] atol=ATOL rtol=RTOL
-#         MOI.set(
-#             model,
-#             DiffOpt.ReverseVariablePrimal(),
-#             x[i],
-#             1.0
-#         )
-#         DiffOpt.reverse_differentiate!(model)
-#         @test JuMP.coefficient(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c1), x[i]) ≈ dx[i] atol=ATOL rtol=RTOL
-#         DiffOpt.empty_input_sensitivities!(model)
-#     end
-#     DiffOpt.empty_input_sensitivities!(model)
-#     dx = [0.0 0.0 0.0 0.0 0.0 0.0 0.0]
-#     for i=1:6
-#         MOI.set(
-#             model,
-#             DiffOpt.ForwardConstraintFunction(),
-#             c2[i],
-#             x[i]+0.0
-#         )
-#         DiffOpt.forward_differentiate!(model)
-#         # @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[i]) ≈ dx[i] atol=ATOL rtol=RTOL
-#         @show MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[i])
-#         MOI.set(
-#             model,
-#             DiffOpt.ReverseVariablePrimal(),
-#             x[i],
-#             1.0
-#         )
-#         DiffOpt.reverse_differentiate!(model)
-#         @show JuMP.coefficient(MOI.get(model, DiffOpt.ReverseConstraintFunction(), c2[i]), x[i])
-#     end
-
-#     return
-# end
+    return
+end
 
 function test_differentiating_a_simple_psd()
     # refer _psd3test, https://github.com/jump-dev/MathOptInterface.jl/blob/master/src/Test/contconic.jl#L4484
