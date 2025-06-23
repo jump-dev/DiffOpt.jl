@@ -39,16 +39,12 @@ function diff_optimizer(
             MOI.Utilities.UniversalFallback(
                 MOI.Utilities.Model{with_bridge_type}(),
             ),
-            optimizer,
+            with_parametric_opt_interface ? POI.Optimizer(optimizer) : optimizer,
         )
     else
-        optimizer
+        with_parametric_opt_interface ? POI.Optimizer(optimizer) : optimizer
     end
-    if with_parametric_opt_interface
-        return POI.Optimizer(Optimizer(caching_opt))
-    else
-        return Optimizer(caching_opt)
-    end
+    return Optimizer(caching_opt)
 end
 
 mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
@@ -560,6 +556,20 @@ function forward_differentiate!(model::Optimizer)
         NonLinearKKTJacobianFactorization(),
         model.input_cache.factorization,
     )
+    T = Float64
+    if MOI.supports_constraint(model, MOI.VariableIndex, MOI.Parameter{T})
+        @show "param mode"
+        for (vi, value) in model.input_cache.parameter_constraints
+            MOI.set(
+                diff,
+                ForwardConstraintSet(),
+                model.index_map[vi],
+                MOI.Parameter(value),
+            )
+        end
+        return forward_differentiate!(diff)
+    end
+    @show "func mode"
     if model.input_cache.objective !== nothing
         MOI.set(
             diff,
@@ -585,11 +595,6 @@ function forward_differentiate!(model::Optimizer)
             model.index_map.con_map[F, S],
             model.input_cache.vector_constraints[F, S],
         )
-    end
-    if model.input_cache.dp !== nothing
-        for (vi, value) in model.input_cache.dp
-            diff.model.input_cache.dp[model.index_map[vi]] = value
-        end
     end
     return forward_differentiate!(diff)
 end
@@ -623,7 +628,7 @@ function _diff(model::Optimizer)
         if isnothing(model_constructor)
             model.diff = nothing
             for constructor in model.model_constructors
-                model.diff = _instantiate_with_bridges(constructor)
+                model.diff = POI.Optimizer(_instantiate_with_bridges(constructor))
                 try
                     model.index_map = MOI.copy_to(model.diff, model.optimizer)
                 catch err
@@ -648,7 +653,7 @@ function _diff(model::Optimizer)
                 )
             end
         else
-            model.diff = _instantiate_with_bridges(model_constructor)
+            model.diff = POI.Optimizer(_instantiate_with_bridges(model_constructor))
             model.index_map = MOI.copy_to(model.diff, model.optimizer)
         end
         _copy_dual(model.diff, model.optimizer, model.index_map)
@@ -856,6 +861,33 @@ function MOI.get(
     else
         return func
     end
+end
+
+function MOI.supports(
+    ::Optimizer,
+    ::ForwardConstraintSet,
+    ::Type{MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}},
+) where {T}
+    return true
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::ForwardConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+) where {T}
+    set = get(model.input_cache.parameter_constraints, ci, zero(T))
+    return MOI.Parameter{T}(set)
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::ForwardConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+    set::MOI.Parameter,
+) where {T}
+    model.input_cache.parameter_constraints[ci] = set.value
+    return
 end
 
 function MOI.get(model::Optimizer, attr::DifferentiateTimeSec)

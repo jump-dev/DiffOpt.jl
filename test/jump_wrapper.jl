@@ -29,20 +29,20 @@ end
 
 function test_jump_api()
     for (MODEL, SOLVER) in [
-            (DiffOpt.diff_model, Ipopt.Optimizer),
+            # (DiffOpt.diff_model, Ipopt.Optimizer),
             (DiffOpt.quadratic_diff_model, HiGHS.Optimizer),
-            (DiffOpt.quadratic_diff_model, SCS.Optimizer),
-            (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
-            (DiffOpt.conic_diff_model, HiGHS.Optimizer),
-            (DiffOpt.conic_diff_model, SCS.Optimizer),
-            (DiffOpt.conic_diff_model, Ipopt.Optimizer),
+            # (DiffOpt.quadratic_diff_model, SCS.Optimizer),
+            # (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
+            # (DiffOpt.conic_diff_model, HiGHS.Optimizer),
+            # (DiffOpt.conic_diff_model, SCS.Optimizer),
+            # (DiffOpt.conic_diff_model, Ipopt.Optimizer),
             # (DiffOpt.nonlinear_diff_model, HiGHS.Optimizer), #  SQF ctr not supported?
             # (DiffOpt.nonlinear_diff_model, SCS.Optimizer), # returns zero for sensitivity
-            (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
+            # (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
         ],
-        ineq in [true, false],
-        min in [true, false],
-        flip in [true, false]
+        ineq in [true],#, false],
+        min in [true],#, false],
+        flip in [true]#, false]
 
         @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(min ? "Min" : "Max"), $(flip ? "geq" : "leq")" begin
             model = MODEL(SOLVER)

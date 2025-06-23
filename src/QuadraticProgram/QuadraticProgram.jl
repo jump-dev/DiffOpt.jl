@@ -172,6 +172,9 @@ end
 
 function MOI.set(model::Model, ::MOI.ConstraintDualStart, ci::LE, value)
     MOI.throw_if_not_valid(model, ci)
+    @show ci
+    @show value
+    @show model
     return DiffOpt._enlarge_set(
         model.λ,
         MOI.Utilities.rows(_inequalities(model), ci),

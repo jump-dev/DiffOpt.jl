@@ -513,8 +513,8 @@ function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6)
         Δp = zeros(length(cache.params))
         for (i, var_idx) in enumerate(cache.params)
             ky = form.var2ci[var_idx]
-            if haskey(model.input_cache.dp, ky) # only for set sensitivities
-                Δp[i] = model.input_cache.dp[ky]
+            if haskey(model.input_cache.parameter_constraints, ky) # only for set sensitivities
+                Δp[i] = model.input_cache.parameter_constraints[ky]
             end
         end
 
