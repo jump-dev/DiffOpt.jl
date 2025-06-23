@@ -32,14 +32,15 @@ See also: [`conic_diff_model`](@ref), [`quadratic_diff_model`](@ref), [`diff_mod
 """
 function nonlinear_diff_model(
     optimizer_constructor;
+    with_parametric_opt_interface = false,
     with_bridge_type = Float64,
     with_cache::Bool = true,
 )
     inner = diff_optimizer(
         optimizer_constructor;
-        with_parametric_opt_interface = false,
-        with_bridge_type = with_bridge_type,
-        with_cache = with_cache,
+        with_parametric_opt_interface,
+        with_bridge_type,
+        with_cache,
     )
     MOI.set(inner, ModelConstructor(), NonLinearProgram.Model)
     return JuMP.direct_model(inner)

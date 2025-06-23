@@ -29,24 +29,44 @@ function runtests()
 end
 
 function test_jump_api()
-    for (MODEL, SOLVER) in [
-            (DiffOpt.diff_model, Ipopt.Optimizer),
-            (DiffOpt.quadratic_diff_model, HiGHS.Optimizer),
-            (DiffOpt.quadratic_diff_model, SCS.Optimizer),
-            (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
-            # (DiffOpt.conic_diff_model, HiGHS.Optimizer),
-            # (DiffOpt.conic_diff_model, SCS.Optimizer), # conicmodel has a issue with sign
-            # (DiffOpt.conic_diff_model, Ipopt.Optimizer),
-            # (DiffOpt.nonlinear_diff_model, ()->POI.Optimizer(HiGHS.Optimizer())), # wrong results
-            # (DiffOpt.nonlinear_diff_model, ()->POI.Optimizer(SCS.Optimizer())), # needs cache
-            (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
+    # for (MODEL, SOLVER) in [
+    #         # (DiffOpt.diff_model, Ipopt.Optimizer),
+    #         # (DiffOpt.quadratic_diff_model, HiGHS.Optimizer),
+    #         # (DiffOpt.quadratic_diff_model, SCS.Optimizer),
+    #         # (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
+    #         # # (DiffOpt.conic_diff_model, HiGHS.Optimizer),
+    #         # # (DiffOpt.conic_diff_model, SCS.Optimizer), # conicmodel has a issue with sign
+    #         # # (DiffOpt.conic_diff_model, Ipopt.Optimizer),
+    #         # # (DiffOpt.nonlinear_diff_model, ()->POI.Optimizer(HiGHS.Optimizer())), # wrong results
+    #         # # (DiffOpt.nonlinear_diff_model, ()->POI.Optimizer(SCS.Optimizer())), # needs cache
+    #         # (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
+    #     ],
+    for (MODEL) in [
+            DiffOpt.diff_model(Ipopt.Optimizer),
+            DiffOpt.quadratic_diff_model(HiGHS.Optimizer),
+            DiffOpt.quadratic_diff_model(SCS.Optimizer),
+            DiffOpt.quadratic_diff_model(Ipopt.Optimizer),
+            # (DiffOpt.conic_diff_model(HiGHS.Optimizer),
+            # (DiffOpt.conic_diff_model(SCS.Optimizer), # conicmodel has a issue with sign
+            # (DiffOpt.conic_diff_model(Ipopt.Optimizer),
+            DiffOpt.nonlinear_diff_model(
+                HiGHS.Optimizer;
+                with_parametric_opt_interface = true,
+            ), # wrong results
+            DiffOpt.nonlinear_diff_model(
+                SCS.Optimizer;
+                with_parametric_opt_interface = true,
+            ), # wrong results
+            DiffOpt.nonlinear_diff_model(Ipopt.Optimizer),
         ],
         ineq in [true, false],
         min in [true, false],
         flip in [true, false]
 
-        @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(min ? "Min" : "Max"), $(flip ? "geq" : "leq")" begin
-            model = MODEL(SOLVER)
+        # @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(min ? "Min" : "Max"), $(flip ? "geq" : "leq")" begin
+        # model = MODEL(SOLVER)
+        @testset "$(MODEL), $(ineq ? "ineqs" : "eqs"), $(min ? "Min" : "Max"), $(flip ? "geq" : "leq")" begin
+            model = MODEL
             set_silent(model)
 
             p_val = 4.0
