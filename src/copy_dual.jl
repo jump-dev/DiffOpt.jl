@@ -80,7 +80,6 @@ end
 
 function _copy_dual(dest::MOI.ModelLike, src::MOI.ModelLike, index_map)
     vis_src = MOI.get(src, MOI.ListOfVariableIndices())
-    # TODO: in POI varible primal must be the same as variable value
     MOI.set(
         dest,
         MOI.VariablePrimalStart(),
@@ -88,11 +87,7 @@ function _copy_dual(dest::MOI.ModelLike, src::MOI.ModelLike, index_map)
         MOI.get(src, MOI.VariablePrimal(), vis_src),
     )
     for (F, S) in MOI.get(dest, MOI.ListOfConstraintTypesPresent())
-        @show F, S
-        @show dest
-        @show dest.optimizer
         if F<:MOI.VariableIndex && S<:MOI.Parameter
-            @show "Skipping constraint type $F $S"
             continue
         end
         _copy_constraint_start(
@@ -124,7 +119,7 @@ function _copy_constraint_start(
     src_attr,
 ) where {F,S}
     for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
-        @show value = MOI.get(src, src_attr, ci)
+        value = MOI.get(src, src_attr, ci)
         MOI.set(dest, dest_attr, index_map[ci], value)
     end
 end
