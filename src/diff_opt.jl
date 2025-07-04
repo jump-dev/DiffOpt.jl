@@ -292,6 +292,11 @@ Model supporting [`forward_differentiate!`](@ref) and
 """
 abstract type AbstractModel <: MOI.ModelLike end
 
+function empty_input_sensitivities!(model::AbstractModel)
+    empty!(model.input_cache)
+    return
+end
+
 MOI.supports_incremental_interface(::AbstractModel) = true
 
 function MOI.is_valid(model::AbstractModel, idx::MOI.Index)
