@@ -557,8 +557,6 @@ function MOI.set(
     return
 end
 
-MOI.is_set_by_optimize(::ReverseConstraintSet) = true
-
 function MOI.get(
     model::POI.Optimizer,
     ::ReverseConstraintSet,
