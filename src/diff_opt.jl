@@ -22,7 +22,8 @@ Base.@kwdef mutable struct InputCache
     #       concrete value types.
     # `scalar_constraints` and `vector_constraints` includes `A` and `b` for CPs
     # or `G` and `h` for QPs
-    parameter_constraints::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}() # Specifically for NonLinearProgram
+    parameter_constraints::Dict{MOI.ConstraintIndex,Float64} =
+        Dict{MOI.ConstraintIndex,Float64}() # Specifically for NonLinearProgram
     scalar_constraints::MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}} =
         MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}}() # also includes G for QPs
     vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} =
@@ -135,7 +136,6 @@ Note that we use `-5` as the `ForwardConstraintFunction` sets the tangent of the
 ConstraintFunction so we consider the expression `θ * (x + 2y - 5)`.
 """
 struct ForwardConstraintFunction <: MOI.AbstractConstraintAttribute end
-
 
 """
     ForwardConstraintSet <: MOI.AbstractConstraintAttribute
@@ -434,7 +434,9 @@ function MOI.set(
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
     if MOI.supports_constraint(model.model, MOI.VariableIndex, MOI.Parameter{T})
-        error("The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.")
+        error(
+            "The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.",
+        )
     end
     model.input_cache.scalar_constraints[ci] = func
     return
@@ -447,7 +449,9 @@ function MOI.set(
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}
     if MOI.supports_constraint(model.model, MOI.VariableIndex, MOI.Parameter{T})
-        error("The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.")
+        error(
+            "The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.",
+        )
     end
     model.input_cache.vector_constraints[ci] = func
     return
@@ -459,8 +463,14 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
     set::MOI.Parameter{T},
 ) where {T}
-    if !MOI.supports_constraint(model.model, MOI.VariableIndex, MOI.Parameter{T})
-        error("The model with type $(typeof(model)) does not support Parameters")
+    if !MOI.supports_constraint(
+        model.model,
+        MOI.VariableIndex,
+        MOI.Parameter{T},
+    )
+        error(
+            "The model with type $(typeof(model)) does not support Parameters",
+        )
     end
     model.input_cache.parameter_constraints[ci] = set.value
     return
