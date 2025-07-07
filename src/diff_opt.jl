@@ -465,10 +465,7 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
     set::MOI.Parameter{T},
 ) where {T}
-    if !MOI.supports_add_constrained_variable(
-        model.model,
-        MOI.Parameter{T},
-    )
+    if !MOI.supports_add_constrained_variable(model.model, MOI.Parameter{T})
         error(
             "The model with type $(typeof(model)) does not support Parameters",
         )

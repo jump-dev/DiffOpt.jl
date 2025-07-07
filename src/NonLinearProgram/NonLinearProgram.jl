@@ -119,7 +119,6 @@ function MOI.supports_constraint(
     return true
 end
 
-
 function MOI.supports_add_constrained_variable(
     ::Form,
     ::Type{MOI.Parameter{T}},
