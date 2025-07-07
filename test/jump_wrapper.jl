@@ -12,6 +12,7 @@ import HiGHS
 import Ipopt
 import SCS
 import MathOptInterface as MOI
+import ParametricOptInterface as POI
 
 const ATOL = 1e-3
 const RTOL = 1e-3
@@ -31,20 +32,48 @@ function test_jump_api()
     for (MODEL, SOLVER) in [
             # (DiffOpt.diff_model, Ipopt.Optimizer),
             (DiffOpt.quadratic_diff_model, HiGHS.Optimizer),
-            # (DiffOpt.quadratic_diff_model, SCS.Optimizer),
-            # (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
-            # (DiffOpt.conic_diff_model, HiGHS.Optimizer),
-            # (DiffOpt.conic_diff_model, SCS.Optimizer),
-            # (DiffOpt.conic_diff_model, Ipopt.Optimizer),
-            # (DiffOpt.nonlinear_diff_model, HiGHS.Optimizer), #  SQF ctr not supported?
-            # (DiffOpt.nonlinear_diff_model, SCS.Optimizer), # returns zero for sensitivity
-            # (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
+            (DiffOpt.quadratic_diff_model, SCS.Optimizer),
+            (
+                DiffOpt.quadratic_diff_model,
+                () ->
+                    MOI.instantiate(Ipopt.Optimizer; with_cache_type = Float64),
+            ),
+            (DiffOpt.conic_diff_model, HiGHS.Optimizer),
+            (DiffOpt.conic_diff_model, SCS.Optimizer),
+            (
+                DiffOpt.conic_diff_model,
+                () ->
+                    MOI.instantiate(Ipopt.Optimizer; with_cache_type = Float64),
+            ),
+            (
+                DiffOpt.nonlinear_diff_model,
+                () -> POI.Optimizer(HiGHS.Optimizer()),
+            ), #  SQF ctr not supported?
+            (
+                DiffOpt.nonlinear_diff_model,
+                () -> POI.Optimizer(
+                    MOI.instantiate(
+                        SCS.Optimizer;
+                        with_cache_type = Float64,
+                        with_bridge_type = Float64,
+                    ),
+                ),
+            ), # returns zero for sensitivity
+            (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
         ],
-        ineq in [true],#, false],
-        min in [true],#, false],
-        flip in [true]#, false]
+        ineq in [true, false],
+        _min in [true, false],
+        flip in [true, false]
 
-        @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(min ? "Min" : "Max"), $(flip ? "geq" : "leq")" begin
+        # # MODEL = DiffOpt.nonlinear_diff_model
+        # MODEL = DiffOpt.conic_diff_model
+        # SOLVER = ()->POI.Optimizer(HiGHS.Optimizer())
+        # # SOLVER = Ipopt.Optimizer
+        # ineq = true
+        # _min = true
+        # flip = true
+
+        @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(_min ? "Min" : "Max"), $(flip ? "geq" : "leq")" begin
             model = MODEL(SOLVER)
             set_silent(model)
 
@@ -60,10 +89,12 @@ function test_jump_api()
                     cons = @constraint(model, pc * x <= 3 * p)
                 end
             else
-                @constraint(model, cons, pc * x == 3 * p)
+                # names are failing!!!!!
+                # @constraint(model, cons, pc * x == 3 * p)
+                cons = @constraint(model, pc * x == 3 * p)
             end
             sign = flip ? -1 : 1
-            if min
+            if _min
                 @objective(model, Min, 2x * sign)
             else
                 @objective(model, Max, -2x * sign)
