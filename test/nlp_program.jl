@@ -126,6 +126,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
                 with_parametric_opt_interface = false,
             ),
         )
+        MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
         @variable(m, 0 ≤ x[1:P] ≤ 1)
         @variable(m, p[1:P] ∈ Parameter.(0.5))
@@ -200,6 +201,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
                 with_parametric_opt_interface = false,
             ),
         )
+        MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
         @variable(m, x[1:P])
         @constraint(m, x .≥ 0)
@@ -244,6 +246,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
                 with_parametric_opt_interface = false,
             ),
         )
+        MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
         @variable(m, x[1:P])
         @constraint(m, 0 .≤ x)
@@ -288,6 +291,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
                 with_parametric_opt_interface = false,
             ),
         )
+        MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
         @variable(m, x[1:P])
         @constraint(m, 0 .≤ x)
@@ -664,6 +668,7 @@ function test_differentiating_non_trivial_convex_qp_jump()
     h = vec(h)
     b = vec(b)
     model = JuMP.Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
     MOI.set(model, MOI.Silent(), true)
     @variable(model, x[1:nz])
     @variable(model, p_le[1:nineq_le] ∈ MOI.Parameter.(0.0))
@@ -715,6 +720,7 @@ function test_ReverseConstraintDual()
             with_parametric_opt_interface = false,
         ),
     )
+    MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
     @variable(m, x[1:2])
     @variable(m, p[1:2] ∈ Parameter.(0.5))
@@ -802,6 +808,7 @@ function test_changing_factorization()
             with_parametric_opt_interface = false,
         ),
     )
+    MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
     @variable(m, x[1:P])
     @constraint(m, x .≥ 0)
