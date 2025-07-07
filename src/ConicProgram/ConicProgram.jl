@@ -121,7 +121,7 @@ function MOI.empty!(model::Model)
     model.back_grad_cache = nothing
     empty!(model.input_cache)
     empty!(model.x)
-    empty!(model.s)
+    empty!(model.s) # TODO: stop using this
     empty!(model.y)
     model.diff_time = NaN
     return
@@ -189,6 +189,7 @@ function _gradient_cache(model::Model)
         )
     end
 
+    # TODO: remove this
     if any(isnan, model.s) || length(model.s) < length(b)
         error(
             "Some constraints are missing a value for the `ConstraintPrimalStart` attribute.",
@@ -216,10 +217,12 @@ function _gradient_cache(model::Model)
     m = A.m
     n = A.n
     N = m + n + 1
+
+    slack = b - A * model.x
     # NOTE: w = 1.0 systematically since we asserted the primal-dual pair is optimal
     # `inv(M)((x, y, 1), (0, s, 0)) = (x, y, 1) - (0, s, 0)`,
     # see Minty parametrization in https://stanford.edu/~boyd/papers/pdf/cone_prog_refine.pdf
-    (u, v, w) = (model.x, model.y - model.s, 1.0)
+    (u, v, w) = (model.x, model.y - slack, 1.0)
 
     # find gradient of projections on dual of the cones
     Dπv = DiffOpt.Dπ(v, model.model, model.model.constraints.sets)
@@ -260,12 +263,13 @@ function DiffOpt.forward_differentiate!(model::Model)
         M = gradient_cache.M
         vp = gradient_cache.vp
         Dπv = gradient_cache.Dπv
-        x = model.x
-        y = model.y
-        s = model.s
         A = gradient_cache.A
         b = gradient_cache.b
         c = gradient_cache.c
+        x = model.x
+        y = model.y
+        # s = model.s
+        slack = b - A * x
 
         objective_function = DiffOpt._convert(
             MOI.ScalarAffineFunction{Float64},
@@ -309,7 +313,7 @@ function DiffOpt.forward_differentiate!(model::Model)
         n = size(A, 2)
         N = m + n + 1
         # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-        (u, v, w) = (x, y - s, 1.0)
+        (u, v, w) = (x, y - slack, 1.0)
 
         # g = dQ * Π(z/|w|) = dQ * [u, vp, 1.0]
         RHS = [
@@ -340,12 +344,13 @@ function DiffOpt.reverse_differentiate!(model::Model)
         M = gradient_cache.M
         vp = gradient_cache.vp
         Dπv = gradient_cache.Dπv
-        x = model.x
-        y = model.y
-        s = model.s
         A = gradient_cache.A
         b = gradient_cache.b
         c = gradient_cache.c
+        x = model.x
+        y = model.y
+        # s = model.s
+        slack = b - A * x
 
         dx = zeros(length(c))
         for (vi, value) in model.input_cache.dx
@@ -358,13 +363,13 @@ function DiffOpt.reverse_differentiate!(model::Model)
         n = size(A, 2)
         N = m + n + 1
         # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-        (u, v, w) = (x, y - s, 1.0)
+        (u, v, w) = (x, y - slack, 1.0)
 
         # dz = D \phi (z)^T (dx,dy,dz)
         dz = [
             dx
             Dπv' * (dy + ds) - ds
-            -x' * dx - y' * dy - s' * ds
+            -x' * dx - y' * dy - slack' * ds
         ]
 
         g = if LinearAlgebra.norm(dz) <= 1e-4 # TODO: parametrize or remove
