@@ -65,14 +65,6 @@ function test_jump_api()
         _min in [true, false],
         flip in [true, false]
 
-        # # MODEL = DiffOpt.nonlinear_diff_model
-        # MODEL = DiffOpt.conic_diff_model
-        # SOLVER = ()->POI.Optimizer(HiGHS.Optimizer())
-        # # SOLVER = Ipopt.Optimizer
-        # ineq = true
-        # _min = true
-        # flip = true
-
         @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(_min ? "Min" : "Max"), $(flip ? "geq" : "leq")" begin
             model = MODEL(SOLVER)
             set_silent(model)
