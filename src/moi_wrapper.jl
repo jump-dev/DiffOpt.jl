@@ -24,26 +24,36 @@ julia> model.add_constraint(model, ...)
 """
 function diff_optimizer(
     optimizer_constructor;
-    with_parametric_opt_interface::Bool = false,
     with_bridge_type = Float64,
-    with_cache::Bool = true,
+    with_cache_type = Float64,
+    with_outer_cache = true,
+    allow_parametric_opt_interface = true,
 )
-    optimizer = MOI.instantiate(optimizer_constructor; with_bridge_type)
+    optimizer = MOI.instantiate(
+        optimizer_constructor;
+        with_bridge_type,
+        with_cache_type,
+    )
+    add_poi =
+        allow_parametric_opt_interface &&
+        !MOI.supports_add_constrained_variable(
+            optimizer.model,
+            MOI.Parameter{Float64},
+        )
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
     # the model information from `optimizer`. However, 1) `optimizer` may not
     # implement some getters or it may be inefficient and 2) the getters may be
     # unimplemented or inefficient through some bridges.
     # For this reason we add a cache layer, the same cache JuMP adds.
-    caching_opt = if with_cache
+    caching_opt = if with_outer_cache
         MOI.Utilities.CachingOptimizer(
             MOI.Utilities.UniversalFallback(
                 MOI.Utilities.Model{with_bridge_type}(),
             ),
-            with_parametric_opt_interface ? POI.Optimizer(optimizer) :
-            optimizer,
+            add_poi ? POI.Optimizer(optimizer) : optimizer,
         )
     else
-        with_parametric_opt_interface ? POI.Optimizer(optimizer) : optimizer
+        add_poi ? POI.Optimizer(optimizer) : optimizer
     end
     return Optimizer(caching_opt)
 end
@@ -649,9 +659,8 @@ function _instantiate_diff(model::Optimizer, constructor)
     parametric_diff = !isempty(list)
     model_instance = MOI.instantiate(constructor)
     needs_poi =
-        !MOI.supports_constraint(
+        !MOI.supports_add_constrained_variable(
             model_instance,
-            MOI.VariableIndex,
             MOI.Parameter{Float64},
         )
     model_bridged = _add_bridges(model_instance)

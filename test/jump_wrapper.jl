@@ -30,35 +30,17 @@ end
 
 function test_jump_api()
     for (MODEL, SOLVER) in [
-            # (DiffOpt.diff_model, Ipopt.Optimizer),
+            (DiffOpt.diff_model, HiGHS.Optimizer),
+            (DiffOpt.diff_model, SCS.Optimizer),
+            (DiffOpt.diff_model, Ipopt.Optimizer),
             (DiffOpt.quadratic_diff_model, HiGHS.Optimizer),
             (DiffOpt.quadratic_diff_model, SCS.Optimizer),
-            (
-                DiffOpt.quadratic_diff_model,
-                () ->
-                    MOI.instantiate(Ipopt.Optimizer; with_cache_type = Float64),
-            ),
+            (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
             (DiffOpt.conic_diff_model, HiGHS.Optimizer),
             (DiffOpt.conic_diff_model, SCS.Optimizer),
-            (
-                DiffOpt.conic_diff_model,
-                () ->
-                    MOI.instantiate(Ipopt.Optimizer; with_cache_type = Float64),
-            ),
-            (
-                DiffOpt.nonlinear_diff_model,
-                () -> POI.Optimizer(HiGHS.Optimizer()),
-            ), #  SQF ctr not supported?
-            (
-                DiffOpt.nonlinear_diff_model,
-                () -> POI.Optimizer(
-                    MOI.instantiate(
-                        SCS.Optimizer;
-                        with_cache_type = Float64,
-                        with_bridge_type = Float64,
-                    ),
-                ),
-            ), # returns zero for sensitivity
+            (DiffOpt.conic_diff_model, Ipopt.Optimizer),
+            (DiffOpt.nonlinear_diff_model, HiGHS.Optimizer),
+            (DiffOpt.nonlinear_diff_model, SCS.Optimizer),
             (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
         ],
         ineq in [true, false],

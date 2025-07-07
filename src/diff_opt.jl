@@ -311,6 +311,8 @@ function MOI.add_variables(model::AbstractModel, n)
     return MOI.add_variables(model.model, n)
 end
 
+# TODO: add support for add_constrained_variable(s) and supports_
+
 function MOI.Utilities.pass_nonvariable_constraints(
     dest::AbstractModel,
     src::MOI.ModelLike,
@@ -433,7 +435,7 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
-    if MOI.supports_constraint(model.model, MOI.VariableIndex, MOI.Parameter{T})
+    if MOI.supports_add_constrained_variable(model.model, MOI.Parameter{T})
         error(
             "The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.",
         )
@@ -448,7 +450,7 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}
-    if MOI.supports_constraint(model.model, MOI.VariableIndex, MOI.Parameter{T})
+    if MOI.supports_add_constrained_variable(model.model, MOI.Parameter{T})
         error(
             "The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.",
         )
@@ -463,9 +465,8 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
     set::MOI.Parameter{T},
 ) where {T}
-    if !MOI.supports_constraint(
+    if !MOI.supports_add_constrained_variable(
         model.model,
-        MOI.VariableIndex,
         MOI.Parameter{T},
     )
         error(

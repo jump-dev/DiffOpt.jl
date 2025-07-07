@@ -119,11 +119,11 @@ function MOI.supports_constraint(
     return true
 end
 
-function MOI.supports_constraint(
+
+function MOI.supports_add_constrained_variable(
     ::Form,
-    ::Type{MOI.VariableIndex},
-    ::Type{MOI.Parameter{Float64}},
-)
+    ::Type{MOI.Parameter{T}},
+) where {T}
     return true
 end
 
@@ -298,6 +298,13 @@ function Model()
         [],
         [],
     )
+end
+
+function MOI.supports_add_constrained_variable(
+    ::Model,
+    ::Type{MOI.Parameter{T}},
+) where {T}
+    return true
 end
 
 _objective_sense(form::Form) = form.sense

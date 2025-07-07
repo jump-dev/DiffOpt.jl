@@ -120,12 +120,7 @@ end
 
 function test_analytical_simple(; P = 2) # Number of parameters
     @testset "Bounds Bounds" begin
-        m = Model(
-            () -> DiffOpt.diff_optimizer(
-                Ipopt.Optimizer;
-                with_parametric_opt_interface = false,
-            ),
-        )
+        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
         MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
         @variable(m, 0 ≤ x[1:P] ≤ 1)
@@ -195,12 +190,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
         )
     end
     @testset "Bounds as RHS constraints" begin
-        m = Model(
-            () -> DiffOpt.diff_optimizer(
-                Ipopt.Optimizer;
-                with_parametric_opt_interface = false,
-            ),
-        )
+        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
         MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
         @variable(m, x[1:P])
@@ -240,12 +230,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
         )
     end
     @testset "Bounds as Mixed constraints" begin
-        m = Model(
-            () -> DiffOpt.diff_optimizer(
-                Ipopt.Optimizer;
-                with_parametric_opt_interface = false,
-            ),
-        )
+        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
         MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
         @variable(m, x[1:P])
@@ -285,12 +270,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
         )
     end
     @testset "Bounds as LHS constraints" begin
-        m = Model(
-            () -> DiffOpt.diff_optimizer(
-                Ipopt.Optimizer;
-                with_parametric_opt_interface = false,
-            ),
-        )
+        m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
         MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
         @variable(m, x[1:P])
@@ -714,12 +694,7 @@ function test_differentiating_non_trivial_convex_qp_jump()
 end
 
 function test_ReverseConstraintDual()
-    m = Model(
-        () -> DiffOpt.diff_optimizer(
-            Ipopt.Optimizer;
-            with_parametric_opt_interface = false,
-        ),
-    )
+    m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
     @variable(m, x[1:2])
@@ -802,12 +777,7 @@ end
 
 function test_changing_factorization()
     P = 2
-    m = Model(
-        () -> DiffOpt.diff_optimizer(
-            Ipopt.Optimizer;
-            with_parametric_opt_interface = false,
-        ),
-    )
+    m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
 
     @variable(m, x[1:P])
