@@ -141,6 +141,14 @@ function MOI.supports_constraint(
     return MOI.supports_constraint(model.model, F, S)
 end
 
+function MOI.supports_constraint(
+    ::Model,
+    ::Type{MOI.VectorAffineFunction{T}},
+    ::Type{MOI.PositiveSemidefiniteConeSquare},
+) where {T}
+    return false
+end
+
 function MOI.set(
     model::Model,
     ::MOI.ConstraintPrimalStart,
