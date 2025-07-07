@@ -4,7 +4,10 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 import Pkg
-Pkg.add(url="https://github.com/jump-dev/ParametricOptInterface.jl", rev="jg/newdo") 
+Pkg.add(;
+    url = "https://github.com/jump-dev/ParametricOptInterface.jl",
+    rev = "jg/newdo",
+)
 
 using Test
 
