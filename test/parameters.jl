@@ -610,8 +610,8 @@ function test_quadratic_objective_qp()
 end
 
 function test_diff_errors_POI()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
+    model = direct_model(
+        DiffOpt.diff_optimizer(
             HiGHS.Optimizer;
             with_parametric_opt_interface = true,
         ),
@@ -747,10 +747,10 @@ function test_empty_cache()
 
     function get_sensitivity(m, xᵢ, pᵢ)
         DiffOpt.empty_input_sensitivities!(m)
-        @test is_empty(unsafe_backend(m).optimizer.input_cache)
-        if !isnothing(unsafe_backend(m).optimizer.diff) &&
-           !isnothing(unsafe_backend(m).optimizer.diff.model.input_cache)
-            @test is_empty(unsafe_backend(m).optimizer.diff.model.input_cache)
+        @test is_empty(unsafe_backend(m).input_cache)
+        if !isnothing(unsafe_backend(m).diff) &&
+           !isnothing(unsafe_backend(m).diff.optimizer.model.input_cache)
+            @test is_empty(unsafe_backend(m).diff.optimizer.model.input_cache)
         end
         MOI.set(
             m,
