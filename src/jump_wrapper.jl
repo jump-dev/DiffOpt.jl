@@ -32,6 +32,7 @@ See also: [`conic_diff_model`](@ref), [`quadratic_diff_model`](@ref), [`diff_mod
 """
 function nonlinear_diff_model(
     optimizer_constructor;
+    with_parametric_opt_interface = false,
     with_bridge_type = Float64,
     with_cache_type = Float64,
     with_outer_cache = true,

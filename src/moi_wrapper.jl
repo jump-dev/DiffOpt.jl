@@ -605,7 +605,9 @@ function forward_differentiate!(model::Optimizer)
             ),
         )
     end
-    for (F, S) in keys(model.input_cache.scalar_constraints.dict)
+    for (F, S) in MOI.Utilities.DoubleDicts.nonempty_outer_keys(
+        model.input_cache.scalar_constraints,
+    )
         _copy_forward_in_constraint(
             diff,
             model.index_map,
@@ -613,7 +615,9 @@ function forward_differentiate!(model::Optimizer)
             model.input_cache.scalar_constraints[F, S],
         )
     end
-    for (F, S) in keys(model.input_cache.vector_constraints.dict)
+    for (F, S) in MOI.Utilities.DoubleDicts.nonempty_outer_keys(
+        model.input_cache.vector_constraints,
+    )
         _copy_forward_in_constraint(
             diff,
             model.index_map,

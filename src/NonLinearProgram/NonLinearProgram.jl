@@ -194,7 +194,7 @@ function MOI.add_constraint(
     form.num_constraints += 1
     p = MOI.Nonlinear.add_parameter(form.model, set.value)
     form.var2param[idx] = p
-    idx_ci = MOI.ConstraintIndex{F,S}(form.num_constraints)
+    idx_ci = MOI.ConstraintIndex{F,S}(idx.value)
     form.var2ci[idx] = idx_ci
     return idx_ci
 end
@@ -607,6 +607,7 @@ function MOI.get(
     ci::MOI.ConstraintIndex,
 )
     try
+        # TODO check ci.value's
         idx = model.cache.dual_mapping[ci.value]
         return model.forw_grad_cache.dual_Δs[idx]
     catch
@@ -619,7 +620,10 @@ function MOI.get(
     ::DiffOpt.ReverseConstraintSet,
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
 ) where {T}
-    return MOI.Parameter{T}(model.back_grad_cache.Δp[ci.value])
+    form = model.model
+    var_idx = MOI.VariableIndex(ci.value)
+    p_idx = form.var2param[var_idx].value
+    return MOI.Parameter{T}(model.back_grad_cache.Δp[p_idx])
 end
 
 end # module NonLinearProgram

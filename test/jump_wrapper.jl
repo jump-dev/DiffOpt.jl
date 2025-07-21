@@ -11,6 +11,7 @@ import DiffOpt
 import HiGHS
 import Ipopt
 import SCS
+import ParametricOptInterface as POI
 import MathOptInterface as MOI
 import ParametricOptInterface as POI
 
