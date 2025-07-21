@@ -38,7 +38,10 @@ function matrix_relu(
 end
 
 # Define the reverse differentiation rule, for the function we defined above.
-function ChainRulesCore.rrule(::typeof(matrix_relu), y_data::Matrix{T}) where {T}
+function ChainRulesCore.rrule(
+    ::typeof(matrix_relu),
+    y_data::Matrix{T},
+) where {T}
     model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
     pv = matrix_relu(y_data; model = model)
     function pullback_matrix_relu(dl_dx)
