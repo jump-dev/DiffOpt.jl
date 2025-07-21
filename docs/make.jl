@@ -3,6 +3,12 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+import Pkg
+Pkg.add(;
+    url = "https://github.com/jump-dev/ParametricOptInterface.jl",
+    rev = "jg/newdo",
+)
+
 using Documenter
 using DiffOpt
 using Literate
