@@ -185,26 +185,10 @@ function ChainRulesCore.frule(
         model = model,
     )
     ## Setting perturbations in the parameters
-    DiffOpt.set_forward_parameter.(
-        model,
-        model[:load1_demand],
-        Δload1_demand,
-    )
-    DiffOpt.set_forward_parameter.(
-        model,
-        model[:load2_demand],
-        Δload2_demand,
-    )
-    DiffOpt.set_forward_parameter.(
-        model,
-        model[:Cp],
-        Δgen_costs,
-    )
-    DiffOpt.set_forward_parameter.(
-        model,
-        model[:Cnl],
-        Δnoload_costs,
-    )
+    DiffOpt.set_forward_parameter.(model, model[:load1_demand], Δload1_demand)
+    DiffOpt.set_forward_parameter.(model, model[:load2_demand], Δload2_demand)
+    DiffOpt.set_forward_parameter.(model, model[:Cp], Δgen_costs)
+    DiffOpt.set_forward_parameter.(model, model[:Cnl], Δnoload_costs)
     ## computing the forward differentiation
     DiffOpt.forward_differentiate!(model)
     ## querying the corresponding perturbation of the decision
@@ -276,10 +260,8 @@ function ChainRulesCore.rrule(
             DiffOpt.get_reverse_parameter.(model, model[:load1_demand])
         dload2_demand =
             DiffOpt.get_reverse_parameter.(model, model[:load2_demand])
-        dgen_costs =
-            DiffOpt.get_reverse_parameter.(model, model[:Cp])
-        dnoload_costs =
-            DiffOpt.get_reverse_parameter.(model, model[:Cnl])
+        dgen_costs = DiffOpt.get_reverse_parameter.(model, model[:Cp])
+        dnoload_costs = DiffOpt.get_reverse_parameter.(model, model[:Cnl])
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
     end
     return (pv, pullback_unit_commitment)
