@@ -119,11 +119,10 @@ function MOI.supports_constraint(
     return true
 end
 
-function MOI.supports_constraint(
+function MOI.supports_add_constrained_variable(
     ::Form,
-    ::Type{MOI.VariableIndex},
-    ::Type{MOI.Parameter{Float64}},
-)
+    ::Type{MOI.Parameter{T}},
+) where {T}
     return true
 end
 
@@ -195,7 +194,7 @@ function MOI.add_constraint(
     form.num_constraints += 1
     p = MOI.Nonlinear.add_parameter(form.model, set.value)
     form.var2param[idx] = p
-    idx_ci = MOI.ConstraintIndex{F,S}(form.num_constraints)
+    idx_ci = MOI.ConstraintIndex{F,S}(idx.value)
     form.var2ci[idx] = idx_ci
     return idx_ci
 end
@@ -298,6 +297,13 @@ function Model()
         [],
         [],
     )
+end
+
+function MOI.supports_add_constrained_variable(
+    ::Model,
+    ::Type{MOI.Parameter{T}},
+) where {T}
+    return true
 end
 
 _objective_sense(form::Form) = form.sense
@@ -513,8 +519,8 @@ function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6)
         Δp = zeros(length(cache.params))
         for (i, var_idx) in enumerate(cache.params)
             ky = form.var2ci[var_idx]
-            if haskey(model.input_cache.dp, ky) # only for set sensitivities
-                Δp[i] = model.input_cache.dp[ky]
+            if haskey(model.input_cache.parameter_constraints, ky) # only for set sensitivities
+                Δp[i] = model.input_cache.parameter_constraints[ky]
             end
         end
 
@@ -601,6 +607,7 @@ function MOI.get(
     ci::MOI.ConstraintIndex,
 )
     try
+        # TODO check ci.value's
         idx = model.cache.dual_mapping[ci.value]
         return model.forw_grad_cache.dual_Δs[idx]
     catch
@@ -613,7 +620,10 @@ function MOI.get(
     ::DiffOpt.ReverseConstraintSet,
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
 ) where {T}
-    return MOI.Parameter{T}(model.back_grad_cache.Δp[ci.value])
+    form = model.model
+    var_idx = MOI.VariableIndex(ci.value)
+    p_idx = form.var2param[var_idx].value
+    return MOI.Parameter{T}(model.back_grad_cache.Δp[p_idx])
 end
 
 end # module NonLinearProgram

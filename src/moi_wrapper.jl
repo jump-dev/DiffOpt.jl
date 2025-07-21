@@ -24,44 +24,60 @@ julia> model.add_constraint(model, ...)
 """
 function diff_optimizer(
     optimizer_constructor;
-    with_parametric_opt_interface::Bool = false,
     with_bridge_type = Float64,
-    with_cache::Bool = true,
+    with_cache_type = Float64,
+    with_outer_cache = true,
+    allow_parametric_opt_interface = true,
 )
-    optimizer = MOI.instantiate(optimizer_constructor; with_bridge_type)
+    optimizer = MOI.instantiate(
+        optimizer_constructor;
+        with_bridge_type,
+        with_cache_type,
+    )
+    add_poi =
+        allow_parametric_opt_interface &&
+        !MOI.supports_add_constrained_variable(
+            optimizer.model,
+            MOI.Parameter{Float64},
+        )
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
     # the model information from `optimizer`. However, 1) `optimizer` may not
     # implement some getters or it may be inefficient and 2) the getters may be
     # unimplemented or inefficient through some bridges.
     # For this reason we add a cache layer, the same cache JuMP adds.
-    caching_opt = if with_cache
+    caching_opt = if with_outer_cache
         MOI.Utilities.CachingOptimizer(
             MOI.Utilities.UniversalFallback(
                 MOI.Utilities.Model{with_bridge_type}(),
             ),
-            optimizer,
+            add_poi ? POI.Optimizer(optimizer) : optimizer,
         )
     else
-        optimizer
+        add_poi ? POI.Optimizer(optimizer) : optimizer
     end
-    if with_parametric_opt_interface
-        return POI.Optimizer(Optimizer(caching_opt))
-    else
-        return Optimizer(caching_opt)
-    end
+    return Optimizer(caching_opt)
 end
 
 mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
+    # main optimizer responsible for caching the optimization problem data
+    # and for solving the optimization problem
     optimizer::OT
 
+    # list of differentiation backends for automatic differentiation
+    # without mode selection
     model_constructors::Vector{Any}
+    # used to select a single differentiation backend
+    # if not `nothing`, it is used to select the model constructor
+    # and the above is ignored
     model_constructor::Any
 
+    # instantiated differentiation backend from the options above
     diff::Any
 
+    # mapping between the `optimizer` and the `diff` models
     index_map::Union{Nothing,MOI.Utilities.IndexMap}
 
-    # sensitivity input cache using MOI like sparse format
+    # sensitivity input cache using MOI-like sparse format
     input_cache::InputCache
 
     function Optimizer(optimizer::OT) where {OT<:MOI.ModelLike}
@@ -560,6 +576,25 @@ function forward_differentiate!(model::Optimizer)
         NonLinearKKTJacobianFactorization(),
         model.input_cache.factorization,
     )
+    T = Float64
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{T}}(),
+    )
+    parametric_diff = !isempty(list)
+    if parametric_diff # MOI.supports_constraint(model, MOI.VariableIndex, MOI.Parameter{T})
+        # @show "param mode"
+        for (vi, value) in model.input_cache.parameter_constraints
+            MOI.set(
+                diff,
+                ForwardConstraintSet(),
+                model.index_map[vi],
+                MOI.Parameter(value),
+            )
+        end
+        return forward_differentiate!(diff)
+    end
+    # @show "func mode"
     if model.input_cache.objective !== nothing
         MOI.set(
             diff,
@@ -570,7 +605,9 @@ function forward_differentiate!(model::Optimizer)
             ),
         )
     end
-    for (F, S) in keys(model.input_cache.scalar_constraints.dict)
+    for (F, S) in MOI.Utilities.DoubleDicts.nonempty_outer_keys(
+        model.input_cache.scalar_constraints,
+    )
         _copy_forward_in_constraint(
             diff,
             model.index_map,
@@ -578,7 +615,9 @@ function forward_differentiate!(model::Optimizer)
             model.input_cache.scalar_constraints[F, S],
         )
     end
-    for (F, S) in keys(model.input_cache.vector_constraints.dict)
+    for (F, S) in MOI.Utilities.DoubleDicts.nonempty_outer_keys(
+        model.input_cache.vector_constraints,
+    )
         _copy_forward_in_constraint(
             diff,
             model.index_map,
@@ -586,24 +625,19 @@ function forward_differentiate!(model::Optimizer)
             model.input_cache.vector_constraints[F, S],
         )
     end
-    if model.input_cache.dp !== nothing
-        for (vi, value) in model.input_cache.dp
-            diff.model.input_cache.dp[model.index_map[vi]] = value
-        end
-    end
     return forward_differentiate!(diff)
 end
 
 function empty_input_sensitivities!(model::Optimizer)
     empty!(model.input_cache)
     if model.diff !== nothing
-        empty!(model.diff.model.input_cache)
+        empty_input_sensitivities!(model.diff)
     end
     return
 end
 
-function _instantiate_with_bridges(model_constructor)
-    model = MOI.Bridges.LazyBridgeOptimizer(MOI.instantiate(model_constructor))
+function _add_bridges(instantiated_model)
+    model = MOI.Bridges.LazyBridgeOptimizer(instantiated_model)
     # We don't add any variable bridge here because:
     # 1) If `ZerosBridge` is used, `MOI.Bridges.unbridged_function` does not work.
     #    This is in fact expected: since `ZerosBridge` drops the variable, we dont
@@ -616,14 +650,37 @@ function _instantiate_with_bridges(model_constructor)
     return model
 end
 
+function _instantiate_diff(model::Optimizer, constructor)
+    # parametric_diff = MOI.supports_constraint(
+    #     model,
+    #     MOI.VariableIndex,
+    #     MOI.Parameter{Float64},
+    # )
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{Float64}}(),
+    )
+    parametric_diff = !isempty(list)
+    model_instance = MOI.instantiate(constructor)
+    needs_poi =
+        !MOI.supports_add_constrained_variable(
+            model_instance,
+            MOI.Parameter{Float64},
+        )
+    model_bridged = _add_bridges(model_instance)
+    if needs_poi && parametric_diff
+        return POI.Optimizer(model_bridged)
+    end
+    return model_bridged
+end
+
 function _diff(model::Optimizer)
     if model.diff === nothing
         _check_termination_status(model)
         model_constructor = MOI.get(model, ModelConstructor())
         if isnothing(model_constructor)
-            model.diff = nothing
             for constructor in model.model_constructors
-                model.diff = _instantiate_with_bridges(constructor)
+                model.diff = _instantiate_diff(model, constructor)
                 try
                     model.index_map = MOI.copy_to(model.diff, model.optimizer)
                 catch err
@@ -648,7 +705,7 @@ function _diff(model::Optimizer)
                 )
             end
         else
-            model.diff = _instantiate_with_bridges(model_constructor)
+            model.diff = _instantiate_diff(model, model_constructor)
             model.index_map = MOI.copy_to(model.diff, model.optimizer)
         end
         _copy_dual(model.diff, model.optimizer, model.index_map)
@@ -688,6 +745,18 @@ end
 MOI.supports(::Optimizer, ::ForwardObjectiveFunction) = true
 
 function MOI.set(model::Optimizer, ::ForwardObjectiveFunction, objective)
+    T = Float64
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{T}}(),
+    )
+    parametric_diff = !isempty(list)
+    if parametric_diff
+        error(
+            "Cannot set forward objective function for a model with parameters. " *
+            "Use `MOI.set(model, ForwardConstraintSet(), ParameterRef(vi), Parameter(val))` instead.",
+        )
+    end
     model.input_cache.objective = objective
     return
 end
@@ -746,6 +815,14 @@ function MOI.set(
     vi::MOI.VariableIndex,
     val,
 )
+    T = Float64
+    is_param = MOI.is_valid(
+        model,
+        MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}(vi.value),
+    )
+    if is_param
+        error("Trying to set a backward variable sensitivity for a parameter")
+    end
     model.input_cache.dx[vi] = val
     return
 end
@@ -814,6 +891,17 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{T}}(),
+    )
+    parametric_diff = !isempty(list)
+    if parametric_diff
+        error(
+            "Cannot set forward constraint function for a model with parameters. " *
+            "Use `MOI.set(model, ForwardConstraintSet(), ParameterRef(vi), Parameter(val))` instead.",
+        )
+    end
     model.input_cache.scalar_constraints[ci] = func
     return
 end
@@ -824,6 +912,17 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{T}}(),
+    )
+    parametric_diff = !isempty(list)
+    if parametric_diff
+        error(
+            "Cannot set forward constraint function for a model with parameters. " *
+            "Use `MOI.set(model, ForwardConstraintSet(), ParameterRef(vi), Parameter(val))` instead.",
+        )
+    end
     model.input_cache.vector_constraints[ci] = func
     return
 end
@@ -856,6 +955,33 @@ function MOI.get(
     else
         return func
     end
+end
+
+function MOI.supports(
+    ::Optimizer,
+    ::ForwardConstraintSet,
+    ::Type{MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}},
+) where {T}
+    return true
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::ForwardConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+) where {T}
+    set = get(model.input_cache.parameter_constraints, ci, zero(T))
+    return MOI.Parameter{T}(set)
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::ForwardConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+    set::MOI.Parameter,
+) where {T}
+    model.input_cache.parameter_constraints[ci] = set.value
+    return
 end
 
 function MOI.get(model::Optimizer, attr::DifferentiateTimeSec)

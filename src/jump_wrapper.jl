@@ -1,5 +1,5 @@
 """
-    diff_model(optimizer_constructor; with_parametric_opt_interface::Bool = true, with_bridge_type = Float64, with_cache::Bool = true)
+    diff_model(optimizer_constructor; with_bridge_type = Float64, with_cache_type = Float64, with_outer_cache = true)
 
 Create a JuMP model with a differentiable optimizer. The optimizer is created
 using `optimizer_constructor`. This model will try to select the proper
@@ -9,21 +9,21 @@ See also: [`nonlinear_diff_model`](@ref), [`conic_diff_model`](@ref), [`quadrati
 """
 function diff_model(
     optimizer_constructor;
-    with_parametric_opt_interface::Bool = true,
     with_bridge_type = Float64,
-    with_cache::Bool = true,
+    with_cache_type = Float64,
+    with_outer_cache = true,
 )
     inner = diff_optimizer(
         optimizer_constructor;
-        with_parametric_opt_interface = with_parametric_opt_interface,
-        with_bridge_type = with_bridge_type,
-        with_cache = with_cache,
+        with_bridge_type,
+        with_cache_type,
+        with_outer_cache,
     )
     return JuMP.direct_model(inner)
 end
 
 """
-    nonlinear_diff_model(optimizer_constructor; with_bridge_type = Float64, with_cache::Bool = true)
+    nonlinear_diff_model(optimizer_constructor; with_bridge_type = Float64, with_cache_type = Float64, with_outer_cache = true)
 
 Create a JuMP model with a differentiable optimizer for nonlinear programs.
 The optimizer is created using `optimizer_constructor`.
@@ -32,21 +32,23 @@ See also: [`conic_diff_model`](@ref), [`quadratic_diff_model`](@ref), [`diff_mod
 """
 function nonlinear_diff_model(
     optimizer_constructor;
+    with_parametric_opt_interface = false,
     with_bridge_type = Float64,
-    with_cache::Bool = true,
+    with_cache_type = Float64,
+    with_outer_cache = true,
 )
     inner = diff_optimizer(
         optimizer_constructor;
-        with_parametric_opt_interface = false,
-        with_bridge_type = with_bridge_type,
-        with_cache = with_cache,
+        with_bridge_type,
+        with_cache_type,
+        with_outer_cache,
     )
     MOI.set(inner, ModelConstructor(), NonLinearProgram.Model)
     return JuMP.direct_model(inner)
 end
 
 """
-    conic_diff_model(optimizer_constructor; with_bridge_type = Float64, with_cache::Bool = true)
+    conic_diff_model(optimizer_constructor; with_bridge_type = Float64, with_cache_type = Float64, with_outer_cache = true)
 
 Create a JuMP model with a differentiable optimizer for conic programs.
 The optimizer is created using `optimizer_constructor`.
@@ -56,20 +58,21 @@ See also: [`nonlinear_diff_model`](@ref), [`quadratic_diff_model`](@ref), [`diff
 function conic_diff_model(
     optimizer_constructor;
     with_bridge_type = Float64,
-    with_cache::Bool = true,
+    with_cache_type = Float64,
+    with_outer_cache = true,
 )
     inner = diff_optimizer(
         optimizer_constructor;
-        with_parametric_opt_interface = true,
-        with_bridge_type = with_bridge_type,
-        with_cache = with_cache,
+        with_bridge_type,
+        with_cache_type,
+        with_outer_cache,
     )
     MOI.set(inner, ModelConstructor(), ConicProgram.Model)
     return JuMP.direct_model(inner)
 end
 
 """
-    quadratic_diff_model(optimizer_constructor; with_bridge_type = Float64, with_cache::Bool = true)
+    quadratic_diff_model(optimizer_constructor; with_bridge_type = Float64, with_cache_type = Float64, with_outer_cache = true)
 
 Create a JuMP model with a differentiable optimizer for quadratic programs.
 The optimizer is created using `optimizer_constructor`.
@@ -79,13 +82,14 @@ See also: [`nonlinear_diff_model`](@ref), [`conic_diff_model`](@ref), [`diff_mod
 function quadratic_diff_model(
     optimizer_constructor;
     with_bridge_type = Float64,
-    with_cache::Bool = true,
+    with_cache_type = Float64,
+    with_outer_cache = true,
 )
     inner = diff_optimizer(
         optimizer_constructor;
-        with_parametric_opt_interface = true,
-        with_bridge_type = with_bridge_type,
-        with_cache = with_cache,
+        with_bridge_type,
+        with_cache_type,
+        with_outer_cache,
     )
     MOI.set(inner, ModelConstructor(), QuadraticProgram.Model)
     return JuMP.direct_model(inner)
