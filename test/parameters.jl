@@ -30,12 +30,7 @@ function runtests()
 end
 
 function test_diff_rhs()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     @variable(model, x)
     @variable(model, p in Parameter(3.0))
@@ -101,12 +96,7 @@ function test_diff_rhs()
 end
 
 function test_diff_vector_rhs()
-    model = direct_model(
-        DiffOpt.diff_optimizer(
-            SCS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = direct_model(DiffOpt.diff_optimizer(SCS.Optimizer))
     set_silent(model)
     @variable(model, x)
     @variable(model, p in Parameter(3.0))
@@ -152,12 +142,7 @@ function test_diff_vector_rhs()
 end
 
 function test_affine_changes()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     p_val = 3.0
     pc_val = 1.0
@@ -257,12 +242,7 @@ function test_affine_changes()
 end
 
 function test_affine_changes_compact()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     p_val = 3.0
     pc_val = 1.0
@@ -315,12 +295,7 @@ function test_affine_changes_compact()
 end
 
 function test_quadratic_rhs_changes()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     p_val = 2.0
     q_val = 2.0
@@ -444,12 +419,7 @@ function test_quadratic_rhs_changes()
 end
 
 function test_affine_changes_compact_max()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     p_val = 3.0
     pc_val = 1.0
@@ -488,12 +458,7 @@ function test_affine_changes_compact_max()
 end
 
 function test_diff_affine_objective()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     p_val = 3.0
     @variable(model, x)
@@ -528,12 +493,7 @@ function test_diff_affine_objective()
 end
 
 function test_diff_quadratic_objective()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     p_val = 3.0
     @variable(model, x)
@@ -568,12 +528,7 @@ function test_diff_quadratic_objective()
 end
 
 function test_quadratic_objective_qp()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     p_val = 3.0
     @variable(model, x)
@@ -610,12 +565,7 @@ function test_quadratic_objective_qp()
 end
 
 function test_diff_errors_POI()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    model = direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     @variable(model, x)
     @variable(model, p in Parameter(3.0))
@@ -672,12 +622,7 @@ function test_diff_errors_POI()
 end
 
 function test_diff_errors()
-    model = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = false,
-        ),
-    )
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     @variable(model, x)
     @variable(model, p in Parameter(3.0))
@@ -730,12 +675,7 @@ end
 
 # Credit to @klamike
 function test_empty_cache()
-    m = Model(
-        () -> DiffOpt.diff_optimizer(
-            HiGHS.Optimizer;
-            with_parametric_opt_interface = true,
-        ),
-    )
+    m = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     @variable(m, x)
     @variable(m, p ∈ Parameter(1.0))
     @variable(m, q ∈ Parameter(2.0))
@@ -747,10 +687,10 @@ function test_empty_cache()
 
     function get_sensitivity(m, xᵢ, pᵢ)
         DiffOpt.empty_input_sensitivities!(m)
-        @test is_empty(unsafe_backend(m).optimizer.input_cache)
-        if !isnothing(unsafe_backend(m).optimizer.diff) &&
-           !isnothing(unsafe_backend(m).optimizer.diff.model.input_cache)
-            @test is_empty(unsafe_backend(m).optimizer.diff.model.input_cache)
+        @test is_empty(unsafe_backend(m).input_cache)
+        if !isnothing(unsafe_backend(m).diff) &&
+           !isnothing(unsafe_backend(m).diff.optimizer.model.input_cache)
+            @test is_empty(unsafe_backend(m).diff.optimizer.model.input_cache)
         end
         MOI.set(
             m,

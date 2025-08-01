@@ -87,6 +87,9 @@ function _copy_dual(dest::MOI.ModelLike, src::MOI.ModelLike, index_map)
         MOI.get(src, MOI.VariablePrimal(), vis_src),
     )
     for (F, S) in MOI.get(dest, MOI.ListOfConstraintTypesPresent())
+        if F <: MOI.VariableIndex && S <: MOI.Parameter
+            continue
+        end
         _copy_constraint_start(
             dest,
             src,

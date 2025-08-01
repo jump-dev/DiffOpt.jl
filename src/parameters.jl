@@ -315,16 +315,6 @@ function MOI.set(
     return
 end
 
-function MOI.set(
-    model::Optimizer,
-    ::ForwardConstraintSet,
-    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
-    set::MOI.Parameter,
-) where {T}
-    model.input_cache.dp[ci] = set.value
-    return
-end
-
 function MOI.get(
     model::POI.Optimizer,
     attr::ForwardVariablePrimal,
@@ -566,8 +556,6 @@ function MOI.set(
     MOI.set(model.optimizer, attr, variable, value)
     return
 end
-
-MOI.is_set_by_optimize(::ReverseConstraintSet) = true
 
 function MOI.get(
     model::POI.Optimizer,
