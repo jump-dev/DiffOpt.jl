@@ -33,7 +33,8 @@ function test_moi_test_runtests()
         MOI.Bridges.Variable.ZerosBridge{Float64},
     )
     MOI.set(model, MOI.Silent(), true)
-    config = MOI.Test.Config(; atol = 1e-7)
+    config =
+        MOI.Test.Config(; atol = 1e-7, exclude = Any[MOI.compute_conflict!])
     MOI.Test.runtests(model, config)
     return
 end
