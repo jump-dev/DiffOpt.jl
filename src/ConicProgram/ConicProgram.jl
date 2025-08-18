@@ -50,6 +50,8 @@ const Form{T} = MOI.Utilities.GenericModel{
         DiffOpt.ProductOfSets{T},
     },
 }
+
+# should the be applied on Model?
 function MOI.supports(
     ::Form{T},
     ::MOI.ObjectiveFunction{F},
@@ -91,7 +93,6 @@ mutable struct Model <: DiffOpt.AbstractModel
     input_cache::DiffOpt.InputCache
 
     x::Vector{Float64} # Primal
-    s::Vector{Float64} # Slack
     y::Vector{Float64} # Dual
     diff_time::Float64
 end
@@ -103,7 +104,6 @@ function Model()
         nothing,
         nothing,
         DiffOpt.InputCache(),
-        Float64[],
         Float64[],
         Float64[],
         NaN,
@@ -121,7 +121,6 @@ function MOI.empty!(model::Model)
     model.back_grad_cache = nothing
     empty!(model.input_cache)
     empty!(model.x)
-    empty!(model.s) # TODO: stop using this
     empty!(model.y)
     model.diff_time = NaN
     return
@@ -156,11 +155,7 @@ function MOI.set(
     value,
 )
     MOI.throw_if_not_valid(model, ci)
-    return DiffOpt._enlarge_set(
-        model.s,
-        MOI.Utilities.rows(model.model.constraints, ci),
-        value,
-    )
+    return
 end
 
 function MOI.set(
@@ -194,13 +189,6 @@ function _gradient_cache(model::Model)
     if any(isnan, model.y) || length(model.y) < length(b)
         error(
             "Some constraints are missing a value for the `ConstraintDualStart` attribute.",
-        )
-    end
-
-    # TODO: remove this
-    if any(isnan, model.s) || length(model.s) < length(b)
-        error(
-            "Some constraints are missing a value for the `ConstraintPrimalStart` attribute.",
         )
     end
 
@@ -276,7 +264,6 @@ function DiffOpt.forward_differentiate!(model::Model)
         c = gradient_cache.c
         x = model.x
         y = model.y
-        # s = model.s
         slack = b - A * x
 
         objective_function = DiffOpt._convert(
@@ -357,7 +344,6 @@ function DiffOpt.reverse_differentiate!(model::Model)
         c = gradient_cache.c
         x = model.x
         y = model.y
-        # s = model.s
         slack = b - A * x
 
         dx = zeros(length(c))

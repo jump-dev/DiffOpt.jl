@@ -516,7 +516,6 @@ function test_differentiating_a_simple_psd()
     # dc = zeros(1)
     DiffOpt.forward_differentiate!(model)
     @test model.diff.model.x ≈ [1.0] atol = 10ATOL rtol = 10RTOL
-    @test model.diff.model.s ≈ ones(6) atol = ATOL rtol = RTOL
     @test model.diff.model.y ≈ [1 / 3, -1 / 6, 1 / 3, -1 / 6, -1 / 6, 1 / 3] atol =
         ATOL rtol = RTOL
     @test -0.5 ≈ MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) atol = 1e-2 rtol =
@@ -663,7 +662,6 @@ function test_verifying_cache_on_a_psd()
     dc = zeros(1)
     DiffOpt.forward_differentiate!(model)
     @test model.diff.model.x ≈ [1.0] atol = 10ATOL rtol = 10RTOL
-    @test model.diff.model.s ≈ ones(6) atol = ATOL rtol = RTOL
     @test model.diff.model.y ≈ [1 / 3, -1 / 6, 1 / 3, -1 / 6, -1 / 6, 1 / 3] atol =
         ATOL rtol = RTOL
     @test -0.5 ≈ MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) atol = 1e-2 rtol =
