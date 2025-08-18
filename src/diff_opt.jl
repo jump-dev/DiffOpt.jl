@@ -706,6 +706,27 @@ function _push_term(
     return _push_term(I, J, V, neg, r[term.output_index], term.scalar_term)
 end
 
+function MOI.supports(::AbstractModel, ::MOI.Name)
+    return false
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::MOI.VariableName,
+    ::Type{MOI.VariableIndex},
+)
+
+    return false
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::MOI.ConstraintName,
+    ::Type{MOI.ConstraintIndex{F,S}},
+) where {F,S}
+    return false
+end
+
 function MOI.supports(model::AbstractModel, attr::MOI.AbstractModelAttribute)
     return MOI.supports(model.model, attr)
 end
