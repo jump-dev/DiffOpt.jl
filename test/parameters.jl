@@ -663,6 +663,12 @@ function test_diff_errors()
         DiffOpt.ReverseConstraintFunction(),
         cons,
     )
+    @test_throws ErrorException MOI.set(
+        model,
+        DiffOpt.ForwardConstraintFunction(),
+        cons,
+        constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, 1.0)
+    )
     return
 end
 
