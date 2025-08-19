@@ -6,7 +6,7 @@
 import Pkg
 Pkg.add(;
     url = "https://github.com/jump-dev/ParametricOptInterface.jl",
-    rev = "jg/newdo",
+    rev = "master",
 )
 
 using Test

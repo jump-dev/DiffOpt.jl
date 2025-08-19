@@ -751,7 +751,6 @@ function MOI.supports(
     ::MOI.VariableName,
     ::Type{MOI.VariableIndex},
 )
-
     return false
 end
 
