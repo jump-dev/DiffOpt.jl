@@ -59,14 +59,12 @@ function test_jump_api()
             @variable(model, pc in Parameter(pc_val))
             if ineq
                 if !flip
-                    cons = @constraint(model, pc * x >= 3 * p)
+                    cons = @constraint(model, con, pc * x >= 3 * p)
                 else
-                    cons = @constraint(model, pc * x <= 3 * p)
+                    cons = @constraint(model, con, pc * x <= 3 * p)
                 end
             else
-                # names are failing!!!!!
-                # @constraint(model, cons, pc * x == 3 * p)
-                cons = @constraint(model, pc * x == 3 * p)
+                cons = @constraint(model, con, pc * x == 3 * p)
             end
             sign = flip ? -1 : 1
             if _min
