@@ -828,7 +828,7 @@ function test_jump_psd_cone_with_parameter_pv_v_pv()
     @variable(model, p in MOI.Parameter(1.0))
     @constraint(
         model,
-        # con, # ERROR copy_to: MOI.UnsupportedAttribute
+        con,
         [p * x, (2 * x - 3), p * 3 * x] in
         MOI.PositiveSemidefiniteConeTriangle(2)
     )
