@@ -456,7 +456,6 @@ end
 
 function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
     error("Not implemented")
-    return
 end
 
 end

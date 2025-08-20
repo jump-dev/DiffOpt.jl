@@ -206,10 +206,6 @@ function MOI.supports(model::Optimizer, attr::MOI.ObjectiveFunction)
     return MOI.supports(model.optimizer, attr)
 end
 
-function MOI.supports(::Optimizer, ::ReverseObjectiveSensitivity)
-    return true
-end
-
 function MOI.supports_constraint(
     model::Optimizer,
     ::Type{F},
