@@ -868,11 +868,13 @@ function test_ObjectiveSensitivity()
     DiffOpt.empty_input_sensitivities!(model)
 
     # TODO: Change when implemented
-    @test_throws ErrorException("Not implemented") MOI.set(
+    MOI.set(
         model,
         DiffOpt.ReverseObjectiveSensitivity(),
         0.5,
     )
+
+    @test_throws ErrorException("Not implemented") DiffOpt.reverse_differentiate!(model)
 end
 
 end  # module
