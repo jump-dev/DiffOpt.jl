@@ -454,8 +454,9 @@ function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
     return error("Not implemented")
 end
 
-function MOI.supports(::Form, ::DiffOpt.ReverseObjectiveSensitivity)
-    return false
+function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
+    error("Not implemented")
+    return
 end
 
 end

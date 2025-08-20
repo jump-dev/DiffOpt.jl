@@ -857,14 +857,18 @@ function test_ObjectiveSensitivity()
     direction_p = 2.0
     DiffOpt.set_forward_parameter(model, p, direction_p)
 
+    DiffOpt.forward_differentiate!(model)
+
     # TODO: Change when implemented
-    @test_throws ErrorException MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    @test_throws ErrorException("Not implemented") MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
 
     # Clean up
     DiffOpt.empty_input_sensitivities!(model)
 
     # TODO: Change when implemented
-    @test_throws ErrorException MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 0.5)
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 0.5)
+
+    @test_throws ErrorException("Not implemented") DiffOpt.reverse_differentiate!(model)
 end
 
 end  # module

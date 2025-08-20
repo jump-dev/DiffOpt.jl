@@ -634,8 +634,9 @@ function MOI.get(model::Model, ::DiffOpt.ForwardObjectiveSensitivity)
     return model.forw_grad_cache.dual_p
 end
 
-function MOI.supports(::Form, ::DiffOpt.ReverseObjectiveSensitivity)
-    return true
+function MOI.set(model::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
+    model.input_cache.dobj = val
+    return
 end
 
 end # module NonLinearProgram
