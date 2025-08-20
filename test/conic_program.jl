@@ -841,7 +841,6 @@ function test_jump_psd_cone_with_parameter_pv_v_pv()
     @test dx ≈ 0.0 atol = 1e-4 rtol = 1e-4
 end
 
-
 function test_ObjectiveSensitivity()
     model = DiffOpt.conic_diff_model(SCS.Optimizer)
     @variable(model, x)
@@ -860,15 +859,20 @@ function test_ObjectiveSensitivity()
     DiffOpt.forward_differentiate!(model)
 
     # TODO: Change when implemented
-    @test_throws ErrorException("Not implemented") MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    @test_throws ErrorException("Not implemented") MOI.get(
+        model,
+        DiffOpt.ForwardObjectiveSensitivity(),
+    )
 
     # Clean up
     DiffOpt.empty_input_sensitivities!(model)
 
     # TODO: Change when implemented
-    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 0.5)
-
-    @test_throws ErrorException("Not implemented") DiffOpt.reverse_differentiate!(model)
+    @test_throws ErrorException("Not implemented") MOI.set(
+        model,
+        DiffOpt.ReverseObjectiveSensitivity(),
+        0.5,
+    )
 end
 
 end  # module

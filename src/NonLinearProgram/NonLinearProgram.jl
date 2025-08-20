@@ -593,7 +593,8 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
         end
 
         Δp_dict = Dict{MOI.ConstraintIndex,Float64}(
-            form.var2ci[var_idx] => Δp[form.var2param[var_idx].value] for var_idx in keys(form.var2ci)
+            form.var2ci[var_idx] => Δp[form.var2param[var_idx].value]
+            for var_idx in keys(form.var2ci)
         )
         model.back_grad_cache = ReverseCache(; Δp = Δp_dict)
     end
