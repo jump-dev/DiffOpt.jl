@@ -144,13 +144,14 @@ DiffOpt.forward_differentiate!(model)
 
 ```
 
-Using Lagrandian duality we could already calculate the objective sensitivity with respect to parameters that appear in the RHS of the constraints (e.g, `cons` in this case for parameter `p`).
+Using Lagrangian duality we could already calculate the objective sensitivity with respect to parameters that appear in the RHS of the constraints (e.g, `cons` in this case for parameter `p`) - i.e. The objective sensitivity w.r.t. a parameter change in the RHS of the constraints is given by the optimal multiplier.
 
 On the other hand, if the parameter appears in the LHS of the constraints, we can calculate the objective sensitivity with respect to the parameter using: the sensitivities of the variables with respect to the parameter, \( \frac{\partial x}{\partial p} \), and the gradient of the objective with respect to the variables \( \frac{\partial f}{\partial x} \):
 
 ```math
 \frac{\partial f}{\partial p} = \frac{\partial f}{\partial x} \frac{\partial x}{\partial p}
 ```
+ - A consequence of the chain-rule.
 
 In order to calculate the objective perturbation with respect to the parameter perturbation vector, we can use the following code:
 
@@ -182,5 +183,5 @@ DiffOpt.reverse_differentiate!(model)
 MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p))
 ```
 
-It is important to note that the (reverse) parameter perturbation given an objective perturbation is somewhat equivalent to the perturbation with respect to solution (since one can be calculated from the other). Therefore, one cannot set both the objective sensitivity (`DiffOpt.ReverseObjectiveSensitivity`) and the solution sensitivity (e.g. `DiffOpt.ReverseVariablePrimal`) at the same time.
+It is important to note that the (reverse) parameter perturbation given an objective perturbation is somewhat equivalent to the perturbation with respect to solution (since one can be calculated from the other). Therefore, one cannot set both the objective sensitivity (`DiffOpt.ReverseObjectiveSensitivity`) and the solution sensitivity (e.g. `DiffOpt.ReverseVariablePrimal`) at the same time - the code will throw an error if you try to do so.
 ```
