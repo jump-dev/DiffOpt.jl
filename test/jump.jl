@@ -692,7 +692,7 @@ function test_conic_supports()
     @test MOI.supports(
         backend(model),
         DiffOpt.NonLinearKKTJacobianFactorization(),
-        some
+        some,
     )
     MOI.is_set_by_optimize(DiffOpt.ReverseConstraintFunction())
     MOI.is_set_by_optimize(DiffOpt.ReverseConstraintSet())
