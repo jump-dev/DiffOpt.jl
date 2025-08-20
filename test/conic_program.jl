@@ -822,6 +822,25 @@ function test_quad_to_soc()
     return
 end
 
+function test_jump_psd_cone_with_parameter_pv_v_pv()
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    @variable(model, x)
+    @variable(model, p in MOI.Parameter(1.0))
+    @constraint(
+        model,
+        con,
+        [p * x, (2 * x - 3), p * 3 * x] in
+        MOI.PositiveSemidefiniteConeTriangle(2)
+    )
+    @objective(model, Min, x)
+    optimize!(model)
+    direction_p = 2.0
+    DiffOpt.set_forward_parameter(model, p, direction_p)
+    DiffOpt.forward_differentiate!(model)
+    dx = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x)
+    @test dx ≈ 0.0 atol = 1e-4 rtol = 1e-4
+end
+
 end  # module
 
 TestConicProgram.runtests()

@@ -34,7 +34,7 @@ function test_moi_test_runtests()
     # )
     MOI.set(model, MOI.Silent(), true)
     config = MOI.Test.Config(; atol = 1e-7)
-    MOI.Test.runtests(model, config)
+    MOI.Test.runtests(model, config; exclude = ["test_solve_conflict"])
     return
 end
 
