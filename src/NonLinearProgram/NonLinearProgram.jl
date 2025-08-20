@@ -627,10 +627,6 @@ function MOI.get(
     ::DiffOpt.ReverseConstraintSet,
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
 ) where {T}
-    form = model.model
-    var_idx = MOI.VariableIndex(ci.value)
-    p_idx = form.var2param[var_idx].value
-    return MOI.Parameter{T}(model.back_grad_cache.Δp[p_idx])
     return MOI.Parameter{T}(model.back_grad_cache.Δp[ci])
 end
 
