@@ -157,6 +157,11 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
 
+        # test Objective Sensitivity wrt parameters 
+        df_dp = MOI.get(m, DiffOpt.ForwardObjectiveSensitivity())
+        @test isapprox(df_dp, dot(dual.(con), Δp); atol = 1e-4)
+        @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
+
         # Test sensitivities 
         @test_throws ErrorException MOI.get(
             m.moi_backend.optimizer.model.diff.model,
@@ -627,6 +632,125 @@ end
 
 ################################################
 #=
+# Test Objective Sensitivity wrt Parameters
+=#
+################################################
+
+function test_ObjectiveSensitivity()
+    # Model 1
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+
+    # Parameters
+    @variable(model, p ∈ MOI.Parameter(1.5))
+    @variable(model, p_prox)
+
+    # Variables
+    @variable(model, x)
+
+    # Constraints
+    @constraint(model, con, p_prox == p) # dual fishing :)
+    @constraint(model, x * sin(p_prox) == 1)
+    @objective(model, Min, sum(x))
+
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+
+    # Set pertubations
+    Δp = 0.1
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(Δp),
+    )
+
+    # Compute derivatives
+    DiffOpt.forward_differentiate!(model)
+
+    # Test Objective Sensitivity wrt parameters
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    @test isapprox(df_dp, dual(con) * Δp; atol = 1e-4)
+
+    # Clean up
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # Set Too Many Sensitivities
+    Δf = 0.5
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+
+    # Compute derivatives
+    @test_throws ErrorException DiffOpt.reverse_differentiate!(model)
+
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # Set Reverse Objective Sensitivity
+    Δf = 0.5
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+
+    # Compute derivatives
+    DiffOpt.reverse_differentiate!(model)
+
+    # Test Objective Sensitivity wrt parameters
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
+
+    @test isapprox(dp, dual(con) * Δf; atol = 1e-4)
+
+    # Model 2
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+
+    # Parameters
+    @variable(model, p ∈ MOI.Parameter(1.5))
+    @variable(model, p_prox)
+
+    # Variables
+    @variable(model, x)
+
+    # Constraints
+    @constraint(model, con, p_prox == p) # dual fishing :)
+    @constraint(model, x * sin(p_prox) >= 1)
+    @constraint(model, x + p_prox >= 3)
+    @objective(model, Min, sum(x .^ 2))
+
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+
+    # Set pertubations
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(Δp),
+    )
+
+    # Compute derivatives
+    DiffOpt.forward_differentiate!(model)
+
+    # Test Objective Sensitivity wrt parameters
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    @test isapprox(df_dp, dual(con) * Δp; atol = 1e-4)
+
+    # Clean up
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # Set Reverse Objective Sensitivity
+    Δf = 0.5
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+
+    # Compute derivatives
+    DiffOpt.reverse_differentiate!(model)
+
+    # Test Objective Sensitivity wrt parameters
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
+
+    @test isapprox(dp, dual(con) * Δf; atol = 1e-4)
+end
+
+################################################
+#=
 # Test Sensitivity through Reverse Mode
 =#
 ################################################
@@ -716,6 +840,8 @@ function test_ReverseConstraintDual()
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(m)
+
+    @test all(isapprox.(dual.(p), dual.(con); atol = 1e-8))
 
     # Test sensitivities ReverseConstraintSet
     @test all(
