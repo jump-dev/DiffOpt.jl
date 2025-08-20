@@ -841,6 +841,32 @@ function test_jump_psd_cone_with_parameter_pv_v_pv()
     @test dx ≈ 0.0 atol = 1e-4 rtol = 1e-4
 end
 
+
+function test_ObjectiveSensitivity()
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    @variable(model, x)
+    @variable(model, p in MOI.Parameter(1.0))
+    @constraint(
+        model,
+        con,
+        [p * x, (2 * x - 3), p * 3 * x] in
+        MOI.PositiveSemidefiniteConeTriangle(2)
+    )
+    @objective(model, Min, x)
+    optimize!(model)
+    direction_p = 2.0
+    DiffOpt.set_forward_parameter(model, p, direction_p)
+
+    # TODO: Change when implemented
+    @test_throws ErrorException MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+
+    # Clean up
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # TODO: Change when implemented
+    @test_throws ErrorException MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 0.5)
+end
+
 end  # module
 
 TestConicProgram.runtests()

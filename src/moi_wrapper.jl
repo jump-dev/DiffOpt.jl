@@ -206,6 +206,10 @@ function MOI.supports(model::Optimizer, attr::MOI.ObjectiveFunction)
     return MOI.supports(model.optimizer, attr)
 end
 
+function MOI.supports(model::Optimizer, attr::ReverseObjectiveSensitivity)
+    return MOI.supports(model.optimizer, attr)
+end
+
 function MOI.supports_constraint(
     model::Optimizer,
     ::Type{F},
@@ -854,8 +858,6 @@ function MOI.supports(
     return true
 end
 
-MOI.supports(::Optimizer, ::ReverseObjectiveSensitivity) = true
-
 function MOI.set(
     model::Optimizer,
     ::ReverseConstraintDual,
@@ -867,6 +869,10 @@ function MOI.set(
 end
 
 function MOI.set(model::Optimizer, ::ReverseObjectiveSensitivity, val)
+    MOI.supports(
+        model,
+        ReverseObjectiveSensitivity(),
+    ) || error("Reverse objective sensitivity is not supported by the optimizer")
     model.input_cache.dobj = val
     return
 end

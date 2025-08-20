@@ -501,4 +501,12 @@ function MOI.set(model::Model, ::LinearAlgebraSolver, linear_solver)
     return model.linear_solver = linear_solver
 end
 
+function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
+    return error("Not implemented")
+end
+
+function MOI.supports(::Form, ::DiffOpt.ReverseObjectiveSensitivity)
+    return false
+end
+
 end
