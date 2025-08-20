@@ -455,7 +455,7 @@ function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
 end
 
 function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
-    error("Not implemented")
+    return error("Not implemented")
 end
 
 end
