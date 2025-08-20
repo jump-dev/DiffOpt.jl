@@ -10,9 +10,7 @@ MOI.supports(::POI.Optimizer, ::ForwardObjectiveFunction) = false
 function MOI.set(::POI.Optimizer, ::ForwardObjectiveFunction, _)
     return error(
         "Forward objective function is not supported when " *
-        "`with_parametric_opt_interface` is set to `true` in " *
-        "`diff_optimizer`." *
-        "Use parameters to set the forward sensitivity.",
+        "`JuMP.Parameter`s (or `MOI.Parameter`s) are present in the model.",
     )
 end
 
@@ -26,9 +24,7 @@ function MOI.set(
 )
     return error(
         "Forward constraint function is not supported when " *
-        "`with_parametric_opt_interface` is set to `true` in " *
-        "`diff_optimizer`." *
-        "Use parameters to set the forward sensitivity.",
+        "`JuMP.Parameter`s (or `MOI.Parameter`s) are present in the model.",
     )
 end
 
@@ -37,9 +33,7 @@ MOI.supports(::POI.Optimizer, ::ReverseObjectiveFunction) = false
 function MOI.get(::POI.Optimizer, ::ReverseObjectiveFunction)
     return error(
         "Reverse objective function is not supported when " *
-        "`with_parametric_opt_interface` is set to `true` in " *
-        "`diff_optimizer`." *
-        "Use parameters to get the reverse sensitivity.",
+        "`JuMP.Parameter`s (or `MOI.Parameter`s) are present in the model.",
     )
 end
 
@@ -52,9 +46,7 @@ function MOI.get(
 )
     return error(
         "Reverse constraint function is not supported when " *
-        "`with_parametric_opt_interface` is set to `true` in " *
-        "`diff_optimizer`." *
-        "Use parameters to get the reverse sensitivity.",
+        "`JuMP.Parameter`s (or `MOI.Parameter`s) are present in the model.",
     )
 end
 
@@ -315,16 +307,6 @@ function MOI.set(
     return
 end
 
-function MOI.set(
-    model::Optimizer,
-    ::ForwardConstraintSet,
-    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
-    set::MOI.Parameter,
-) where {T}
-    model.input_cache.dp[ci] = set.value
-    return
-end
-
 function MOI.get(
     model::POI.Optimizer,
     attr::ForwardVariablePrimal,
@@ -566,8 +548,6 @@ function MOI.set(
     MOI.set(model.optimizer, attr, variable, value)
     return
 end
-
-MOI.is_set_by_optimize(::ReverseConstraintSet) = true
 
 function MOI.get(
     model::POI.Optimizer,

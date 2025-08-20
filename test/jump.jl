@@ -680,6 +680,62 @@ function test_sensitivity_index_issue()
     return
 end
 
+function test_conic_supports()
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    @test MOI.supports(backend(model), DiffOpt.ForwardObjectiveFunction())
+    @test MOI.supports(
+        backend(model),
+        DiffOpt.ForwardConstraintSet(),
+        MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{Float64}},
+    )
+    function some end
+    @test MOI.supports(
+        backend(model),
+        DiffOpt.NonLinearKKTJacobianFactorization(),
+        some,
+    )
+    MOI.is_set_by_optimize(DiffOpt.ReverseConstraintFunction())
+    MOI.is_set_by_optimize(DiffOpt.ReverseConstraintSet())
+    model = DiffOpt.ConicProgram.Model()
+    @test !MOI.supports(model, MOI.Name())
+    @test MOI.supports_incremental_interface(model)
+    return
+end
+
+function test_conic_feasibility()
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(model)
+
+    @variable(model, x)
+    @variable(model, p in Parameter(1.0))
+
+    @constraint(model, con, [0.0, x, p * x] in SecondOrderCone())
+
+    set_objective_sense(model, MOI.FEASIBILITY_SENSE)
+
+    optimize!(model)
+
+    DiffOpt.set_forward_parameter(model, p, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    return
+end
+
+function test_psd_square_error()
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(model)
+
+    @variable(model, x)
+    @variable(model, p in Parameter(1.0))
+
+    @constraint(model, con, [-p*x 0; 0 x] in PSDCone())
+
+    @test_throws MOI.SetAttributeNotAllowed optimize!(model)
+
+    # DiffOpt.set_forward_parameter(model, p, 1.0)
+    # DiffOpt.forward_differentiate!(model)
+    return
+end
+
 end  # module
 
 TestJuMP.runtests()

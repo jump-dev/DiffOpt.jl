@@ -13,7 +13,6 @@ const MOIDD = MOI.Utilities.DoubleDicts
 
 Base.@kwdef mutable struct InputCache
     dx::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()# dz for QP
-    dp::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}() # Specifically for NonLinearProgram
     dy::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}()
     # Dual sensitivity currently only works for NonLinearProgram
     # ds
@@ -23,6 +22,8 @@ Base.@kwdef mutable struct InputCache
     #       concrete value types.
     # `scalar_constraints` and `vector_constraints` includes `A` and `b` for CPs
     # or `G` and `h` for QPs
+    parameter_constraints::Dict{MOI.ConstraintIndex,Float64} =
+        Dict{MOI.ConstraintIndex,Float64}() # Specifically for NonLinearProgram
     scalar_constraints::MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}} =
         MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}}() # also includes G for QPs
     vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} =
@@ -33,8 +34,8 @@ end
 
 function Base.empty!(cache::InputCache)
     empty!(cache.dx)
-    empty!(cache.dp)
     empty!(cache.dy)
+    empty!(cache.parameter_constraints)
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
@@ -137,6 +138,16 @@ ConstraintFunction so we consider the expression `θ * (x + 2y - 5)`.
 struct ForwardConstraintFunction <: MOI.AbstractConstraintAttribute end
 
 """
+    ForwardConstraintSet <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
+is, problem input data.
+
+Currently, this only works for the set `MOI.Parameter`.
+"""
+struct ForwardConstraintSet <: MOI.AbstractConstraintAttribute end
+
+"""
     ForwardVariablePrimal <: MOI.AbstractVariableAttribute
 
 A `MOI.AbstractVariableAttribute` to get output data from forward
@@ -166,10 +177,6 @@ MOI.set(model, DiffOpt.ReverseVariablePrimal(), x)
 ```
 """
 struct ReverseVariablePrimal <: MOI.AbstractVariableAttribute end
-
-struct ForwardConstraintSet <: MOI.AbstractConstraintAttribute end
-
-struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
 
 """
     ReverseConstraintDual <: MOI.AbstractConstraintAttribute
@@ -254,6 +261,18 @@ struct ReverseConstraintFunction <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::ReverseConstraintFunction) = true
 
 """
+    ReverseConstraintSet
+
+An `MOI.AbstractConstraintAttribute` to get output data to reverse differentiation, that
+is, problem input data.
+
+Currently, this only works for the set `MOI.Parameter`.
+"""
+struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
+
+MOI.is_set_by_optimize(::ReverseConstraintSet) = true
+
+"""
     DifferentiateTimeSec()
 
 A model attribute for the total elapsed time (in seconds) for computing
@@ -273,6 +292,11 @@ Model supporting [`forward_differentiate!`](@ref) and
 """
 abstract type AbstractModel <: MOI.ModelLike end
 
+function empty_input_sensitivities!(model::AbstractModel)
+    empty!(model.input_cache)
+    return
+end
+
 MOI.supports_incremental_interface(::AbstractModel) = true
 
 function MOI.is_valid(model::AbstractModel, idx::MOI.Index)
@@ -286,6 +310,8 @@ end
 function MOI.add_variables(model::AbstractModel, n)
     return MOI.add_variables(model.model, n)
 end
+
+# TODO: add support for add_constrained_variable(s) and supports_
 
 function MOI.Utilities.pass_nonvariable_constraints(
     dest::AbstractModel,
@@ -409,6 +435,11 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
+    if MOI.supports_add_constrained_variable(model.model, MOI.Parameter{T})
+        error(
+            "The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.",
+        )
+    end
     model.input_cache.scalar_constraints[ci] = func
     return
 end
@@ -419,7 +450,27 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}
+    if MOI.supports_add_constrained_variable(model.model, MOI.Parameter{T})
+        error(
+            "The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.",
+        )
+    end
     model.input_cache.vector_constraints[ci] = func
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
+    ::ForwardConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+    set::MOI.Parameter{T},
+) where {T}
+    if !MOI.supports_add_constrained_variable(model.model, MOI.Parameter{T})
+        error(
+            "The model with type $(typeof(model)) does not support Parameters",
+        )
+    end
+    model.input_cache.parameter_constraints[ci] = set.value
     return
 end
 
@@ -653,6 +704,26 @@ function _push_term(
     term::MOI.VectorAffineTerm,
 )
     return _push_term(I, J, V, neg, r[term.output_index], term.scalar_term)
+end
+
+function MOI.supports(::AbstractModel, ::MOI.Name)
+    return false
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::MOI.VariableName,
+    ::Type{MOI.VariableIndex},
+)
+    return false
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::MOI.ConstraintName,
+    ::Type{MOI.ConstraintIndex{F,S}},
+) where {F,S}
+    return false
 end
 
 function MOI.supports(model::AbstractModel, attr::MOI.AbstractModelAttribute)

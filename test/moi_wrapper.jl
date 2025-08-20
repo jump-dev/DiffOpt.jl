@@ -28,10 +28,10 @@ end
 function test_moi_test_runtests()
     model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
     # `Variable.ZerosBridge` makes dual needed by some tests fail.
-    MOI.Bridges.remove_bridge(
-        model.optimizer.optimizer,
-        MOI.Bridges.Variable.ZerosBridge{Float64},
-    )
+    # MOI.Bridges.remove_bridge(
+    #     model.optimizer.optimizer.optimizer,
+    #     MOI.Bridges.Variable.ZerosBridge{Float64},
+    # )
     MOI.set(model, MOI.Silent(), true)
     config =
         MOI.Test.Config(; atol = 1e-7, exclude = Any[MOI.compute_conflict!])
