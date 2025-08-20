@@ -558,7 +558,13 @@ function reverse_differentiate!(model::Optimizer)
     for (vi, value) in model.input_cache.dy
         MOI.set(diff, ReverseConstraintDual(), model.index_map[vi], value)
     end
-    MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
+    if !iszero(model.input_cache.dobj)
+        MOI.set(
+            diff,
+            ReverseObjectiveSensitivity(),
+            model.input_cache.dobj,
+        )
+    end
     return reverse_differentiate!(diff)
 end
 
