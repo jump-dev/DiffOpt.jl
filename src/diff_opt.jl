@@ -38,7 +38,6 @@ function Base.empty!(cache::InputCache)
     empty!(cache.dy)
     cache.dobj = 0.0
     empty!(cache.parameter_constraints)
-    cache.dobj = 0.0
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
