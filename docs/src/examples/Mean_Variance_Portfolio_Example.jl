@@ -60,21 +60,21 @@ dL_dσ = zeros(N)                 # ∂L/∂σ_max  from DiffOpt
 
 for (k, σ_val) in enumerate(σ_grid)
 
-    # 1) differentiable conic model
+    ## 1) differentiable conic model
     model = DiffOpt.conic_diff_model(SCS.Optimizer)
     set_silent(model)
 
-    # 2) parameter σ_max
+    ## 2) parameter σ_max
     @variable(model, σ_max in Parameter(σ_val))
 
-    # 3) portfolio weights
+    ## 3) portfolio weights
     @variable(model, x[1:3] >= 0)
     @constraint(model, sum(x) <= 1)
 
-    # 4) objective: maximise expected return (training data)
+    ## 4) objective: maximise expected return (training data)
     @objective(model, Max, dot(μ_train, x))
 
-    # 5) conic variance constraint  ||L*x|| <= σ_max
+    ## 5) conic variance constraint  ||L*x|| <= σ_max
     L_chol = cholesky(Symmetric(Σ)).L
     @variable(model, t >= 0)
     @constraint(model, [t; L_chol * x] in SecondOrderCone())
@@ -85,13 +85,13 @@ for (k, σ_val) in enumerate(σ_grid)
     x_opt = value.(x)
     println("Optimal portfolio weights: ", x_opt)
 
-    # store performance numbers
+    ## store performance numbers
     predicted_ret[k] = dot(μ_train, x_opt)
     realised_ret[k] = dot(μ_test, x_opt)
 
-    # -------- reverse differentiation wrt σ_max --------
+    ## -------- reverse differentiation wrt σ_max --------
     DiffOpt.empty_input_sensitivities!(model)
-    # ∂L/∂x   (adjoint)  =  -μ_test
+    ## ∂L/∂x   (adjoint)  =  -μ_test
     DiffOpt.set_reverse_variable.(model, x, μ_test)
     DiffOpt.reverse_differentiate!(model)
     dL_dσ[k] = DiffOpt.get_reverse_parameter(model, σ_max)
@@ -145,12 +145,12 @@ plot_all = plot(
     bottom_margin = 5Plots.Measures.mm,
 )
 
-# Impact of the risk limit \(\sigma_{\max}\) on Markowitz
+# Impact of the risk limit $\sigma_{\max}$ on Markowitz
 # portfolios.  \textbf{Left:} predicted in-sample return versus
 # realized out-of-sample return.  \textbf{Right:} the
-# out-of-sample loss \(L(x)\) together with the absolute gradient
-# \(|\partial L/\partial\sigma_{\max}|\) obtained from
+# out-of-sample loss $L(x)$ together with the absolute gradient
+# $|\partial L/\partial\sigma_{\max}|$ obtained from
 # \texttt{DiffOpt.jl}.  The gradient tells the practitioner which
-# way—and how aggressively—to adjust \(\sigma_{\max}\) to reduce
+# way—and how aggressively—to adjust $\sigma_{\max}$ to reduce
 # forecast error; its value is computed in one reverse-mode call
 # without re-solving the optimization for perturbed risk limits.
