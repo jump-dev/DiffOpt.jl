@@ -119,7 +119,7 @@ heat = replace(heat, NaN => 0.0)
 # ## Results with Plot graphs
 
 default(;
-    size=(1150,350),
+    size = (1150, 350),
     legendfontsize = 8,
     guidefontsize = 9,
     tickfontsize = 7,
