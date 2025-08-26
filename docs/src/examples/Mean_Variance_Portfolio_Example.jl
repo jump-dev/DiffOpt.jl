@@ -39,22 +39,24 @@ using Plots.Measures
 # Fixed data
 
 # ---------- training data (in-sample) ----------
-Σ = [0.002  0.0005 0.001;
-     0.0005 0.003  0.0002;
-     0.001  0.0002 0.0025]
+Σ = [
+    0.002 0.0005 0.001
+    0.0005 0.003 0.0002
+    0.001 0.0002 0.0025
+]
 μ_train = [0.05, 0.08, 0.12]
 
 # ---------- test data (out-of-sample) ----------
-μ_test  = [0.02, -0.3, 0.1]             # simple forecast error example
+μ_test = [0.02, -0.3, 0.1]             # simple forecast error example
 
 # ---------- sweep over σ_max ----------
 σ_grid = 0.002:0.002:0.06
 N = length(σ_grid)
 
 predicted_ret = zeros(N)                 # μ_train' * x*
-realised_ret  = zeros(N)                 # μ_test'  * x*
-loss          = zeros(N)                 # L(x*)
-dL_dσ         = zeros(N)                 # ∂L/∂σ_max  from DiffOpt
+realised_ret = zeros(N)                 # μ_test'  * x*
+loss = zeros(N)                 # L(x*)
+dL_dσ = zeros(N)                 # ∂L/∂σ_max  from DiffOpt
 
 for (k, σ_val) in enumerate(σ_grid)
 
@@ -85,7 +87,7 @@ for (k, σ_val) in enumerate(σ_grid)
 
     # store performance numbers
     predicted_ret[k] = dot(μ_train, x_opt)
-    realised_ret[k]  = dot(μ_test,  x_opt)
+    realised_ret[k] = dot(μ_test, x_opt)
 
     # -------- reverse differentiation wrt σ_max --------
     DiffOpt.empty_input_sensitivities!(model)
@@ -98,23 +100,50 @@ end
 # ## Results with Plot graphs
 
 # ------------------------  plots  --------------------------
-default(size=(1150,350), legendfontsize=8, guidefontsize=9, tickfontsize=7)
+default(;
+    size = (1150, 350),
+    legendfontsize = 8,
+    guidefontsize = 9,
+    tickfontsize = 7,
+)
 
 # (a) predicted vs realised return
-plt_ret = plot(σ_grid, realised_ret; lw=2, label="Realised (test)",
-    xlabel="σ_max (risk limit)", ylabel="Return",
-    title="Return vs risk limit", legend=:bottomright);
-plot!(plt_ret, σ_grid, predicted_ret; lw=2, ls=:dash,
-    label="Predicted (train)");
+plt_ret = plot(
+    σ_grid,
+    realised_ret;
+    lw = 2,
+    label = "Realised (test)",
+    xlabel = "σ_max (risk limit)",
+    ylabel = "Return",
+    title = "Return vs risk limit",
+    legend = :bottomright,
+);
+plot!(
+    plt_ret,
+    σ_grid,
+    predicted_ret;
+    lw = 2,
+    ls = :dash,
+    label = "Predicted (train)",
+);
 
 # (b) out-of-sample loss and its gradient
-plt_loss = plot(σ_grid, dL_dσ;
-    xlabel="σ_max (risk limit)", ylabel="∂L/∂σ_max",
-    title="Return Gradient", legend=false);
+plt_loss = plot(
+    σ_grid,
+    dL_dσ;
+    xlabel = "σ_max (risk limit)",
+    ylabel = "∂L/∂σ_max",
+    title = "Return Gradient",
+    legend = false,
+);
 
-
-plot_all = plot(plt_ret, plt_loss, layout=(1,2), left_margin=5Plots.Measures.mm,
-    bottom_margin=5Plots.Measures.mm)
+plot_all = plot(
+    plt_ret,
+    plt_loss;
+    layout = (1, 2),
+    left_margin = 5Plots.Measures.mm,
+    bottom_margin = 5Plots.Measures.mm,
+)
 
 # Impact of the risk limit \(\sigma_{\max}\) on Markowitz
 # portfolios.  \textbf{Left:} predicted in-sample return versus

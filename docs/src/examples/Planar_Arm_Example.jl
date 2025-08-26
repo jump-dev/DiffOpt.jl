@@ -28,7 +28,8 @@ using Plots.Measures
 # Fixed data
 
 # arm geometry
-l1 = 1.0; l2 = 1.0
+l1 = 1.0;
+l2 = 1.0;
 reach = l1 + l2          # 2.0
 tol = 1e-6               # numerical tolerance for feasibility
 # sampling grid in workspace
@@ -36,16 +37,16 @@ grid_res = 100
 xs = range(-reach, reach; length = grid_res)
 ys = range(-reach, reach; length = grid_res)
 
-heat  = fill(NaN, grid_res, grid_res)   # store ‖J_inv‖₂
+heat = fill(NaN, grid_res, grid_res)   # store ‖J_inv‖₂
 feas = fill(0.0, grid_res, grid_res)  # feasibility mask
-θ1mat = similar(heat)                 
+θ1mat = similar(heat)
 
-function ik_angles(x, y; l1=1.0, l2=1.0, elbow_up=true)
-    c2 = (x^2 + y^2 - l1^2 - l2^2)/(2*l1*l2)
-    θ2  = elbow_up ? acos(clamp(c2,-1,1)) : -acos(clamp(c2,-1,1))
-    k1  = l1 + l2*cos(θ2)
-    k2  =       l2*sin(θ2)
-    θ1  = atan(y, x) - atan(k2, k1)
+function ik_angles(x, y; l1 = 1.0, l2 = 1.0, elbow_up = true)
+    c2 = (x^2 + y^2 - l1^2 - l2^2) / (2 * l1 * l2)
+    θ2 = elbow_up ? acos(clamp(c2, -1, 1)) : -acos(clamp(c2, -1, 1))
+    k1 = l1 + l2 * cos(θ2)
+    k2 = l2 * sin(θ2)
+    θ1 = atan(y, x) - atan(k2, k1)
     return θ1, θ2
 end
 
@@ -64,11 +65,11 @@ for (i, x_t) in enumerate(xs), (j, y_t) in enumerate(ys)
     @variable(model, θ2)
 
     @objective(model, Min, θ1^2 + θ2^2)
-    @constraint(model, l1*cos(θ1) + l2*cos(θ1+θ2) == xt)
-    @constraint(model, l1*sin(θ1) + l2*sin(θ1+θ2) == yt)
+    @constraint(model, l1 * cos(θ1) + l2 * cos(θ1 + θ2) == xt)
+    @constraint(model, l1 * sin(θ1) + l2 * sin(θ1 + θ2) == yt)
 
     # --- supply analytic start values ---
-    θ1₀, θ2₀ = ik_angles(x_t, y_t; elbow_up=true)
+    θ1₀, θ2₀ = ik_angles(x_t, y_t; elbow_up = true)
     set_start_value(θ1, θ1₀)
     set_start_value(θ2, θ2₀)
 
@@ -78,10 +79,10 @@ for (i, x_t) in enumerate(xs), (j, y_t) in enumerate(ys)
     status = termination_status(model)
     println("Status: ", status)
 
-    status == MOI.OPTIMAL || status == MOI.LOCALLY_SOLVED ||
-        continue
+    status == MOI.OPTIMAL || status == MOI.LOCALLY_SOLVED || continue
 
-    θ1̂ = value(θ1); θ1mat[j,i] = θ1̂   # save pose
+    θ1̂ = value(θ1)
+    θ1mat[j, i] = θ1̂   # save pose
 
     # ---- forward diff wrt  xt  (∂θ/∂x) ----
     DiffOpt.empty_input_sensitivities!(model)
@@ -92,11 +93,11 @@ for (i, x_t) in enumerate(xs), (j, y_t) in enumerate(ys)
 
     # check first order approximation keeps solution close to target withing tolerance
     θ_approx = [θ1̂ + dθ1_dx, θ1̂ + dθ2_dx]
-    x_approx = l1*cos(θ_approx[1]) + l2*cos(θ_approx[1] + θ_approx[2])
-    y_approx = l1*sin(θ_approx[1]) + l2*sin(θ_approx[1] + θ_approx[2])
+    x_approx = l1 * cos(θ_approx[1]) + l2 * cos(θ_approx[1] + θ_approx[2])
+    y_approx = l1 * sin(θ_approx[1]) + l2 * sin(θ_approx[1] + θ_approx[2])
     _error = [x_approx - (x_t + 0.01), y_approx - y_t]
     println("Error in first order approximation: ", _error)
-    feas[j,i] = norm(_error)
+    feas[j, i] = norm(_error)
 
     # ---- forward diff wrt  yt  (∂θ/∂y) ----
     DiffOpt.empty_input_sensitivities!(model)
@@ -106,9 +107,11 @@ for (i, x_t) in enumerate(xs), (j, y_t) in enumerate(ys)
     dθ2_dy = DiffOpt.get_forward_variable(model, θ2)
 
     # 2-norm of inverse Jacobian
-    Jinv = [dθ1_dx  dθ1_dy;
-            dθ2_dx  dθ2_dy]
-    heat[j,i] = opnorm(Jinv)            # σ_max  of Jinv
+    Jinv = [
+        dθ1_dx dθ1_dy
+        dθ2_dx dθ2_dy
+    ]
+    heat[j, i] = opnorm(Jinv)            # σ_max  of Jinv
 end
 # replace nans with 0.0
 heat = replace(heat, NaN => 0.0)
@@ -116,31 +119,57 @@ heat = replace(heat, NaN => 0.0)
 # ## Results with Plot graphs
 
 # ------------------------  plots  --------------------------
-default(size=(1150,350), legendfontsize=8, guidefontsize=9, tickfontsize=7)
+default(;
+    size = (1150, 350),
+    legendfontsize = 8,
+    guidefontsize = 9,
+    tickfontsize = 7,
+)
 
-plt = heatmap(xs, ys, heat;
-    xlabel="x target", ylabel="y target",
-    clims=(0, quantile(skipmissing(heat), .95)),   # clip extremes
-    colorbar_title="‖∂θ/∂(x,y)‖₂",
-    left_margin=5Plots.Measures.mm,
-    bottom_margin=5Plots.Measures.mm,    
+plt = heatmap(
+    xs,
+    ys,
+    heat;
+    xlabel = "x target",
+    ylabel = "y target",
+    clims = (0, quantile(skipmissing(heat), 0.95)),   # clip extremes
+    colorbar_title = "‖∂θ/∂(x,y)‖₂",
+    left_margin = 5Plots.Measures.mm,
+    bottom_margin = 5Plots.Measures.mm,
 )
 
 # overlay workspace boundary
-θ = range(0, 2π; length=200)
-plot!(plt, reach*cos.(θ), reach*sin.(θ); c=:white, lw=1, lab="reach")
+θ = range(0, 2π; length = 200)
+plot!(plt, reach * cos.(θ), reach * sin.(θ); c = :white, lw = 1, lab = "reach")
 
-plt_feas = heatmap(xs, ys, feas;
-    xlabel="x target", ylabel="y target",
-    clims=(0, 1), colorbar_title="Precision Error",
-    left_margin=5Plots.Measures.mm,
-    bottom_margin=5Plots.Measures.mm,
+plt_feas = heatmap(
+    xs,
+    ys,
+    feas;
+    xlabel = "x target",
+    ylabel = "y target",
+    clims = (0, 1),
+    colorbar_title = "Precision Error",
+    left_margin = 5Plots.Measures.mm,
+    bottom_margin = 5Plots.Measures.mm,
 );
 
-plot!(plt_feas, reach*cos.(θ), reach*sin.(θ); c=:white, lw=1, lab="reach");
+plot!(
+    plt_feas,
+    reach * cos.(θ),
+    reach * sin.(θ);
+    c = :white,
+    lw = 1,
+    lab = "reach",
+);
 
-plt_all = plot(plt, plt_feas, layout=(1,2), size=(800,400),
-    left_margin=5Plots.Measures.mm, bottom_margin=5Plots.Measures.mm,
+plt_all = plot(
+    plt,
+    plt_feas;
+    layout = (1, 2),
+    size = (800, 400),
+    left_margin = 5Plots.Measures.mm,
+    bottom_margin = 5Plots.Measures.mm,
 )
 
 # Left figure shows the spectral-norm heat-map
