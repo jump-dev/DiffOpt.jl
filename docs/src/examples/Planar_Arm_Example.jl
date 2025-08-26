@@ -33,7 +33,7 @@ l2 = 1.0;
 reach = l1 + l2          # 2.0
 tol = 1e-6               # numerical tolerance for feasibility
 # Sampling grid in workspace
-grid_res = 100
+grid_res = 50
 xs = range(-reach, reach; length = grid_res)
 ys = range(-reach, reach; length = grid_res)
 
@@ -119,7 +119,7 @@ heat = replace(heat, NaN => 0.0)
 # ## Results with Plot graphs
 
 default(;
-    size = (1150, 350),
+    size = (600, 40),
     legendfontsize = 8,
     guidefontsize = 9,
     tickfontsize = 7,
@@ -166,7 +166,7 @@ plt_all = plot(
     plt,
     plt_feas;
     layout = (1, 2),
-    size = (800, 400),
+    size = (600, 40),
     left_margin = 5Plots.Measures.mm,
     bottom_margin = 5Plots.Measures.mm,
 )

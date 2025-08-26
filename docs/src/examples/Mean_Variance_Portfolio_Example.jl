@@ -100,7 +100,7 @@ end
 # ## Results with Plot graphs
 
 default(;
-    size = (1150, 350),
+    size = (600, 40),
     legendfontsize = 8,
     guidefontsize = 9,
     tickfontsize = 7,
