@@ -38,7 +38,7 @@ using Plots.Measures
 
 # Fixed data
 
-# ---------- training data (in-sample) ----------
+# Training data (in-sample)
 Σ = [
     0.002 0.0005 0.001
     0.0005 0.003 0.0002
@@ -46,10 +46,10 @@ using Plots.Measures
 ]
 μ_train = [0.05, 0.08, 0.12]
 
-# ---------- test data (out-of-sample) ----------
+# Test data (out-of-sample)
 μ_test = [0.02, -0.3, 0.1]             # simple forecast error example
 
-# ---------- sweep over σ_max ----------
+# Sweep over σ_max
 σ_grid = 0.002:0.002:0.06
 N = length(σ_grid)
 
@@ -99,7 +99,6 @@ end
 
 # ## Results with Plot graphs
 
-# ------------------------  plots  --------------------------
 default(;
     size = (1150, 350),
     legendfontsize = 8,
@@ -146,11 +145,11 @@ plot_all = plot(
 )
 
 # Impact of the risk limit $\sigma_{\max}$ on Markowitz
-# portfolios.  \textbf{Left:} predicted in-sample return versus
-# realized out-of-sample return.  \textbf{Right:} the
+# portfolios.  **Left:** predicted in-sample return versus
+# realized out-of-sample return.  **Right:** the
 # out-of-sample loss $L(x)$ together with the absolute gradient
 # $|\partial L/\partial\sigma_{\max}|$ obtained from
-# \texttt{DiffOpt.jl}.  The gradient tells the practitioner which
+# `DiffOpt.jl`.  The gradient tells the practitioner which
 # way—and how aggressively—to adjust $\sigma_{\max}$ to reduce
 # forecast error; its value is computed in one reverse-mode call
 # without re-solving the optimization for perturbed risk limits.

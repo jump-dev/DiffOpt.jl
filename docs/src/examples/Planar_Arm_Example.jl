@@ -10,7 +10,7 @@
 # \min_{\theta_1,\theta_2} \;\; (\theta_1^2 + \theta_2^2),
 # \quad\text{s.t.}\quad f(\theta_1,\theta_2) = (x_t,y_t).
 # ```
-# Treat $(x_t,y_t)$ as parameters. Once solved, we differentiate w.r.t. $(x_t,y_t)$ to find how small changes in the target location alter the optimal angles---the *differential kinematics*.
+# Treat $(x_t,y_t)$ as parameters. Once solved, we differentiate w.r.t. $(x_t,y_t)$ to find how small changes in the target location alter the optimal angles - the *differential kinematics*.
 
 # ## Define and solve the 2-link planar arm problem and build sensitivity map of joint angles to target
 
@@ -27,12 +27,12 @@ using Plots.Measures
 
 # Fixed data
 
-# arm geometry
+# Arm geometry
 l1 = 1.0;
 l2 = 1.0;
 reach = l1 + l2          # 2.0
 tol = 1e-6               # numerical tolerance for feasibility
-# sampling grid in workspace
+# Sampling grid in workspace
 grid_res = 100
 xs = range(-reach, reach; length = grid_res)
 ys = range(-reach, reach; length = grid_res)
@@ -113,12 +113,11 @@ for (i, x_t) in enumerate(xs), (j, y_t) in enumerate(ys)
     ]
     heat[j, i] = opnorm(Jinv)            # σ_max  of Jinv
 end
-# replace nans with 0.0
+# Replace nans with 0.0
 heat = replace(heat, NaN => 0.0)
 
 # ## Results with Plot graphs
 
-# ------------------------  plots  --------------------------
 default(;
     size = (1150, 350),
     legendfontsize = 8,
@@ -138,7 +137,7 @@ plt = heatmap(
     bottom_margin = 5Plots.Measures.mm,
 )
 
-# overlay workspace boundary
+# Overlay workspace boundary
 θ = range(0, 2π; length = 200)
 plot!(plt, reach * cos.(θ), reach * sin.(θ); c = :white, lw = 1, lab = "reach")
 
