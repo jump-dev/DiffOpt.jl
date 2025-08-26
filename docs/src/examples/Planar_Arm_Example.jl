@@ -33,7 +33,7 @@ l2 = 1.0;
 reach = l1 + l2          # 2.0
 tol = 1e-6               # numerical tolerance for feasibility
 # Sampling grid in workspace
-grid_res = 50
+grid_res = 25 # grid resolution low for documentation compilation requirements
 xs = range(-reach, reach; length = grid_res)
 ys = range(-reach, reach; length = grid_res)
 
@@ -119,7 +119,7 @@ heat = replace(heat, NaN => 0.0)
 # ## Results with Plot graphs
 
 default(;
-    size = (600, 40),
+    size=(1150,350),
     legendfontsize = 8,
     guidefontsize = 9,
     tickfontsize = 7,
@@ -135,11 +135,11 @@ plt = heatmap(
     colorbar_title = "‖∂θ/∂(x,y)‖₂",
     left_margin = 5Plots.Measures.mm,
     bottom_margin = 5Plots.Measures.mm,
-)
+);
 
 # Overlay workspace boundary
 θ = range(0, 2π; length = 200)
-plot!(plt, reach * cos.(θ), reach * sin.(θ); c = :white, lw = 1, lab = "reach")
+plot!(plt, reach * cos.(θ), reach * sin.(θ); c = :white, lw = 1, lab = "reach");
 
 plt_feas = heatmap(
     xs,
@@ -166,9 +166,9 @@ plt_all = plot(
     plt,
     plt_feas;
     layout = (1, 2),
-    size = (600, 40),
     left_margin = 5Plots.Measures.mm,
     bottom_margin = 5Plots.Measures.mm,
+    legend = :bottomright,
 )
 
 # Left figure shows the spectral-norm heat-map
