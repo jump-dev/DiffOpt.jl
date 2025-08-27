@@ -450,4 +450,12 @@ function MOI.get(
     return MOI.get(model.model, attr, ci)
 end
 
+function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
+    return error("Not implemented")
+end
+
+function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
+    return error("Not implemented")
+end
+
 end

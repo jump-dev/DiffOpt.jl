@@ -536,6 +536,12 @@ function reverse_differentiate!(model::Optimizer)
             "Trying to compute the reverse differentiation on a model with termination status $(st)",
         )
     end
+    if !iszero(model.input_cache.dobj) &&
+       (!isempty(model.input_cache.dx) || !isempty(model.input_cache.dy))
+        error(
+            "Cannot compute the reverse differentiation with both solution sensitivities and objective sensitivities.",
+        )
+    end
     diff = _diff(model)
     MOI.set(
         diff,
@@ -547,6 +553,9 @@ function reverse_differentiate!(model::Optimizer)
     end
     for (vi, value) in model.input_cache.dy
         MOI.set(diff, ReverseConstraintDual(), model.index_map[vi], value)
+    end
+    if !iszero(model.input_cache.dobj)
+        MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
     end
     return reverse_differentiate!(diff)
 end
@@ -801,6 +810,10 @@ function MOI.get(
     )
 end
 
+function MOI.get(model::Optimizer, attr::ForwardObjectiveSensitivity)
+    return MOI.get(_checked_diff(model, attr, :forward_differentiate!), attr)
+end
+
 function MOI.supports(
     ::Optimizer,
     ::ReverseVariablePrimal,
@@ -850,6 +863,11 @@ function MOI.set(
     val,
 )
     model.input_cache.dy[ci] = val
+    return
+end
+
+function MOI.set(model::Optimizer, ::ReverseObjectiveSensitivity, val)
+    model.input_cache.dobj = val
     return
 end
 
