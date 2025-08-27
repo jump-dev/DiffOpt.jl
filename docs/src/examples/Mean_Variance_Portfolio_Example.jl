@@ -1,4 +1,4 @@
-# # Thermal Generation Dispatch Sweep Example
+# # Mean Variance Portfolio Example
 
 # Consider the Markowitz portfolio selection problem, which allocates weights $x \in \mathbb{R}^n$ to $n$ assets so as to maximize returns subject to a variance limit $v_{\max}$:
 # ```math
