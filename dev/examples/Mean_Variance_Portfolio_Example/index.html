@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Thermal Generation Dispatch Sweep Example · DiffOpt.jl</title><meta name="title" content="Thermal Generation Dispatch Sweep Example · DiffOpt.jl"/><meta property="og:title" content="Thermal Generation Dispatch Sweep Example · DiffOpt.jl"/><meta property="twitter:title" content="Thermal Generation Dispatch Sweep Example · DiffOpt.jl"/><meta name="description" content="Documentation for DiffOpt.jl."/><meta property="og:description" content="Documentation for DiffOpt.jl."/><meta property="twitter:description" content="Documentation for DiffOpt.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">DiffOpt.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../intro/">Introduction</a></li><li><a class="tocitem" href="../../manual/">Manual</a></li><li><a class="tocitem" href="../../usage/">Usage</a></li><li><a class="tocitem" href="../../reference/">Reference</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Thermal Generation Dispatch Sweep Example</a><ul class="internal"><li><a class="tocitem" href="#Define-and-solve-the-Mean-Variance-Portfolio-Problem-for-a-range-of-risk-limits"><span>Define and solve the Mean-Variance Portfolio Problem for a range of risk limits</span></a></li><li><a class="tocitem" href="#Results-with-Plot-graphs"><span>Results with Plot graphs</span></a></li></ul></li><li><a class="tocitem" href="../Planar_Arm_Example/">Planar Arm Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example_new/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_sweep/">Thermal Generation Dispatch Sweep Example</a></li><li><a class="tocitem" href="../autotuning-ridge/">Auto-tuning Hyperparameters</a></li><li><a class="tocitem" href="../autotuning-ridge_new/">Auto-tuning Hyperparameters (JuMP API)</a></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../chainrules_unit_new/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../custom-relu/">Custom ReLU layer</a></li><li><a class="tocitem" href="../custom-relu_new/">Custom ReLU layer</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../matrix-inversion-manual_new/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../nearest_correlation/">Nearest correlation</a></li><li><a class="tocitem" href="../nearest_correlation_new/">Nearest correlation</a></li><li><a class="tocitem" href="../polyhedral_project/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../polyhedral_project_new/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge_new/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm/">Sensitivity Analysis of SVM</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm_new/">Sensitivity Analysis of SVM</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Thermal Generation Dispatch Sweep Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Thermal Generation Dispatch Sweep Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Thermal-Generation-Dispatch-Sweep-Example"><a class="docs-heading-anchor" href="#Thermal-Generation-Dispatch-Sweep-Example">Thermal Generation Dispatch Sweep Example</a><a id="Thermal-Generation-Dispatch-Sweep-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Thermal-Generation-Dispatch-Sweep-Example" title="Permalink"></a></h1><p>Consider the Markowitz portfolio selection problem, which allocates weights <span>$x \in \mathbb{R}^n$</span> to <span>$n$</span> assets so as to maximize returns subject to a variance limit <span>$v_{\max}$</span>:</p><p class="math-container">\[\max_{x} \quad \mu^\top x
+\quad\text{s.t.}\quad
+x^\top \Sigma x \;\le\; v_{\max}, \quad
+\mathbf{1}^\top x = 1,\quad
+x \succeq 0,\]</p><p>where <span>$\mu$</span> is the vector of expected returns, <span>$\Sigma$</span> is the covariance matrix, and <span>$x$</span> must sum to 1 (fully invest the budget). An efficient conic version of this problem casts the variance limit as a second order cone constraint:</p><p class="math-container">\[\| \Sigma^{1/2} x \|_{2} \;\le\; \sigma_{\max}\]</p><p>where <span>$\Sigma^{1/2}$</span> is the Cholesky factorization of the covariance matrix and <span>$\sigma_{\max}$</span> is the standard deviation limit.</p><p>Practitioners often care about an \emph{out-of-sample performance metric} <span>$L(x)$</span> evaluated on test data or scenarios that differ from those used to form <span>$\mu$</span> and <span>$\Sigma$</span>. To assess the impact of the risk profile in the performance evaluation, one can compute:</p><p class="math-container">\[\frac{dL}{d\,\sigma_{\max}} \;=\;
+\underbrace{\frac{\partial L}{\partial x}}_{\text{(1) decision impact}}\;
+\cdot\;
+\underbrace{\frac{\partial x^*}{\partial \sigma_{\max}}}_{\text{(2) from DiffOpt.jl}},\]</p><p>where <span>$x^*(\sigma_{\max})$</span> is the portfolio that solves the conic Markowitz problem under a given risk limit.</p><h2 id="Define-and-solve-the-Mean-Variance-Portfolio-Problem-for-a-range-of-risk-limits"><a class="docs-heading-anchor" href="#Define-and-solve-the-Mean-Variance-Portfolio-Problem-for-a-range-of-risk-limits">Define and solve the Mean-Variance Portfolio Problem for a range of risk limits</a><a id="Define-and-solve-the-Mean-Variance-Portfolio-Problem-for-a-range-of-risk-limits-1"></a><a class="docs-heading-anchor-permalink" href="#Define-and-solve-the-Mean-Variance-Portfolio-Problem-for-a-range-of-risk-limits" title="Permalink"></a></h2><p>First, import the libraries.</p><pre><code class="language-julia hljs">using Test
+using JuMP
+import DiffOpt
+using LinearAlgebra
+import SCS
+using Plots
+using Plots.Measures</code></pre><p>Fixed data</p><p>Training data (in-sample)</p><pre><code class="language-julia hljs">Σ = [
+    0.002 0.0005 0.001
+    0.0005 0.003 0.0002
+    0.001 0.0002 0.0025
+]
+μ_train = [0.05, 0.08, 0.12]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+ 0.05
+ 0.08
+ 0.12</code></pre><p>Test data (out-of-sample)</p><pre><code class="language-julia hljs">μ_test = [0.02, -0.3, 0.1]             # simple forecast error example</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+  0.02
+ -0.3
+  0.1</code></pre><p>Sweep over σ_max</p><pre><code class="language-julia hljs">σ_grid = 0.002:0.002:0.06
+N = length(σ_grid)
+
+predicted_ret = zeros(N)                 # μ_train&#39; * x*
+realised_ret = zeros(N)                 # μ_test&#39;  * x*
+loss = zeros(N)                 # L(x*)
+dL_dσ = zeros(N)                 # ∂L/∂σ_max  from DiffOpt
+
+for (k, σ_val) in enumerate(σ_grid)
+
+    # 1) differentiable conic model
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(model)
+
+    # 2) parameter σ_max
+    @variable(model, σ_max in Parameter(σ_val))
+
+    # 3) portfolio weights
+    @variable(model, x[1:3] &gt;= 0)
+    @constraint(model, sum(x) &lt;= 1)
+
+    # 4) objective: maximise expected return (training data)
+    @objective(model, Max, dot(μ_train, x))
+
+    # 5) conic variance constraint  ||L*x|| &lt;= σ_max
+    L_chol = cholesky(Symmetric(Σ)).L
+    @variable(model, t &gt;= 0)
+    @constraint(model, [t; L_chol * x] in SecondOrderCone())
+    @constraint(model, t &lt;= σ_max)
+
+    optimize!(model)
+
+    x_opt = value.(x)
+    println(&quot;Optimal portfolio weights: &quot;, x_opt)
+
+    # store performance numbers
+    predicted_ret[k] = dot(μ_train, x_opt)
+    realised_ret[k] = dot(μ_test, x_opt)
+
+    # -------- reverse differentiation wrt σ_max --------
+    DiffOpt.empty_input_sensitivities!(model)
+    # ∂L/∂x   (adjoint)  =  -μ_test
+    DiffOpt.set_reverse_variable.(model, x, μ_test)
+    DiffOpt.reverse_differentiate!(model)
+    dL_dσ[k] = DiffOpt.get_reverse_parameter(model, σ_max)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Optimal portfolio weights: [5.658840610739365e-6, 0.018882734867448424, 0.03907243442891081]
+Optimal portfolio weights: [2.9615619577749345e-6, 0.03710076184568147, 0.07838697285139078]
+Optimal portfolio weights: [3.9910013314173664e-6, 0.05565731138250393, 0.11757663205503585]
+Optimal portfolio weights: [2.87610536394916e-5, 0.07467364261772505, 0.15655147380391396]
+Optimal portfolio weights: [5.533624864514992e-6, 0.09275568036221664, 0.19597607214347895]
+Optimal portfolio weights: [6.045266090474022e-6, 0.11131252558479116, 0.23515581300517177]
+Optimal portfolio weights: [6.794648067915429e-6, 0.1299586604405889, 0.274297015070987]
+Optimal portfolio weights: [3.2231106725818725e-6, 0.14841388889229973, 0.3135455555828517]
+Optimal portfolio weights: [5.69155012085509e-6, 0.1669701262218718, 0.35273221097379875]
+Optimal portfolio weights: [7.0239769786900575e-6, 0.1858022763711049, 0.3920032362468273]
+Optimal portfolio weights: [4.625005834765434e-6, 0.2040057967872567, 0.43115527968641965]
+Optimal portfolio weights: [5.727794365400229e-6, 0.22262094919774178, 0.4703006360363648]
+Optimal portfolio weights: [2.7606178387955075e-6, 0.2412201228264976, 0.5094959120067006]
+Optimal portfolio weights: [-4.011210804809348e-6, 0.25971799991642425, 0.5486899189727742]
+Optimal portfolio weights: [2.4831339383202443e-7, 0.27822041997195535, 0.5879285717690728]
+Optimal portfolio weights: [1.265623825856975e-7, 0.29683064703787815, 0.6270859990244294]
+Optimal portfolio weights: [2.8403640209926924e-8, 0.31538277336701637, 0.6662793615647071]
+Optimal portfolio weights: [-2.0006496362888272e-6, 0.24354374835842568, 0.756458201459553]
+Optimal portfolio weights: [1.3793346965544707e-6, 0.17088013855027953, 0.8291136723356591]
+Optimal portfolio weights: [1.1272822651327975e-5, 0.11344879862100907, 0.8865392792741486]
+Optimal portfolio weights: [-6.398848978782594e-9, 0.06232492177698473, 0.9376750967704772]
+Optimal portfolio weights: [2.950594238037073e-7, 0.014238262956888114, 0.98575899128837]
+Optimal portfolio weights: [-2.161503798854554e-5, -1.8791684432607876e-5, 1.000070778549155]
+Optimal portfolio weights: [-1.3066285169084386e-5, -1.3542094994945041e-5, 1.000048037096506]
+Optimal portfolio weights: [-1.3028821103253019e-5, -1.3498883909816854e-5, 1.0000479074416562]
+Optimal portfolio weights: [-1.3334204599601495e-5, -1.3812256923059167e-5, 1.00004903592973]
+Optimal portfolio weights: [-1.3095781404024467e-5, -1.3567686347469338e-5, 1.0000481547145874]
+Optimal portfolio weights: [-1.3398025908087403e-5, -1.3878512617563315e-5, 1.0000492703600532]
+Optimal portfolio weights: [-1.3439487712455741e-5, -1.3921342567582751e-5, 1.000049423052067]
+Optimal portfolio weights: [-1.3379282995708692e-5, -1.3859468989832669e-5, 1.0000492007495634]</code></pre><h2 id="Results-with-Plot-graphs"><a class="docs-heading-anchor" href="#Results-with-Plot-graphs">Results with Plot graphs</a><a id="Results-with-Plot-graphs-1"></a><a class="docs-heading-anchor-permalink" href="#Results-with-Plot-graphs" title="Permalink"></a></h2><pre><code class="language-julia hljs">default(;
+    size = (1150, 350),
+    legendfontsize = 8,
+    guidefontsize = 9,
+    tickfontsize = 7,
+)</code></pre><p>(a) predicted vs realised return</p><pre><code class="language-julia hljs">plt_ret = plot(
+    σ_grid,
+    realised_ret;
+    lw = 2,
+    label = &quot;Realised (test)&quot;,
+    xlabel = &quot;σ_max (risk limit)&quot;,
+    ylabel = &quot;Return&quot;,
+    title = &quot;Return vs risk limit&quot;,
+    legend = :bottomright,
+);
+plot!(
+    plt_ret,
+    σ_grid,
+    predicted_ret;
+    lw = 2,
+    ls = :dash,
+    label = &quot;Predicted (train)&quot;,
+);</code></pre><p>(b) out-of-sample loss and its gradient</p><pre><code class="language-julia hljs">plt_loss = plot(
+    σ_grid,
+    dL_dσ;
+    xlabel = &quot;σ_max (risk limit)&quot;,
+    ylabel = &quot;∂L/∂σ_max&quot;,
+    title = &quot;Return Gradient&quot;,
+    legend = false,
+);
+
+plot_all = plot(
+    plt_ret,
+    plt_loss;
+    layout = (1, 2),
+    left_margin = 5Plots.Measures.mm,
+    bottom_margin = 5Plots.Measures.mm,
+)</code></pre><img src="b6537368.svg" alt="Example block output"/><p>Impact of the risk limit <span>$\sigma_{\max}$</span> on Markowitz portfolios.  <strong>Left:</strong> predicted in-sample return versus realized out-of-sample return.  <strong>Right:</strong> the out-of-sample loss <span>$L(x)$</span> together with the absolute gradient <span>$|\partial L/\partial\sigma_{\max}|$</span> obtained from <code>DiffOpt.jl</code>.  The gradient tells the practitioner which way—and how aggressively—to adjust <span>$\sigma_{\max}$</span> to reduce forecast error; its value is computed in one reverse-mode call without re-solving the optimization for perturbed risk limits.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../reference/">« Reference</a><a class="docs-footer-nextpage" href="../Planar_Arm_Example/">Planar Arm Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 27 August 2025 08:20">Wednesday 27 August 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
