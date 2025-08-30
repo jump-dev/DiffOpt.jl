@@ -37,7 +37,7 @@ function diff_optimizer(
     add_poi =
         allow_parametric_opt_interface &&
         !MOI.supports_add_constrained_variable(
-            optimizer.model,
+            optimizer.model, # skip bridge that would convert parameter in EqualTo
             MOI.Parameter{Float64},
         )
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
@@ -45,17 +45,32 @@ function diff_optimizer(
     # implement some getters or it may be inefficient and 2) the getters may be
     # unimplemented or inefficient through some bridges.
     # For this reason we add a cache layer, the same cache JuMP adds.
+    # caching_opt = if with_outer_cache
+    #     MOI.Utilities.CachingOptimizer(
+    #         MOI.Utilities.UniversalFallback(
+    #             MOI.Utilities.Model{with_bridge_type}(),
+    #         ),
+    #         add_poi ? POI.Optimizer(optimizer) : optimizer,
+    #     )
+    # else
+    #     add_poi ? POI.Optimizer(optimizer) : optimizer
+    # end
     caching_opt = if with_outer_cache
         MOI.Utilities.CachingOptimizer(
             MOI.Utilities.UniversalFallback(
                 MOI.Utilities.Model{with_bridge_type}(),
             ),
-            add_poi ? POI.Optimizer(optimizer) : optimizer,
+            optimizer,
         )
     else
-        add_poi ? POI.Optimizer(optimizer) : optimizer
+        optimizer
     end
-    return Optimizer(caching_opt)
+    parametric = if add_poi
+        POI.Optimizer(caching_opt)
+    else
+        caching_opt
+    end
+    return Optimizer(parametric)
 end
 
 mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
