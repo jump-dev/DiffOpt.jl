@@ -77,7 +77,7 @@ function diff_reverse(model::Model, ϵ::Float64 = 1.0)
     perturbation = zeros(I + 1)
 
     # Loop for each primal variable
-    for i in 1:I+1
+    for i in 1:(I+1)
         # Set the perturbation in the Primal Variables and set the context to Backward
         perturbation[i] = ϵ
         MOI.set.(model, DiffOpt.ReverseVariablePrimal(), vect_ref, perturbation)
@@ -108,30 +108,30 @@ result_reverse = diff_reverse.(models);</code></pre><p>Organization of results t
     data_results[2, k, :] = result_reverse[k]
 end</code></pre><h2 id="Results-with-Plot-graphs"><a class="docs-heading-anchor" href="#Results-with-Plot-graphs">Results with Plot graphs</a><a id="Results-with-Plot-graphs-1"></a><a class="docs-heading-anchor-permalink" href="#Results-with-Plot-graphs" title="Permalink"></a></h2><h3 id="Results-for-the-forward-context"><a class="docs-heading-anchor" href="#Results-for-the-forward-context">Results for the forward context</a><a id="Results-for-the-forward-context-1"></a><a class="docs-heading-anchor-permalink" href="#Results-for-the-forward-context" title="Permalink"></a></h3><p>Result Primal Values:</p><pre><code class="language-julia hljs">Plots.plot(
     d,
-    data_results[1, :, 1:I+1];
+    data_results[1, :, 1:(I+1)];
     title = &quot;Generation by Demand&quot;,
     label = [&quot;Thermal Generation 1&quot; &quot;Thermal Generation 2&quot; &quot;Thermal Generation 3&quot; &quot;Generation Deficit&quot;],
     xlabel = &quot;Demand [unit]&quot;,
     ylabel = &quot;Generation [unit]&quot;,
-)</code></pre><img src="46447cc2.svg" alt="Example block output"/><p>Result Sensitivity Analysis:</p><pre><code class="language-julia hljs">Plots.plot(
+)</code></pre><img src="a8ddf8e0.svg" alt="Example block output"/><p>Result Sensitivity Analysis:</p><pre><code class="language-julia hljs">Plots.plot(
     d,
-    data_results[1, :, I+2:2*(I+1)];
+    data_results[1, :, (I+2):(2*(I+1))];
     title = &quot;Sensitivity of Generation by Demand&quot;,
     label = [&quot;T. Gen. 1 Sensitivity&quot; &quot;T. Gen. 2 Sensitivity&quot; &quot;T. Gen. 3 Sensitivity&quot; &quot;Gen. Deficit Sensitivity&quot;],
     xlabel = &quot;Demand [unit]&quot;,
     ylabel = &quot;Sensitivity [-]&quot;,
-)</code></pre><img src="1cbf4ba5.svg" alt="Example block output"/><h3 id="Results-for-the-reverse-context"><a class="docs-heading-anchor" href="#Results-for-the-reverse-context">Results for the reverse context</a><a id="Results-for-the-reverse-context-1"></a><a class="docs-heading-anchor-permalink" href="#Results-for-the-reverse-context" title="Permalink"></a></h3><p>Result Primal Values:</p><pre><code class="language-julia hljs">Plots.plot(
+)</code></pre><img src="f629fd93.svg" alt="Example block output"/><h3 id="Results-for-the-reverse-context"><a class="docs-heading-anchor" href="#Results-for-the-reverse-context">Results for the reverse context</a><a id="Results-for-the-reverse-context-1"></a><a class="docs-heading-anchor-permalink" href="#Results-for-the-reverse-context" title="Permalink"></a></h3><p>Result Primal Values:</p><pre><code class="language-julia hljs">Plots.plot(
     d,
-    data_results[2, :, 1:I+1];
+    data_results[2, :, 1:(I+1)];
     title = &quot;Generation by Demand&quot;,
     label = [&quot;Thermal Generation 1&quot; &quot;Thermal Generation 2&quot; &quot;Thermal Generation 3&quot; &quot;Generation Deficit&quot;],
     xlabel = &quot;Demand [unit]&quot;,
     ylabel = &quot;Generation [unit]&quot;,
-)</code></pre><img src="905c6cd2.svg" alt="Example block output"/><p>Result Sensitivity Analysis:</p><pre><code class="language-julia hljs">Plots.plot(
+)</code></pre><img src="2c6e8e39.svg" alt="Example block output"/><p>Result Sensitivity Analysis:</p><pre><code class="language-julia hljs">Plots.plot(
     d,
-    data_results[2, :, I+2:2*(I+1)];
+    data_results[2, :, (I+2):(2*(I+1))];
     title = &quot;Sensitivity of Generation by Demand&quot;,
     label = [&quot;T. Gen. 1 Sensitivity&quot; &quot;T. Gen. 2 Sensitivity&quot; &quot;T. Gen. 3 Sensitivity&quot; &quot;Gen. Deficit Sensitivity&quot;],
     xlabel = &quot;Demand [unit]&quot;,
     ylabel = &quot;Sensitivity [-]&quot;,
-)</code></pre><img src="946c3563.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Planar_Arm_Example/">« Planar Arm Example</a><a class="docs-footer-nextpage" href="../Thermal_Generation_Dispatch_Example_new/">Thermal Generation Dispatch Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Saturday 6 September 2025 08:19">Saturday 6 September 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="fa03555a.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Planar_Arm_Example/">« Planar Arm Example</a><a class="docs-footer-nextpage" href="../Thermal_Generation_Dispatch_Example_new/">Thermal Generation Dispatch Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Saturday 6 September 2025 08:31">Saturday 6 September 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

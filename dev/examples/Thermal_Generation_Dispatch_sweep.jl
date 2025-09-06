@@ -45,7 +45,7 @@ for (k, d_val) in enumerate(d_range)
 
     @variable(model, d in Parameter(d_val))          # parameter
     @variables(model, begin                          # decisions
-        0 <= g[i = 1:2] <= G[i]
+        0 <= g[i=1:2] <= G[i]
         φ >= 0
     end)
 
