@@ -49,7 +49,7 @@ function diff_optimizer(
         MOI.Utilities.CachingOptimizer(
             MOI.Utilities.UniversalFallback(
                 MOI.Utilities.Model{
-                    something(with_bridge_type, with_cache_type)
+                    something(with_bridge_type, with_cache_type),
                 }(),
             ),
             add_poi ? POI.Optimizer(optimizer) : optimizer,
