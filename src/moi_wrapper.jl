@@ -48,7 +48,9 @@ function diff_optimizer(
     caching_opt = if with_outer_cache
         MOI.Utilities.CachingOptimizer(
             MOI.Utilities.UniversalFallback(
-                MOI.Utilities.Model{something(with_bridge_type, with_cache_type)}(),
+                MOI.Utilities.Model{
+                    something(with_bridge_type, with_cache_type)
+                }(),
             ),
             add_poi ? POI.Optimizer(optimizer) : optimizer,
         )
