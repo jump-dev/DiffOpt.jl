@@ -109,8 +109,8 @@ function unit_commitment(
         model,
         Min,
         sum(
-            (Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for g in units,
-            t in 1:n_periods
+            (Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for
+            g in units, t in 1:n_periods
         ),
     )
 

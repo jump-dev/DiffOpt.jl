@@ -48,10 +48,10 @@ function (polytope::Polytope{N})(
     set_silent(model)
     @variable(model, x[1:layer_size, 1:batch_size])
     @variable(model, y[1:layer_size, 1:batch_size] in Parameter.(y_data))
-    @variable(model, b[idx = 1:N] in Parameter.(polytope.b[idx]))
+    @variable(model, b[idx=1:N] in Parameter.(polytope.b[idx]))
     @variable(
         model,
-        w[idx = 1:N, i = 1:layer_size] in Parameter(polytope.w[idx][i])
+        w[idx=1:N, i=1:layer_size] in Parameter(polytope.w[idx][i])
     )
     @constraint(
         model,
