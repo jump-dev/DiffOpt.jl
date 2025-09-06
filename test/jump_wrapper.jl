@@ -48,6 +48,7 @@ function test_jump_api()
         _min in [true, false],
         flip in [true, false],
         with_bridge_type in [Float64, nothing]
+
         if isnothing(with_bridge_type) && SOLVER === SCS.Optimizer
             continue
         end
