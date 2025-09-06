@@ -29,6 +29,9 @@ function diff_optimizer(
     with_outer_cache = true,
     allow_parametric_opt_interface = true,
 )
+    if isnothing(with_bridge_type) && !isnothing(with_cache_type)
+        with_outer_cache = false # Otherwise we'll have two caches in a row
+    end
     optimizer = MOI.instantiate(
         optimizer_constructor;
         with_bridge_type,
@@ -48,7 +51,7 @@ function diff_optimizer(
     caching_opt = if with_outer_cache
         MOI.Utilities.CachingOptimizer(
             MOI.Utilities.UniversalFallback(
-                MOI.Utilities.Model{something(with_bridge_type, Float64)}(),
+                MOI.Utilities.Model{with_bridge_type}(),
             ),
             add_poi ? POI.Optimizer(optimizer) : optimizer,
         )
