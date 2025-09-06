@@ -323,7 +323,7 @@ function DiffOpt.forward_differentiate!(model::Model)
             IterativeSolvers.lsqr(M, RHS)
         end
 
-        du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
+        du, dv, dw = dz[1:n], dz[(n+1):(n+m)], dz[n+m+1]
         model.forw_grad_cache = ForwCache(du, dv, [dw])
     end
     return nothing
@@ -439,7 +439,7 @@ function DiffOpt._get_dA(
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
     #return DiffOpt.lazy_combination(-, g, πz, n .+ i, 1:n)
-    return g[n.+i] * πz[1:n]' - πz[n.+i] * g[1:n]'
+    return g[n .+ i] * πz[1:n]' - πz[n .+ i] * g[1:n]'
 end
 
 function MOI.get(

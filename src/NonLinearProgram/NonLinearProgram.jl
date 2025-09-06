@@ -373,7 +373,7 @@ function _inertia_correction(
     max_corrections::Int = 50,
 ) where {T<:Real}
     diag_mat = ones(size(M, 1))
-    diag_mat[num_w+1:num_w+num_cons] .= -1
+    diag_mat[(num_w+1):(num_w+num_cons)] .= -1
     diag_mat = SparseArrays.spdiagm(diag_mat)
     J = M + st * diag_mat
     K = lu(J; check = false)
@@ -490,9 +490,9 @@ function _cache_evaluator!(model::Model)
     num_w = num_primal + num_slacks
     # Create index for dual variables
     index_duals = [
-        num_w+1:num_w+num_constraints
-        num_w+num_constraints+1:num_w+num_constraints+num_low
-        num_w+num_constraints+num_low+num_geq+1:num_w+num_constraints+num_low+num_geq+num_up
+        (num_w+1):(num_w+num_constraints)
+        (num_w+num_constraints+1):(num_w+num_constraints+num_low)
+        (num_w+num_constraints+num_low+num_geq+1):(num_w+num_constraints+num_low+num_geq+num_up)
     ]
     cons = sort(collect(keys(form.nlp_index_2_constraint)); by = x -> x.value)
 

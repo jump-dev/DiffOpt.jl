@@ -44,9 +44,9 @@ y = X * w_real + noise * randn(N)
 l = N ÷ 2  # test train split
 
 X_train = X[1:l, :]
-X_test = X[l+1:N, :]
+X_test = X[(l+1):N, :]
 y_train = y[1:l]
-y_test = y[l+1:N];
+y_test = y[(l+1):N];
 
 # ## Defining the regression problem
 
