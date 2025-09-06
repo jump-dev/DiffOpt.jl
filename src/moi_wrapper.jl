@@ -37,7 +37,7 @@ function diff_optimizer(
     add_poi =
         allow_parametric_opt_interface &&
         !MOI.supports_add_constrained_variable(
-            optimizer.model,
+            isnothing(with_bridge_type) ? optimizer : optimizer.model,
             MOI.Parameter{Float64},
         )
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
@@ -48,7 +48,7 @@ function diff_optimizer(
     caching_opt = if with_outer_cache
         MOI.Utilities.CachingOptimizer(
             MOI.Utilities.UniversalFallback(
-                MOI.Utilities.Model{with_bridge_type}(),
+                MOI.Utilities.Model{something(with_bridge_type, Float64)}(),
             ),
             add_poi ? POI.Optimizer(optimizer) : optimizer,
         )

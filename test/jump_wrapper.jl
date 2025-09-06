@@ -46,10 +46,14 @@ function test_jump_api()
         ],
         ineq in [true, false],
         _min in [true, false],
-        flip in [true, false]
+        flip in [true, false],
+        with_bridge_type in [Float64, nothing]
+        if isnothing(with_bridge_type) && SOLVER === SCS.Optimizer
+            continue
+        end
 
-        @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(_min ? "Min" : "Max"), $(flip ? "geq" : "leq")" begin
-            model = MODEL(SOLVER)
+        @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(_min ? "Min" : "Max"), $(flip ? "geq" : "leq") bridge:$with_bridge_type" begin
+            model = MODEL(SOLVER; with_bridge_type)
             set_silent(model)
 
             p_val = 4.0
