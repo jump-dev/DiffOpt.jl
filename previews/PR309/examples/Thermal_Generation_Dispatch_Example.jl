@@ -102,7 +102,7 @@ function diff_reverse(model::Model, ϵ::Float64 = 1.0)
     perturbation = zeros(I + 1)
 
     ## Loop for each primal variable
-    for i in 1:I+1
+    for i in 1:(I+1)
         ## Set the perturbation in the Primal Variables and set the context to Backward
         perturbation[i] = ϵ
         MOI.set.(model, DiffOpt.ReverseVariablePrimal(), vect_ref, perturbation)
@@ -156,7 +156,7 @@ end
 # Result Primal Values:
 Plots.plot(
     d,
-    data_results[1, :, 1:I+1];
+    data_results[1, :, 1:(I+1)];
     title = "Generation by Demand",
     label = ["Thermal Generation 1" "Thermal Generation 2" "Thermal Generation 3" "Generation Deficit"],
     xlabel = "Demand [unit]",
@@ -166,7 +166,7 @@ Plots.plot(
 # Result Sensitivity Analysis:
 Plots.plot(
     d,
-    data_results[1, :, I+2:2*(I+1)];
+    data_results[1, :, (I+2):(2*(I+1))];
     title = "Sensitivity of Generation by Demand",
     label = ["T. Gen. 1 Sensitivity" "T. Gen. 2 Sensitivity" "T. Gen. 3 Sensitivity" "Gen. Deficit Sensitivity"],
     xlabel = "Demand [unit]",
@@ -177,7 +177,7 @@ Plots.plot(
 # Result Primal Values:
 Plots.plot(
     d,
-    data_results[2, :, 1:I+1];
+    data_results[2, :, 1:(I+1)];
     title = "Generation by Demand",
     label = ["Thermal Generation 1" "Thermal Generation 2" "Thermal Generation 3" "Generation Deficit"],
     xlabel = "Demand [unit]",
@@ -187,7 +187,7 @@ Plots.plot(
 # Result Sensitivity Analysis:
 Plots.plot(
     d,
-    data_results[2, :, I+2:2*(I+1)];
+    data_results[2, :, (I+2):(2*(I+1))];
     title = "Sensitivity of Generation by Demand",
     label = ["T. Gen. 1 Sensitivity" "T. Gen. 2 Sensitivity" "T. Gen. 3 Sensitivity" "Gen. Deficit Sensitivity"],
     xlabel = "Demand [unit]",
