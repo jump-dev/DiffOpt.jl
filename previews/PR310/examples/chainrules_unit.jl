@@ -105,8 +105,8 @@ function unit_commitment(
         model,
         Min,
         sum(
-            (Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for g in units,
-            t in 1:n_periods
+            (Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for
+            g in units, t in 1:n_periods
         ),
     )
 
@@ -282,14 +282,13 @@ function ChainRulesCore.rrule(
         dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2, :]))
 
         ## computing derivative wrt constraint constant
-        dload1_demand =
-            JuMP.constant.(
-                MOI.get.(
-                    model,
-                    DiffOpt.ReverseConstraintFunction(),
-                    energy_balance_cons,
-                )
-            )
+        dload1_demand = JuMP.constant.(
+            MOI.get.(
+                model,
+                DiffOpt.ReverseConstraintFunction(),
+                energy_balance_cons,
+            ),
+        )
         dload2_demand = copy(dload1_demand)
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
     end
