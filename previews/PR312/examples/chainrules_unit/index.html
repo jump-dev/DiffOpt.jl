@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>ChainRules integration demo: Relaxed Unit Commitment · DiffOpt.jl</title><meta name="title" content="ChainRules integration demo: Relaxed Unit Commitment · DiffOpt.jl"/><meta property="og:title" content="ChainRules integration demo: Relaxed Unit Commitment · DiffOpt.jl"/><meta property="twitter:title" content="ChainRules integration demo: Relaxed Unit Commitment · DiffOpt.jl"/><meta name="description" content="Documentation for DiffOpt.jl."/><meta property="og:description" content="Documentation for DiffOpt.jl."/><meta property="twitter:description" content="Documentation for DiffOpt.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">DiffOpt.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../intro/">Introduction</a></li><li><a class="tocitem" href="../../manual/">Manual</a></li><li><a class="tocitem" href="../../usage/">Usage</a></li><li><a class="tocitem" href="../../reference/">Reference</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../Mean_Variance_Portfolio_Example/">Mean Variance Portfolio Example</a></li><li><a class="tocitem" href="../Planar_Arm_Example/">Planar Arm Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example_new/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_sweep/">Thermal Generation Dispatch Sweep Example</a></li><li><a class="tocitem" href="../autotuning-ridge/">Auto-tuning Hyperparameters</a></li><li><a class="tocitem" href="../autotuning-ridge_new/">Auto-tuning Hyperparameters (JuMP API)</a></li><li class="is-active"><a class="tocitem" href>ChainRules integration demo: Relaxed Unit Commitment</a><ul class="internal"><li><a class="tocitem" href="#Unit-commitment-problem"><span>Unit commitment problem</span></a></li><li><a class="tocitem" href="#Primal-UC-problem"><span>Primal UC problem</span></a></li><li><a class="tocitem" href="#Perturbation-of-a-single-input-parameter"><span>Perturbation of a single input parameter</span></a></li><li><a class="tocitem" href="#Forward-Differentiation"><span>Forward Differentiation</span></a></li><li class="toplevel"><a class="tocitem" href="#Reverse-mode-differentiation-of-the-solution-map"><span>Reverse-mode differentiation of the solution map</span></a></li></ul></li><li><a class="tocitem" href="../chainrules_unit_new/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../custom-relu/">Custom ReLU layer</a></li><li><a class="tocitem" href="../custom-relu_new/">Custom ReLU layer</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../matrix-inversion-manual_new/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../nearest_correlation/">Nearest correlation</a></li><li><a class="tocitem" href="../nearest_correlation_new/">Nearest correlation</a></li><li><a class="tocitem" href="../polyhedral_project/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../polyhedral_project_new/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge_new/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm/">Sensitivity Analysis of SVM</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm_new/">Sensitivity Analysis of SVM</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>ChainRules integration demo: Relaxed Unit Commitment</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>ChainRules integration demo: Relaxed Unit Commitment</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="ChainRules-integration-demo:-Relaxed-Unit-Commitment"><a class="docs-heading-anchor" href="#ChainRules-integration-demo:-Relaxed-Unit-Commitment">ChainRules integration demo: Relaxed Unit Commitment</a><a id="ChainRules-integration-demo:-Relaxed-Unit-Commitment-1"></a><a class="docs-heading-anchor-permalink" href="#ChainRules-integration-demo:-Relaxed-Unit-Commitment" title="Permalink"></a></h1><p><a href="https://github.com/jump-dev/DiffOpt.jl/blob/master/docs/src/examples/chainrules_unit.jl"><img src="https://img.shields.io/badge/show-github-579ACA.svg" alt/></a></p><p>In this example, we will demonstrate the integration of DiffOpt with <a href="https://juliadiff.org/ChainRulesCore.jl/stable/">ChainRulesCore.jl</a>, the library allowing the definition of derivatives for functions that can then be used by automatic differentiation systems.</p><pre><code class="language-julia hljs">using JuMP
+import DiffOpt
+import Plots
+import LinearAlgebra: ⋅
+import HiGHS
+import ChainRulesCore</code></pre><h2 id="Unit-commitment-problem"><a class="docs-heading-anchor" href="#Unit-commitment-problem">Unit commitment problem</a><a id="Unit-commitment-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Unit-commitment-problem" title="Permalink"></a></h2><p>We will consider a unit commitment problem, finding the cost-minimizing activation of generation units in a power network over multiple time periods. The considered constraints include:</p><ul><li>Demand satisfaction of several loads</li><li>Ramping constraints</li><li>Generation limits.</li></ul><p>The decisions are:</p><ul><li><span>$u_{it} \in \{0,1\}$</span>: activation of the <span>$i$</span>-th unit at time <span>$t$</span></li><li><span>$p_{it}$</span>: power output of the <span>$i$</span>-th unit at time <span>$t$</span>.</li></ul><p>DiffOpt handles convex optimization problems only, we therefore relax the domain of the <span>$u_{it}$</span> variables to <span>$\left[0,1\right]$</span>.</p><h2 id="Primal-UC-problem"><a class="docs-heading-anchor" href="#Primal-UC-problem">Primal UC problem</a><a id="Primal-UC-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Primal-UC-problem" title="Permalink"></a></h2><p>ChainRules defines the differentiation of functions. The actual function that is differentiated in the context of DiffOpt is the solution map taking in input the problem parameters and returning the solution.</p><pre><code class="language-julia hljs">function unit_commitment(
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs;
+    model = Model(HiGHS.Optimizer),
+    silent = false,
+)
+    MOI.set(model, MOI.Silent(), silent)
+
+    # Problem data
+    units = [1, 2] # Generator identifiers
+    load_names = [&quot;Load1&quot;, &quot;Load2&quot;] # Load identifiers
+    n_periods = 4 # Number of time periods
+    Pmin = Dict(1 =&gt; fill(0.5, n_periods), 2 =&gt; fill(0.5, n_periods)) # Minimum power output (pu)
+    Pmax = Dict(1 =&gt; fill(3.0, n_periods), 2 =&gt; fill(3.0, n_periods)) # Maximum power output (pu)
+    RR = Dict(1 =&gt; 0.25, 2 =&gt; 0.25) # Ramp rates (pu/min)
+    P0 = Dict(1 =&gt; 0.0, 2 =&gt; 0.0) # Initial power output (pu)
+    D = Dict(&quot;Load1&quot; =&gt; load1_demand, &quot;Load2&quot; =&gt; load2_demand) # Demand (pu)
+    Cp = Dict(1 =&gt; gen_costs[1], 2 =&gt; gen_costs[2]) # Generation cost coefficient ($/pu)
+    Cnl = Dict(1 =&gt; noload_costs[1], 2 =&gt; noload_costs[2]) # No-load cost ($)
+
+    # Variables
+    # Note: u represents the activation of generation units.
+    # Would be binary in the typical UC problem, relaxed here to u ∈ [0,1]
+    # for a linear relaxation.
+    @variable(model, 0 &lt;= u[g in units, t in 1:n_periods] &lt;= 1) # Commitment
+    @variable(model, p[g in units, t in 1:n_periods] &gt;= 0) # Power output (pu)
+
+    # Constraints
+
+    # Energy balance
+    @constraint(
+        model,
+        energy_balance_cons[t in 1:n_periods],
+        sum(p[g, t] for g in units) == sum(D[l][t] for l in load_names),
+    )
+
+    # Generation limits
+    @constraint(
+        model,
+        [g in units, t in 1:n_periods],
+        Pmin[g][t] * u[g, t] &lt;= p[g, t]
+    )
+    @constraint(
+        model,
+        [g in units, t in 1:n_periods],
+        p[g, t] &lt;= Pmax[g][t] * u[g, t]
+    )
+
+    # Ramp rates
+    @constraint(
+        model,
+        [g in units, t in 2:n_periods],
+        p[g, t] - p[g, t-1] &lt;= 60 * RR[g]
+    )
+    @constraint(model, [g in units], p[g, 1] - P0[g] &lt;= 60 * RR[g])
+    @constraint(
+        model,
+        [g in units, t in 2:n_periods],
+        p[g, t-1] - p[g, t] &lt;= 60 * RR[g]
+    )
+    @constraint(model, [g in units], P0[g] - p[g, 1] &lt;= 60 * RR[g])
+
+    # Objective
+    @objective(
+        model,
+        Min,
+        sum(
+            (Cp[g] * p[g, t]) + (Cnl[g] * u[g, t]) for
+            g in units, t in 1:n_periods
+        ),
+    )
+
+    optimize!(model)
+    # asserting finite optimal value
+    @assert termination_status(model) == MOI.OPTIMAL
+    # converting to dense matrix
+    return JuMP.value.(p.data)
+end
+
+m = Model(HiGHS.Optimizer)
+@show unit_commitment(
+    [1.0, 1.2, 1.4, 1.6],
+    [1.0, 1.2, 1.4, 1.6],
+    [1000.0, 1500.0],
+    [500.0, 1000.0],
+    model = m,
+    silent = true,
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×4 Matrix{Float64}:
+ 2.0  2.4  2.8  3.0
+ 0.0  0.0  0.0  0.2</code></pre><h2 id="Perturbation-of-a-single-input-parameter"><a class="docs-heading-anchor" href="#Perturbation-of-a-single-input-parameter">Perturbation of a single input parameter</a><a id="Perturbation-of-a-single-input-parameter-1"></a><a class="docs-heading-anchor-permalink" href="#Perturbation-of-a-single-input-parameter" title="Permalink"></a></h2><p>Let us vary the demand at the second time frame on both loads:</p><pre><code class="language-julia hljs">demand_values = 0.05:0.05:3.0
+pvalues = map(demand_values) do di
+    return unit_commitment(
+        [1.0, di, 1.4, 1.6],
+        [1.0, di, 1.4, 1.6],
+        [1000.0, 1500.0],
+        [500.0, 1000.0];
+        silent = true,
+    )
+end
+pflat = [getindex.(pvalues, i) for i in eachindex(pvalues[1])];</code></pre><p>The influence of this variation of the demand is piecewise linear on the generation at different time frames:</p><pre><code class="language-julia hljs">Plots.scatter(demand_values, pflat; xaxis = (&quot;Demand&quot;), yaxis = (&quot;Generation&quot;))
+Plots.title!(&quot;Different time frames and generators&quot;)
+Plots.xlims!(0.0, 3.5)</code></pre><img src="f37d5cb5.svg" alt="Example block output"/><h2 id="Forward-Differentiation"><a class="docs-heading-anchor" href="#Forward-Differentiation">Forward Differentiation</a><a id="Forward-Differentiation-1"></a><a class="docs-heading-anchor-permalink" href="#Forward-Differentiation" title="Permalink"></a></h2><p>Forward differentiation rule for the solution map of the unit commitment problem. It takes as arguments:</p><ol><li>the perturbations on the input parameters</li><li>the differentiated function</li><li>the primal values of the input parameters,</li></ol><p>and returns a tuple <code>(primal_output, perturbations)</code>, the main primal result and the perturbation propagated to this result:</p><pre><code class="language-julia hljs">function ChainRulesCore.frule(
+    (_, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs),
+    ::typeof(unit_commitment),
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs;
+    optimizer = HiGHS.Optimizer,
+)
+    # creating the UC model with a DiffOpt optimizer wrapper around HiGHS
+    model = Model(() -&gt; DiffOpt.diff_optimizer(optimizer))
+    # building and solving the main model
+    pv = unit_commitment(
+        load1_demand,
+        load2_demand,
+        gen_costs,
+        noload_costs;
+        model = model,
+    )
+    energy_balance_cons = model[:energy_balance_cons]
+
+    # Setting some perturbation of the energy balance constraints
+    # Perturbations are set as MOI functions
+    Δenergy_balance = [
+        convert(MOI.ScalarAffineFunction{Float64}, d1 + d2) for
+        (d1, d2) in zip(Δload1_demand, Δload2_demand)
+    ]
+    MOI.set.(
+        model,
+        DiffOpt.ForwardConstraintFunction(),
+        energy_balance_cons,
+        Δenergy_balance,
+    )
+
+    p = model[:p]
+    u = model[:u]
+
+    # setting the perturbation of the linear objective
+    Δobj =
+        sum(Δgen_costs ⋅ p[:, t] + Δnoload_costs ⋅ u[:, t] for t in size(p, 2))
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), Δobj)
+    DiffOpt.forward_differentiate!(JuMP.backend(model))
+    # querying the corresponding perturbation of the decision
+    Δp = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), p)
+    return (pv, Δp.data)
+end</code></pre><p>We can now compute the perturbation of the output powers <code>Δpv</code> for a perturbation of the first load demand at time 2:</p><pre><code class="language-julia hljs">load1_demand = [1.0, 1.0, 1.4, 1.6]
+load2_demand = [1.0, 1.0, 1.4, 1.6]
+gen_costs = [1000.0, 1500.0]
+noload_costs = [500.0, 1000.0];</code></pre><p>all input perturbations are 0 except first load at time 2</p><pre><code class="language-julia hljs">Δload1_demand = 0 * load1_demand
+Δload1_demand[2] = 1.0
+Δload2_demand = 0 * load2_demand
+Δgen_costs = 0 * gen_costs
+Δnoload_costs = 0 * noload_costs
+(pv, Δpv) = ChainRulesCore.frule(
+    (nothing, Δload1_demand, Δload2_demand, Δgen_costs, Δnoload_costs),
+    unit_commitment,
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs,
+)
+
+Δpv</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×4 Matrix{Float64}:
+ -0.0  -1.0          -0.0  -0.0
+ -0.0   1.01536e-16  -0.0  -0.0</code></pre><p>The result matches what we observe in the previous figure: the generation of the first generator at the second time frame (third element on the plot).</p><h1 id="Reverse-mode-differentiation-of-the-solution-map"><a class="docs-heading-anchor" href="#Reverse-mode-differentiation-of-the-solution-map">Reverse-mode differentiation of the solution map</a><a id="Reverse-mode-differentiation-of-the-solution-map-1"></a><a class="docs-heading-anchor-permalink" href="#Reverse-mode-differentiation-of-the-solution-map" title="Permalink"></a></h1><p>The <code>rrule</code> returns the primal and a pullback. The pullback takes a seed for the optimal solution <code>̄p</code> and returns derivatives with respect to each input parameter of the function.</p><pre><code class="language-julia hljs">function ChainRulesCore.rrule(
+    ::typeof(unit_commitment),
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs;
+    optimizer = HiGHS.Optimizer,
+    silent = false,
+)
+    model = Model(() -&gt; DiffOpt.diff_optimizer(optimizer))
+    # solve the forward UC problem
+    pv = unit_commitment(
+        load1_demand,
+        load2_demand,
+        gen_costs,
+        noload_costs;
+        model = model,
+        silent = silent,
+    )
+    function pullback_unit_commitment(pb)
+        p = model[:p]
+        u = model[:u]
+        energy_balance_cons = model[:energy_balance_cons]
+
+        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), p, pb)
+        DiffOpt.reverse_differentiate!(JuMP.backend(model))
+
+        obj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
+
+        # computing derivative wrt linear objective costs
+        dgen_costs = similar(gen_costs)
+        dgen_costs[1] = sum(JuMP.coefficient.(obj, p[1, :]))
+        dgen_costs[2] = sum(JuMP.coefficient.(obj, p[2, :]))
+
+        dnoload_costs = similar(noload_costs)
+        dnoload_costs[1] = sum(JuMP.coefficient.(obj, u[1, :]))
+        dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2, :]))
+
+        # computing derivative wrt constraint constant
+        dload1_demand = JuMP.constant.(
+            MOI.get.(
+                model,
+                DiffOpt.ReverseConstraintFunction(),
+                energy_balance_cons,
+            ),
+        )
+        dload2_demand = copy(dload1_demand)
+        return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
+    end
+    return (pv, pullback_unit_commitment)
+end</code></pre><p>We can set a seed of one on the power of the first generator at the second time frame and zero for all other parts of the solution:</p><pre><code class="language-julia hljs">(pv, pullback_unit_commitment) = ChainRulesCore.rrule(
+    unit_commitment,
+    load1_demand,
+    load2_demand,
+    gen_costs,
+    noload_costs;
+    optimizer = HiGHS.Optimizer,
+    silent = true,
+)
+dpv = 0 * pv
+dpv[1, 2] = 1
+dargs = pullback_unit_commitment(dpv)
+(dload1_demand, dload2_demand, dgen_costs, dnoload_costs) = dargs;</code></pre><p>The sensitivities with respect to the load demands are:</p><pre><code class="language-julia hljs">dload1_demand</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4-element Vector{Float64}:
+ -0.0
+ -0.9999999999999998
+ -0.0
+ -0.0</code></pre><p>and:</p><pre><code class="language-julia hljs">dload2_demand</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4-element Vector{Float64}:
+ -0.0
+ -0.9999999999999998
+ -0.0
+ -0.0</code></pre><p>The sensitivity of the generation is propagated to the sensitivity of both loads at the second time frame.</p><p>This example integrating ChainRules was designed with support from <a href="https://www.invenia.ca/">Invenia Technical Computing</a>.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../autotuning-ridge_new/">« Auto-tuning Hyperparameters (JuMP API)</a><a class="docs-footer-nextpage" href="../chainrules_unit_new/">ChainRules integration demo: Relaxed Unit Commitment »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Monday 8 September 2025 08:23">Monday 8 September 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
