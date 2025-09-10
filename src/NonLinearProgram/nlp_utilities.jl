@@ -359,38 +359,23 @@ function _build_sensitivity_matrices(
     # Based on the implicit function diferentiation method used in sIpopt to derive sensitivities
     # Ref: sIPOPT paper https://optimization-online.org/wp-content/uploads/2011/04/3008.pdf.
     # M = [
-    #     [W A' -I I];
-    #     [A 0 0 0];
-    #     [V_L 0 (X - X_L) 0]
-    #     [V_U 0 0 0 (X_U - X)]
+    #     [W   A' -I       I        ];
+    #     [A   0   0       0        ];
+    #     [V_L 0   (X-X_L) 0        ]
+    #     [V_U 0   0       (X_U - X)]
     # ]
-    len_w = num_vars + num_ineq
-    M = spzeros(
-        len_w + num_cons + num_low + num_up,
-        len_w + num_cons + num_low + num_up,
-    )
-
-    M[1:len_w, 1:len_w] = W
-    M[1:len_w, (len_w+1):(len_w+num_cons)] = A'
-    M[(len_w+1):(len_w+num_cons), 1:len_w] = A
-    M[1:len_w, (len_w+num_cons+1):(len_w+num_cons+num_low)] = I_L
-    M[(len_w+num_cons+1):(len_w+num_cons+num_low), 1:len_w] = V_L
-    M[
-        (len_w+num_cons+1):(len_w+num_cons+num_low),
-        (len_w+num_cons+1):(len_w+num_cons+num_low),
-    ] = X_lb
-    M[(len_w+num_cons+num_low+1):(len_w+num_cons+num_low+num_up), 1:len_w] = V_U
-    M[
-        (len_w+num_cons+num_low+1):(len_w+num_cons+num_low+num_up),
-        (len_w+num_cons+num_low+1):(len_w+num_cons+num_low+num_up),
-    ] = X_ub
-    M[1:len_w, (len_w+num_cons+num_low+1):end] = I_U
-
+    M = [
+        W A' I_L I_U;
+        A spzeros(num_cons, num_cons) spzeros(num_cons, num_low) spzeros(num_cons, num_up);
+        V_L spzeros(num_low, num_cons) X_lb spzeros(num_low, num_up);
+        V_U spzeros(num_up, num_cons) spzeros(num_up, num_low) X_ub;
+    ]
     # N matrix
-    # N = [∇ₓₚL ; ∇ₚC; zeros(num_low + num_up, num_parms)]
-    N = spzeros(len_w + num_cons + num_low + num_up, num_parms)
-    N[1:len_w, :] = ∇ₓₚL
-    N[(len_w+1):(len_w+num_cons), :] = ∇ₚC
+    N = [
+        ∇ₓₚL;
+        ∇ₚC;
+        spzeros(num_low + num_up, num_parms);
+    ]
 
     return M, N
 end
