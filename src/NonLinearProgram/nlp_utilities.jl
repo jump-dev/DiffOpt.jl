@@ -487,7 +487,7 @@ function _compute_sensitivity(model::Model; tol = 1e-6)
     # Dual bounds lower
     ∂s[(num_w+num_cons+1):(num_w+num_cons+num_lower), :] *= _sense_multiplier
     # Dual bounds upper
-    ∂s[(num_w+num_cons+num_lower+1:end), :] *= -_sense_multiplier
+    ∂s[(num_w+num_cons+num_lower+1):end, :] *= -_sense_multiplier
 
     # dual wrt parameter
     primal_idx = [i.value for i in model.cache.primal_vars]
