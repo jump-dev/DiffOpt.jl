@@ -145,12 +145,14 @@ DiffOpt.forward_differentiate!(model)
 
 Using Lagrangian duality we could already calculate the objective sensitivity with respect to parameters that appear as constants of the constraints (e.g, `cons` in this case for parameter `p`) - i.e. The objective sensitivity w.r.t. a constant parameter change is given by the optimal multiplier.
 
-On the other hand, if the parameter appears as a coefficient of the constraints, we can calculate the objective sensitivity with respect to the parameter using: the sensitivities of the variables with respect to the parameter, \( \frac{\partial x}{\partial p} \), and the gradient of the objective with respect to the variables \( \frac{\partial f}{\partial x} \):
+On the other hand, if the parameter appears as a coefficient of the constraints, one can calculate the objective sensitivity with respect to the parameter using the sensitivities of the variables with respect to the parameter, \( \frac{\partial x}{\partial p} \), and the gradient of the objective with respect to the variables \( \frac{\partial f}{\partial x} \):
 
 ```math
 \frac{\partial f}{\partial p} = \frac{\partial f}{\partial x} \frac{\partial x}{\partial p}
 ```
  - A consequence of the chain-rule.
+
+Note that, if the parameter appears as a constant in a constraint, the objective sensitivity calculated through solution sensitivity is equivalent to the optimal multiplier associated with the constraint. 
 
 In order to calculate the objective perturbation with respect to the parameter perturbation vector, we can use the following code:
 
@@ -183,3 +185,10 @@ MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p))
 ```
 
 It is important to note that the (reverse) parameter perturbation given an objective perturbation is somewhat equivalent to the perturbation with respect to solution (since one can be calculated from the other). Therefore, one cannot set both the objective sensitivity (`DiffOpt.ReverseObjectiveSensitivity`) and the solution sensitivity (e.g. `DiffOpt.ReverseVariablePrimal`) at the same time - the code will throw an error if you try to do so.
+
+**Dual Objective Sensitivity**
+
+In addition to the primal objective sensitivity, one could also calculate the dual objective sensitivity with respect to the parameters. The dual objective sensitivity is calculated using the optimal solution of the dual problem and the sensitivities of the dual variables with respect to the parameters.
+This is currently not implemented for any problem class, but will be available in future releases.
+
+Note that the dual objective sensitivity is equivalent to the primal objective sensitivity problems where strong duality holds.
