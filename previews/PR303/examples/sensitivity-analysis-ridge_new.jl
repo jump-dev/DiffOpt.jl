@@ -68,7 +68,7 @@ function build_fit_ridge(X_data, Y_data, alpha = 0.1)
     @variable(model, X[1:N] in Parameter.(X_data))
     @variable(model, Y[1:N] in Parameter.(Y_data))
     ## expression defining approximation error
-    @expression(model, e[i = 1:N], Y[i] - w * X[i] - b)
+    @expression(model, e[i=1:N], Y[i] - w * X[i] - b)
     ## objective minimizing squared error and ridge penalty
     @objective(model, Min, 1 / N * dot(e, e) + α * (w^2))
     optimize!(model)

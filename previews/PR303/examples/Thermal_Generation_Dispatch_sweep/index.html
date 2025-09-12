@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Thermal Generation Dispatch Sweep Example · DiffOpt.jl</title><meta name="title" content="Thermal Generation Dispatch Sweep Example · DiffOpt.jl"/><meta property="og:title" content="Thermal Generation Dispatch Sweep Example · DiffOpt.jl"/><meta property="twitter:title" content="Thermal Generation Dispatch Sweep Example · DiffOpt.jl"/><meta name="description" content="Documentation for DiffOpt.jl."/><meta property="og:description" content="Documentation for DiffOpt.jl."/><meta property="twitter:description" content="Documentation for DiffOpt.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">DiffOpt.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../intro/">Introduction</a></li><li><a class="tocitem" href="../../manual/">Manual</a></li><li><a class="tocitem" href="../../usage/">Usage</a></li><li><a class="tocitem" href="../../reference/">Reference</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../Mean_Variance_Portfolio_Example/">Mean Variance Portfolio Example</a></li><li><a class="tocitem" href="../Planar_Arm_Example/">Planar Arm Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example_new/">Thermal Generation Dispatch Example</a></li><li class="is-active"><a class="tocitem" href>Thermal Generation Dispatch Sweep Example</a><ul class="internal"><li><a class="tocitem" href="#Define-and-solve-the-Thermal-Dispatch-Problem-for-a-range-of-demands"><span>Define and solve the Thermal Dispatch Problem for a range of demands</span></a></li><li><a class="tocitem" href="#Results-with-Plot-graphs"><span>Results with Plot graphs</span></a></li></ul></li><li><a class="tocitem" href="../autotuning-ridge/">Auto-tuning Hyperparameters</a></li><li><a class="tocitem" href="../autotuning-ridge_new/">Auto-tuning Hyperparameters (JuMP API)</a></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../chainrules_unit_new/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../custom-relu/">Custom ReLU layer</a></li><li><a class="tocitem" href="../custom-relu_new/">Custom ReLU layer</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../matrix-inversion-manual_new/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../nearest_correlation/">Nearest correlation</a></li><li><a class="tocitem" href="../nearest_correlation_new/">Nearest correlation</a></li><li><a class="tocitem" href="../polyhedral_project/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../polyhedral_project_new/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge_new/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm/">Sensitivity Analysis of SVM</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm_new/">Sensitivity Analysis of SVM</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Thermal Generation Dispatch Sweep Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Thermal Generation Dispatch Sweep Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Thermal-Generation-Dispatch-Sweep-Example"><a class="docs-heading-anchor" href="#Thermal-Generation-Dispatch-Sweep-Example">Thermal Generation Dispatch Sweep Example</a><a id="Thermal-Generation-Dispatch-Sweep-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Thermal-Generation-Dispatch-Sweep-Example" title="Permalink"></a></h1><p>A classic application is to allocate power generation to meet a demand <span>$d$</span> at minimum cost, subject to capacity limits. We consider a simplified economic dispatch problem:</p><p class="math-container">\[\begin{align*}
+\min_{g_i \ge 0,\;\phi \ge 0} &amp; \quad \sum_{i=1}^n c_i\,g_i + \sum_{i=1}^n c_{2,i}\,g_i^2  + c_\phi \,\phi \\
+\text{s.t.} &amp; \quad \sum_{i=1}^n g_i + \phi \;=\; d, \quad (:\lambda)\\
+&amp; \quad 0 \;\le\; g_i \;\le\; G_i, \quad i=1,\dots,n,
+\end{align*}\]</p><p>where <span>$g_i$</span> is the power generated by plant <span>$i$</span>, each with linear unit cost <span>$c_i$</span>, quadratic cost component <span>$c_{2,i}$</span> and capacity <span>$G_i$</span>, and <span>$\phi$</span> is unmet demand with penalty <span>$c_\phi$</span>. We treat <span>$d$</span> (the system demand) as a parameter. Differentiating through this QP quantifies how optimal generation shifts as demand changes.</p><p>When <span>$d$</span> changes by a small amount, <code>DiffOpt.forward\_differentiate!</code> solves a linear system capturing the KKT conditions, revealing how <span>$g_1^*$</span>, <span>$g_2^*$</span>, and <span>$\phi^*$</span> shift with respect to <span>$d$</span>. These sensitivities are critical for power systems operators to understand how different plants ramp up or down as demand fluctuates.</p><h2 id="Define-and-solve-the-Thermal-Dispatch-Problem-for-a-range-of-demands"><a class="docs-heading-anchor" href="#Define-and-solve-the-Thermal-Dispatch-Problem-for-a-range-of-demands">Define and solve the Thermal Dispatch Problem for a range of demands</a><a id="Define-and-solve-the-Thermal-Dispatch-Problem-for-a-range-of-demands-1"></a><a class="docs-heading-anchor-permalink" href="#Define-and-solve-the-Thermal-Dispatch-Problem-for-a-range-of-demands" title="Permalink"></a></h2><p>First, import the libraries.</p><pre><code class="language-julia hljs">using Test
+using JuMP
+import DiffOpt
+import HiGHS
+using Plots
+using Plots.Measures</code></pre><p>Fixed data</p><pre><code class="language-julia hljs">c = [20.0, 30.0]        # linear cost ($/MWh)
+c2 = [0.2, 0.1]        # quadratic cost ($/MWh²)
+G = [150.0, 80.0]      # capacities (MW)
+cφ = 10_000.0            # penalty for unmet demand ($/MWh)
+
+d_range = 11.0:4.0:300.0 # demand sweep (MW) – slightly coarser for clarity
+N = length(d_range)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">73</code></pre><p>Storage for results</p><pre><code class="language-julia hljs">g1, g2, _φ = zeros(N), zeros(N), zeros(N)
+dg1_dd, dg2_dd = zeros(N), zeros(N)
+dφ_dd, dJ_dd = zeros(N), zeros(N)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])</code></pre><p>Sweep &amp; Differentiation</p><pre><code class="language-julia hljs">for (k, d_val) in enumerate(d_range)
+    println(&quot;Demand: &quot;, k, &quot; of &quot;, N, &quot; (&quot;, d_val, &quot;)&quot;)
+    model = DiffOpt.quadratic_diff_model(HiGHS.Optimizer)
+    set_silent(model)
+
+    @variable(model, d in Parameter(d_val))          # parameter
+    @variables(model, begin                          # decisions
+        0 &lt;= g[i=1:2] &lt;= G[i]
+        φ &gt;= 0
+    end)
+
+    @objective(
+        model,
+        Min,                           # cost
+        sum(c[i] * g[i] + c2[i] * g[i]^2 for i in 1:2) + cφ * φ
+    )
+
+    @constraint(model, con, sum(g) + φ == d)              # balance
+
+    optimize!(model)
+
+    # ---------- store primal results ----------
+    g1[k] = value(g[1])
+    g2[k] = value(g[2])
+    _φ[k] = value(φ)
+
+    # ---------- forward sensitivities ----------
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, d, 1.0)
+    DiffOpt.forward_differentiate!(model)
+
+    dg1_dd[k] = DiffOpt.get_forward_variable(model, g[1])
+    dg2_dd[k] = DiffOpt.get_forward_variable(model, g[2])
+    dφ_dd[k] = DiffOpt.get_forward_variable(model, φ)
+
+    # marginal cost  λ
+    dJ_dd[k] = dual.(con)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Demand: 1 of 73 (11.0)
+Demand: 2 of 73 (15.0)
+Demand: 3 of 73 (19.0)
+Demand: 4 of 73 (23.0)
+Demand: 5 of 73 (27.0)
+Demand: 6 of 73 (31.0)
+Demand: 7 of 73 (35.0)
+Demand: 8 of 73 (39.0)
+Demand: 9 of 73 (43.0)
+Demand: 10 of 73 (47.0)
+Demand: 11 of 73 (51.0)
+Demand: 12 of 73 (55.0)
+Demand: 13 of 73 (59.0)
+Demand: 14 of 73 (63.0)
+Demand: 15 of 73 (67.0)
+Demand: 16 of 73 (71.0)
+Demand: 17 of 73 (75.0)
+Demand: 18 of 73 (79.0)
+Demand: 19 of 73 (83.0)
+Demand: 20 of 73 (87.0)
+Demand: 21 of 73 (91.0)
+Demand: 22 of 73 (95.0)
+Demand: 23 of 73 (99.0)
+Demand: 24 of 73 (103.0)
+Demand: 25 of 73 (107.0)
+Demand: 26 of 73 (111.0)
+Demand: 27 of 73 (115.0)
+Demand: 28 of 73 (119.0)
+Demand: 29 of 73 (123.0)
+Demand: 30 of 73 (127.0)
+Demand: 31 of 73 (131.0)
+Demand: 32 of 73 (135.0)
+Demand: 33 of 73 (139.0)
+Demand: 34 of 73 (143.0)
+Demand: 35 of 73 (147.0)
+Demand: 36 of 73 (151.0)
+Demand: 37 of 73 (155.0)
+Demand: 38 of 73 (159.0)
+Demand: 39 of 73 (163.0)
+Demand: 40 of 73 (167.0)
+Demand: 41 of 73 (171.0)
+Demand: 42 of 73 (175.0)
+Demand: 43 of 73 (179.0)
+Demand: 44 of 73 (183.0)
+Demand: 45 of 73 (187.0)
+Demand: 46 of 73 (191.0)
+Demand: 47 of 73 (195.0)
+Demand: 48 of 73 (199.0)
+Demand: 49 of 73 (203.0)
+Demand: 50 of 73 (207.0)
+Demand: 51 of 73 (211.0)
+Demand: 52 of 73 (215.0)
+Demand: 53 of 73 (219.0)
+Demand: 54 of 73 (223.0)
+Demand: 55 of 73 (227.0)
+Demand: 56 of 73 (231.0)
+Demand: 57 of 73 (235.0)
+Demand: 58 of 73 (239.0)
+Demand: 59 of 73 (243.0)
+Demand: 60 of 73 (247.0)
+Demand: 61 of 73 (251.0)
+Demand: 62 of 73 (255.0)
+Demand: 63 of 73 (259.0)
+Demand: 64 of 73 (263.0)
+Demand: 65 of 73 (267.0)
+Demand: 66 of 73 (271.0)
+Demand: 67 of 73 (275.0)
+Demand: 68 of 73 (279.0)
+Demand: 69 of 73 (283.0)
+Demand: 70 of 73 (287.0)
+Demand: 71 of 73 (291.0)
+Demand: 72 of 73 (295.0)
+Demand: 73 of 73 (299.0)</code></pre><h2 id="Results-with-Plot-graphs"><a class="docs-heading-anchor" href="#Results-with-Plot-graphs">Results with Plot graphs</a><a id="Results-with-Plot-graphs-1"></a><a class="docs-heading-anchor-permalink" href="#Results-with-Plot-graphs" title="Permalink"></a></h2><pre><code class="language-julia hljs">default(;
+    size = (1150, 350),
+    legendfontsize = 8,
+    guidefontsize = 9,
+    tickfontsize = 7,
+)</code></pre><p>Stacked-area dispatch plot</p><pre><code class="language-julia hljs">plt_dispatch = plot(
+    d_range,
+    g1;                    # lower layer
+    fillrange = 0,                                  # fill down to zero
+    label = &quot;g₁&quot;,
+    xlabel = &quot;Demand (MWh)&quot;,
+    ylabel = &quot;g (MWh)&quot;,
+    left_margin = 5Measures.mm,
+    bottom_margin = 5Measures.mm,
+    title = &quot;Optimal dispatch&quot;,
+);
+
+plot!(
+    plt_dispatch,
+    d_range,
+    g1 .+ g2;              # upper layer
+    fillrange = g1,                                 # fill down to g₁
+    label = &quot;g₂&quot;,
+);
+
+plot!(
+    plt_dispatch,
+    d_range,
+    _φ;                     # unmet demand as a line
+    lw = 2,
+    c = :red,
+    label = &quot;φ (unserved)&quot;,
+);
+
+capacity_limit = d_range[findfirst(g2 .== 80.0)]
+
+vline!(
+    plt_dispatch,
+    [capacity_limit, sum(G)];
+    l = :dash,
+    c = :black,
+    label = &quot;capacity limit&quot;,
+);</code></pre><p>(b) marginal cost λ(d)</p><pre><code class="language-julia hljs">plt_mc = plot(
+    d_range,
+    dJ_dd;
+    lw = 2,
+    c = :black,
+    xlabel = &quot;Demand (MWh)&quot;,
+    ylabel = &quot;λ (\$/MWh)&quot;,
+    title = &quot;Electricity Price&quot;,
+    yscale = :log10,
+    left_margin = 5Measures.mm,
+    bottom_margin = 5Measures.mm,
+    legend = false,
+);
+
+vline!(plt_mc, [capacity_limit, sum(G)]; l = :dash, c = :gray, label = &quot;&quot;);</code></pre><p>(c) generation sensitivities</p><pre><code class="language-julia hljs">plt_sens = plot(
+    d_range,
+    dg1_dd;
+    lw = 2,
+    xlabel = &quot;Demand (MWh)&quot;,
+    ylabel = &quot;∂g/∂d  (MWh per MWh)&quot;,
+    title = &quot;Generation Sensitivities&quot;,
+    label = &quot;∂g₁/∂d&quot;,
+);
+
+plot!(plt_sens, d_range, dg2_dd; lw = 2, label = &quot;∂g₂/∂d&quot;);
+hline!(plt_sens, [0, 1]; l = :dot, c = :gray, label = &quot;&quot;);
+
+vline!(plt_sens, [capacity_limit, sum(G)]; l = :dash, c = :gray, label = &quot;&quot;);</code></pre><p>combine all</p><pre><code class="language-julia hljs">plot_all = plot(plt_dispatch, plt_mc, plt_sens; layout = (1, 3))</code></pre><img src="500d1252.svg" alt="Example block output"/><p>Optimal dispatch (left), marginal electricity price <span>$\lambda(d)=\partial J/\partial d$</span> (center, logarithmic scale), and forward sensitivities <span>$\partial g_i/\partial d$</span> (right) for demands ranging from <span>$\approx 0$</span> to MWh.  The vertical dashed lines mark when the individual plant capacities are reached–-<span>$g_2$</span> reaches it&#39;s capacity at MWh and <span>$g_1$</span> at MWh.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Thermal_Generation_Dispatch_Example_new/">« Thermal Generation Dispatch Example</a><a class="docs-footer-nextpage" href="../autotuning-ridge/">Auto-tuning Hyperparameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Friday 12 September 2025 15:58">Friday 12 September 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
