@@ -280,8 +280,8 @@ function _compute_solution_and_bounds(model::Model; tol = 1e-6)
     leq_locations, # Indices of the leq constraints wrt the nlp constraints
     geq_locations, # Indices of the geq constraints wrt the nlp constraints
     ineq_locations, # Indices of the ineq constraints wrt the nlp constraints
-    vcat(has_up, collect(num_vars+num_geq+1:num_vars+num_geq+num_leq)), # Indices of variables with upper bounds (both primal and slack)
-    vcat(has_low, collect(num_vars+1:num_vars+num_geq)), # Indices of variables with lower bounds (both primal and slack)
+    vcat(has_up, collect((num_vars+num_geq+1):(num_vars+num_geq+num_leq))), # Indices of variables with upper bounds (both primal and slack)
+    vcat(has_low, collect((num_vars+1):(num_vars+num_geq))), # Indices of variables with lower bounds (both primal and slack)
     cons # Vector of the nlp constraints
 end
 
@@ -366,38 +366,23 @@ function _build_sensitivity_matrices(
     # Based on the implicit function diferentiation method used in sIpopt to derive sensitivities
     # Ref: sIPOPT paper https://optimization-online.org/wp-content/uploads/2011/04/3008.pdf.
     # M = [
-    #     [W A' -I I];
-    #     [A 0 0 0];
-    #     [V_L 0 (X - X_L) 0]
-    #     [V_U 0 0 0 (X_U - X)]
+    #     [W   A' -I       I        ];
+    #     [A   0   0       0        ];
+    #     [V_L 0   (X-X_L) 0        ]
+    #     [V_U 0   0       (X_U - X)]
     # ]
-    len_w = num_vars + num_ineq
-    M = spzeros(
-        len_w + num_cons + num_low + num_up,
-        len_w + num_cons + num_low + num_up,
-    )
-
-    M[1:len_w, 1:len_w] = W
-    M[1:len_w, len_w+1:len_w+num_cons] = A'
-    M[len_w+1:len_w+num_cons, 1:len_w] = A
-    M[1:len_w, len_w+num_cons+1:len_w+num_cons+num_low] = I_L
-    M[len_w+num_cons+1:len_w+num_cons+num_low, 1:len_w] = V_L
-    M[
-        len_w+num_cons+1:len_w+num_cons+num_low,
-        len_w+num_cons+1:len_w+num_cons+num_low,
-    ] = X_lb
-    M[len_w+num_cons+num_low+1:len_w+num_cons+num_low+num_up, 1:len_w] = V_U
-    M[
-        len_w+num_cons+num_low+1:len_w+num_cons+num_low+num_up,
-        len_w+num_cons+num_low+1:len_w+num_cons+num_low+num_up,
-    ] = X_ub
-    M[1:len_w, len_w+num_cons+num_low+1:end] = I_U
-
+    M = [
+        W A' I_L I_U;
+        A spzeros(num_cons, num_cons) spzeros(num_cons, num_low) spzeros(num_cons, num_up);
+        V_L spzeros(num_low, num_cons) X_lb spzeros(num_low, num_up);
+        V_U spzeros(num_up, num_cons) spzeros(num_up, num_low) X_ub;
+    ]
     # N matrix
-    # N = [∇ₓₚL ; ∇ₚC; zeros(num_low + num_up, num_parms)]
-    N = spzeros(len_w + num_cons + num_low + num_up, num_parms)
-    N[1:len_w, :] = ∇ₓₚL
-    N[len_w+1:len_w+num_cons, :] = ∇ₚC
+    N = [
+        ∇ₓₚL;
+        ∇ₚC;
+        spzeros(num_low + num_up, num_parms);
+    ]
 
     return M, N
 end
@@ -498,9 +483,9 @@ function _compute_sensitivity(model::Model; tol = 1e-6)
     num_lower = length(has_low)
     _sense_multiplier = _sense_mult(model)
     # Duals
-    ∂s[num_w+1:num_w+num_cons, :] *= -_sense_multiplier
+    ∂s[(num_w+1):(num_w+num_cons), :] *= -_sense_multiplier
     # Dual bounds lower
-    ∂s[num_w+num_cons+1:num_w+num_cons+num_lower, :] *= _sense_multiplier
+    ∂s[(num_w+num_cons+1):(num_w+num_cons+num_lower), :] *= _sense_multiplier
     # Dual bounds upper
     ∂s[num_w+num_cons+num_lower+1:end, :] *= -_sense_multiplier
 

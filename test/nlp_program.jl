@@ -626,7 +626,9 @@ function test_compute_derivatives_Finite_Diff(;
         # Test sensitivities primal_vars
         @test all(isapprox.(Δx, ∂s_fd[1:length(primal_vars)]; atol = 1e-4))
         # Test sensitivities cons
-        @test all(isapprox.(Δy, ∂s_fd[length(primal_vars)+1:end]; atol = 1e-4))
+        @test all(
+            isapprox.(Δy, ∂s_fd[(length(primal_vars)+1):end]; atol = 1e-4),
+        )
     end
 end
 
@@ -847,11 +849,8 @@ function test_ReverseConstraintDual()
     @test all(
         isapprox(
             [
-                MOI.get(
-                    m,
-                    DiffOpt.ReverseConstraintSet(),
-                    ParameterRef(p[i]),
-                ).value for i in 1:2
+                MOI.get(m, DiffOpt.ReverseConstraintSet(), ParameterRef(p[i])).value
+                for i in 1:2
             ],
             zeros(2);
             atol = 1e-8,

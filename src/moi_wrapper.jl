@@ -4,12 +4,28 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 """
-    diff_optimizer(optimizer_constructor)
+    function diff_optimizer(
+        optimizer_constructor;
+        with_bridge_type = Float64,
+        with_cache_type = Float64,
+        with_outer_cache = !isnothing(with_bridge_type),
+        allow_parametric_opt_interface = true,
+    )
 
 Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer
 and other utility methods. Results (primal, dual and slack values) are obtained
 by querying the internal optimizer instantiated using the
 `optimizer_constructor`. These values are required for find jacobians with respect to problem data.
+
+The inner optimizer is instantiated with
+`MOI.instantiate(optimizer_constructor; with_bridge_type, with_cache_type)`;
+see the docs of `MOI.instantiate`.
+
+If `allow_parametric_opt_interface` is `true` and the inner optimizer does not
+*natively* (in the sense, without the bridge layer) supports `ParameterSet`, then
+a `ParametricOptInterface.Optimizer` layer is added.
+
+If `with_outer_cache` is `true`, an additional layer of cache is added.
 
 One define a differentiable model by using any solver of choice. Example:
 
@@ -26,7 +42,7 @@ function diff_optimizer(
     optimizer_constructor;
     with_bridge_type = Float64,
     with_cache_type = Float64,
-    with_outer_cache = true,
+    with_outer_cache = !isnothing(with_bridge_type),
     allow_parametric_opt_interface = true,
 )
     optimizer = MOI.instantiate(
@@ -34,28 +50,29 @@ function diff_optimizer(
         with_bridge_type,
         with_cache_type,
     )
-    add_poi =
-        allow_parametric_opt_interface &&
-        !MOI.supports_add_constrained_variable(
-            optimizer.model,
-            MOI.Parameter{Float64},
-        )
+    if allow_parametric_opt_interface &&
+       !MOI.supports_add_constrained_variable(
+        isnothing(with_bridge_type) ? optimizer : optimizer.model,
+        MOI.Parameter{Float64},
+    )
+        optimizer = POI.Optimizer(optimizer)
+    end
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
     # the model information from `optimizer`. However, 1) `optimizer` may not
     # implement some getters or it may be inefficient and 2) the getters may be
     # unimplemented or inefficient through some bridges.
     # For this reason we add a cache layer, the same cache JuMP adds.
-    caching_opt = if with_outer_cache
-        MOI.Utilities.CachingOptimizer(
+    if with_outer_cache
+        optimizer = MOI.Utilities.CachingOptimizer(
             MOI.Utilities.UniversalFallback(
-                MOI.Utilities.Model{with_bridge_type}(),
+                MOI.Utilities.Model{
+                    something(with_bridge_type, with_cache_type),
+                }(),
             ),
-            add_poi ? POI.Optimizer(optimizer) : optimizer,
+            optimizer,
         )
-    else
-        add_poi ? POI.Optimizer(optimizer) : optimizer
     end
-    return Optimizer(caching_opt)
+    return Optimizer(optimizer)
 end
 
 mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer

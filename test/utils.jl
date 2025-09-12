@@ -113,12 +113,11 @@ function qp_test(
         h = vcat(h, ub_values)
     end
     if !iszero(nlb)
-        clb =
-            MOI.add_constraint.(
-                model,
-                v[lb_indices],
-                MOI.GreaterThan.(lb_values),
-            )
+        clb = MOI.add_constraint.(
+            model,
+            v[lb_indices],
+            MOI.GreaterThan.(lb_values),
+        )
         G = vcat(G, SparseArrays.sparse(1:nlb, lb_indices, -ones(nlb), nlb, n))
         h = vcat(h, -lb_values)
     end
@@ -226,8 +225,8 @@ function qp_test(
         @_test(convert(Vector{Float64}, -MOI.constant.(funcs)), dbb)
         @_test(
             Float64[
-                JuMP.coefficient(funcs[i], vi) for i in eachindex(funcs),
-                vi in v
+                JuMP.coefficient(funcs[i], vi) for
+                i in eachindex(funcs), vi in v
             ],
             dAb
         )

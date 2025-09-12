@@ -410,7 +410,7 @@ function _build_simple_sdp()
 
     @constraint(model, c1, sum(x[i] for i in 1:3) == 4)
 
-    @constraint(model, c2[i = 1:3], x[i] ≥ 0)
+    @constraint(model, c2[i=1:3], x[i] ≥ 0)
 
     @constraint(model, x[1] == 2)
 
