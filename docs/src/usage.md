@@ -167,7 +167,7 @@ DiffOpt.forward_differentiate!(model)
 MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
 ```
 
-In the backward mode, we can calculate the parameter perturbation with respect to the objective perturbation:
+In reverse mode, we can calculate the parameter perturbation with respect to the objective perturbation:
 
 ```julia
 # Always a good practice to clear previously set sensitivities
