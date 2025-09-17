@@ -638,21 +638,19 @@ end
 =#
 ################################################
 
-function test_ObjectiveSensitivity()
+function test_ObjectiveSensitivity_model1()
     # Model 1
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
     @variable(model, p ∈ MOI.Parameter(1.5))
-    @variable(model, p_prox)
 
     # Variables
     @variable(model, x)
 
     # Constraints
-    @constraint(model, con, p_prox == p) # dual fishing :)
-    @constraint(model, x * sin(p_prox) == 1)
+    @constraint(model, x * sin(p) == 1)
     @objective(model, Min, sum(x))
 
     optimize!(model)
@@ -660,19 +658,14 @@ function test_ObjectiveSensitivity()
 
     # Set pertubations
     Δp = 0.1
-    MOI.set(
-        model,
-        DiffOpt.ForwardConstraintSet(),
-        ParameterRef(p),
-        Parameter(Δp),
-    )
+    DiffOpt.set_forward_parameter(model, p, Δp)
 
     # Compute derivatives
     DiffOpt.forward_differentiate!(model)
 
     # Test Objective Sensitivity wrt parameters
     df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
-    @test isapprox(df_dp, dual(con) * Δp; atol = 1e-4)
+    @test isapprox(df_dp, -0.0071092; atol = 1e-4)
 
     # Clean up
     DiffOpt.empty_input_sensitivities!(model)
@@ -698,42 +691,38 @@ function test_ObjectiveSensitivity()
     # Test Objective Sensitivity wrt parameters
     dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
-    @test isapprox(dp, dual(con) * Δf; atol = 1e-4)
+    @test isapprox(dp, -0.0355464; atol = 1e-4)
+end
 
+function test_ObjectiveSensitivity_model2()
     # Model 2
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
 
     # Parameters
     @variable(model, p ∈ MOI.Parameter(1.5))
-    @variable(model, p_prox)
 
     # Variables
     @variable(model, x)
 
     # Constraints
-    @constraint(model, con, p_prox == p) # dual fishing :)
-    @constraint(model, x * sin(p_prox) >= 1)
-    @constraint(model, x + p_prox >= 3)
+    @constraint(model, x * sin(p) >= 1)
+    @constraint(model, x + p >= 3)
     @objective(model, Min, sum(x .^ 2))
 
     optimize!(model)
     @assert is_solved_and_feasible(model)
 
     # Set pertubations
-    MOI.set(
-        model,
-        DiffOpt.ForwardConstraintSet(),
-        ParameterRef(p),
-        Parameter(Δp),
-    )
+    Δp = 0.1
+    DiffOpt.set_forward_parameter(model, p, Δp)
 
     # Compute derivatives
     DiffOpt.forward_differentiate!(model)
 
     # Test Objective Sensitivity wrt parameters
     df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
-    @test isapprox(df_dp, dual(con) * Δp; atol = 1e-4)
+    @test isapprox(df_dp, -0.3; atol = 1e-4)
 
     # Clean up
     DiffOpt.empty_input_sensitivities!(model)
@@ -748,7 +737,39 @@ function test_ObjectiveSensitivity()
     # Test Objective Sensitivity wrt parameters
     dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
-    @test isapprox(dp, dual(con) * Δf; atol = 1e-4)
+    @test isapprox(dp, -1.5; atol = 1e-4)
+end
+
+function test_ObjectiveSensitivity_subset_parameters()
+    # Model with 10 parameters, differentiate only w.r.t. 3rd and 7th
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+
+    # Parameters and proxies
+    @variable(model, p[1:10] ∈ MOI.Parameter.(1.5))
+
+    # Variables
+    @variable(model, x[1:10])
+
+    # Constraints (decouple by index; gives us per-parameter duals)
+    @constraint(model, c[i = 1:10], x[i] * sin(p[i]) == 1)
+    @objective(model, Min, sum(x))
+
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+
+    # Set perturbations only for indices 3 and 7
+    Δp3 = 0.1
+    Δp7 = -0.2
+    DiffOpt.set_forward_parameter(model, p[3], Δp3)
+    DiffOpt.set_forward_parameter(model, p[7], Δp7)
+
+    # Compute forward derivatives
+    DiffOpt.forward_differentiate!(model)
+
+    # Objective sensitivity should equal sum over selected params only
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    @test isapprox(df_dp, 0.007109293; atol = 1e-4)
 end
 
 ################################################
