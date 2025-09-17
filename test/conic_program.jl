@@ -859,7 +859,7 @@ function test_ObjectiveSensitivity()
     DiffOpt.forward_differentiate!(model)
 
     # TODO: Change when implemented
-    @test_throws ErrorException("Not implemented") MOI.get(
+    @test_throws ErrorException("ForwardObjectiveSensitivity is not implemented for the Conic Optimization backend") MOI.get(
         model,
         DiffOpt.ForwardObjectiveSensitivity(),
     )
@@ -870,7 +870,7 @@ function test_ObjectiveSensitivity()
     # TODO: Change when implemented
     MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 0.5)
 
-    @test_throws ErrorException("Not implemented") DiffOpt.reverse_differentiate!(
+    @test_throws ErrorException("ReverseObjectiveSensitivity is not implemented for the Conic Optimization backend") DiffOpt.reverse_differentiate!(
         model,
     )
 end
