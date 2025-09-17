@@ -362,10 +362,9 @@ function test_ObjectiveSensitivity()
     DiffOpt.forward_differentiate!(model)
 
     # TODO: Change when implemented
-    @test_throws ErrorException("ForwardObjectiveSensitivity is not implemented for the Quadratic Optimization backend") MOI.get(
-        model,
-        DiffOpt.ForwardObjectiveSensitivity(),
-    )
+    @test_throws ErrorException(
+        "ForwardObjectiveSensitivity is not implemented for the Quadratic Optimization backend",
+    ) MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
 
     # Clean up
     DiffOpt.empty_input_sensitivities!(model)
@@ -373,9 +372,9 @@ function test_ObjectiveSensitivity()
     # TODO: Change when implemented
     MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 0.5)
 
-    @test_throws ErrorException("ReverseObjectiveSensitivity is not implemented for the Quadratic Optimization backend") DiffOpt.reverse_differentiate!(
-        model,
-    )
+    @test_throws ErrorException(
+        "ReverseObjectiveSensitivity is not implemented for the Quadratic Optimization backend",
+    ) DiffOpt.reverse_differentiate!(model)
 end
 
 end  # module

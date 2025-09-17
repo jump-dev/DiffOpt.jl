@@ -451,11 +451,15 @@ function MOI.get(
 end
 
 function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
-    return error("ForwardObjectiveSensitivity is not implemented for the Conic Optimization backend")
+    return error(
+        "ForwardObjectiveSensitivity is not implemented for the Conic Optimization backend",
+    )
 end
 
 function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
-    return error("ReverseObjectiveSensitivity is not implemented for the Conic Optimization backend")
+    return error(
+        "ReverseObjectiveSensitivity is not implemented for the Conic Optimization backend",
+    )
 end
 
 end

@@ -502,11 +502,15 @@ function MOI.set(model::Model, ::LinearAlgebraSolver, linear_solver)
 end
 
 function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
-    return error("ForwardObjectiveSensitivity is not implemented for the Quadratic Optimization backend")
+    return error(
+        "ForwardObjectiveSensitivity is not implemented for the Quadratic Optimization backend",
+    )
 end
 
 function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
-    return error("ReverseObjectiveSensitivity is not implemented for the Quadratic Optimization backend")
+    return error(
+        "ReverseObjectiveSensitivity is not implemented for the Quadratic Optimization backend",
+    )
 end
 
 end

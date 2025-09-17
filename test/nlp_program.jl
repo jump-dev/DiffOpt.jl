@@ -752,7 +752,7 @@ function test_ObjectiveSensitivity_subset_parameters()
     @variable(model, x[1:10])
 
     # Constraints (decouple by index; gives us per-parameter duals)
-    @constraint(model, c[i = 1:10], x[i] * sin(p[i]) == 1)
+    @constraint(model, c[i=1:10], x[i] * sin(p[i]) == 1)
     @objective(model, Min, sum(x))
 
     optimize!(model)
