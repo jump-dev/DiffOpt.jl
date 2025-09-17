@@ -152,7 +152,6 @@ On the other hand, if the parameter appears as a coefficient of the constraints,
 ```
  - A consequence of the chain-rule.
 
-Note that, if the parameter appears as a constant in a constraint, the objective sensitivity calculated through solution sensitivity is equivalent to the optimal multiplier associated with the constraint. 
 
 In order to calculate the objective perturbation with respect to the parameter perturbation vector, we can use the following code:
 
