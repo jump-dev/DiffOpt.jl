@@ -27,7 +27,7 @@ end
 Base.@kwdef struct ForwCache
     primal_Δs::Dict{MOI.VariableIndex,Float64}  # Sensitivity for primal variables (indexed by VariableIndex)
     dual_Δs::Vector{Float64}           # Sensitivity for constraints and bounds (indexed by ConstraintIndex)
-    dual_p::Float64  # Objective Sensitivity wrt parameters
+    objective_sensitivity_p::Float64  # Objective Sensitivity wrt parameters
 end
 
 Base.@kwdef struct ReverseCache
@@ -533,12 +533,12 @@ function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6)
         dual_Δs = Δs[cache.index_duals, :] * Δp # Includes constraints and bounds
 
         # obj sensitivity wrt parameters
-        dual_p = df_dp * Δp
+        objective_sensitivity_p = df_dp * Δp
 
         model.forw_grad_cache = ForwCache(;
             primal_Δs = Dict(model.cache.primal_vars .=> primal_Δs),
             dual_Δs = dual_Δs,
-            dual_p = dual_p,
+            objective_sensitivity_p = objective_sensitivity_p,
         )
     end
     return nothing
@@ -632,7 +632,7 @@ function MOI.get(
 end
 
 function MOI.get(model::Model, ::DiffOpt.ForwardObjectiveSensitivity)
-    return model.forw_grad_cache.dual_p
+    return model.forw_grad_cache.objective_sensitivity_p
 end
 
 function MOI.set(model::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
