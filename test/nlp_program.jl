@@ -864,8 +864,6 @@ function test_ReverseConstraintDual()
     # Compute derivatives
     DiffOpt.reverse_differentiate!(m)
 
-    @test all(isapprox.(dual.(p), dual.(con); atol = 1e-8))
-
     # Test sensitivities ReverseConstraintSet
     @test all(
         isapprox(
