@@ -506,7 +506,7 @@ function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
 end
 
 function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
-    return error("Not implemented")
+    return error("ReverseObjectiveSensitivity is not implemented for the Quadratic Optimization backend")
 end
 
 end
