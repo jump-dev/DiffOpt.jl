@@ -143,7 +143,7 @@ MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(direct
 DiffOpt.forward_differentiate!(model)
 ```
 
-Using Lagrangian duality we could already calculate the objective sensitivity with respect to parameters that appear as constants of the constraints (e.g, `cons` in this case for parameter `p`) - i.e. The objective sensitivity w.r.t. a constant parameter change is given by the optimal multiplier.
+Using Lagrangian duality we can easily calculate the objective sensitivity with respect to parameters that appear as constants of the constraints (e.g, `cons` in this case for parameter `p`) - i.e. The objective sensitivity w.r.t. a constant parameter change is given by the optimal dual multiplier, under strong duality.
 
 On the other hand, if the parameter appears as a coefficient of the constraints, one can calculate the objective sensitivity with respect to the parameter using the sensitivities of the variables with respect to the parameter, \( \frac{\partial x}{\partial p} \), and the gradient of the objective with respect to the variables \( \frac{\partial f}{\partial x} \):
 
