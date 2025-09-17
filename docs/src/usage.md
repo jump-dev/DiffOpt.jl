@@ -184,10 +184,3 @@ MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p))
 ```
 
 It is important to note that the (reverse) parameter perturbation given an objective perturbation is somewhat equivalent to the perturbation with respect to solution (since one can be calculated from the other). Therefore, one cannot set both the objective sensitivity (`DiffOpt.ReverseObjectiveSensitivity`) and the solution sensitivity (e.g. `DiffOpt.ReverseVariablePrimal`) at the same time - the code will throw an error if you try to do so.
-
-**Dual Objective Sensitivity**
-
-In addition to the primal objective sensitivity, one could also calculate the dual objective sensitivity with respect to the parameters using the gradients of the dual objective and the sensitivities of the dual variables with respect to the parameters.
-This is currently not implemented for any problem class, but will be available in future releases.
-
-Note that the dual objective sensitivity is equivalent to the primal objective sensitivity problems where strong duality holds.
