@@ -68,7 +68,7 @@ Plots.plot!(
     linestyle = :dash,
     width = 3,
 )
-Plots.title!(&quot;Normalized MSE on training and testing sets&quot;)</code></pre><img src="84ecd3e1.svg" alt="Example block output"/><h2 id="Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution"><a class="docs-heading-anchor" href="#Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution">Leveraging differentiable optimization: computing the derivative of the solution</a><a id="Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution" title="Permalink"></a></h2><p>Using DiffOpt, we can compute <code>∂w_i/∂α</code>, the derivative of the learned solution <code>̂w</code> w.r.t. the regularization parameter.</p><pre><code class="language-julia hljs">function compute_dw_dα(model, w)
+Plots.title!(&quot;Normalized MSE on training and testing sets&quot;)</code></pre><img src="f5c2166a.svg" alt="Example block output"/><h2 id="Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution"><a class="docs-heading-anchor" href="#Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution">Leveraging differentiable optimization: computing the derivative of the solution</a><a id="Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution" title="Permalink"></a></h2><p>Using DiffOpt, we can compute <code>∂w_i/∂α</code>, the derivative of the learned solution <code>̂w</code> w.r.t. the regularization parameter.</p><pre><code class="language-julia hljs">function compute_dw_dα(model, w)
     D = length(w)
     dw_dα = zeros(D)
     MOI.set(
@@ -121,7 +121,7 @@ iters = 1:length(ᾱ);</code></pre><p>Visualize gradient descent and convergenc
     width = 2,
 )
 Plots.plot!(ᾱ, msē; label = &quot;learned α&quot;, width = 5, style = :dot)
-Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="79178e08.svg" alt="Example block output"/><p>Visualize the convergence of α to its optimal value</p><pre><code class="language-julia hljs">Plots.plot(
+Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="76a9c559.svg" alt="Example block output"/><p>Visualize the convergence of α to its optimal value</p><pre><code class="language-julia hljs">Plots.plot(
     iters,
     ᾱ;
     label = nothing,
@@ -129,7 +129,7 @@ Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="79178e08.sv
     xaxis = (&quot;Iterations&quot;),
     legend = :bottom,
     title = &quot;Convergence of α&quot;,
-)</code></pre><img src="149de6c8.svg" alt="Example block output"/><p>Visualize the convergence of the objective function</p><pre><code class="language-julia hljs">Plots.plot(
+)</code></pre><img src="df26df51.svg" alt="Example block output"/><p>Visualize the convergence of the objective function</p><pre><code class="language-julia hljs">Plots.plot(
     iters,
     msē;
     label = nothing,
@@ -137,7 +137,7 @@ Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="79178e08.sv
     xaxis = (&quot;Iterations&quot;),
     legend = :bottom,
     title = &quot;Convergence of MSE&quot;,
-)</code></pre><img src="bac6d9c0.svg" alt="Example block output"/><p>Visualize the convergence of the derivative to zero</p><pre><code class="language-julia hljs">Plots.plot(
+)</code></pre><img src="2aaa36f8.svg" alt="Example block output"/><p>Visualize the convergence of the derivative to zero</p><pre><code class="language-julia hljs">Plots.plot(
     iters,
     ∂ᾱ;
     label = nothing,
@@ -145,4 +145,4 @@ Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="79178e08.sv
     xaxis = (&quot;Iterations&quot;),
     legend = :bottom,
     title = &quot;Convergence of ∂α&quot;,
-)</code></pre><img src="b4b2a66a.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Thermal_Generation_Dispatch_sweep/">« Thermal Generation Dispatch Sweep Example</a><a class="docs-footer-nextpage" href="../autotuning-ridge_new/">Auto-tuning Hyperparameters (JuMP API) »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 17 September 2025 15:23">Wednesday 17 September 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="b2023ad8.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Thermal_Generation_Dispatch_sweep/">« Thermal Generation Dispatch Sweep Example</a><a class="docs-footer-nextpage" href="../autotuning-ridge_new/">Auto-tuning Hyperparameters (JuMP API) »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 17 September 2025 15:43">Wednesday 17 September 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
