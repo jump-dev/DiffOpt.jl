@@ -118,3 +118,69 @@ DiffOpt.reverse_differentiate!(model)
 @show abs(MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(pc)).value -
     -direction_x * 3 * p_val / pc_val^2) < 1e-5
 ```
+
+## Calculating objective sensitivity with respect to parameters (currently only supported for Nonlinear Programs)
+
+Consider a differentiable model with parameters `p` and `pc` as in the previous example:
+
+```julia
+using JuMP, DiffOpt, HiGHS
+
+model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+set_silent(model)
+
+p_val = 4.0
+pc_val = 2.0
+@variable(model, x)
+@variable(model, p in Parameter(p_val))
+@variable(model, pc in Parameter(pc_val))
+@constraint(model, cons, pc * x >= 3 * p)
+@objective(model, Min, x^4)
+optimize!(model)
+
+direction_p = 3.0
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(direction_p))
+DiffOpt.forward_differentiate!(model)
+```
+
+Using Lagrangian duality we can easily calculate the objective sensitivity with respect to parameters that appear as constants of the constraints (e.g, `cons` in this case for parameter `p`) - i.e. The objective sensitivity w.r.t. a constant parameter change is given by the optimal dual multiplier, under strong duality.
+
+On the other hand, if the parameter appears as a coefficient of the constraints, one can calculate the objective sensitivity with respect to the parameter using the sensitivities of the variables with respect to the parameter, \( \frac{\partial x}{\partial p} \), and the gradient of the objective with respect to the variables \( \frac{\partial f}{\partial x} \):
+
+```math
+\frac{\partial f}{\partial p} = \frac{\partial f}{\partial x} \frac{\partial x}{\partial p}
+```
+ - A consequence of the chain-rule.
+
+
+In order to calculate the objective perturbation with respect to the parameter perturbation vector, we can use the following code:
+
+```julia
+# Always a good practice to clear previously set sensitivities
+DiffOpt.empty_input_sensitivities!(model)
+
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(3.0))
+MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p_c), Parameter(3.0))
+DiffOpt.forward_differentiate!(model)
+
+MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+```
+
+In reverse mode, we can calculate the parameter perturbation with respect to the objective perturbation:
+
+```julia
+# Always a good practice to clear previously set sensitivities
+DiffOpt.empty_input_sensitivities!(model)
+
+MOI.set(
+    model,
+    DiffOpt.ReverseObjectiveSensitivity(),
+    0.1,
+)
+
+DiffOpt.reverse_differentiate!(model)
+
+MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p))
+```
+
+It is important to note that the (reverse) parameter perturbation given an objective perturbation is somewhat equivalent to the perturbation with respect to solution (since one can be calculated from the other). Therefore, one cannot set both the objective sensitivity (`DiffOpt.ReverseObjectiveSensitivity`) and the solution sensitivity (e.g. `DiffOpt.ReverseVariablePrimal`) at the same time - the code will throw an error if you try to do so.

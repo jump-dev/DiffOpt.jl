@@ -349,6 +349,34 @@ function test_differentiating_non_trivial_convex_qp_moi()
     return
 end
 
+function test_ObjectiveSensitivity()
+    model = DiffOpt.quadratic_diff_model(HiGHS.Optimizer)
+    @variable(model, x)
+    @variable(model, p in MOI.Parameter(1.0))
+    @constraint(model, x >= p)
+    @objective(model, Min, x)
+    optimize!(model)
+    direction_p = 2.0
+    DiffOpt.set_forward_parameter(model, p, direction_p)
+
+    DiffOpt.forward_differentiate!(model)
+
+    # TODO: Change when implemented
+    @test_throws ErrorException(
+        "ForwardObjectiveSensitivity is not implemented for the Quadratic Optimization backend",
+    ) MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+
+    # Clean up
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # TODO: Change when implemented
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 0.5)
+
+    @test_throws ErrorException(
+        "ReverseObjectiveSensitivity is not implemented for the Quadratic Optimization backend",
+    ) DiffOpt.reverse_differentiate!(model)
+end
+
 end  # module
 
 TestQuadraticProgram.runtests()

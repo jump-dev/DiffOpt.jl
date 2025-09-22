@@ -157,6 +157,11 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
 
+        # test Objective Sensitivity wrt parameters 
+        df_dp = MOI.get(m, DiffOpt.ForwardObjectiveSensitivity())
+        @test isapprox(df_dp, dot(dual.(con), Δp); atol = 1e-4)
+        @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
+
         # Test sensitivities 
         @test_throws ErrorException MOI.get(
             m.moi_backend.optimizer.model.diff.model,
@@ -625,6 +630,146 @@ function test_compute_derivatives_Finite_Diff(;
             isapprox.(Δy, ∂s_fd[(length(primal_vars)+1):end]; atol = 1e-4),
         )
     end
+end
+
+################################################
+#=
+# Test Objective Sensitivity wrt Parameters
+=#
+################################################
+
+function test_ObjectiveSensitivity_model1()
+    # Model 1
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+
+    # Parameters
+    @variable(model, p ∈ MOI.Parameter(1.5))
+
+    # Variables
+    @variable(model, x)
+
+    # Constraints
+    @constraint(model, x * sin(p) == 1)
+    @objective(model, Min, sum(x))
+
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+
+    # Set pertubations
+    Δp = 0.1
+    DiffOpt.set_forward_parameter(model, p, Δp)
+
+    # Compute derivatives
+    DiffOpt.forward_differentiate!(model)
+
+    # Test Objective Sensitivity wrt parameters
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    @test isapprox(df_dp, -0.0071092; atol = 1e-4)
+
+    # Clean up
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # Set Too Many Sensitivities
+    Δf = 0.5
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+
+    # Compute derivatives
+    @test_throws ErrorException DiffOpt.reverse_differentiate!(model)
+
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # Set Reverse Objective Sensitivity
+    Δf = 0.5
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+
+    # Compute derivatives
+    DiffOpt.reverse_differentiate!(model)
+
+    # Test Objective Sensitivity wrt parameters
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
+
+    @test isapprox(dp, -0.0355464; atol = 1e-4)
+end
+
+function test_ObjectiveSensitivity_model2()
+    # Model 2
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+
+    # Parameters
+    @variable(model, p ∈ MOI.Parameter(1.5))
+
+    # Variables
+    @variable(model, x)
+
+    # Constraints
+    @constraint(model, x * sin(p) >= 1)
+    @constraint(model, x + p >= 3)
+    @objective(model, Min, sum(x .^ 2))
+
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+
+    # Set pertubations
+    Δp = 0.1
+    DiffOpt.set_forward_parameter(model, p, Δp)
+
+    # Compute derivatives
+    DiffOpt.forward_differentiate!(model)
+
+    # Test Objective Sensitivity wrt parameters
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    @test isapprox(df_dp, -0.3; atol = 1e-4)
+
+    # Clean up
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # Set Reverse Objective Sensitivity
+    Δf = 0.5
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+
+    # Compute derivatives
+    DiffOpt.reverse_differentiate!(model)
+
+    # Test Objective Sensitivity wrt parameters
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
+
+    @test isapprox(dp, -1.5; atol = 1e-4)
+end
+
+function test_ObjectiveSensitivity_subset_parameters()
+    # Model with 10 parameters, differentiate only w.r.t. 3rd and 7th
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+
+    # Parameters and proxies
+    @variable(model, p[1:10] ∈ MOI.Parameter.(1.5))
+
+    # Variables
+    @variable(model, x[1:10])
+
+    # Constraints (decouple by index; gives us per-parameter duals)
+    @constraint(model, c[i=1:10], x[i] * sin(p[i]) == 1)
+    @objective(model, Min, sum(x))
+
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+
+    # Set perturbations only for indices 3 and 7
+    Δp3 = 0.1
+    Δp7 = -0.2
+    DiffOpt.set_forward_parameter(model, p[3], Δp3)
+    DiffOpt.set_forward_parameter(model, p[7], Δp7)
+
+    # Compute forward derivatives
+    DiffOpt.forward_differentiate!(model)
+
+    # Objective sensitivity should equal sum over selected params only
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    @test isapprox(df_dp, 0.007109293; atol = 1e-4)
 end
 
 ################################################

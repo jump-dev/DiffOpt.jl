@@ -841,6 +841,39 @@ function test_jump_psd_cone_with_parameter_pv_v_pv()
     @test dx ≈ 0.0 atol = 1e-4 rtol = 1e-4
 end
 
+function test_ObjectiveSensitivity()
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    @variable(model, x)
+    @variable(model, p in MOI.Parameter(1.0))
+    @constraint(
+        model,
+        con,
+        [p * x, (2 * x - 3), p * 3 * x] in
+        MOI.PositiveSemidefiniteConeTriangle(2)
+    )
+    @objective(model, Min, x)
+    optimize!(model)
+    direction_p = 2.0
+    DiffOpt.set_forward_parameter(model, p, direction_p)
+
+    DiffOpt.forward_differentiate!(model)
+
+    # TODO: Change when implemented
+    @test_throws ErrorException(
+        "ForwardObjectiveSensitivity is not implemented for the Conic Optimization backend",
+    ) MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+
+    # Clean up
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # TODO: Change when implemented
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 0.5)
+
+    @test_throws ErrorException(
+        "ReverseObjectiveSensitivity is not implemented for the Conic Optimization backend",
+    ) DiffOpt.reverse_differentiate!(model)
+end
+
 end  # module
 
 TestConicProgram.runtests()
