@@ -263,7 +263,9 @@ function Base.convert(
         func.constants,
     )
 end
-function standard_form(func::MatrixVectorAffineFunction{T}) where {T}
+function standard_form(
+    func::MatrixVectorAffineFunction{<:AbstractMatrix{T}},
+) where {T}
     return convert(MOI.VectorAffineFunction{T}, func)
 end
 
