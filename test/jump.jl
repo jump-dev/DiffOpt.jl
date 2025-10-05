@@ -729,7 +729,7 @@ function test_psd_square_error()
 
     @constraint(model, con, [-p*x 0; 0 x] in PSDCone())
 
-    @test_throws MOI.SetAttributeNotAllowed optimize!(model)
+    @test_throws MOI.Bridges.ModifyBridgeNotAllowed optimize!(model)
 
     # DiffOpt.set_forward_parameter(model, p, 1.0)
     # DiffOpt.forward_differentiate!(model)

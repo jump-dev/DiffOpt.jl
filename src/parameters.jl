@@ -315,7 +315,7 @@ function MOI.get(
     if _is_parameter(model, variable)
         error("Trying to get a forward variable sensitivity for a parameter")
     end
-    return MOI.get(model.optimizer, attr, model.variables[variable])
+    return MOI.get(model.optimizer, attr, variable)
 end
 
 # reverse mode
