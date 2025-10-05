@@ -34,8 +34,20 @@ function test_moi_test_runtests()
     # )
     MOI.set(model, MOI.Silent(), true)
     config =
-        MOI.Test.Config(; atol = 1e-7, exclude = Any[MOI.compute_conflict!])
-    MOI.Test.runtests(model, config)
+        MOI.Test.Config(; atol = 1e-7, exclude = Any[MOI.compute_conflict!,])
+    MOI.Test.runtests(
+        model,
+        config;
+        exclude = Any[
+        # removed because of the `ZerosBridge` issue:
+        # https://github.com/jump-dev/MathOptInterface.jl/issues/2861
+        # - zeros bridge does not support duals because it cumbersome
+        # - many bridges do not support get ConstraintFunction because it is cumbersome
+        # so there is no way out of this error for now.
+        # at the same time this is a modeling corner case tha could be avoided
+        # by the user.
+            "test_conic_linear_VectorOfVariables_2"],
+    )
     return
 end
 
