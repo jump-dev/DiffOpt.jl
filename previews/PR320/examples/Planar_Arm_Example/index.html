@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Planar Arm Example · DiffOpt.jl</title><meta name="title" content="Planar Arm Example · DiffOpt.jl"/><meta property="og:title" content="Planar Arm Example · DiffOpt.jl"/><meta property="twitter:title" content="Planar Arm Example · DiffOpt.jl"/><meta name="description" content="Documentation for DiffOpt.jl."/><meta property="og:description" content="Documentation for DiffOpt.jl."/><meta property="twitter:description" content="Documentation for DiffOpt.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">DiffOpt.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../intro/">Introduction</a></li><li><a class="tocitem" href="../../manual/">Manual</a></li><li><a class="tocitem" href="../../usage/">Usage</a></li><li><a class="tocitem" href="../../reference/">Reference</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../Mean_Variance_Portfolio_Example/">Mean Variance Portfolio Example</a></li><li class="is-active"><a class="tocitem" href>Planar Arm Example</a><ul class="internal"><li><a class="tocitem" href="#Define-and-solve-the-2-link-planar-arm-problem-and-build-sensitivity-map-of-joint-angles-to-target"><span>Define and solve the 2-link planar arm problem and build sensitivity map of joint angles to target</span></a></li><li><a class="tocitem" href="#Results-with-Plot-graphs"><span>Results with Plot graphs</span></a></li></ul></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example_new/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_sweep/">Thermal Generation Dispatch Sweep Example</a></li><li><a class="tocitem" href="../autotuning-ridge/">Auto-tuning Hyperparameters</a></li><li><a class="tocitem" href="../autotuning-ridge_new/">Auto-tuning Hyperparameters (JuMP API)</a></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../chainrules_unit_new/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../custom-relu/">Custom ReLU layer</a></li><li><a class="tocitem" href="../custom-relu_new/">Custom ReLU layer</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../matrix-inversion-manual_new/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../nearest_correlation/">Nearest correlation</a></li><li><a class="tocitem" href="../nearest_correlation_new/">Nearest correlation</a></li><li><a class="tocitem" href="../polyhedral_project/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../polyhedral_project_new/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge_new/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm/">Sensitivity Analysis of SVM</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm_new/">Sensitivity Analysis of SVM</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Planar Arm Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Planar Arm Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Planar-Arm-Example"><a class="docs-heading-anchor" href="#Planar-Arm-Example">Planar Arm Example</a><a id="Planar-Arm-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Planar-Arm-Example" title="Permalink"></a></h1><p>Inverse Kinematics (IK) computes joint angles that place a robot’s end-effector at a desired target <span>$(x_t,y_t)$</span>. For a 2-link planar arm with joint angles <span>$\theta_1,\theta_2$</span>, the end-effector position is:</p><p class="math-container">\[f(\theta_1,\theta_2) = \bigl(\ell_1\cos(\theta_1) + \ell_2\cos(\theta_1+\theta_2),\,\,
+\ell_1\sin(\theta_1) + \ell_2\sin(\theta_1+\theta_2)\bigr).\]</p><p>We can solve an NLP:</p><p class="math-container">\[\min_{\theta_1,\theta_2} \;\; (\theta_1^2 + \theta_2^2),
+\quad\text{s.t.}\quad f(\theta_1,\theta_2) = (x_t,y_t).\]</p><p>Treat <span>$(x_t,y_t)$</span> as parameters. Once solved, we differentiate w.r.t. <span>$(x_t,y_t)$</span> to find how small changes in the target location alter the optimal angles - the <em>differential kinematics</em>.</p><h2 id="Define-and-solve-the-2-link-planar-arm-problem-and-build-sensitivity-map-of-joint-angles-to-target"><a class="docs-heading-anchor" href="#Define-and-solve-the-2-link-planar-arm-problem-and-build-sensitivity-map-of-joint-angles-to-target">Define and solve the 2-link planar arm problem and build sensitivity map of joint angles to target</a><a id="Define-and-solve-the-2-link-planar-arm-problem-and-build-sensitivity-map-of-joint-angles-to-target-1"></a><a class="docs-heading-anchor-permalink" href="#Define-and-solve-the-2-link-planar-arm-problem-and-build-sensitivity-map-of-joint-angles-to-target" title="Permalink"></a></h2><p>First, import the libraries.</p><pre><code class="language-julia hljs">using Test
+using JuMP
+import DiffOpt
+using LinearAlgebra
+using Statistics
+import Ipopt
+using Plots
+using Plots.Measures</code></pre><p>Fixed data</p><p>Arm geometry</p><pre><code class="language-julia hljs">l1 = 1.0;
+l2 = 1.0;
+reach = l1 + l2          # 2.0
+tol = 1e-6               # numerical tolerance for feasibility</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1.0e-6</code></pre><p>Sampling grid in workspace</p><pre><code class="language-julia hljs">grid_res = 25 # grid resolution low for documentation compilation requirements
+xs = range(-reach, reach; length = grid_res)
+ys = range(-reach, reach; length = grid_res)
+
+heat = fill(NaN, grid_res, grid_res)   # store ‖J_inv‖₂
+feas = fill(0.0, grid_res, grid_res)  # feasibility mask
+θ1mat = similar(heat)
+
+function ik_angles(x, y; l1 = 1.0, l2 = 1.0, elbow_up = true)
+    c2 = (x^2 + y^2 - l1^2 - l2^2) / (2 * l1 * l2)
+    θ2 = elbow_up ? acos(clamp(c2, -1, 1)) : -acos(clamp(c2, -1, 1))
+    k1 = l1 + l2 * cos(θ2)
+    k2 = l2 * sin(θ2)
+    θ1 = atan(y, x) - atan(k2, k1)
+    return θ1, θ2
+end
+
+for (i, x_t) in enumerate(xs), (j, y_t) in enumerate(ys)
+    global θ1mat, heat
+    # skip points outside the circular reach
+    norm([x_t, y_t]) &gt; reach &amp;&amp; continue
+
+    # ---------- build differentiable NLP ----------
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+
+    @variable(model, xt in Parameter(x_t))
+    @variable(model, yt in Parameter(y_t))
+    @variable(model, θ1)
+    @variable(model, θ2)
+
+    @objective(model, Min, θ1^2 + θ2^2)
+    @constraint(model, l1 * cos(θ1) + l2 * cos(θ1 + θ2) == xt)
+    @constraint(model, l1 * sin(θ1) + l2 * sin(θ1 + θ2) == yt)
+
+    # --- supply analytic start values ---
+    θ1₀, θ2₀ = ik_angles(x_t, y_t; elbow_up = true)
+    set_start_value(θ1, θ1₀)
+    set_start_value(θ2, θ2₀)
+
+    optimize!(model)
+    println(&quot;Solving for target (&quot;, x_t, &quot;, &quot;, y_t, &quot;)&quot;)
+    # check for optimality
+    status = termination_status(model)
+    println(&quot;Status: &quot;, status)
+
+    status == MOI.OPTIMAL || status == MOI.LOCALLY_SOLVED || continue
+
+    θ1̂ = value(θ1)
+    θ1mat[j, i] = θ1̂   # save pose
+
+    # ---- forward diff wrt  xt  (∂θ/∂x) ----
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, xt, 0.01)
+    DiffOpt.forward_differentiate!(model)
+    dθ1_dx = DiffOpt.get_forward_variable(model, θ1)
+    dθ2_dx = DiffOpt.get_forward_variable(model, θ2)
+
+    # check first order approximation keeps solution close to target withing tolerance
+    θ_approx = [θ1̂ + dθ1_dx, θ1̂ + dθ2_dx]
+    x_approx = l1 * cos(θ_approx[1]) + l2 * cos(θ_approx[1] + θ_approx[2])
+    y_approx = l1 * sin(θ_approx[1]) + l2 * sin(θ_approx[1] + θ_approx[2])
+    _error = [x_approx - (x_t + 0.01), y_approx - y_t]
+    println(&quot;Error in first order approximation: &quot;, _error)
+    feas[j, i] = norm(_error)
+
+    # ---- forward diff wrt  yt  (∂θ/∂y) ----
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, yt, 0.01)
+    DiffOpt.forward_differentiate!(model)
+    dθ1_dy = DiffOpt.get_forward_variable(model, θ1)
+    dθ2_dy = DiffOpt.get_forward_variable(model, θ2)
+
+    # 2-norm of inverse Jacobian
+    Jinv = [
+        dθ1_dx dθ1_dy
+        dθ2_dx dθ2_dy
+    ]
+    heat[j, i] = opnorm(Jinv)            # σ_max  of Jinv
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Solving for target (-2.0, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.9898257198830045, -1.584795218707184]
+Solving for target (-1.8333333333333333, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.7911967878037907, 0.832469819798785]
+Solving for target (-1.8333333333333333, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.821844838609465, 0.4801574859808165]
+Solving for target (-1.8333333333333333, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.776753046729539, 0.1754419445939229]
+Solving for target (-1.8333333333333333, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.6955479214131128, -0.08748417879970902]
+Solving for target (-1.8333333333333333, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.6014069973464138, -0.31303568175863483]
+Solving for target (-1.8333333333333333, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.5118503864360455, -0.5085909331821848]
+Solving for target (-1.8333333333333333, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.44127605782368, -0.6838983349911429]
+Solving for target (-1.8333333333333333, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.40422135073218, -0.8490168108405306]
+Solving for target (-1.8333333333333333, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.4280508233570677, -1.0080964879026386]
+Solving for target (-1.6666666666666667, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.508049231668328, 1.3027268574938637]
+Solving for target (-1.6666666666666667, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.6403860987275194, 0.9486501514044311]
+Solving for target (-1.6666666666666667, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.6504993123727543, 0.611915764676022]
+Solving for target (-1.6666666666666667, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.5896000420399172, 0.30702169939212226]
+Solving for target (-1.6666666666666667, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.484470311846142, 0.04306941606554404]
+Solving for target (-1.6666666666666667, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.3568591890883948, -0.17717728769189897]
+Solving for target (-1.6666666666666667, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.2255735554323326, -0.3574435249178074]
+Solving for target (-1.6666666666666667, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.1056868989142972, -0.5071451533600226]
+Solving for target (-1.6666666666666667, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.007726496774041, -0.6395296480651569]
+Solving for target (-1.6666666666666667, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9381189099946272, -0.7693536117245404]
+Solving for target (-1.6666666666666667, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9015635026467943, -0.9110206293779076]
+Solving for target (-1.6666666666666667, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9068068160690842, -1.0779300515263723]
+Solving for target (-1.6666666666666667, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9889986179725552, -1.282764412555673]
+Solving for target (-1.5, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.307827804426748, 1.4854594777773749]
+Solving for target (-1.5, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.4562909475720955, 1.155607617941839]
+Solving for target (-1.5, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.4892965392924007, 0.8179718160035215]
+Solving for target (-1.5, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.441620287831483, 0.49988592968316137]
+Solving for target (-1.5, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.335265628816314, 0.21940814717253876]
+Solving for target (-1.5, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.1914757404138263, -0.01221384348939486]
+Solving for target (-1.5, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.0320939400310019, -0.19160228441525426]
+Solving for target (-1.5, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.8775177380105449, -0.32409514953248164]
+Solving for target (-1.5, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7435304188469578, -0.422756516044304]
+Solving for target (-1.5, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6390438153979503, -0.5053411355963622]
+Solving for target (-1.5, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.566145306942418, -0.59044017580423]
+Solving for target (-1.5, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5225045142358953, -0.6945807644867386]
+Solving for target (-1.5, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5053022107824348, -0.8314414383855255]
+Solving for target (-1.5, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5166920471793925, -1.0135949817916874]
+Solving for target (-1.5, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5774320434323144, -1.2585634121834786]
+Solving for target (-1.3333333333333333, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.0353394147917998, 1.6952871971152113]
+Solving for target (-1.3333333333333333, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.2350126290429777, 1.402571424434597]
+Solving for target (-1.3333333333333333, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.3168143232333576, 1.0719777617314201]
+Solving for target (-1.3333333333333333, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.3085595411958404, 0.7406411690350121]
+Solving for target (-1.3333333333333333, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.2261042551385393, 0.43418758023835696]
+Solving for target (-1.3333333333333333, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.0865392829482814, 0.17321583503067756]
+Solving for target (-1.3333333333333333, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9116067012032626, -0.027956404860246253]
+Solving for target (-1.3333333333333333, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7268591550419605, -0.1647267029064606]
+Solving for target (-1.3333333333333333, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.557239634656794, -0.2447196553392832]
+Solving for target (-1.3333333333333333, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.4210103366830169, -0.2866641263302615]
+Solving for target (-1.3333333333333333, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.3255630992613039, -0.3151502022276173]
+Solving for target (-1.3333333333333333, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.26772635017884694, -0.3539262410938291]
+Solving for target (-1.3333333333333333, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.23801725116503136, -0.4213846407487195]
+Solving for target (-1.3333333333333333, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2260916806133353, -0.5298998612623209]
+Solving for target (-1.3333333333333333, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.22531501770204065, -0.6883175049652286]
+Solving for target (-1.3333333333333333, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.23705434497974642, -0.9067116807447924]
+Solving for target (-1.3333333333333333, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.28217613033949074, -1.2069395327321106]
+Solving for target (-1.1666666666666667, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6870343746453931, 1.8779520970057266]
+Solving for target (-1.1666666666666667, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9546049990487566, 1.6567232932896916]
+Solving for target (-1.1666666666666667, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.1019853472718548, 1.355843246906852]
+Solving for target (-1.1666666666666667, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.1560138892998078, 1.0258563941638095]
+Solving for target (-1.1666666666666667, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.1258439344170161, 0.6973082395138238]
+Solving for target (-1.1666666666666667, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.0202143331046463, 0.39718649614520396]
+Solving for target (-1.1666666666666667, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.8538144871375488, 0.15079070420685348]
+Solving for target (-1.1666666666666667, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6506856219121584, -0.021908331284613725]
+Solving for target (-1.1666666666666667, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.4432103761020121, -0.11322422431240939]
+Solving for target (-1.1666666666666667, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2647392590104407, -0.13374512327575128]
+Solving for target (-1.1666666666666667, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.13822336833458637, -0.11137423570692376]
+Solving for target (-1.1666666666666667, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.06841834248816792, -0.08162071275170873]
+Solving for target (-1.1666666666666667, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.04356748543303124, -0.0752847637499433]
+Solving for target (-1.1666666666666667, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.04425311604945592, -0.11171521690107256]
+Solving for target (-1.1666666666666667, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.0523763583684973, -0.19974849557860186]
+Solving for target (-1.1666666666666667, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.05611402060445414, -0.3428185764223335]
+Solving for target (-1.1666666666666667, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.05154807186047905, -0.5447463655612969]
+Solving for target (-1.1666666666666667, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.04451293603164541, -0.8163602135714165]
+Solving for target (-1.1666666666666667, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.06371504419763463, -1.1932468672472116]
+Solving for target (-1.0, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.25387505469164784, 1.9587493666745521]
+Solving for target (-1.0, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5992969324444098, 1.8741346943813504]
+Solving for target (-1.0, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.8166210099055612, 1.6381117106196956]
+Solving for target (-1.0, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9450144890495634, 1.33835171649733]
+Solving for target (-1.0, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9899500004166653, 1.0099998333341662]
+Solving for target (-1.0, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9517336130383254, 0.6809976190334005]
+Solving for target (-1.0, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.8328415405625897, 0.3807512409717151]
+Solving for target (-1.0, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6445159185303219, 0.14150866821263475]
+Solving for target (-1.0, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.4132715411381527, -0.006839519091584256]
+Solving for target (-1.0, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.1822606061774703, -0.04934983657022293]
+Solving for target (-1.0, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.6611064907801065e-5, -5.551115123125783e-16]
+Solving for target (-1.0, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.10193358161919996, 0.09750726559602582]
+Solving for target (-1.0, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.12477550758580325, 0.1892254142510273]
+Solving for target (-1.0, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.09613148310682185, 0.23522792316328145]
+Solving for target (-1.0, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.0503385317880376, 0.21858238298725163]
+Solving for target (-1.0, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.01359893604241158, 0.1385796894378899]
+Solving for target (-1.0, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.666658332455384e-7, -4.999958333462562e-5]
+Solving for target (-1.0, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.013582822054413857, -0.19482071635242793]
+Solving for target (-1.0, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.05082000943908138, -0.4504620662333173]
+Solving for target (-1.0, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.09925554469487863, -0.7867304531634229]
+Solving for target (-1.0, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.11203375823547868, -1.2816752198182764]
+Solving for target (-0.8333333333333334, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.16977955471653872, 1.9928251996114215]
+Solving for target (-0.8333333333333334, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.44820983933720837, 1.8706464077469804]
+Solving for target (-0.8333333333333334, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6467492953601088, 1.6386468306981874]
+Solving for target (-0.8333333333333334, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7726642053974808, 1.3467770892407693]
+Solving for target (-0.8333333333333334, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.8227317267942662, 1.022394443012161]
+Solving for target (-0.8333333333333334, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7904056469737307, 0.690706925863005]
+Solving for target (-0.8333333333333334, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6703998719527471, 0.3826623269482809]
+Solving for target (-0.8333333333333334, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.46668919877629844, 0.13887862155810382]
+Solving for target (-0.8333333333333334, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2054181058877509, 0.005669690827293905]
+Solving for target (-0.8333333333333334, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.05482858755953968, 0.014739351599156764]
+Solving for target (-0.8333333333333334, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.2369283142330546, 0.1502089490842995]
+Solving for target (-0.8333333333333334, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.292475934649726, 0.3389910622153658]
+Solving for target (-0.8333333333333334, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.23758504299454197, 0.49383693761602493]
+Solving for target (-0.8333333333333334, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.1312634976150523, 0.5654311124580409]
+Solving for target (-0.8333333333333334, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.0293919959984158, 0.5489923641194366]
+Solving for target (-0.8333333333333334, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.03653709134876826, 0.46008174582470407]
+Solving for target (-0.8333333333333334, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.05591567910723061, 0.3143696622385139]
+Solving for target (-0.8333333333333334, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.02959955790168267, 0.11974596540842897]
+Solving for target (-0.8333333333333334, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.0363257592176327, -0.1255474280063018]
+Solving for target (-0.8333333333333334, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.13234140795150717, -0.43578038768513205]
+Solving for target (-0.8333333333333334, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.2404317856964825, -0.8540464041765565]
+Solving for target (-0.6666666666666666, -1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.31337057151619185, 1.8978381861385594]
+Solving for target (-0.6666666666666666, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.00858405967408582, 1.9919572682291604]
+Solving for target (-0.6666666666666666, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2576222613143501, 1.870641541248482]
+Solving for target (-0.6666666666666666, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.44996563806569345, 1.6543076276243958]
+Solving for target (-0.6666666666666666, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5835540526023418, 1.3781796650736764]
+Solving for target (-0.6666666666666666, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6508310621319676, 1.0633162326798948]
+Solving for target (-0.6666666666666666, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6399693378980046, 0.7302134483164082]
+Solving for target (-0.6666666666666666, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5365342799577428, 0.4076508250446922]
+Solving for target (-0.6666666666666666, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.3307277816809483, 0.14237689883835314]
+Solving for target (-0.6666666666666666, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.03828346794022697, 0.004357888392613696]
+Solving for target (-0.6666666666666666, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.26531795000549496, 0.06324295812799055]
+Solving for target (-0.6666666666666666, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.44609552521017737, 0.31190824956490304]
+Solving for target (-0.6666666666666666, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.4176149256854148, 0.6170797108762002]
+Solving for target (-0.6666666666666666, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.23736114783137896, 0.8263307301847915]
+Solving for target (-0.6666666666666666, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.028770367756516646, 0.8918204839809034]
+Solving for target (-0.6666666666666666, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.12840194183589493, 0.8453270905350306]
+Solving for target (-0.6666666666666666, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2103379362429738, 0.7290275652798867]
+Solving for target (-0.6666666666666666, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.22043587864453495, 0.568454934011386]
+Solving for target (-0.6666666666666666, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.16947840125884034, 0.37262371851850995]
+Solving for target (-0.6666666666666666, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.06826388806372141, 0.13864801297035512]
+Solving for target (-0.6666666666666666, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.07366544120168139, -0.14718593360814936]
+Solving for target (-0.6666666666666666, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.2461694405853544, -0.5176415566854851]
+Solving for target (-0.6666666666666666, 1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.4244301837417336, -1.092892947449459]
+Solving for target (-0.5, -1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.4618313667060395, 1.9139942401898016]
+Solving for target (-0.5, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.19564482220261803, 1.972524424947055]
+Solving for target (-0.5, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.03395765415595603, 1.868644102950889]
+Solving for target (-0.5, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.22430876889987483, 1.677848575058559]
+Solving for target (-0.5, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.37013426983317843, 1.4271798968449958]
+Solving for target (-0.5, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.4629031342425053, 1.1320927766488373]
+Solving for target (-0.5, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.488896452282358, 0.8062308388807098]
+Solving for target (-0.5, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.42673287092451784, 0.4698290011240729]
+Solving for target (-0.5, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.24772997107658024, 0.16494573060751944]
+Solving for target (-0.5, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.06495642946254176, -0.01738807737458331]
+Solving for target (-0.5, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.439685592998038, 0.07034665268991705]
+Solving for target (-0.5, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.6274850333666222, 0.4808889915405521]
+Solving for target (-0.5, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.43787210011224775, 0.9421658080686274]
+Solving for target (-0.5, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.05952498329405431, 1.163124564505577]
+Solving for target (-0.5, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2571978637772523, 1.1597818521678098]
+Solving for target (-0.5, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.4393689645826453, 1.0480667202012222]
+Solving for target (-0.5, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5036226322200558, 0.8953967823523207]
+Solving for target (-0.5, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.4788344984555387, 0.7244440188088701]
+Solving for target (-0.5, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.38661024635354224, 0.536530839188657]
+Solving for target (-0.5, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2408451701836647, 0.3230845803596305]
+Solving for target (-0.5, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.050225536129122506, 0.06803656722830809]
+Solving for target (-0.5, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.17970067246770838, -0.25792344282351753]
+Solving for target (-0.5, 1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.4446478245631128, -0.7327831446642203]
+Solving for target (-0.3333333333333333, -1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.6559566317507799, 1.8693082894603483]
+Solving for target (-0.3333333333333333, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.43061302221891723, 1.931337647939433]
+Solving for target (-0.3333333333333333, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.22011792593823526, 1.8546448978273657]
+Solving for target (-0.3333333333333333, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.034069218101009324, 1.6975177167874875]
+Solving for target (-0.3333333333333333, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.12162157436667592, 1.4825572685324107]
+Solving for target (-0.3333333333333333, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.24021656911425454, 1.2214525443105761]
+Solving for target (-0.3333333333333333, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.3111202598792708, 0.9214929664082107]
+Solving for target (-0.3333333333333333, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.31484133723352464, 0.5902208155489714]
+Solving for target (-0.3333333333333333, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.21316847819567802, 0.24680362961549268]
+Solving for target (-0.3333333333333333, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.06176700552487191, -0.036080365065123965]
+Solving for target (-0.3333333333333333, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.5380407046128151, -0.01083655113950685]
+Solving for target (-0.3333333333333333, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.7810968539988297, 0.6533897103120732]
+Solving for target (-0.3333333333333333, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.23538797776058312, 1.3218625644889295]
+Solving for target (-0.3333333333333333, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.411679744861695, 1.404705019753662]
+Solving for target (-0.3333333333333333, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7600340157579992, 1.2475940035608892]
+Solving for target (-0.3333333333333333, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.8869047953379405, 1.0659072080309353]
+Solving for target (-0.3333333333333333, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.8831740791802878, 0.900586769835008]
+Solving for target (-0.3333333333333333, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7963001138582846, 0.7463363812815018]
+Solving for target (-0.3333333333333333, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6491656087554186, 0.5893735591195366]
+Solving for target (-0.3333333333333333, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.45284815268027506, 0.41419153754557514]
+Solving for target (-0.3333333333333333, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.21232767908489886, 0.20235727227638556]
+Solving for target (-0.3333333333333333, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.07161307562847058, -0.07376648479894521]
+Solving for target (-0.3333333333333333, 1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.40455270508724944, -0.4761523193963515]
+Solving for target (-0.16666666666666666, -1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.8709430974236955, 1.7793789576634405]
+Solving for target (-0.16666666666666666, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.686724565675766, 1.8600081296175581]
+Solving for target (-0.16666666666666666, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.5004376712533517, 1.815470776049845]
+Solving for target (-0.16666666666666666, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.3263762918447801, 1.696656588010109]
+Solving for target (-0.16666666666666666, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.1707050268713833, 1.5246515579715192]
+Solving for target (-0.16666666666666666, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.037693088731905994, 1.310437258548392]
+Solving for target (-0.16666666666666666, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.06792983997163463, 1.0595951090319213]
+Solving for target (-0.16666666666666666, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.1380515358074145, 0.7733448757265133]
+Solving for target (-0.16666666666666666, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.1533222284391629, 0.44831410252434645]
+Solving for target (-0.16666666666666666, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.05362148068056974, 0.08287626742718385]
+Solving for target (-0.16666666666666666, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.3783815290180398, -0.19929118728369585]
+Solving for target (-0.16666666666666666, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.9069310074097175, 0.8258946956078952]
+Solving for target (-0.16666666666666666, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5932454483657228, 1.5757088758457944]
+Solving for target (-0.16666666666666666, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.2540365514111709, 1.209748787411571]
+Solving for target (-0.16666666666666666, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.3981175919870017, 0.9556048391065401]
+Solving for target (-0.16666666666666666, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.3751701221823538, 0.8056911041357039]
+Solving for target (-0.16666666666666666, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.2722582849094994, 0.7033890600585647]
+Solving for target (-0.16666666666666666, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.1154636140906533, 0.6162139709986634]
+Solving for target (-0.16666666666666666, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.91384494848244, 0.5236654956988667]
+Solving for target (-0.16666666666666666, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6702297876451307, 0.40935722535284813]
+Solving for target (-0.16666666666666666, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.38407403395900974, 0.25589216694374173]
+Solving for target (-0.16666666666666666, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.051215387652470995, 0.03816808062146948]
+Solving for target (-0.16666666666666666, 1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.34148779183147426, -0.2973356361132464]
+Solving for target (0.0, -2.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0049108949537235, 0.9948611913452585]
+Solving for target (0.0, -1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0891886445708137, 1.6434738707196495]
+Solving for target (0.0, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.9521704422756179, 1.7489664899777413]
+Solving for target (0.0, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.798034717754033, 1.7369084803928017]
+Solving for target (0.0, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.6466805802580848, 1.655708663844785]
+Solving for target (0.0, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.505892605690351, 1.5267011087507625]
+Solving for target (0.0, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.3796672957006748, 1.3623469096328442]
+Solving for target (0.0, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.270353608312598, 1.17111627083313]
+Solving for target (0.0, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.1794406224995162, 0.9593641082045967]
+Solving for target (0.0, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.10790933421404524, 0.7322113028473288]
+Solving for target (0.0, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.05640955214269138, 0.4940179906699201]
+Solving for target (0.0, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.025354122682009754, 0.24864711392758143]
+Solving for target (0.0, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0049875208593488, -0.9949875208593492]
+Solving for target (0.0, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.9840214108563472, -0.03658180886212317]
+Solving for target (0.0, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.934447004847166, 0.1038765015370901]
+Solving for target (0.0, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.8475586792272227, 0.1971136394672851]
+Solving for target (0.0, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.7248208063405157, 0.26928998460099196]
+Solving for target (0.0, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.5658149249978761, 0.32205664755041885]
+Solving for target (0.0, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.369617129451507, 0.3522970767153426]
+Solving for target (0.0, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.1347579028866452, 0.3545154617825854]
+Solving for target (0.0, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.858896458759868, 0.32067117964552216]
+Solving for target (0.0, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5380401992151025, 0.23854180150394022]
+Solving for target (0.0, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.16440660445594796, 0.08693646206779104]
+Solving for target (0.0, 1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.28190226824331743, -0.18246252966346632]
+Solving for target (0.0, 2.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0049108949537235, -0.9948611913452585]
+Solving for target (0.16666666666666666, -1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.2916202012217446, 1.4583520556274898]
+Solving for target (0.16666666666666666, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.2111355991327897, 1.5903329652802496]
+Solving for target (0.16666666666666666, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0976179614375876, 1.6069605690950446]
+Solving for target (0.16666666666666666, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.9792641546292552, 1.557026936680919]
+Solving for target (0.16666666666666666, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.8674569223733488, 1.4622725457895245]
+Solving for target (0.16666666666666666, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.7689486662642521, 1.3359574919591475]
+Solving for target (0.16666666666666666, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.6895725489299533, 1.1879005831748821]
+Solving for target (0.16666666666666666, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.6372866565079409, 1.0264509976616552]
+Solving for target (0.16666666666666666, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.6287427924933183, 0.8582780926818011]
+Solving for target (0.16666666666666666, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.7114910468987251, 0.6762695550136231]
+Solving for target (0.16666666666666666, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0284870259607362, 0.32652640979230296]
+Solving for target (0.16666666666666666, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0752664316477494, -1.1572281854359074]
+Solving for target (0.16666666666666666, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7935170377406527, -1.7855908679191186]
+Solving for target (0.16666666666666666, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.616450669920426, -1.1738199513871894]
+Solving for target (0.16666666666666666, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.8123711196947063, -0.7008089107655353]
+Solving for target (0.16666666666666666, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.7998496087421838, -0.3790086121638314]
+Solving for target (0.16666666666666666, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.6881850866050216, -0.15118111400899636]
+Solving for target (0.16666666666666666, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.5104187217362595, 0.01110293021070019]
+Solving for target (0.16666666666666666, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.2776003977219474, 0.1190495210617517]
+Solving for target (0.16666666666666666, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9923170729678871, 0.1739798200069027]
+Solving for target (0.16666666666666666, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6519831494847818, 0.16930904512233313]
+Solving for target (0.16666666666666666, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.24746132707244603, 0.08749962535266875]
+Solving for target (0.16666666666666666, 1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.24815089742447452, -0.11747721101629383]
+Solving for target (0.3333333333333333, -1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.454749551827189, 1.2220572427519372]
+Solving for target (0.3333333333333333, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.4436767005596294, 1.3803295995039553]
+Solving for target (0.3333333333333333, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.3782705937710462, 1.41929745411383]
+Solving for target (0.3333333333333333, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.2998066533549795, 1.3906566872344441]
+Solving for target (0.3333333333333333, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.2247149404003759, 1.3157976922011902]
+Solving for target (0.3333333333333333, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.1634498818667574, 1.2063454799203364]
+Solving for target (0.3333333333333333, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.1259368749283512, 1.0682533929559128]
+Solving for target (0.3333333333333333, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.12531922224005, 0.9004343861885195]
+Solving for target (0.3333333333333333, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.181701666926986, 0.684994416215835]
+Solving for target (0.3333333333333333, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.3160399354906387, 0.35355628212875007]
+Solving for target (0.3333333333333333, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.4552251649099623, -0.28141110600180286]
+Solving for target (0.3333333333333333, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.117767792084902, -1.3090331556445287]
+Solving for target (0.3333333333333333, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.024560895908723734, -1.9261968541379544]
+Solving for target (0.3333333333333333, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9460256119194215, -1.7607910752346936]
+Solving for target (0.3333333333333333, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.4489704557626544, -1.339589483222027]
+Solving for target (0.3333333333333333, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.6367118718891795, -0.9348655925585027]
+Solving for target (0.3333333333333333, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.641383241591051, -0.6001208475051009]
+Solving for target (0.3333333333333333, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.5290590042682624, -0.3354404583883831]
+Solving for target (0.3333333333333333, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.3300965146940307, -0.13506462735676084]
+Solving for target (0.3333333333333333, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.0570786344673264, 0.002716499689048968]
+Solving for target (0.3333333333333333, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7118085039399062, 0.0728471502656669]
+Solving for target (0.3333333333333333, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2848923614450449, 0.058938047017549566]
+Solving for target (0.3333333333333333, 1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.2607068886208835, -0.08700948346101067]
+Solving for target (0.5, -1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5464534918086768, 0.9348475083780479]
+Solving for target (0.5, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.626359260943605, 1.1208144408418368]
+Solving for target (0.5, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.615914841809004, 1.1754691683762806]
+Solving for target (0.5, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5801284395388628, 1.157946222595836]
+Solving for target (0.5, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5416497117709664, 1.0890316615773905]
+Solving for target (0.5, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5134302635577657, 0.9774443568953332]
+Solving for target (0.5, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5053958604013278, 0.8236109094599433]
+Solving for target (0.5, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5256149373036567, 0.6171482638964352]
+Solving for target (0.5, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5749301424830224, 0.32885055295415655]
+Solving for target (0.5, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.6228315887489853, -0.09879430912750714]
+Solving for target (0.5, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5482037786827338, -0.7235014667124182]
+Solving for target (0.5, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.1324916777962815, -1.4465399407546267]
+Solving for target (0.5, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.3497476034980265, -1.9182388176604992]
+Solving for target (0.5, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.46660895658226886, -1.9437297115305945]
+Solving for target (0.5, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.0499015476366595, -1.6761421849720697]
+Solving for target (0.5, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.3704937730112334, -1.3111786678708732]
+Solving for target (0.5, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.486219530664643, -0.949929391014821]
+Solving for target (0.5, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.4515961974580696, -0.6302097883568197]
+Solving for target (0.5, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.3012351329639924, -0.3648692418264394]
+Solving for target (0.5, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.0530751389055966, -0.1603386164955245]
+Solving for target (0.5, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7117125121324244, -0.025199225601872932]
+Solving for target (0.5, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.265601529627816, 0.021797101430681254]
+Solving for target (0.5, 1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.34310124915533624, -0.07611183717798675]
+Solving for target (0.6666666666666666, -1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5069943794959997, 0.5955808984682958]
+Solving for target (0.6666666666666666, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7319605827341835, 0.8196768967787015]
+Solving for target (0.6666666666666666, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7859377996084107, 0.8850999540811475]
+Solving for target (0.6666666666666666, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7936343912443915, 0.8712209672776109]
+Solving for target (0.6666666666666666, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7870107201064451, 0.7993885348490114]
+Solving for target (0.6666666666666666, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.780641917593031, 0.6764209147329218]
+Solving for target (0.6666666666666666, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.781594969366742, 0.500118051341447]
+Solving for target (0.6666666666666666, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.789324377003429, 0.2590958661185775]
+Solving for target (0.6666666666666666, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7886010710567248, -0.06763882090371842]
+Solving for target (0.6666666666666666, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7343959478695634, -0.5025357561297985]
+Solving for target (0.6666666666666666, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5405160339532191, -1.0351382965528697]
+Solving for target (0.6666666666666666, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.1194382022715819, -1.565433776713082]
+Solving for target (0.6666666666666666, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.492599129761567, -1.9191403593533745]
+Solving for target (0.6666666666666666, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.18012720321186404, -1.9915576219370135]
+Solving for target (0.6666666666666666, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7354659098995299, -1.824745888608096]
+Solving for target (0.6666666666666666, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.1042876742755037, -1.5253698682171648]
+Solving for target (0.6666666666666666, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.2892281782950397, -1.1812497419524115]
+Solving for target (0.6666666666666666, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.3166270303260017, -0.8440862694603751]
+Solving for target (0.6666666666666666, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.2113344091205, -0.5412451003858587]
+Solving for target (0.6666666666666666, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9886802334106547, -0.28893955738548827]
+Solving for target (0.6666666666666666, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.6512471950756672, -0.10187195784892977]
+Solving for target (0.6666666666666666, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.1794225582534561, -0.00418563332730959]
+Solving for target (0.6666666666666666, 1.8333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.542771445467509, -0.07575013674204922]
+Solving for target (0.8333333333333334, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7240580555235465, 0.49051270181361684]
+Solving for target (0.8333333333333334, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.863830421594832, 0.5646320017862233]
+Solving for target (0.8333333333333334, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.9182751410897207, 0.550623162959692]
+Solving for target (0.8333333333333334, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.9393144646063574, 0.4731325928884065]
+Solving for target (0.8333333333333334, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.9449793976601875, 0.33922712875278405]
+Solving for target (0.8333333333333334, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.9403811685543246, 0.1478195871394249]
+Solving for target (0.8333333333333334, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.919922607631595, -0.10747016825483824]
+Solving for target (0.8333333333333334, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.8639908412704695, -0.4341506847788805]
+Solving for target (0.8333333333333334, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7350697485195437, -0.8301266883255374]
+Solving for target (0.8333333333333334, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.4837717596767868, -1.2640838546942335]
+Solving for target (0.8333333333333334, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0786075438932174, -1.660701467115035]
+Solving for target (0.8333333333333334, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.547872145641978, -1.9226855595098182]
+Solving for target (0.8333333333333334, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.017341947289322035, -1.9893827225021143]
+Solving for target (0.8333333333333334, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.515048755799418, -1.8702532649429204]
+Solving for target (0.8333333333333334, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.880780895989136, -1.6212888693143301]
+Solving for target (0.8333333333333334, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.0933380634933774, -1.3049941694586515]
+Solving for target (0.8333333333333334, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.1564323697282615, -0.9698925308943995]
+Solving for target (0.8333333333333334, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [1.0809257635624854, -0.6488267576474671]
+Solving for target (0.8333333333333334, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.873922652476517, -0.3646918408228159]
+Solving for target (0.8333333333333334, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5300101186477869, -0.13810480193928742]
+Solving for target (0.8333333333333334, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.00803300970217169, -0.0009230731906908485]
+Solving for target (1.0, -1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5237258192170966, 0.1533766547538684]
+Solving for target (1.0, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.8208395856876038, 0.23644508759020244]
+Solving for target (1.0, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.9354040563444, 0.22089676065279384]
+Solving for target (1.0, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.9855856403976362, 0.13909383672322528]
+Solving for target (1.0, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-2.000000166665833, 4.999958333462562e-5]
+Solving for target (1.0, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.985667800647223, -0.1941763161247937]
+Solving for target (1.0, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.9372268515058153, -0.4436076732796529]
+Solving for target (1.0, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.8384768527628856, -0.745230114817887]
+Solving for target (1.0, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.6645996809483736, -1.0852102856258663]
+Solving for target (1.0, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.3908645918045672, -1.430237535604723]
+Solving for target (1.0, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0099999999999993, -1.7262484695186706]
+Solving for target (1.0, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.5487799073211, -1.913969201229168]
+Solving for target (1.0, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.06612622951575675, -1.9557425597005265]
+Solving for target (1.0, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.3700484341603498, -1.8514357709683278]
+Solving for target (1.0, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7072982338807441, -1.6313572201715543]
+Solving for target (1.0, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9172384240353033, -1.337654437814531]
+Solving for target (1.0, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9899500004166653, -1.0099998333341667]
+Solving for target (1.0, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.9236012368507309, -0.6803861502389293]
+Solving for target (1.0, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.713966417226175, -0.374409737692179]
+Solving for target (1.0, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.3392040541919483, -0.11683510970338551]
+Solving for target (1.0, 1.6666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.31128108934958254, 0.049948363053342826]
+Solving for target (1.1666666666666667, -1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.6024920285275774, -0.06712800511953243]
+Solving for target (1.1666666666666667, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.8231392115129461, -0.08889595467162303]
+Solving for target (1.1666666666666667, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.915866831615947, -0.1736021167934121]
+Solving for target (1.1666666666666667, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.9448222816486322, -0.3115076990834631]
+Solving for target (1.1666666666666667, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.9260544284936505, -0.4976789719140263]
+Solving for target (1.1666666666666667, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.8592248792499648, -0.7272116895497963]
+Solving for target (1.1666666666666667, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7350112402134172, -0.9910374967785582]
+Solving for target (1.1666666666666667, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.540194488277752, -1.2713972430973144]
+Solving for target (1.1666666666666667, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.2651535035153336, -1.5387960090087398]
+Solving for target (1.1666666666666667, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.9136161058321737, -1.754247175980316]
+Solving for target (1.1666666666666667, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.5095986950833854, -1.879134660611495]
+Solving for target (1.1666666666666667, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.09514530358119755, -1.888705077989291]
+Solving for target (1.1666666666666667, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2811901901007179, -1.7802686819694464]
+Solving for target (1.1666666666666667, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5772517605697189, -1.5711043002839915]
+Solving for target (1.1666666666666667, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7637794638647417, -1.2896025206036708]
+Solving for target (1.1666666666666667, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.8230509494610916, -0.9664609622448426]
+Solving for target (1.1666666666666667, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.7422330301254929, -0.629788741410912]
+Solving for target (1.1666666666666667, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5015730280125699, -0.30444926962294416]
+Solving for target (1.1666666666666667, 1.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.038530730940738334, -0.015451936455568971]
+Solving for target (1.3333333333333333, -1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5333162905229518, -0.33620551371924723]
+Solving for target (1.3333333333333333, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7133137376619767, -0.43178162986442925]
+Solving for target (1.3333333333333333, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7759737077440083, -0.5669999752000559]
+Solving for target (1.3333333333333333, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.7668267539244207, -0.7392476559668487]
+Solving for target (1.3333333333333333, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.6967171248665918, -0.9417979982398584]
+Solving for target (1.3333333333333333, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5651523673825638, -1.163355341458912]
+Solving for target (1.3333333333333333, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.3685997228557711, -1.3862413902081838]
+Solving for target (1.3333333333333333, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.106962908961541, -1.5859582044355547]
+Solving for target (1.3333333333333333, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.7894569318975977, -1.733907398640574]
+Solving for target (1.3333333333333333, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.4378272648653837, -1.8035960413351373]
+Solving for target (1.3333333333333333, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.08466617406608323, -1.777966269857467]
+Solving for target (1.3333333333333333, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.2326991268240981, -1.6539190362498433]
+Solving for target (1.3333333333333333, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.4791907978574239, -1.4417761680366978]
+Solving for target (1.3333333333333333, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.625939984656485, -1.1608351660530456]
+Solving for target (1.3333333333333333, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.649293138746037, -0.8339836773126101]
+Solving for target (1.3333333333333333, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.5234958696248591, -0.48352079195773234]
+Solving for target (1.3333333333333333, 1.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.19569990376008572, -0.12751767643790246]
+Solving for target (1.5, -1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.3230384911997708, -0.5768459631312906]
+Solving for target (1.5, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.475231457083121, -0.7277612561637956]
+Solving for target (1.5, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.5035546288960058, -0.8904417508638663]
+Solving for target (1.5, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.4513987182978358, -1.0668305359722186]
+Solving for target (1.5, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.3318312164759811, -1.2478784544588166]
+Solving for target (1.5, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.1507412256072502, -1.4185048860987286]
+Solving for target (1.5, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.9150767639862236, -1.5592267457601474]
+Solving for target (1.5, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.6375249760714965, -1.648822813164248]
+Solving for target (1.5, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.3385628832707501, -1.668411830654239]
+Solving for target (1.5, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.04556780578606179, -1.6057205772162402]
+Solving for target (1.5, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.21035840393769956, -1.4576978658219006]
+Solving for target (1.5, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.39788460972343986, -1.23035563803239]
+Solving for target (1.5, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.4867468144152205, -0.9361008566017768]
+Solving for target (1.5, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.44365221611940675, -0.5893532224891094]
+Solving for target (1.5, 1.1666666666666667)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.21077840510902823, -0.19803407262710382]
+Solving for target (1.6666666666666667, -1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.9515947298112652, -0.687123123681999]
+Solving for target (1.6666666666666667, -0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.104622341928237, -0.8922437257790873]
+Solving for target (1.6666666666666667, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.1095723208987953, -1.0613268874512176]
+Solving for target (1.6666666666666667, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-1.0280762283137863, -1.2129933498184986]
+Solving for target (1.6666666666666667, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.8820066491475034, -1.3408153613319562]
+Solving for target (1.6666666666666667, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.6864293276900664, -1.4315368878638048]
+Solving for target (1.6666666666666667, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.45782773198251014, -1.469975064081396]
+Solving for target (1.6666666666666667, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.21697877598523396, -1.442466665066756]
+Solving for target (1.6666666666666667, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.01074826749226876, -1.3396481707562666]
+Solving for target (1.6666666666666667, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.19634928948723873, -1.1578789957521542]
+Solving for target (1.6666666666666667, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.3074744916724166, -0.8984863754848458]
+Solving for target (1.6666666666666667, 0.8333333333333334)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.30389235753902266, -0.5634052931119541]
+Solving for target (1.6666666666666667, 1.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.10738722974685122, -0.13584702532852422]
+Solving for target (1.8333333333333333, -0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.5920043900803962, -0.7718114751290553]
+Solving for target (1.8333333333333333, -0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.6193336502957596, -0.9615731313495983]
+Solving for target (1.8333333333333333, -0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.5446574227547563, -1.0765627693047641]
+Solving for target (1.8333333333333333, -0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.412815908812592, -1.133920178605288]
+Solving for target (1.8333333333333333, 0.0)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.25040266745255013, -1.1293066150609037]
+Solving for target (1.8333333333333333, 0.16666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [-0.082567807848696, -1.0541390597794422]
+Solving for target (1.8333333333333333, 0.3333333333333333)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.06236126298280431, -0.8995209676487641]
+Solving for target (1.8333333333333333, 0.5)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.14897426921382273, -0.655003185034696]
+Solving for target (1.8333333333333333, 0.6666666666666666)
+Status: LOCALLY_SOLVED
+Error in first order approximation: [0.1197207441497774, -0.2933121015133817]
+Solving for target (2.0, 0.0)
+Status: LOCALLY_SOLVED
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+Error in first order approximation: [-0.009999999999999787, 0.0]
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.</code></pre><p>Replace nans with 0.0</p><pre><code class="language-julia hljs">heat = replace(heat, NaN =&gt; 0.0)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">25×25 Matrix{Float64}:
+ 0.0  0.0        0.0        0.0        …  0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0           0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0           0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0           0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0           0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0359354  …  0.0        0.0        0.0
+ 0.0  0.0        0.0474905  0.0259433     0.0474905  0.0        0.0
+ 0.0  0.0        0.0308751  0.0219291     0.0308751  0.0        0.0
+ 0.0  0.0507615  0.0254816  0.019774      0.0254816  0.0507615  0.0
+ 0.0  0.0359354  0.0228308  0.0184975     0.0228308  0.0359354  0.0
+ ⋮                                     ⋱                        
+ 0.0  0.0507615  0.0254816  0.019774      0.0254816  0.0507615  0.0
+ 0.0  0.0        0.0308751  0.0219291     0.0308751  0.0        0.0
+ 0.0  0.0        0.0474905  0.0259433     0.0474905  0.0        0.0
+ 0.0  0.0        0.0        0.0359354     0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0        …  0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0           0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0           0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0           0.0        0.0        0.0
+ 0.0  0.0        0.0        0.0           0.0        0.0        0.0</code></pre><h2 id="Results-with-Plot-graphs"><a class="docs-heading-anchor" href="#Results-with-Plot-graphs">Results with Plot graphs</a><a id="Results-with-Plot-graphs-1"></a><a class="docs-heading-anchor-permalink" href="#Results-with-Plot-graphs" title="Permalink"></a></h2><pre><code class="language-julia hljs">default(;
+    size = (1150, 350),
+    legendfontsize = 8,
+    guidefontsize = 9,
+    tickfontsize = 7,
+)
+
+plt = heatmap(
+    xs,
+    ys,
+    heat;
+    xlabel = &quot;x target&quot;,
+    ylabel = &quot;y target&quot;,
+    clims = (0, quantile(skipmissing(heat), 0.95)),   # clip extremes
+    colorbar_title = &quot;‖∂θ/∂(x,y)‖₂&quot;,
+    left_margin = 5Plots.Measures.mm,
+    bottom_margin = 5Plots.Measures.mm,
+);</code></pre><p>Overlay workspace boundary</p><pre><code class="language-julia hljs">θ = range(0, 2π; length = 200)
+plot!(plt, reach * cos.(θ), reach * sin.(θ); c = :white, lw = 1, lab = &quot;reach&quot;);
+
+plt_feas = heatmap(
+    xs,
+    ys,
+    feas;
+    xlabel = &quot;x target&quot;,
+    ylabel = &quot;y target&quot;,
+    clims = (0, 1),
+    colorbar_title = &quot;Precision Error&quot;,
+    left_margin = 5Plots.Measures.mm,
+    bottom_margin = 5Plots.Measures.mm,
+);
+
+plot!(
+    plt_feas,
+    reach * cos.(θ),
+    reach * sin.(θ);
+    c = :white,
+    lw = 1,
+    lab = &quot;reach&quot;,
+);
+
+plt_all = plot(
+    plt,
+    plt_feas;
+    layout = (1, 2),
+    left_margin = 5Plots.Measures.mm,
+    bottom_margin = 5Plots.Measures.mm,
+    legend = :bottomright,
+)</code></pre><img src="0cad1bfa.svg" alt="Example block output"/><p>Left figure shows the spectral-norm heat-map <span>$\bigl\lVert\partial\boldsymbol{\theta}/\partial(x,y)\bigr\rVert_2$</span> for a two-link arm - Bright rings mark near-singular poses. Right figure shows the normalized precision error of the first order approximation derived from calculated sensitivities.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Mean_Variance_Portfolio_Example/">« Mean Variance Portfolio Example</a><a class="docs-footer-nextpage" href="../Thermal_Generation_Dispatch_Example/">Thermal Generation Dispatch Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Friday 10 October 2025 14:18">Friday 10 October 2025</span>. Using Julia version 1.12.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
