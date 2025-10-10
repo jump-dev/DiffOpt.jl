@@ -532,6 +532,8 @@ Examples:
 julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.QuadraticProgram.Model)
 
 julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.ConicProgram.Model)
+
+julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.NonlinearProgram.Model)
 ```
 """
 struct ModelConstructor <: MOI.AbstractOptimizerAttribute end
