@@ -44,6 +44,13 @@ function MOI.set(
     return MOI.set(model, ForwardConstraintFunction(), bridge.constraint, value)
 end
 
+# We use the `MOI.Utilities` API so what we do should work
+# both on `MOI.AbstractFunction` and on `Vector{Float64}`
+const _GettableConstraintAttribute = Union{
+    ReverseConstraintFunction,
+    ForwardConstraintDual,
+}
+
 function MOI.set(
     model::MOI.ModelLike,
     attr::ForwardConstraintFunction,
@@ -60,7 +67,7 @@ end
 
 function MOI.get(
     model::MOI.ModelLike,
-    attr::ReverseConstraintFunction,
+    attr::_GettableConstraintAttribute,
     bridge::MOI.Bridges.Constraint.VectorizeBridge,
 )
     return MOI.Utilities.eachscalar(
@@ -80,7 +87,7 @@ end
 
 function MOI.get(
     model::MOI.ModelLike,
-    attr::ReverseConstraintFunction,
+    attr::_GettableConstraintAttribute,
     bridge::MOI.Bridges.Constraint.ScalarizeBridge,
 )
     return _vectorize(MOI.get.(model, attr, bridge.scalar_constraints))
@@ -88,7 +95,7 @@ end
 
 function MOI.get(
     model::MOI.ModelLike,
-    attr::DiffOpt.ReverseConstraintFunction,
+    attr::_GettableConstraintAttribute,
     bridge::MOI.Bridges.Constraint.AbstractFunctionConversionBridge,
 )
     return MOI.get(model, attr, bridge.constraint)
@@ -123,7 +130,7 @@ end
 
 function MOI.get(
     model::MOI.ModelLike,
-    attr::DiffOpt.ReverseConstraintFunction,
+    attr::_GettableConstraintAttribute,
     bridge::MOI.Bridges.Constraint.SetMapBridge,
 )
     func = MOI.get(model, attr, bridge.constraint)
