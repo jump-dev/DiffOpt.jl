@@ -16,7 +16,7 @@ ParametricOptInterface = "0ce4ce61-57bf-432b-a095-efac525d185e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-BlockDiagonals = "0.1"
+BlockDiagonals = "0.1, 0.2"
 ChainRulesCore = "1"
 IterativeSolvers = "0.9"
 JuMP = "1"
