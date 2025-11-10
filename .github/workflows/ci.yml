@@ -42,25 +42,3 @@ jobs:
         with:
           file: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    env:
-      # Fix for Plots with GR backend, see https://github.com/jheinen/GR.jl/issues/422
-      GKSwstype: nul
-    steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: '1'
-      - name: Install dependencies
-        shell: julia --color=yes --project=docs/ {0}
-        run: |
-          using Pkg
-          Pkg.develop(PackageSpec(path=pwd()))
-          Pkg.instantiate()
-      - run: julia --project=docs --color=yes docs/make.jl
-        env:
-          DATADEPS_ALWAYS_ACCEPT: true # For MLDatasets.MNIST
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
