@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Nearest correlation · DiffOpt.jl</title><meta name="title" content="Nearest correlation · DiffOpt.jl"/><meta property="og:title" content="Nearest correlation · DiffOpt.jl"/><meta property="twitter:title" content="Nearest correlation · DiffOpt.jl"/><meta name="description" content="Documentation for DiffOpt.jl."/><meta property="og:description" content="Documentation for DiffOpt.jl."/><meta property="twitter:description" content="Documentation for DiffOpt.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">DiffOpt.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../intro/">Introduction</a></li><li><a class="tocitem" href="../../manual/">Manual</a></li><li><a class="tocitem" href="../../usage/">Usage</a></li><li><a class="tocitem" href="../../reference/">Reference</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../Mean_Variance_Portfolio_Example/">Mean Variance Portfolio Example</a></li><li><a class="tocitem" href="../Planar_Arm_Example/">Planar Arm Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example_new/">Thermal Generation Dispatch Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_sweep/">Thermal Generation Dispatch Sweep Example</a></li><li><a class="tocitem" href="../autotuning-ridge/">Auto-tuning Hyperparameters</a></li><li><a class="tocitem" href="../autotuning-ridge_new/">Auto-tuning Hyperparameters (JuMP API)</a></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../chainrules_unit_new/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../custom-relu/">Custom ReLU layer</a></li><li><a class="tocitem" href="../custom-relu_new/">Custom ReLU layer</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../matrix-inversion-manual_new/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../nearest_correlation/">Nearest correlation</a></li><li class="is-active"><a class="tocitem" href>Nearest correlation</a></li><li><a class="tocitem" href="../polyhedral_project/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../polyhedral_project_new/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge_new/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm/">Sensitivity Analysis of SVM</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm_new/">Sensitivity Analysis of SVM</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Nearest correlation</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Nearest correlation</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Nearest-correlation"><a class="docs-heading-anchor" href="#Nearest-correlation">Nearest correlation</a><a id="Nearest-correlation-1"></a><a class="docs-heading-anchor-permalink" href="#Nearest-correlation" title="Permalink"></a></h1><p><a href="https://github.com/jump-dev/DiffOpt.jl/blob/master/docs/src/examples/nearest_correlation.jl"><img src="https://img.shields.io/badge/show-github-579ACA.svg" alt/></a></p><p>This example illustrates the sensitivity analysis of the nearest correlation problem studied in [H02].</p><p>Higham, Nicholas J. <em>Computing the nearest correlation matrix—a problem from finance.</em> IMA journal of Numerical Analysis 22.3 (2002): 329-343.</p><pre><code class="language-julia hljs">using DiffOpt, JuMP, SCS, LinearAlgebra
+solver = SCS.Optimizer
+
+function proj(A, dH = Diagonal(ones(size(A, 1))), H_data = ones(size(A)))
+    n = LinearAlgebra.checksquare(A)
+    model = Model(() -&gt; DiffOpt.diff_optimizer(solver))
+    @variable(model, X[1:n, 1:n] in PSDCone())
+    @variable(model, H[1:n, 1:n] in Parameter.(H_data))
+    @variable(model, E[1:n, 1:n])
+    @constraint(model, [i in 1:n], X[i, i] == 1)
+    @constraint(model, E .== (H .* (X .- A)))
+    @objective(model, Min, sum(E .^ 2))
+    for i in 1:n
+        DiffOpt.set_forward_parameter(model, H[i, i], dH[i, i])
+    end
+    optimize!(model)
+    DiffOpt.forward_differentiate!(model)
+    dX = DiffOpt.get_forward_variable.(model, X)
+    return value.(X), dX
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">proj (generic function with 3 methods)</code></pre><p>Example from [H02, p. 334-335]:</p><pre><code class="language-julia hljs">A = LinearAlgebra.Tridiagonal(ones(2), ones(3), ones(2))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 LinearAlgebra.Tridiagonal{Float64, Vector{Float64}}:
+ 1.0  1.0   ⋅ 
+ 1.0  1.0  1.0
+  ⋅   1.0  1.0</code></pre><p>The projection is computed as follows:</p><pre><code class="language-julia hljs">X, dX = proj(A)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">------------------------------------------------------------------
+	       SCS v3.2.9 - Splitting Conic Solver
+	(c) Brendan O&#39;Donoghue, Stanford University, 2012
+------------------------------------------------------------------
+problem:  variables n: 15, constraints m: 18
+cones: 	  z: primal zero / dual free vars: 12
+	  s: psd vars: 6, ssize: 1
+settings: eps_abs: 1.0e-04, eps_rel: 1.0e-04, eps_infeas: 1.0e-07
+	  alpha: 1.50, scale: 1.00e-01, adaptive_scale: 1
+	  max_iters: 100000, normalize: 1, rho_x: 1.00e-06
+	  acceleration_lookback: 10, acceleration_interval: 10
+	  compiled with openmp parallelization enabled
+lin-sys:  sparse-direct-amd-qdldl
+	  nnz(A): 27, nnz(P): 9
+------------------------------------------------------------------
+ iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
+------------------------------------------------------------------
+     0| 1.00e+00  2.56e-01  1.01e+00  5.26e-01  1.00e-01  1.76e-04
+   100| 5.96e-05  1.22e-06  9.38e-05  2.79e-01  1.00e-01  5.07e-04
+------------------------------------------------------------------
+status:  solved
+timings: total: 5.08e-04s = setup: 7.13e-05s + solve: 4.37e-04s
+	 lin-sys: 5.10e-05s, cones: 2.47e-04s, accel: 5.85e-06s
+------------------------------------------------------------------
+objective = 0.278512
+------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
+ 1.0       0.760733  0.157275
+ 0.760733  1.0       0.760733
+ 0.157275  0.760733  1.0</code></pre><p>The derivative of the projection with respect to a uniform increase of the weights of the diagonal entries is:</p><pre><code class="language-julia hljs">dX</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
+  5.12521e-15  3.01089e-14  -1.36629e-14
+  3.01089e-14  3.94055e-16   1.86395e-14
+ -1.36629e-14  1.86395e-14  -4.31989e-15</code></pre><p>Example from [H02, Section 4, p. 340]:</p><pre><code class="language-julia hljs">A = LinearAlgebra.Tridiagonal(-ones(3), 2ones(4), -ones(3))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 LinearAlgebra.Tridiagonal{Float64, Vector{Float64}}:
+  2.0  -1.0    ⋅     ⋅ 
+ -1.0   2.0  -1.0    ⋅ 
+   ⋅   -1.0   2.0  -1.0
+   ⋅     ⋅   -1.0   2.0</code></pre><p>The projection is computed as follows:</p><pre><code class="language-julia hljs">X, dX = proj(A)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">------------------------------------------------------------------
+	       SCS v3.2.9 - Splitting Conic Solver
+	(c) Brendan O&#39;Donoghue, Stanford University, 2012
+------------------------------------------------------------------
+problem:  variables n: 26, constraints m: 30
+cones: 	  z: primal zero / dual free vars: 20
+	  s: psd vars: 10, ssize: 1
+settings: eps_abs: 1.0e-04, eps_rel: 1.0e-04, eps_infeas: 1.0e-07
+	  alpha: 1.50, scale: 1.00e-01, adaptive_scale: 1
+	  max_iters: 100000, normalize: 1, rho_x: 1.00e-06
+	  acceleration_lookback: 10, acceleration_interval: 10
+	  compiled with openmp parallelization enabled
+lin-sys:  sparse-direct-amd-qdldl
+	  nnz(A): 46, nnz(P): 16
+------------------------------------------------------------------
+ iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
+------------------------------------------------------------------
+     0| 1.95e+00  2.54e-01  1.26e+01  8.41e+00  1.00e-01  1.85e-04
+   125| 8.40e-08  1.20e-08  2.01e-07  4.55e+00  7.56e-01  8.03e-04
+------------------------------------------------------------------
+status:  solved
+timings: total: 8.04e-04s = setup: 8.49e-05s + solve: 7.19e-04s
+	 lin-sys: 1.03e-04s, cones: 4.62e-04s, accel: 7.90e-06s
+------------------------------------------------------------------
+objective = 4.552800
+------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
+  1.0       -0.808413   0.191587   0.106775
+ -0.808413   1.0       -0.656233   0.191587
+  0.191587  -0.656233   1.0       -0.808413
+  0.106775   0.191587  -0.808413   1.0</code></pre><p>The derivative of the projection with respect to a uniform increase of the weights of the diagonal entries is:</p><pre><code class="language-julia hljs">dX</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
+ 1.81949e-8   0.314394    0.314394    0.143315
+ 0.314394    -1.06177e-7  0.666831    0.314394
+ 0.314394     0.666831    4.70508e-9  0.314394
+ 0.143315     0.314394    0.314394    3.91717e-8</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nearest_correlation/">« Nearest correlation</a><a class="docs-footer-nextpage" href="../polyhedral_project/">Polyhedral QP layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Monday 10 November 2025 00:36">Monday 10 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
