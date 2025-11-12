@@ -574,9 +574,59 @@ function reverse_differentiate!(model::Optimizer)
         MOI.set(diff, ReverseConstraintDual(), model.index_map[vi], value)
     end
     if !iszero(model.input_cache.dobj)
-        MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
+        if !isempty(model.input_cache.dx)
+            error(
+                "Cannot compute the reverse differentiation with both solution sensitivities and objective sensitivities.",
+            )
+        end
+        try
+            MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
+        catch e
+            if e isa MOI.UnsupportedAttribute
+                _fallback_set_reverse_objective_sensitivity(model, model.input_cache.dobj)
+            else
+                rethrow(e)
+            end
+        end
     end
     return reverse_differentiate!(diff)
+end
+
+function _fallback_set_reverse_objective_sensitivity(model::Optimizer, val)
+    diff = _diff(model)
+    obj_type = MOI.get(
+        model,
+        MOI.ObjectiveFunctionType(),
+    )
+    obj_func = MOI.get(
+        model,
+        MOI.ObjectiveFunction{obj_type}(),
+    )
+    for xi in MOI.Nonlinear.SymbolicAD.variables(obj_func)
+        df_dx = MOI.Nonlinear.SymbolicAD.simplify!(
+            MOI.Nonlinear.SymbolicAD.derivative(obj_func, xi),
+        )
+        if iszero(df_dx)
+            continue
+        end
+        dd = 0.0
+        if df_dx isa Number
+            dd = df_dx * val
+        elseif df_dx isa MOI.ScalarAffineFunction{Float64}
+            for term in df_dx.terms
+                xj_val = MOI.get(model, MOI.VariablePrimal(), term.variable)
+                dd += term.coefficient * xj_val * val
+            end
+            dd += df_dx * val
+        else
+            error(
+                "Cannot compute forward objective sensitivity fallback: " *
+                "unsupported derivative found.",
+            )
+        end
+        MOI.set(diff, ReverseVariablePrimal(), model.index_map[xi], dd)
+    end
+    return
 end
 
 function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
@@ -830,7 +880,58 @@ function MOI.get(
 end
 
 function MOI.get(model::Optimizer, attr::ForwardObjectiveSensitivity)
-    return MOI.get(_checked_diff(model, attr, :forward_differentiate!), attr)
+    diff_model = _checked_diff(model, attr, :forward_differentiate!)
+    val = 0.0
+    try
+        val = MOI.get(diff_model, attr)
+    catch e
+        if e isa MOI.UnsupportedAttribute
+            val = _fallback_get_forward_objective_sensitivity(model)
+        else
+            rethrow(e)
+        end
+    end
+    return val
+end
+
+function _fallback_get_forward_objective_sensitivity(model::Optimizer)
+    ret = 0.0
+    obj_type = MOI.get(
+        model,
+        MOI.ObjectiveFunctionType(),
+    )
+    obj_func = MOI.get(
+        model,
+        MOI.ObjectiveFunction{obj_type}(),
+    )
+    for xi in MOI.Nonlinear.SymbolicAD.variables(obj_func)
+        df_dx = MOI.Nonlinear.SymbolicAD.simplify!(
+            MOI.Nonlinear.SymbolicAD.derivative(obj_func, xi),
+        )
+        if iszero(df_dx)
+            continue
+        end
+        dx_dp = MOI.get(
+            model,
+            ForwardVariablePrimal(),
+            xi,
+        )
+        if df_dx isa Number
+            ret += df_dx * dx_dp
+        elseif df_dx isa MOI.ScalarAffineFunction{Float64}
+            for term in df_dx.terms
+                xj_val = MOI.get(model, MOI.VariablePrimal(), term.variable)
+                ret += term.coefficient * xj_val * dx_dp
+            end
+            ret += df_dx.constant * dx_dp
+        else
+            error(
+                "Cannot compute forward objective sensitivity fallback: " *
+                "unsupported derivative found.",
+            )
+        end
+    end
+    return ret
 end
 
 function MOI.supports(
