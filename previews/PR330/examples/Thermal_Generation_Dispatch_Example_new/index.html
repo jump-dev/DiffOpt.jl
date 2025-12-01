@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Thermal Generation Dispatch Example · DiffOpt.jl</title><meta name="title" content="Thermal Generation Dispatch Example · DiffOpt.jl"/><meta property="og:title" content="Thermal Generation Dispatch Example · DiffOpt.jl"/><meta property="twitter:title" content="Thermal Generation Dispatch Example · DiffOpt.jl"/><meta name="description" content="Documentation for DiffOpt.jl."/><meta property="og:description" content="Documentation for DiffOpt.jl."/><meta property="twitter:description" content="Documentation for DiffOpt.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">DiffOpt.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../intro/">Introduction</a></li><li><a class="tocitem" href="../../manual/">Manual</a></li><li><a class="tocitem" href="../../usage/">Usage</a></li><li><a class="tocitem" href="../../reference/">Reference</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../Mean_Variance_Portfolio_Example/">Mean Variance Portfolio Example</a></li><li><a class="tocitem" href="../Planar_Arm_Example/">Planar Arm Example</a></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_Example/">Thermal Generation Dispatch Example</a></li><li class="is-active"><a class="tocitem" href>Thermal Generation Dispatch Example</a><ul class="internal"><li><a class="tocitem" href="#Define-and-solve-the-Thermal-Dispatch-Problem"><span>Define and solve the Thermal Dispatch Problem</span></a></li><li><a class="tocitem" href="#Results-with-Plot-graphs"><span>Results with Plot graphs</span></a></li></ul></li><li><a class="tocitem" href="../Thermal_Generation_Dispatch_sweep/">Thermal Generation Dispatch Sweep Example</a></li><li><a class="tocitem" href="../autotuning-ridge/">Auto-tuning Hyperparameters</a></li><li><a class="tocitem" href="../autotuning-ridge_new/">Auto-tuning Hyperparameters (JuMP API)</a></li><li><a class="tocitem" href="../chainrules_unit/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../chainrules_unit_new/">ChainRules integration demo: Relaxed Unit Commitment</a></li><li><a class="tocitem" href="../custom-relu/">Custom ReLU layer</a></li><li><a class="tocitem" href="../custom-relu_new/">Custom ReLU layer</a></li><li><a class="tocitem" href="../matrix-inversion-manual/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../matrix-inversion-manual_new/">Differentiating a QP wrt a single variable</a></li><li><a class="tocitem" href="../nearest_correlation/">Nearest correlation</a></li><li><a class="tocitem" href="../nearest_correlation_new/">Nearest correlation</a></li><li><a class="tocitem" href="../polyhedral_project/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../polyhedral_project_new/">Polyhedral QP layer</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-ridge_new/">Sensitivity Analysis of Ridge Regression</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm/">Sensitivity Analysis of SVM</a></li><li><a class="tocitem" href="../sensitivity-analysis-svm_new/">Sensitivity Analysis of SVM</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Thermal Generation Dispatch Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Thermal Generation Dispatch Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/jump-dev/DiffOpt.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Thermal-Generation-Dispatch-Example"><a class="docs-heading-anchor" href="#Thermal-Generation-Dispatch-Example">Thermal Generation Dispatch Example</a><a id="Thermal-Generation-Dispatch-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Thermal-Generation-Dispatch-Example" title="Permalink"></a></h1><p><a href="https://github.com/jump-dev/DiffOpt.jl/blob/master/examples/Thermal_Generation_Dispatch_Example.jl"><img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&amp;logo=github&amp;logoColor=white" alt/></a></p><p>This example illustrates the sensitivity analysis of thermal generation dispatch problem.</p><p>This problem can be described as the choice of thermal generation <code>g</code> given a demand <code>d</code>, a price for thermal generation <code>c</code> and a penalty price <code>c_{ϕ}</code> for any demand not attended ϕ.</p><p class="math-container">\[\begin{split}
+\begin{array} {ll}
+\mbox{minimize} &amp; \sum_{i=1}^{N} c_{i} g_{i} + c_{\phi} \phi \\
+\mbox{s.t.} &amp; g_{i} \ge 0 \quad i=1..N  \\
+            &amp; g_{i} \le G_{i} \quad i=1..N  \\
+            &amp; \sum_{i=1}^{N} g_{i} + \phi = d\\
+\end{array}
+\end{split}\]</p><p>where</p><ul><li><code>G_{i}</code> is the maximum possible generation for a thermal generator <code>i</code></li></ul><h2 id="Define-and-solve-the-Thermal-Dispatch-Problem"><a class="docs-heading-anchor" href="#Define-and-solve-the-Thermal-Dispatch-Problem">Define and solve the Thermal Dispatch Problem</a><a id="Define-and-solve-the-Thermal-Dispatch-Problem-1"></a><a class="docs-heading-anchor-permalink" href="#Define-and-solve-the-Thermal-Dispatch-Problem" title="Permalink"></a></h2><p>First, import the libraries.</p><pre><code class="language-julia hljs">using Test
+using JuMP
+import DiffOpt
+import LinearAlgebra: dot
+import HiGHS
+import MathOptInterface as MOI
+import Plots</code></pre><p>Define the model that will be construct given a set of parameters.</p><pre><code class="language-julia hljs">function generate_model(
+    d_data::Float64;
+    g_sup::Vector{Float64},
+    c_g::Vector{Float64},
+    c_ϕ::Float64,
+)
+    # Creation of the Model and Parameters
+    model = DiffOpt.quadratic_diff_model(HiGHS.Optimizer)
+    set_silent(model)
+    I = length(g_sup)
+
+    # Variables
+    @variable(model, g[i in 1:I] &gt;= 0.0)
+    @variable(model, ϕ &gt;= 0.0)
+
+    # Parameters
+    @variable(model, d in Parameter(d_data))
+
+    # Constraints
+    @constraint(model, limit_constraints_sup[i in 1:I], g[i] &lt;= g_sup[i])
+    @constraint(model, demand_constraint, sum(g) + ϕ == d)
+
+    # Objectives
+    @objective(model, Min, dot(c_g, g) + c_ϕ * ϕ)
+
+    # Solve the model
+    optimize!(model)
+
+    # Return the solved model
+    return model
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">generate_model (generic function with 1 method)</code></pre><p>Define the functions that will get the primal values <code>g</code> and <code>\phi</code> and sensitivity analysis of the demand <code>dg/dd</code> and <code>d\phi/dd</code> from a optimized model.</p><pre><code class="language-julia hljs">function diff_forward(model::Model, ϵ::Float64 = 1.0)
+    # Initialization of parameters and references to simplify the notation
+    vect_ref = [model[:g]; model[:ϕ]]
+
+    # Get the primal solution of the model
+    vect = value.(vect_ref)
+
+    # Reset the sensitivities of the model
+    DiffOpt.empty_input_sensitivities!(model)
+
+    # Pass the perturbation to the DiffOpt Framework
+    DiffOpt.set_forward_parameter(model, model[:d], ϵ)
+
+    # Compute the derivatives with the Forward Mode
+    DiffOpt.forward_differentiate!(model)
+
+    # Get the derivative of the model
+    dvect = DiffOpt.get_forward_variable.(model, vect_ref)
+
+    # Return the values as a vector
+    return [vect; dvect]
+end
+
+function diff_reverse(model::Model, ϵ::Float64 = 1.0)
+    # Initialization of parameters and references to simplify the notation
+    vect_ref = [model[:g]; model[:ϕ]]
+
+    # Get the primal solution of the model
+    vect = value.(vect_ref)
+
+    # Set variables needed for the DiffOpt Backward Framework
+    dvect = Array{Float64,1}(undef, length(vect_ref))
+
+    # Loop for each primal variable
+    for i in 1:(I+1)
+        # Reset the sensitivities of the model
+        DiffOpt.empty_input_sensitivities!(model)
+
+        # Pass the perturbation to the DiffOpt Framework
+        DiffOpt.set_reverse_variable.(model, vect_ref[i], ϵ)
+
+        # Compute the derivatives with the Forward Mode
+        DiffOpt.reverse_differentiate!(model)
+
+        # Get the derivative of the model
+        dvect[i] = DiffOpt.get_reverse_parameter(model, model[:d])
+    end
+
+    # Return the values as a vector
+    return [vect; dvect]
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">diff_reverse (generic function with 2 methods)</code></pre><p>Initialize of Parameters</p><pre><code class="language-julia hljs">g_sup = [10.0, 20.0, 30.0]
+I = length(g_sup)
+d = 0.0:0.1:80
+d_size = length(d)
+c_g = [1.0, 3.0, 5.0]
+c_ϕ = 10.0;</code></pre><p>Generate models for each demand <code>d</code></p><pre><code class="language-julia hljs">models = generate_model.(d; g_sup = g_sup, c_g = c_g, c_ϕ = c_ϕ);</code></pre><p>Get the results of models with the DiffOpt Forward and Backward context</p><pre><code class="language-julia hljs">result_forward = diff_forward.(models)
+optimize!.(models)
+result_reverse = diff_reverse.(models);</code></pre><p>Organization of results to plot Initialize data_results that will contain every result</p><pre><code class="language-julia hljs">data_results = Array{Float64,3}(undef, 2, d_size, 2 * (I + 1));</code></pre><p>Populate the data_results array</p><pre><code class="language-julia hljs">for k in 1:d_size
+    data_results[1, k, :] = result_forward[k]
+    data_results[2, k, :] = result_reverse[k]
+end</code></pre><h2 id="Results-with-Plot-graphs"><a class="docs-heading-anchor" href="#Results-with-Plot-graphs">Results with Plot graphs</a><a id="Results-with-Plot-graphs-1"></a><a class="docs-heading-anchor-permalink" href="#Results-with-Plot-graphs" title="Permalink"></a></h2><h3 id="Results-for-the-forward-context"><a class="docs-heading-anchor" href="#Results-for-the-forward-context">Results for the forward context</a><a id="Results-for-the-forward-context-1"></a><a class="docs-heading-anchor-permalink" href="#Results-for-the-forward-context" title="Permalink"></a></h3><p>Result Primal Values:</p><pre><code class="language-julia hljs">Plots.plot(
+    d,
+    data_results[1, :, 1:(I+1)];
+    title = &quot;Generation by Demand&quot;,
+    label = [&quot;Thermal Generation 1&quot; &quot;Thermal Generation 2&quot; &quot;Thermal Generation 3&quot; &quot;Generation Deficit&quot;],
+    xlabel = &quot;Demand [unit]&quot;,
+    ylabel = &quot;Generation [unit]&quot;,
+)</code></pre><img src="4b6e19b1.svg" alt="Example block output"/><p>Result Sensitivity Analysis:</p><pre><code class="language-julia hljs">Plots.plot(
+    d,
+    data_results[1, :, (I+2):(2*(I+1))];
+    title = &quot;Sensitivity of Generation by Demand&quot;,
+    label = [&quot;T. Gen. 1 Sensitivity&quot; &quot;T. Gen. 2 Sensitivity&quot; &quot;T. Gen. 3 Sensitivity&quot; &quot;Gen. Deficit Sensitivity&quot;],
+    xlabel = &quot;Demand [unit]&quot;,
+    ylabel = &quot;Sensitivity [-]&quot;,
+)</code></pre><img src="1158eb55.svg" alt="Example block output"/><h3 id="Results-for-the-reverse-context"><a class="docs-heading-anchor" href="#Results-for-the-reverse-context">Results for the reverse context</a><a id="Results-for-the-reverse-context-1"></a><a class="docs-heading-anchor-permalink" href="#Results-for-the-reverse-context" title="Permalink"></a></h3><p>Result Primal Values:</p><pre><code class="language-julia hljs">Plots.plot(
+    d,
+    data_results[2, :, 1:(I+1)];
+    title = &quot;Generation by Demand&quot;,
+    label = [&quot;Thermal Generation 1&quot; &quot;Thermal Generation 2&quot; &quot;Thermal Generation 3&quot; &quot;Generation Deficit&quot;],
+    xlabel = &quot;Demand [unit]&quot;,
+    ylabel = &quot;Generation [unit]&quot;,
+)</code></pre><img src="7d712a31.svg" alt="Example block output"/><p>Result Sensitivity Analysis:</p><pre><code class="language-julia hljs">Plots.plot(
+    d,
+    data_results[2, :, (I+2):(2*(I+1))];
+    title = &quot;Sensitivity of Generation by Demand&quot;,
+    label = [&quot;T. Gen. 1 Sensitivity&quot; &quot;T. Gen. 2 Sensitivity&quot; &quot;T. Gen. 3 Sensitivity&quot; &quot;Gen. Deficit Sensitivity&quot;],
+    xlabel = &quot;Demand [unit]&quot;,
+    ylabel = &quot;Sensitivity [-]&quot;,
+)</code></pre><img src="65980590.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Thermal_Generation_Dispatch_Example/">« Thermal Generation Dispatch Example</a><a class="docs-footer-nextpage" href="../Thermal_Generation_Dispatch_sweep/">Thermal Generation Dispatch Sweep Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 1 December 2025 05:51">Monday 1 December 2025</span>. Using Julia version 1.12.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
