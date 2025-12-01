@@ -30,7 +30,6 @@ function runtests()
 end
 
 function test_obj_simple()
-    
     for (MODEL, SOLVER) in [
             (DiffOpt.diff_model, HiGHS.Optimizer),
             (DiffOpt.diff_model, SCS.Optimizer),
@@ -64,14 +63,15 @@ function test_obj_simple()
             direction_obj = 2.0
             DiffOpt.set_reverse_objective(model, direction_obj)
             DiffOpt.reverse_differentiate!(model)
-            @test DiffOpt.get_reverse_parameter(model, p) ≈ sign_p * sign * 6 * direction_obj atol = ATOL rtol = RTOL
+            @test DiffOpt.get_reverse_parameter(model, p) ≈
+                  sign_p * sign * 6 * direction_obj atol = ATOL rtol = RTOL
 
             DiffOpt.empty_input_sensitivities!(model)
             direction_p = 3.0
             DiffOpt.set_forward_parameter(model, p, direction_p)
             DiffOpt.forward_differentiate!(model)
-            @test DiffOpt.get_forward_objective(model) ≈ sign_p * sign * 6 * direction_p atol = ATOL rtol = RTOL
-
+            @test DiffOpt.get_forward_objective(model) ≈
+                  sign_p * sign * 6 * direction_p atol = ATOL rtol = RTOL
         end
     end
 
@@ -79,7 +79,6 @@ function test_obj_simple()
 end
 
 function test_obj()
-
     for (MODEL, SOLVER) in [
             (DiffOpt.diff_model, HiGHS.Optimizer),
             (DiffOpt.diff_model, SCS.Optimizer),
@@ -123,7 +122,6 @@ function test_obj()
             end
 
             for obj_coef in [2, 5]
-
                 sign = flip ? -1 : 1
                 dir = _min ? 1 : -1
                 if _min
@@ -139,14 +137,20 @@ function test_obj()
                 direction_obj = 2.0
                 DiffOpt.set_reverse_objective(model, direction_obj)
                 DiffOpt.reverse_differentiate!(model)
-                @test DiffOpt.get_reverse_parameter(model, p) ≈ dir * sign * obj_coef * direction_obj * 3 / pc_val atol = ATOL rtol = RTOL
-                @test DiffOpt.get_reverse_parameter(model, pc) ≈ - dir * sign * obj_coef * direction_obj * 3 * p_val / (pc_val^2) atol = ATOL rtol = RTOL
+                @test DiffOpt.get_reverse_parameter(model, p) ≈
+                      dir * sign * obj_coef * direction_obj * 3 / pc_val atol =
+                    ATOL rtol = RTOL
+                @test DiffOpt.get_reverse_parameter(model, pc) ≈
+                      - dir * sign * obj_coef * direction_obj * 3 * p_val /
+                      (pc_val^2) atol = ATOL rtol = RTOL
 
                 DiffOpt.empty_input_sensitivities!(model)
                 direction_p = 3.0
                 DiffOpt.set_forward_parameter(model, p, direction_p)
                 DiffOpt.forward_differentiate!(model)
-                @test DiffOpt.get_forward_objective(model) ≈ dir * sign * obj_coef * direction_p * 3 / pc_val atol = ATOL rtol = RTOL
+                @test DiffOpt.get_forward_objective(model) ≈
+                      dir * sign * obj_coef * direction_p * 3 / pc_val atol =
+                    ATOL rtol = RTOL
 
                 # stop differentiating with respect to p
                 DiffOpt.empty_input_sensitivities!(model)
@@ -155,7 +159,8 @@ function test_obj()
                 DiffOpt.set_forward_parameter(model, pc, direction_pc)
                 DiffOpt.forward_differentiate!(model)
                 @test DiffOpt.get_forward_objective(model) ≈
-                    - dir * sign * obj_coef * direction_pc * 3 * p_val / pc_val^2 atol = ATOL rtol = RTOL
+                      - dir * sign * obj_coef * direction_pc * 3 * p_val /
+                      pc_val^2 atol = ATOL rtol = RTOL
             end
         end
     end

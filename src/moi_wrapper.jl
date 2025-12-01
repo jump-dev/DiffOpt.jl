@@ -583,7 +583,10 @@ function reverse_differentiate!(model::Optimizer)
             MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
         catch e
             if e isa MOI.UnsupportedAttribute
-                _fallback_set_reverse_objective_sensitivity(model, model.input_cache.dobj)
+                _fallback_set_reverse_objective_sensitivity(
+                    model,
+                    model.input_cache.dobj,
+                )
             else
                 rethrow(e)
             end
@@ -594,14 +597,8 @@ end
 
 function _fallback_set_reverse_objective_sensitivity(model::Optimizer, val)
     diff = _diff(model)
-    obj_type = MOI.get(
-        model,
-        MOI.ObjectiveFunctionType(),
-    )
-    obj_func = MOI.get(
-        model,
-        MOI.ObjectiveFunction{obj_type}(),
-    )
+    obj_type = MOI.get(model, MOI.ObjectiveFunctionType())
+    obj_func = MOI.get(model, MOI.ObjectiveFunction{obj_type}())
     for xi in MOI.Nonlinear.SymbolicAD.variables(obj_func)
         df_dx = MOI.Nonlinear.SymbolicAD.simplify!(
             MOI.Nonlinear.SymbolicAD.derivative(obj_func, xi),
@@ -896,14 +893,8 @@ end
 
 function _fallback_get_forward_objective_sensitivity(model::Optimizer)
     ret = 0.0
-    obj_type = MOI.get(
-        model,
-        MOI.ObjectiveFunctionType(),
-    )
-    obj_func = MOI.get(
-        model,
-        MOI.ObjectiveFunction{obj_type}(),
-    )
+    obj_type = MOI.get(model, MOI.ObjectiveFunctionType())
+    obj_func = MOI.get(model, MOI.ObjectiveFunction{obj_type}())
     for xi in MOI.Nonlinear.SymbolicAD.variables(obj_func)
         df_dx = MOI.Nonlinear.SymbolicAD.simplify!(
             MOI.Nonlinear.SymbolicAD.derivative(obj_func, xi),
@@ -911,11 +902,7 @@ function _fallback_get_forward_objective_sensitivity(model::Optimizer)
         if iszero(df_dx)
             continue
         end
-        dx_dp = MOI.get(
-            model,
-            ForwardVariablePrimal(),
-            xi,
-        )
+        dx_dp = MOI.get(model, ForwardVariablePrimal(), xi)
         if df_dx isa Number
             ret += df_dx * dx_dp
         elseif df_dx isa MOI.ScalarAffineFunction{Float64}

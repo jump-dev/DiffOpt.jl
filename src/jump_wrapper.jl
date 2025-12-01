@@ -144,16 +144,12 @@ function get_forward_variable(model::JuMP.Model, variable::JuMP.VariableRef)
     return MOI.get(model, ForwardVariablePrimal(), variable)
 end
 
-
 """
     set_reverse_objective(model::JuMP.Model, value::Number)
 
 Set the value of the objective input sensitivity for reverse mode.
 """
-function set_reverse_objective(
-    model::JuMP.Model,
-    value::Number,
-)
+function set_reverse_objective(model::JuMP.Model, value::Number)
     return MOI.set(model, ReverseObjectiveSensitivity(), value)
 end
 
