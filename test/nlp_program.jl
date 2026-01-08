@@ -989,7 +989,6 @@ function test_reverse_bounds()
     MOI.set(model, DiffOpt.ReverseConstraintDual(), LowerBoundRef(x[3]), 1.0)
     DiffOpt.reverse_differentiate!(model)
     dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
-    @test abs(dp) > 0.0  # test contribution is not ignored
     @test isapprox(dp, -2.88888; atol = 1e-4)
 end
 
