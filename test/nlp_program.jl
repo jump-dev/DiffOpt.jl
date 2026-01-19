@@ -977,6 +977,36 @@ function test_changing_factorization()
     )
 end
 
+function test_reverse_bounds_lower()
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+    @variable(model, x[1:3] >= 0)  # x[3] ≥ 0 is active
+    @variable(model, p in MOI.Parameter(4.5))
+    @constraint(model, 6x[1] + 3x[2] + 2x[3] == p)
+    @constraint(model, x[1] + x[2] - x[3] == 1)
+    @objective(model, Min, sum(x .^ 2))
+    optimize!(model)
+    MOI.set(model, DiffOpt.ReverseConstraintDual(), LowerBoundRef(x[3]), 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
+    @test isapprox(dp, -2.88888; atol = 1e-4)
+end
+
+function test_reverse_bounds_upper()
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+    @variable(model, x[1:3] <= 0)  # x[3] ≤ 0 is active
+    @variable(model, p in MOI.Parameter(4.5))
+    @constraint(model, 6x[1] + 3x[2] + 2x[3] == -p)
+    @constraint(model, x[1] + x[2] - x[3] == -1)
+    @objective(model, Min, sum(x .^ 2))
+    optimize!(model)
+    MOI.set(model, DiffOpt.ReverseConstraintDual(), UpperBoundRef(x[3]), 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
+    @test isapprox(dp, 2.88888; atol = 1e-4)
+end
+
 end # module
 
 TestNLPProgram.runtests()

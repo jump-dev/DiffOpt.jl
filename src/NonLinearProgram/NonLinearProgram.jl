@@ -574,13 +574,13 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
                 end
             end
             for (i, var_idx) in enumerate(cache.primal_vars[cache.has_low])
-                idx = form.constraint_lower_bounds[var_idx.value].value
+                idx = form.constraint_lower_bounds[var_idx.value]
                 if haskey(model.input_cache.dy, idx)
                     Δdual[num_constraints+i] = model.input_cache.dy[idx]
                 end
             end
             for (i, var_idx) in enumerate(cache.primal_vars[cache.has_up])
-                idx = form.constraint_upper_bounds[var_idx.value].value
+                idx = form.constraint_upper_bounds[var_idx.value]
                 if haskey(model.input_cache.dy, idx)
                     Δdual[num_constraints+num_low+i] = model.input_cache.dy[idx]
                 end
