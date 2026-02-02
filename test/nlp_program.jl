@@ -1235,6 +1235,216 @@ function test_VectorNonlinearOracle_active_constraint()
     @test isfinite(dx2)
 end
 
+function test_VectorNonlinearOracle_equality_constraint()
+    # Test with equality constraint
+    # Constraint: x1^2 + x2^2 == 0.05
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+
+    p_val = [0.2, 0.3]
+    @variable(model, x[1:2])
+    @variable(model, p[1:2] in Parameter.(p_val))
+
+    # Minimize sum((x - p)^2)
+    @objective(model, Min, sum((x .- p) .^ 2))
+
+    # f(x) = x1^2 + x2^2
+    function eval_f(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[1]^2 + z[2]^2
+        return
+    end
+
+    jacobian_structure = [(1, 1), (1, 2)]
+
+    function eval_jacobian(ret::AbstractVector, z::AbstractVector)
+        ret[1] = 2.0 * z[1]
+        ret[2] = 2.0 * z[2]
+        return
+    end
+
+    hessian_lagrangian_structure = [(1, 1), (2, 2)]
+
+    function eval_hessian_lagrangian(
+        ret::AbstractVector,
+        z::AbstractVector,
+        μ::AbstractVector,
+    )
+        ret[1] = 2.0 * μ[1]
+        ret[2] = 2.0 * μ[1]
+        return
+    end
+
+    # Equality constraint: f(x) == 0.05
+    set = MOI.VectorNonlinearOracle(;
+        dimension = 2,
+        l = [0.05],
+        u = [0.05],  # l == u means equality constraint
+        eval_f,
+        jacobian_structure,
+        eval_jacobian,
+        hessian_lagrangian_structure,
+        eval_hessian_lagrangian,
+    )
+
+    @constraint(model, c, [x[1], x[2]] in set)
+
+    optimize!(model)
+    @test is_solved_and_feasible(model)
+
+    # Solution should satisfy equality: x1^2 + x2^2 = 0.05
+    @test value(x[1])^2 + value(x[2])^2 ≈ 0.05 atol = 1e-6
+
+    # Test forward differentiation
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, p[1], 0.1)
+    DiffOpt.set_forward_parameter(model, p[2], 0.0)
+    DiffOpt.forward_differentiate!(model)
+
+    dx1 = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[1])
+    dx2 = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[2])
+    @test isfinite(dx1)
+    @test isfinite(dx2)
+end
+
+function test_VectorNonlinearOracle_geq_constraint()
+    # Test with >= constraint (GreaterThan)
+    # Constraint: x1^2 + x2^2 >= 0.5
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+
+    # Start at p = [0.5, 0.5] so constraint is active (0.25 + 0.25 = 0.5)
+    p_val = [0.5, 0.5]
+    @variable(model, x[1:2])
+    @variable(model, p[1:2] in Parameter.(p_val))
+
+    # Minimize sum((x - p)^2)
+    @objective(model, Min, sum((x .- p) .^ 2))
+
+    function eval_f(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[1]^2 + z[2]^2
+        return
+    end
+
+    jacobian_structure = [(1, 1), (1, 2)]
+
+    function eval_jacobian(ret::AbstractVector, z::AbstractVector)
+        ret[1] = 2.0 * z[1]
+        ret[2] = 2.0 * z[2]
+        return
+    end
+
+    hessian_lagrangian_structure = [(1, 1), (2, 2)]
+
+    function eval_hessian_lagrangian(
+        ret::AbstractVector,
+        z::AbstractVector,
+        μ::AbstractVector,
+    )
+        ret[1] = 2.0 * μ[1]
+        ret[2] = 2.0 * μ[1]
+        return
+    end
+
+    # GreaterThan constraint: f(x) >= 0.5
+    set = MOI.VectorNonlinearOracle(;
+        dimension = 2,
+        l = [0.5],
+        u = [Inf],
+        eval_f,
+        jacobian_structure,
+        eval_jacobian,
+        hessian_lagrangian_structure,
+        eval_hessian_lagrangian,
+    )
+
+    @constraint(model, c, [x[1], x[2]] in set)
+
+    optimize!(model)
+    @test is_solved_and_feasible(model)
+
+    # Solution should satisfy: x1^2 + x2^2 >= 0.5
+    @test value(x[1])^2 + value(x[2])^2 >= 0.5 - 1e-6
+
+    # Test reverse differentiation
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_variable(model, x[1], 1.0)
+    DiffOpt.set_reverse_variable(model, x[2], 1.0)
+    DiffOpt.reverse_differentiate!(model)
+
+    dp1 = DiffOpt.get_reverse_parameter(model, p[1])
+    dp2 = DiffOpt.get_reverse_parameter(model, p[2])
+    @test isfinite(dp1)
+    @test isfinite(dp2)
+end
+
+function test_VectorNonlinearOracle_hessian_transpose()
+    # Test with Hessian structure that requires transposition (r < c)
+    # This tests the else branch in the multivariate Hessian computation
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+
+    p_val = [0.2, 0.3]
+    @variable(model, x[1:2])
+    @variable(model, p[1:2] in Parameter.(p_val))
+
+    @objective(model, Min, sum((x .- p) .^ 2))
+
+    # f(x) = x1 * x2 (cross term gives off-diagonal Hessian)
+    function eval_f(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[1] * z[2]
+        return
+    end
+
+    jacobian_structure = [(1, 1), (1, 2)]
+
+    function eval_jacobian(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[2]  # df/dx1 = x2
+        ret[2] = z[1]  # df/dx2 = x1
+        return
+    end
+
+    # Hessian of x1*x2: d²f/dx1dx2 = 1
+    # Provide as (1, 2) to test the transpose path
+    hessian_lagrangian_structure = [(1, 2)]
+
+    function eval_hessian_lagrangian(
+        ret::AbstractVector,
+        z::AbstractVector,
+        μ::AbstractVector,
+    )
+        ret[1] = μ[1]  # d²L/dx1dx2 = μ[1]
+        return
+    end
+
+    set = MOI.VectorNonlinearOracle(;
+        dimension = 2,
+        l = [-Inf],
+        u = [1.0],
+        eval_f,
+        jacobian_structure,
+        eval_jacobian,
+        hessian_lagrangian_structure,
+        eval_hessian_lagrangian,
+    )
+
+    @constraint(model, c, [x[1], x[2]] in set)
+
+    optimize!(model)
+    @test is_solved_and_feasible(model)
+
+    # x = p = [0.2, 0.3], f(x) = 0.06 < 1, so constraint is inactive
+    @test value(x[1]) ≈ p_val[1] atol = 1e-6
+    @test value(x[2]) ≈ p_val[2] atol = 1e-6
+
+    # Test forward differentiation
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, p[1], 1.0)
+    DiffOpt.forward_differentiate!(model)
+
+    dx1 = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[1])
+    @test dx1 ≈ 1.0 atol = 1e-5
+end
+
 end # module
 
 TestNLPProgram.runtests()
