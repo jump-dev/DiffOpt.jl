@@ -8,6 +8,7 @@ using FiniteDiff
 import DelimitedFiles
 using SparseArrays
 using LinearAlgebra
+import MathOptInterface as MOI
 
 include(joinpath(@__DIR__, "data/nlp_problems.jl"))
 
@@ -1005,6 +1006,229 @@ function test_reverse_bounds_upper()
     DiffOpt.reverse_differentiate!(model)
     dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
     @test isapprox(dp, 2.88888; atol = 1e-4)
+end
+
+################################################
+#=
+# Test VectorNonlinearOracle support
+=#
+################################################
+
+function test_VectorNonlinearOracle_univariate()
+    # Univariate test: 1 input, 1 output
+    # Constraint: x^2 <= 1
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+
+    p_val = 0.3
+    @variable(model, x)
+    @variable(model, p in Parameter(p_val))
+
+    # Minimize (x - p)^2; solution should be x = p as long as constraint is inactive
+    @objective(model, Min, (x - p)^2)
+
+    # Oracle for constraint: x^2 <= 1  (written as l <= f(x) <= u with l=-Inf, u=1)
+    function eval_f(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[1]^2
+        return
+    end
+    jacobian_structure = [(1, 1)]
+    function eval_jacobian(ret::AbstractVector, z::AbstractVector)
+        ret[1] = 2.0 * z[1]
+        return
+    end
+    hessian_lagrangian_structure = [(1, 1)]
+    function eval_hessian_lagrangian(ret::AbstractVector, z::AbstractVector, μ::AbstractVector)
+        # Hessian of μ1 * z1^2 is 2*μ1
+        ret[1] = 2.0 * μ[1]
+        return
+    end
+
+    set = MOI.VectorNonlinearOracle(;
+        dimension = 1,
+        l = [-Inf],
+        u = [1.0],
+        eval_f,
+        jacobian_structure,
+        eval_jacobian,
+        hessian_lagrangian_structure,
+        eval_hessian_lagrangian,
+    )
+
+    @constraint(model, c, [x] in set)
+
+    optimize!(model)
+    @test is_solved_and_feasible(model)
+
+    # pick p strictly inside (-1, 1) so constraint is inactive and x == p
+    @test value(x) ≈ p_val atol = 1e-7
+
+    # Reverse-mode: dx/dp = 1, so with seed 1.0 on x, sensitivity on p should be 1.0
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_variable(model, x, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ 1.0 atol = 1e-6
+end
+
+function test_VectorNonlinearOracle_multivariate()
+    # Multivariate test: 2 inputs, 2 outputs
+    # Constraint: [x1^2 + x2^2; x1 * x2] in [-Inf, 1] x [0, Inf] 
+    # (i.e., x1^2+x2^2 <= 1, x1*x2 >= 0)
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+
+    p_val = [0.2, 0.3]
+    @variable(model, x[1:2])
+    @variable(model, p[1:2] in Parameter.(p_val))
+
+    # Minimize sum((x - p)^2); solution should be x = p if constraint is inactive
+    @objective(model, Min, sum((x .- p) .^ 2))
+
+    # f(x) = [x1^2 + x2^2; x1 * x2]
+    function eval_f(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[1]^2 + z[2]^2
+        ret[2] = z[1] * z[2]
+        return
+    end
+
+    # Jacobian structure: df1/dx1, df1/dx2, df2/dx1, df2/dx2
+    # df1/dx1 = 2*x1, df1/dx2 = 2*x2
+    # df2/dx1 = x2, df2/dx2 = x1
+    jacobian_structure = [(1, 1), (1, 2), (2, 1), (2, 2)]
+
+    function eval_jacobian(ret::AbstractVector, z::AbstractVector)
+        ret[1] = 2.0 * z[1]  # df1/dx1
+        ret[2] = 2.0 * z[2]  # df1/dx2
+        ret[3] = z[2]        # df2/dx1
+        ret[4] = z[1]        # df2/dx2
+        return
+    end
+
+    # Hessian of Lagrangian = μ1 * H_f1 + μ2 * H_f2
+    # H_f1 = [2 0; 0 2], H_f2 = [0 1; 1 0]
+    # Hessian structure (lower triangular): (1,1), (2,1), (2,2)
+    hessian_lagrangian_structure = [(1, 1), (2, 1), (2, 2)]
+
+    function eval_hessian_lagrangian(
+        ret::AbstractVector,
+        z::AbstractVector,
+        μ::AbstractVector,
+    )
+        # (1,1): μ1 * 2 + μ2 * 0 = 2*μ1
+        ret[1] = 2.0 * μ[1]
+        # (2,1): μ1 * 0 + μ2 * 1 = μ2
+        ret[2] = μ[2]
+        # (2,2): μ1 * 2 + μ2 * 0 = 2*μ1
+        ret[3] = 2.0 * μ[1]
+        return
+    end
+
+    set = MOI.VectorNonlinearOracle(;
+        dimension = 2,
+        l = [-Inf, 0.0],
+        u = [1.0, Inf],
+        eval_f,
+        jacobian_structure,
+        eval_jacobian,
+        hessian_lagrangian_structure,
+        eval_hessian_lagrangian,
+    )
+
+    @constraint(model, c, [x[1], x[2]] in set)
+
+    optimize!(model)
+    @test is_solved_and_feasible(model)
+
+    # Constraints should be inactive at x = p = [0.2, 0.3]
+    # (0.2^2 + 0.3^2 = 0.13 <= 1, 0.2*0.3 = 0.06 >= 0)
+    @test value(x[1]) ≈ p_val[1] atol = 1e-6
+    @test value(x[2]) ≈ p_val[2] atol = 1e-6
+
+    # Reverse-mode: dx/dp = I (identity), so with seed [1.0, 1.0] on x, 
+    # sensitivity on p should be [1.0, 1.0]
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_variable(model, x[1], 1.0)
+    DiffOpt.set_reverse_variable(model, x[2], 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    dp1 = DiffOpt.get_reverse_parameter(model, p[1])
+    dp2 = DiffOpt.get_reverse_parameter(model, p[2])
+    @test dp1 ≈ 1.0 atol = 1e-5
+    @test dp2 ≈ 1.0 atol = 1e-5
+end
+
+function test_VectorNonlinearOracle_active_constraint()
+    # Test with an active constraint where sensitivities are affected
+    # Multivariate: 2 inputs, 1 output with active constraint
+    # Constraint: x1^2 + x2^2 <= 0.05  (active when p = [0.2, 0.3])
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+
+    p_val = [0.2, 0.3]
+    @variable(model, x[1:2])
+    @variable(model, p[1:2] in Parameter.(p_val))
+
+    # Minimize sum((x - p)^2)
+    @objective(model, Min, sum((x .- p) .^ 2))
+
+    # f(x) = x1^2 + x2^2
+    function eval_f(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[1]^2 + z[2]^2
+        return
+    end
+
+    # Jacobian: df/dx1 = 2*x1, df/dx2 = 2*x2
+    jacobian_structure = [(1, 1), (1, 2)]
+
+    function eval_jacobian(ret::AbstractVector, z::AbstractVector)
+        ret[1] = 2.0 * z[1]
+        ret[2] = 2.0 * z[2]
+        return
+    end
+
+    # Hessian: H = [2 0; 0 2]
+    hessian_lagrangian_structure = [(1, 1), (2, 2)]
+
+    function eval_hessian_lagrangian(
+        ret::AbstractVector,
+        z::AbstractVector,
+        μ::AbstractVector,
+    )
+        ret[1] = 2.0 * μ[1]
+        ret[2] = 2.0 * μ[1]
+        return
+    end
+
+    set = MOI.VectorNonlinearOracle(;
+        dimension = 2,
+        l = [-Inf],
+        u = [0.05],  # This will be active: 0.2^2 + 0.3^2 = 0.13 > 0.05
+        eval_f,
+        jacobian_structure,
+        eval_jacobian,
+        hessian_lagrangian_structure,
+        eval_hessian_lagrangian,
+    )
+
+    @constraint(model, c, [x[1], x[2]] in set)
+
+    optimize!(model)
+    @test is_solved_and_feasible(model)
+
+    # Constraint is active, so x should be on the boundary: x1^2 + x2^2 = 0.05
+    @test value(x[1])^2 + value(x[2])^2 ≈ 0.05 atol = 1e-6
+
+    # Test forward differentiation
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, p[1], 0.1)
+    DiffOpt.set_forward_parameter(model, p[2], 0.0)
+    DiffOpt.forward_differentiate!(model)
+
+    # The sensitivity should be non-trivial since constraint is active
+    dx1 = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[1])
+    dx2 = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[2])
+    # Just verify we get reasonable values (not NaN or Inf)
+    @test isfinite(dx1)
+    @test isfinite(dx2)
 end
 
 end # module

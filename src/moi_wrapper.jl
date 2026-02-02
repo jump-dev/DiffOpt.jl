@@ -675,6 +675,10 @@ function _add_bridges(instantiated_model)
     # 2) For affine variable bridges, `bridged_function` and `unbridged_function` don't treat the function as a derivative hence they will add constants
     MOI.Bridges.Constraint.add_all_bridges(model, Float64)
     MOI.Bridges.Objective.add_all_bridges(model, Float64)
+    # Add the VectorNonlinearOracle bridge for NonLinearProgram
+    if instantiated_model isa NonLinearProgram.Model
+        MOI.Bridges.add_bridge(model, NonLinearProgram.VNOToScalarNLBridge{Float64})
+    end
     return model
 end
 
