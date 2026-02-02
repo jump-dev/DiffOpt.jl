@@ -1038,7 +1038,11 @@ function test_VectorNonlinearOracle_univariate()
         return
     end
     hessian_lagrangian_structure = [(1, 1)]
-    function eval_hessian_lagrangian(ret::AbstractVector, z::AbstractVector, μ::AbstractVector)
+    function eval_hessian_lagrangian(
+        ret::AbstractVector,
+        z::AbstractVector,
+        μ::AbstractVector,
+    )
         # Hessian of μ1 * z1^2 is 2*μ1
         ret[1] = 2.0 * μ[1]
         return

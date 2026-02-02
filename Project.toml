@@ -1,7 +1,7 @@
 name = "DiffOpt"
 uuid = "930fe3bc-9c6b-11ea-2d94-6184641e85e7"
 authors = ["Akshay Sharma", "Mathieu Besançon", "Joaquim Dias Garcia", "Benoît Legat", "Oscar Dowson", "Andrew Rosemberg"]
-version = "0.5.4"
+version = "0.5.6"
 
 [deps]
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"

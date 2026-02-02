@@ -31,12 +31,16 @@ function _unwrap_to_form(m)
     elseif hasfield(T, :optimizer)
         return _unwrap_to_form(getfield(m, :optimizer))
     end
-    error("VectorNonlinearOracle bridge could not unwrap optimizer to NonLinearProgram.Form; got $(typeof(m))")
+    return error(
+        "VectorNonlinearOracle bridge could not unwrap optimizer to NonLinearProgram.Form; got $(typeof(m))",
+    )
 end
 
 _nl_model(m) = _unwrap_to_form(m).model  # this is the MOI.Nonlinear.Model
 
-_vno_op_symbol(base_id::Int, row::Int) = Symbol(:_diffopt_vno_, base_id, :_, row)
+function _vno_op_symbol(base_id::Int, row::Int)
+    return Symbol(:_diffopt_vno_, base_id, :_, row)
+end
 
 # --------------------------------------------------------------------------
 # Register a scalar operator for one row of the vector oracle:
@@ -86,7 +90,7 @@ function _register_univariate_vno_row_operator!(
     row::Int,
 ) where {T<:Real}
     m = s.output_dimension
-    
+
     f = function (x::T)
         ret = Vector{T}(undef, m)
         s.eval_f(ret, [x])
@@ -192,9 +196,13 @@ end
 struct VNOToScalarNLBridge{T<:Real} <: _B.Constraint.AbstractBridge
     f::MOI.VectorOfVariables
     s::MOI.VectorNonlinearOracle{T}
-    leq::Vector{MOI.ConstraintIndex{MOI.ScalarNonlinearFunction, MOI.LessThan{T}}}
-    geq::Vector{MOI.ConstraintIndex{MOI.ScalarNonlinearFunction, MOI.GreaterThan{T}}}
-    eq::Vector{MOI.ConstraintIndex{MOI.ScalarNonlinearFunction, MOI.EqualTo{T}}}
+    leq::Vector{
+        MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.LessThan{T}},
+    }
+    geq::Vector{
+        MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.GreaterThan{T}},
+    }
+    eq::Vector{MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.EqualTo{T}}}
 end
 
 function MOI.supports_constraint(
@@ -213,7 +221,9 @@ function _B.Constraint.concrete_bridge_type(
     return VNOToScalarNLBridge{T}
 end
 
-function _B.added_constrained_variable_types(::Type{VNOToScalarNLBridge{T}}) where {T}
+function _B.added_constrained_variable_types(
+    ::Type{VNOToScalarNLBridge{T}},
+) where {T}
     return Tuple{Type}[]
 end
 
@@ -239,9 +249,9 @@ function _B.Constraint.bridge_constraint(
 
     nlm = _nl_model(model)
 
-    leq = MOI.ConstraintIndex{MOI.ScalarNonlinearFunction, MOI.LessThan{T}}[]
-    geq = MOI.ConstraintIndex{MOI.ScalarNonlinearFunction, MOI.GreaterThan{T}}[]
-    eq  = MOI.ConstraintIndex{MOI.ScalarNonlinearFunction, MOI.EqualTo{T}}[]
+    leq = MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.LessThan{T}}[]
+    geq = MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.GreaterThan{T}}[]
+    eq = MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.EqualTo{T}}[]
 
     base_id = (_vno_op_counter[] += 1)
 
@@ -258,7 +268,10 @@ function _B.Constraint.bridge_constraint(
             push!(eq, MOI.add_constraint(model, sf, MOI.EqualTo{T}(li)))
         else
             if isfinite(li)
-                push!(geq, MOI.add_constraint(model, sf, MOI.GreaterThan{T}(li)))
+                push!(
+                    geq,
+                    MOI.add_constraint(model, sf, MOI.GreaterThan{T}(li)),
+                )
             end
             if isfinite(ui)
                 push!(leq, MOI.add_constraint(model, sf, MOI.LessThan{T}(ui)))
@@ -270,7 +283,11 @@ function _B.Constraint.bridge_constraint(
 end
 
 # Bridge transparency (optional but nice)
-function MOI.get(::MOI.ModelLike, ::MOI.ConstraintFunction, b::VNOToScalarNLBridge)
+function MOI.get(
+    ::MOI.ModelLike,
+    ::MOI.ConstraintFunction,
+    b::VNOToScalarNLBridge,
+)
     return b.f
 end
 function MOI.get(::MOI.ModelLike, ::MOI.ConstraintSet, b::VNOToScalarNLBridge)
@@ -311,34 +328,49 @@ function MOI.set(
     m = b.s.output_dimension
     n = b.s.input_dimension
     @assert length(value) == n  # value is x, not f(x)
-    
+
     # Evaluate f(x)
     f_x = Vector{T}(undef, m)
     b.s.eval_f(f_x, value)
-    
+
     # Now set the constraint primal for each bridged constraint
     # The constraints are created in order of output dimensions
     leq_idx = 1
     geq_idx = 1
     eq_idx = 1
-    
+
     for i in 1:m
         li = b.s.l[i]
         ui = b.s.u[i]
-        
+
         if isfinite(li) && isfinite(ui) && li == ui
             # Equality constraint
             if eq_idx <= length(b.eq)
-                MOI.set(model, MOI.ConstraintPrimalStart(), b.eq[eq_idx], f_x[i])
+                MOI.set(
+                    model,
+                    MOI.ConstraintPrimalStart(),
+                    b.eq[eq_idx],
+                    f_x[i],
+                )
                 eq_idx += 1
             end
         else
             if isfinite(li) && geq_idx <= length(b.geq)
-                MOI.set(model, MOI.ConstraintPrimalStart(), b.geq[geq_idx], f_x[i])
+                MOI.set(
+                    model,
+                    MOI.ConstraintPrimalStart(),
+                    b.geq[geq_idx],
+                    f_x[i],
+                )
                 geq_idx += 1
             end
             if isfinite(ui) && leq_idx <= length(b.leq)
-                MOI.set(model, MOI.ConstraintPrimalStart(), b.leq[leq_idx], f_x[i])
+                MOI.set(
+                    model,
+                    MOI.ConstraintPrimalStart(),
+                    b.leq[leq_idx],
+                    f_x[i],
+                )
                 leq_idx += 1
             end
         end
@@ -368,10 +400,10 @@ function MOI.set(
     #
     # For our bridged scalar constraints, we need the dual per output (λ).
     # We can recover λ from the Jacobian: λ = (J * J')^{-1} * J * dual_per_var
-    
+
     m = b.s.output_dimension
     n = b.s.input_dimension
-    
+
     if length(value) == m
         # Direct mapping: value[i] is dual for output i
         _set_duals_from_output_duals!(model, b, value)
@@ -392,29 +424,29 @@ function _set_duals_from_input_duals!(
 ) where {T}
     m = b.s.output_dimension
     n = b.s.input_dimension
-    
+
     # Get the current primal values to compute Jacobian
     x = zeros(T, n)
     for (i, vi) in enumerate(b.f.variables)
         x[i] = MOI.get(model, MOI.VariablePrimalStart(), vi)
     end
-    
+
     # Compute the Jacobian at current point
     vals = Vector{T}(undef, length(b.s.jacobian_structure))
     b.s.eval_jacobian(vals, x)
-    
+
     # Build the sparse Jacobian matrix J (m x n)
     J = zeros(T, m, n)
     for (k, (r, c)) in enumerate(b.s.jacobian_structure)
         J[r, c] = vals[k]
     end
-    
+
     # Compute λ from dual_per_var = J' * λ
     # λ = (J * J')^{-1} * J * dual_per_var
     # For numerical stability, use least squares: λ = J' \ dual_per_var
     # which solves min ||J' * λ - dual_per_var||
     λ = J' \ dual_per_var
-    
+
     # Now set the scalar constraint duals
     _set_duals_from_output_duals!(model, b, λ)
     return
@@ -426,31 +458,46 @@ function _set_duals_from_output_duals!(
     value::AbstractVector,
 ) where {T}
     m = b.s.output_dimension
-    
+
     leq_idx = 1
     geq_idx = 1
     eq_idx = 1
-    
+
     for i in 1:m
         li = b.s.l[i]
         ui = b.s.u[i]
-        
+
         if isfinite(li) && isfinite(ui) && li == ui
             # Equality constraint
             if eq_idx <= length(b.eq)
-                MOI.set(model, MOI.ConstraintDualStart(), b.eq[eq_idx], value[i])
+                MOI.set(
+                    model,
+                    MOI.ConstraintDualStart(),
+                    b.eq[eq_idx],
+                    value[i],
+                )
                 eq_idx += 1
             end
         else
             if isfinite(li) && geq_idx <= length(b.geq)
-                MOI.set(model, MOI.ConstraintDualStart(), b.geq[geq_idx], value[i])
+                MOI.set(
+                    model,
+                    MOI.ConstraintDualStart(),
+                    b.geq[geq_idx],
+                    value[i],
+                )
                 geq_idx += 1
             end
             if isfinite(ui) && leq_idx <= length(b.leq)
                 # Note: For an interval constraint, the dual might need to be split
                 # For now, we only set if there's no corresponding geq (i.e., only upper bound)
                 if !isfinite(li)
-                    MOI.set(model, MOI.ConstraintDualStart(), b.leq[leq_idx], value[i])
+                    MOI.set(
+                        model,
+                        MOI.ConstraintDualStart(),
+                        b.leq[leq_idx],
+                        value[i],
+                    )
                 end
                 leq_idx += 1
             end
