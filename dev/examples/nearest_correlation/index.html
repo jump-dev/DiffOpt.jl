@@ -21,7 +21,7 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
  1.0  1.0   ⋅ 
  1.0  1.0  1.0
   ⋅   1.0  1.0</code></pre><p>The projection is computed as follows:</p><pre><code class="language-julia hljs">X, dX = proj(A)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">------------------------------------------------------------------
-	       SCS v3.2.9 - Splitting Conic Solver
+	       SCS v3.2.11 - Splitting Conic Solver
 	(c) Brendan O&#39;Donoghue, Stanford University, 2012
 ------------------------------------------------------------------
 problem:  variables n: 6, constraints m: 9
@@ -37,26 +37,26 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 9.98e-01  3.35e+00  2.27e+01 -1.27e+01  1.00e-01  1.70e-04
-    75| 5.98e-05  2.10e-06  1.25e-04 -6.72e+00  1.00e-01  4.17e-04
+     0| 9.98e-01  3.35e+00  2.27e+01 -1.27e+01  1.00e-01  1.56e-04
+    75| 5.98e-05  2.10e-06  1.25e-04 -6.72e+00  1.00e-01  5.77e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 4.18e-04s = setup: 8.94e-05s + solve: 3.28e-04s
-	 lin-sys: 2.35e-05s, cones: 2.07e-04s, accel: 4.20e-06s
+timings: total: 5.78e-04s = setup: 5.61e-05s + solve: 5.22e-04s
+	 lin-sys: 2.79e-05s, cones: 3.89e-04s, accel: 3.84e-06s
 ------------------------------------------------------------------
 objective = -6.721507
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
  1.0       0.760748  0.157264
  0.760748  1.0       0.760748
  0.157264  0.760748  1.0</code></pre><p>The derivative of the projection with respect to a uniform increase of the weights of the diagonal entries is:</p><pre><code class="language-julia hljs">dX</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
-  1.56853e-7  -0.0640353    0.0213988
- -0.0640353   -2.39681e-7  -0.0640353
-  0.0213988   -0.0640353    1.17998e-7</code></pre><p>Example from [H02, Section 4, p. 340]:</p><pre><code class="language-julia hljs">A = LinearAlgebra.Tridiagonal(-ones(3), 2ones(4), -ones(3))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 LinearAlgebra.Tridiagonal{Float64, Vector{Float64}}:
+ -4.01259e-8  -0.0640355    0.0213988
+ -0.0640355    4.15674e-8  -0.0640354
+  0.0213988   -0.0640354   -1.14943e-8</code></pre><p>Example from [H02, Section 4, p. 340]:</p><pre><code class="language-julia hljs">A = LinearAlgebra.Tridiagonal(-ones(3), 2ones(4), -ones(3))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 LinearAlgebra.Tridiagonal{Float64, Vector{Float64}}:
   2.0  -1.0    ⋅     ⋅ 
  -1.0   2.0  -1.0    ⋅ 
    ⋅   -1.0   2.0  -1.0
    ⋅     ⋅   -1.0   2.0</code></pre><p>The projection is computed as follows:</p><pre><code class="language-julia hljs">X, dX = proj(A)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">------------------------------------------------------------------
-	       SCS v3.2.9 - Splitting Conic Solver
+	       SCS v3.2.11 - Splitting Conic Solver
 	(c) Brendan O&#39;Donoghue, Stanford University, 2012
 ------------------------------------------------------------------
 problem:  variables n: 10, constraints m: 14
@@ -72,12 +72,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.02e+00  3.57e+00  3.24e+01 -3.42e+01  1.00e-01  1.48e-04
-    75| 2.52e-05  7.03e-07  7.14e-05 -1.74e+01  1.00e-01  4.69e-04
+     0| 1.02e+00  3.57e+00  3.24e+01 -3.42e+01  1.00e-01  1.34e-04
+    75| 2.52e-05  7.03e-07  7.14e-05 -1.74e+01  1.00e-01  7.08e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 4.70e-04s = setup: 7.45e-05s + solve: 3.95e-04s
-	 lin-sys: 3.00e-05s, cones: 2.74e-04s, accel: 4.37e-06s
+timings: total: 7.09e-04s = setup: 4.96e-05s + solve: 6.59e-04s
+	 lin-sys: 5.06e-05s, cones: 5.04e-04s, accel: 4.16e-06s
 ------------------------------------------------------------------
 objective = -17.447239
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
@@ -85,7 +85,7 @@ objective = -17.447239
  -0.808425   1.0       -0.656259   0.191576
   0.191576  -0.656259   1.0       -0.808425
   0.10677    0.191576  -0.808425   1.0</code></pre><p>The derivative of the projection with respect to a uniform increase of the weights of the diagonal entries is:</p><pre><code class="language-julia hljs">dX</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
-  4.70417e-7  -0.152359    -0.0585314   -0.0234138
- -0.152359    -2.76938e-7  -0.228492    -0.0585312
- -0.0585314   -0.228492     9.90301e-7  -0.152359
- -0.0234138   -0.0585312   -0.152359    -1.14637e-6</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual_new/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../nearest_correlation_new/">Nearest correlation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Monday 10 November 2025 01:09">Monday 10 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+  6.96027e-7  -0.152359    -0.0585312   -0.0234138
+ -0.152359     3.03275e-7  -0.228492    -0.0585312
+ -0.0585312   -0.228492    -6.79518e-7  -0.152359
+ -0.0234138   -0.0585312   -0.152359    -1.368e-7</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual_new/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../nearest_correlation_new/">Nearest correlation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 9 February 2026 23:02">Monday 9 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
