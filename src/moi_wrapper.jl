@@ -1047,5 +1047,5 @@ function MOI.get(model::Optimizer, ::NonLinearKKTJacobianFactorization)
 end
 
 function MOI.set(model::Optimizer, attr::MOI.AbstractOptimizerAttribute, value)
-    MOI.set(model.optimizer, attr, value)
+    return MOI.set(model.optimizer, attr, value)
 end

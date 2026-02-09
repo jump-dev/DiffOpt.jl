@@ -56,6 +56,11 @@ function test_jump_api()
         @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(_min ? "Min" : "Max"), $(flip ? "geq" : "leq") bridge:$with_bridge_type" begin
             model = MODEL(SOLVER; with_bridge_type)
             set_silent(model)
+                if SOLVER === Ipopt.Optimizer
+                    # avoiding MOI.TimeLimitSec to cover the RawOptimizerAttribute path
+                    # only tests that MOI doesn't throw an unsupported error (#335)
+                    set_optimizer_attribute(model, "max_wall_time", 600.0)
+                end
 
             p_val = 4.0
             pc_val = 2.0
