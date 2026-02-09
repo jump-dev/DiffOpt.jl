@@ -1045,3 +1045,7 @@ end
 function MOI.get(model::Optimizer, ::NonLinearKKTJacobianFactorization)
     return model.input_cache.factorization
 end
+
+function MOI.set(model::Optimizer, attr::MOI.AbstractOptimizerAttribute, value)
+    MOI.set(model.optimizer, attr, value)
+end
