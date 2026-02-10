@@ -17,9 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: '1.6'
-            os: ubuntu-latest
-            arch: x64
           - version: '1'
             os: ubuntu-latest
             arch: x64
