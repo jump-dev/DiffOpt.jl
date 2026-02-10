@@ -19,12 +19,14 @@ mutable struct _BridgeMockModel <: MOI.ModelLike
     variable_start::Dict{MOI.VariableIndex,Float64}
 end
 
-_BridgeMockModel() = _BridgeMockModel(
-    MOI.ConstraintIndex[],
-    Dict{MOI.ConstraintIndex,Float64}(),
-    Dict{MOI.ConstraintIndex,Float64}(),
-    Dict{MOI.VariableIndex,Float64}(),
-)
+function _BridgeMockModel()
+    return _BridgeMockModel(
+        MOI.ConstraintIndex[],
+        Dict{MOI.ConstraintIndex,Float64}(),
+        Dict{MOI.ConstraintIndex,Float64}(),
+        Dict{MOI.VariableIndex,Float64}(),
+    )
+end
 
 function MOI.delete(model::_BridgeMockModel, ci::MOI.ConstraintIndex)
     push!(model.deleted, ci)
@@ -1531,10 +1533,10 @@ function test_VectorNonlinearOracle_bridge_utility_paths()
         MOI.ScalarNonlinearFunction,
         MOI.GreaterThan{Float64},
     }
-    eq =
-        MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.EqualTo{Float64}}
+    eq = MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.EqualTo{Float64}}
 
-    bridge = NLP.VNOToScalarNLBridge{Float64}(f, set, [leq(1)], [geq(2)], [eq(3)])
+    bridge =
+        NLP.VNOToScalarNLBridge{Float64}(f, set, [leq(1)], [geq(2)], [eq(3)])
 
     @test MOI.get(NLP.Form(), MOI.ConstraintFunction(), bridge) == f
     @test MOI.get(NLP.Form(), MOI.ConstraintSet(), bridge) == set
