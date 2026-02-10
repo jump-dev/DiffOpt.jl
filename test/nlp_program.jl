@@ -12,6 +12,53 @@ import MathOptInterface as MOI
 
 include(joinpath(@__DIR__, "data/nlp_problems.jl"))
 
+mutable struct _BridgeMockModel <: MOI.ModelLike
+    deleted::Vector{MOI.ConstraintIndex}
+    primal_start::Dict{MOI.ConstraintIndex,Float64}
+    dual_start::Dict{MOI.ConstraintIndex,Float64}
+    variable_start::Dict{MOI.VariableIndex,Float64}
+end
+
+_BridgeMockModel() = _BridgeMockModel(
+    MOI.ConstraintIndex[],
+    Dict{MOI.ConstraintIndex,Float64}(),
+    Dict{MOI.ConstraintIndex,Float64}(),
+    Dict{MOI.VariableIndex,Float64}(),
+)
+
+function MOI.delete(model::_BridgeMockModel, ci::MOI.ConstraintIndex)
+    push!(model.deleted, ci)
+    return
+end
+
+function MOI.set(
+    model::_BridgeMockModel,
+    ::MOI.ConstraintPrimalStart,
+    ci::MOI.ConstraintIndex,
+    value,
+)
+    model.primal_start[ci] = value
+    return
+end
+
+function MOI.set(
+    model::_BridgeMockModel,
+    ::MOI.ConstraintDualStart,
+    ci::MOI.ConstraintIndex,
+    value,
+)
+    model.dual_start[ci] = value
+    return
+end
+
+function MOI.get(
+    model::_BridgeMockModel,
+    ::MOI.VariablePrimalStart,
+    vi::MOI.VariableIndex,
+)
+    return model.variable_start[vi]
+end
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -1443,6 +1490,87 @@ function test_VectorNonlinearOracle_hessian_transpose()
 
     dx1 = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[1])
     @test dx1 ≈ 1.0 atol = 1e-5
+end
+
+function test_VectorNonlinearOracle_bridge_utility_paths()
+    NLP = DiffOpt.NonLinearProgram
+
+    # Minimal one-row oracle.
+    function eval_f(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[1]
+        return
+    end
+    jacobian_structure = [(1, 1)]
+    function eval_jacobian(ret::AbstractVector, z::AbstractVector)
+        ret[1] = 1.0
+        return
+    end
+    hessian_lagrangian_structure = [(1, 1)]
+    function eval_hessian_lagrangian(
+        ret::AbstractVector,
+        z::AbstractVector,
+        μ::AbstractVector,
+    )
+        ret[1] = 0.0
+        return
+    end
+    set = MOI.VectorNonlinearOracle(;
+        dimension = 1,
+        l = [-Inf],
+        u = [1.0],
+        eval_f,
+        jacobian_structure,
+        eval_jacobian,
+        hessian_lagrangian_structure,
+        eval_hessian_lagrangian,
+    )
+    f = MOI.VectorOfVariables([MOI.VariableIndex(1)])
+
+    leq = MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.LessThan{Float64}}
+    geq = MOI.ConstraintIndex{
+        MOI.ScalarNonlinearFunction,
+        MOI.GreaterThan{Float64},
+    }
+    eq =
+        MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.EqualTo{Float64}}
+
+    bridge = NLP.VNOToScalarNLBridge{Float64}(f, set, [leq(1)], [geq(2)], [eq(3)])
+
+    @test MOI.get(NLP.Form(), MOI.ConstraintFunction(), bridge) == f
+    @test MOI.get(NLP.Form(), MOI.ConstraintSet(), bridge) == set
+
+    # Cover `_unwrap_to_form` branches for direct form, `optimizer` wrapper, and error.
+    form = NLP.Form()
+    @test NLP._unwrap_to_form(form) === form
+    wrapper = (optimizer = form,)
+    @test NLP._unwrap_to_form(wrapper) === form
+    @test_throws ErrorException NLP._unwrap_to_form(nothing)
+
+    mock = _BridgeMockModel()
+    @test MOI.supports(
+        mock,
+        MOI.ConstraintPrimalStart(),
+        NLP.VNOToScalarNLBridge{Float64},
+    )
+    @test MOI.supports(
+        mock,
+        MOI.ConstraintDualStart(),
+        NLP.VNOToScalarNLBridge{Float64},
+    )
+
+    b_delete = NLP.VNOToScalarNLBridge{Float64}(
+        f,
+        set,
+        [leq(10), leq(11)],
+        [geq(20)],
+        [eq(30)],
+    )
+    MOI.delete(mock, b_delete)
+    @test mock.deleted == MOI.ConstraintIndex[leq(10), leq(11), geq(20), eq(30)]
+
+    # Length mismatch should hit the early return path without setting any dual starts.
+    MOI.set(mock, MOI.ConstraintDualStart(), bridge, [1.0, 2.0])
+    @test isempty(mock.dual_start)
 end
 
 end # module
