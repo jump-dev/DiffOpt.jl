@@ -757,20 +757,23 @@ function test_ObjectiveSensitivity_direct_param_contrib()
     DiffOpt.forward_differentiate!(model)
 
     df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
-    @test isapprox(df_dp, 2 * p_val * Δp, atol=1e-8)   # ≈ 0.6 for p=3
+    @test isapprox(df_dp, 2 * p_val * Δp, atol = 1e-8)   # ≈ 0.6 for p=3
 
     ε = 1e-6
-    df_dp_fd = (begin
-        set_parameter_value(p, p_val + ε)
-        optimize!(model)
-        Δp * objective_value(model)
-    end - begin
-        set_parameter_value(p, p_val - ε)
-        optimize!(model)
-        Δp * objective_value(model)
-    end) / (2ε)
-    
-    @test isapprox(df_dp, df_dp_fd, atol=1e-4)
+    df_dp_fd =
+        (
+            begin
+                set_parameter_value(p, p_val + ε)
+                optimize!(model)
+                Δp * objective_value(model)
+            end - begin
+                set_parameter_value(p, p_val - ε)
+                optimize!(model)
+                Δp * objective_value(model)
+            end
+        ) / (2ε)
+
+    @test isapprox(df_dp, df_dp_fd, atol = 1e-4)
 end
 function test_ObjectiveSensitivity_subset_parameters()
     # Model with 10 parameters, differentiate only w.r.t. 3rd and 7th
