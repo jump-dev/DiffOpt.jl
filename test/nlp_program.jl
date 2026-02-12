@@ -697,6 +697,8 @@ function test_ObjectiveSensitivity_model1()
         ) / (2ε)
     @test isapprox(df_dp_fd, dp_combined)
 
+    set_parameter_value(p, p_val)
+
     DiffOpt.empty_input_sensitivities!(model)
 
     # Set Reverse Objective Sensitivity
