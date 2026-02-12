@@ -50,6 +50,19 @@ function diff_optimizer(
         with_bridge_type,
         with_cache_type,
     )
+    if !isnothing(with_bridge_type)
+        # removed because of the `ZerosBridge` issue:
+        # https://github.com/jump-dev/MathOptInterface.jl/issues/2861
+        # - zeros bridge does not support duals because it cumbersome
+        # - many bridges do not support get ConstraintFunction because it is cumbersome
+        # so there is no way out of this error for now.
+        # at the same time this is a modeling corner case tha could be avoided
+        # by the user.
+        MOI.Bridges.remove_bridge(
+            optimizer,
+            MOI.Bridges.Variable.ZerosBridge{with_bridge_type},
+        )
+    end
     if allow_parametric_opt_interface &&
        !MOI.supports_add_constrained_variable(
         isnothing(with_bridge_type) ? optimizer : optimizer.model,
