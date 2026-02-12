@@ -711,7 +711,7 @@ function test_ObjectiveSensitivity_model1()
     # Test Objective Sensitivity wrt parameters
     dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
-    @test isapprox(dp, -0.0355464; atol = 1e-4)
+    @test isapprox(dp, df * Δf; atol = 1e-4)
 end
 
 function test_ObjectiveSensitivity_model2()
