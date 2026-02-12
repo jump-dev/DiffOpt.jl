@@ -552,8 +552,11 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
         # Compute Jacobian
         Δs, df_dp = _compute_sensitivity(model; tol = tol)
         Δp = if !iszero(model.input_cache.dobj)
-            model.input_cache.dobj * df_dp
+            df_dp'model.input_cache.dobj
         else
+            zeros(length(cache.params))
+        end
+        begin
             num_primal = length(cache.primal_vars)
             # Fetch primal sensitivities
             Δx = zeros(num_primal)
@@ -589,7 +592,7 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
             Δw = zeros(size(Δs, 1))
             Δw[1:num_primal] = Δx
             Δw[cache.index_duals] = Δdual
-            Δp = Δs' * Δw
+            Δp += Δs' * Δw
         end
 
         Δp_dict = Dict{MOI.ConstraintIndex,Float64}(

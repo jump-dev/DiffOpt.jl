@@ -555,12 +555,10 @@ function reverse_differentiate!(model::Optimizer)
             "Trying to compute the reverse differentiation on a model with termination status $(st)",
         )
     end
-    if !iszero(model.input_cache.dobj) &&
-       (!isempty(model.input_cache.dx) || !isempty(model.input_cache.dy))
-        error(
-            "Cannot compute the reverse differentiation with both solution sensitivities and objective sensitivities.",
-        )
-    end
+    # if !iszero(model.input_cache.dobj) &&
+    #    (!isempty(model.input_cache.dx) || !isempty(model.input_cache.dy))
+    #     @warn "Computing reverse differentiation with both solution sensitivities and objective sensitivities."
+    # end
     diff = _diff(model)
     MOI.set(
         diff,

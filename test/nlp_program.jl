@@ -644,14 +644,15 @@ function test_ObjectiveSensitivity_model1()
     set_silent(model)
 
     # Parameters
-    @variable(model, p ∈ MOI.Parameter(1.5))
+    p_val = 1.5
+    @variable(model, p ∈ MOI.Parameter(p_val))
 
     # Variables
     @variable(model, x)
 
     # Constraints
     @constraint(model, x * sin(p) == 1)
-    @objective(model, Min, sum(x))
+    @objective(model, Min, 2 * x)
 
     optimize!(model)
     @assert is_solved_and_feasible(model)
@@ -665,19 +666,32 @@ function test_ObjectiveSensitivity_model1()
 
     # Test Objective Sensitivity wrt parameters
     df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
-    @test isapprox(df_dp, -0.0071092; atol = 1e-4)
+    df = -2cos(p_val) / sin(p_val)^2
+    @test isapprox(df_dp, df * Δp; atol = 1e-4)
 
     # Clean up
     DiffOpt.empty_input_sensitivities!(model)
 
-    # Set Too Many Sensitivities
+    # Test both obj and solution inputs
     Δf = 0.5
     MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, Δp)
 
-    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+    # @test_warn "Computing reverse differentiation with both"
+    DiffOpt.reverse_differentiate!(model)
+    dp_combined = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
-    # Compute derivatives
-    @test_throws ErrorException DiffOpt.reverse_differentiate!(model)
+    ε = 1e-6
+    df_dp_fd = (begin
+        set_parameter_value(p, p_val + ε)
+        optimize!(model)
+        Δf * objective_value(model) + Δp * value(x)
+    end - begin
+        set_parameter_value(p, p_val - ε)
+        optimize!(model)
+        Δf * objective_value(model) + Δp * value(x)
+    end) / (2ε)
+    @test isapprox(df_dp_fd, dp_combined)
 
     DiffOpt.empty_input_sensitivities!(model)
 
