@@ -679,18 +679,22 @@ function test_ObjectiveSensitivity_model1()
 
     # @test_warn "Computing reverse differentiation with both"
     DiffOpt.reverse_differentiate!(model)
-    dp_combined = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
+    dp_combined =
+        MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
     ε = 1e-6
-    df_dp_fd = (begin
-        set_parameter_value(p, p_val + ε)
-        optimize!(model)
-        Δf * objective_value(model) + Δp * value(x)
-    end - begin
-        set_parameter_value(p, p_val - ε)
-        optimize!(model)
-        Δf * objective_value(model) + Δp * value(x)
-    end) / (2ε)
+    df_dp_fd =
+        (
+            begin
+                set_parameter_value(p, p_val + ε)
+                optimize!(model)
+                Δf * objective_value(model) + Δp * value(x)
+            end - begin
+                set_parameter_value(p, p_val - ε)
+                optimize!(model)
+                Δf * objective_value(model) + Δp * value(x)
+            end
+        ) / (2ε)
     @test isapprox(df_dp_fd, dp_combined)
 
     DiffOpt.empty_input_sensitivities!(model)
