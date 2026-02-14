@@ -489,11 +489,9 @@ function _compute_sensitivity(model::Model; tol = 1e-6)
     # Dual bounds upper
     ∂s[((num_w+num_cons+num_lower+1):end), :] *= -_sense_multiplier
 
-    grad = _compute_gradient(model)
+    # dual wrt parameter
     primal_idx = [i.value for i in model.cache.primal_vars]
-    params_idx = [i.value for i in model.cache.params]
-    df_dx = grad[primal_idx]
-    df_dp_direct = grad[params_idx]
-    df_dp = df_dx'∂s[1:num_vars, :] + df_dp_direct'
+    df_dx = _compute_gradient(model)[primal_idx]
+    df_dp = df_dx'∂s[1:num_vars, :]
     return ∂s, df_dp
 end
