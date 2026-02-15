@@ -1063,6 +1063,64 @@ end
 =#
 ################################################
 
+function test_VectorNonlinearOracle_default_constructor_selection()
+    # Ensure default `diff_optimizer` routes VNO constraints to NonLinearProgram.
+    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+
+    p_val = 0.3
+    @variable(model, x)
+    @variable(model, p in Parameter(p_val))
+    @objective(model, Min, (x - p)^2)
+
+    function eval_f(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[1]^2
+        return
+    end
+    jacobian_structure = [(1, 1)]
+    function eval_jacobian(ret::AbstractVector, z::AbstractVector)
+        ret[1] = 2.0 * z[1]
+        return
+    end
+    hessian_lagrangian_structure = [(1, 1)]
+    function eval_hessian_lagrangian(
+        ret::AbstractVector,
+        z::AbstractVector,
+        μ::AbstractVector,
+    )
+        ret[1] = 2.0 * μ[1]
+        return
+    end
+
+    set = MOI.VectorNonlinearOracle(;
+        dimension = 1,
+        l = [-Inf],
+        u = [1.0],
+        eval_f,
+        jacobian_structure,
+        eval_jacobian,
+        hessian_lagrangian_structure,
+        eval_hessian_lagrangian,
+    )
+    @constraint(model, [x] in set)
+
+    optimize!(model)
+    @test is_solved_and_feasible(model)
+    @test value(x) ≈ p_val atol = 1e-7
+
+    diff_backend = DiffOpt._diff(model.moi_backend.optimizer.model)
+    if diff_backend isa MOI.Bridges.LazyBridgeOptimizer
+        @test diff_backend.model isa DiffOpt.NonLinearProgram.Model
+    else
+        @test diff_backend isa DiffOpt.NonLinearProgram.Model
+    end
+
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_variable(model, x, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ 1.0 atol = 1e-6
+end
+
 function test_VectorNonlinearOracle_univariate()
     # Univariate test: 1 input, 1 output
     # Constraint: x^2 <= 1
