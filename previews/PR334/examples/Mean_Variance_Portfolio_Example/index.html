@@ -68,36 +68,36 @@ for (k, σ_val) in enumerate(σ_grid)
     DiffOpt.set_reverse_variable.(model, x, μ_test)
     DiffOpt.reverse_differentiate!(model)
     dL_dσ[k] = DiffOpt.get_reverse_parameter(model, σ_max)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Optimal portfolio weights: [5.658840600212723e-6, 0.018882734866492903, 0.03907243442925988]
-Optimal portfolio weights: [2.9615619528665894e-6, 0.03710076184578953, 0.07838697285156881]
-Optimal portfolio weights: [3.991001332916834e-6, 0.0556573113824026, 0.11757663205482236]
-Optimal portfolio weights: [2.8761053968294316e-5, 0.07467364263748005, 0.1565514737960362]
-Optimal portfolio weights: [5.5336248609913934e-6, 0.09275568036215343, 0.19597607214341758]
-Optimal portfolio weights: [6.045266093295765e-6, 0.11131252558506538, 0.23515581300531907]
-Optimal portfolio weights: [6.794648070611909e-6, 0.12995866044115537, 0.2742970150707773]
-Optimal portfolio weights: [3.223110683901139e-6, 0.14841388889233265, 0.31354555558295194]
-Optimal portfolio weights: [5.691550122139736e-6, 0.1669701262219937, 0.3527322109736728]
-Optimal portfolio weights: [7.023976971607716e-6, 0.18580227637112637, 0.39200323624664957]
-Optimal portfolio weights: [4.62500582854471e-6, 0.2040057967872831, 0.4311552796865411]
-Optimal portfolio weights: [5.727794364271045e-6, 0.222620949197694, 0.4703006360365732]
-Optimal portfolio weights: [2.760617841535895e-6, 0.24122012282656582, 0.5094959120066633]
-Optimal portfolio weights: [-4.011210802159187e-6, 0.2597179999164647, 0.5486899189726858]
-Optimal portfolio weights: [2.483133946812592e-7, 0.278220419971934, 0.5879285717690754]
-Optimal portfolio weights: [1.2656238263943147e-7, 0.2968306470378809, 0.627085999024414]
-Optimal portfolio weights: [2.8403641386149958e-8, 0.3153827733669718, 0.6662793615646376]
-Optimal portfolio weights: [-2.00064963638143e-6, 0.24354374836163056, 0.7564582014563547]
-Optimal portfolio weights: [1.3793346961328554e-6, 0.170880138550446, 0.829113672335493]
-Optimal portfolio weights: [1.12728226576089e-5, 0.11344879862059759, 0.8865392792745515]
-Optimal portfolio weights: [-6.398848535048396e-9, 0.06232492177698422, 0.9376750967704776]
-Optimal portfolio weights: [2.9505943490365626e-7, 0.014238262898225204, 0.9857589913469282]
-Optimal portfolio weights: [-2.16150379865098e-5, -1.879168443294572e-5, 1.0000707785491552]
-Optimal portfolio weights: [-1.306628516859309e-5, -1.3542094992647202e-5, 1.0000480370965048]
-Optimal portfolio weights: [-1.3028821102573778e-5, -1.349888390969674e-5, 1.0000479074416557]
-Optimal portfolio weights: [-1.333420459845848e-5, -1.3812256924856943e-5, 1.00004903592973]
-Optimal portfolio weights: [-1.3095781403317063e-5, -1.3567686346371263e-5, 1.0000481547145872]
-Optimal portfolio weights: [-1.3398025907370033e-5, -1.3878512620393833e-5, 1.0000492703600539]
-Optimal portfolio weights: [-1.3439487711960188e-5, -1.392134256889034e-5, 1.000049423052066]
-Optimal portfolio weights: [-1.3379282996105953e-5, -1.385946898906365e-5, 1.0000492007495632]</code></pre><h2 id="Results-with-Plot-graphs"><a class="docs-heading-anchor" href="#Results-with-Plot-graphs">Results with Plot graphs</a><a id="Results-with-Plot-graphs-1"></a><a class="docs-heading-anchor-permalink" href="#Results-with-Plot-graphs" title="Permalink"></a></h2><pre><code class="language-julia hljs">default(;
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Optimal portfolio weights: [5.658840610739365e-6, 0.018882734867448424, 0.03907243442891081]
+Optimal portfolio weights: [2.9615619577749345e-6, 0.03710076184568147, 0.07838697285139078]
+Optimal portfolio weights: [3.9910013314173664e-6, 0.05565731138250393, 0.11757663205503585]
+Optimal portfolio weights: [2.87610536394916e-5, 0.07467364261772505, 0.15655147380391396]
+Optimal portfolio weights: [5.533624864514992e-6, 0.09275568036221664, 0.19597607214347895]
+Optimal portfolio weights: [6.045266090474022e-6, 0.11131252558479116, 0.23515581300517177]
+Optimal portfolio weights: [6.794648067915429e-6, 0.1299586604405889, 0.274297015070987]
+Optimal portfolio weights: [3.2231106725818725e-6, 0.14841388889229973, 0.3135455555828517]
+Optimal portfolio weights: [5.69155012085509e-6, 0.1669701262218718, 0.35273221097379875]
+Optimal portfolio weights: [7.0239769786900575e-6, 0.1858022763711049, 0.3920032362468273]
+Optimal portfolio weights: [4.625005834765434e-6, 0.2040057967872567, 0.43115527968641965]
+Optimal portfolio weights: [5.727794365400229e-6, 0.22262094919774178, 0.4703006360363648]
+Optimal portfolio weights: [2.7606178387955075e-6, 0.2412201228264976, 0.5094959120067006]
+Optimal portfolio weights: [-4.011210804809348e-6, 0.25971799991642425, 0.5486899189727742]
+Optimal portfolio weights: [2.4831339383202443e-7, 0.27822041997195535, 0.5879285717690728]
+Optimal portfolio weights: [1.265623825856975e-7, 0.29683064703787815, 0.6270859990244294]
+Optimal portfolio weights: [2.8403640209926924e-8, 0.31538277336701637, 0.6662793615647071]
+Optimal portfolio weights: [-2.0006496362888272e-6, 0.24354374835842568, 0.756458201459553]
+Optimal portfolio weights: [1.3793346965544707e-6, 0.17088013855027953, 0.8291136723356591]
+Optimal portfolio weights: [1.1272822651327975e-5, 0.11344879862100907, 0.8865392792741486]
+Optimal portfolio weights: [-6.398848978782594e-9, 0.06232492177698473, 0.9376750967704772]
+Optimal portfolio weights: [2.950594238037073e-7, 0.014238262956888114, 0.98575899128837]
+Optimal portfolio weights: [-2.161503798854554e-5, -1.8791684432607876e-5, 1.000070778549155]
+Optimal portfolio weights: [-1.3066285169084386e-5, -1.3542094994945041e-5, 1.000048037096506]
+Optimal portfolio weights: [-1.3028821103253019e-5, -1.3498883909816854e-5, 1.0000479074416562]
+Optimal portfolio weights: [-1.3334204599601495e-5, -1.3812256923059167e-5, 1.00004903592973]
+Optimal portfolio weights: [-1.3095781404024467e-5, -1.3567686347469338e-5, 1.0000481547145874]
+Optimal portfolio weights: [-1.3398025908087403e-5, -1.3878512617563315e-5, 1.0000492703600532]
+Optimal portfolio weights: [-1.3439487712455741e-5, -1.3921342567582751e-5, 1.000049423052067]
+Optimal portfolio weights: [-1.3379282995708692e-5, -1.3859468989832669e-5, 1.0000492007495634]</code></pre><h2 id="Results-with-Plot-graphs"><a class="docs-heading-anchor" href="#Results-with-Plot-graphs">Results with Plot graphs</a><a id="Results-with-Plot-graphs-1"></a><a class="docs-heading-anchor-permalink" href="#Results-with-Plot-graphs" title="Permalink"></a></h2><pre><code class="language-julia hljs">default(;
     size = (1150, 350),
     legendfontsize = 8,
     guidefontsize = 9,
@@ -134,4 +134,4 @@ plot_all = plot(
     layout = (1, 2),
     left_margin = 5Plots.Measures.mm,
     bottom_margin = 5Plots.Measures.mm,
-)</code></pre><img src="baddf99d.svg" alt="Example block output"/><p>Impact of the risk limit <span>$\sigma_{\max}$</span> on Markowitz portfolios.  <strong>Left:</strong> predicted in-sample return versus realized out-of-sample return.  <strong>Right:</strong> the out-of-sample loss <span>$L(x)$</span> together with the absolute gradient <span>$|\partial L/\partial\sigma_{\max}|$</span> obtained from <code>DiffOpt.jl</code>.  The gradient tells the practitioner which way—and how aggressively—to adjust <span>$\sigma_{\max}$</span> to reduce forecast error; its value is computed in one reverse-mode call without re-solving the optimization for perturbed risk limits.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../reference/">« Reference</a><a class="docs-footer-nextpage" href="../Planar_Arm_Example/">Planar Arm Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Sunday 15 February 2026 22:32">Sunday 15 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="99dc9f4c.svg" alt="Example block output"/><p>Impact of the risk limit <span>$\sigma_{\max}$</span> on Markowitz portfolios.  <strong>Left:</strong> predicted in-sample return versus realized out-of-sample return.  <strong>Right:</strong> the out-of-sample loss <span>$L(x)$</span> together with the absolute gradient <span>$|\partial L/\partial\sigma_{\max}|$</span> obtained from <code>DiffOpt.jl</code>.  The gradient tells the practitioner which way—and how aggressively—to adjust <span>$\sigma_{\max}$</span> to reduce forecast error; its value is computed in one reverse-mode call without re-solving the optimization for perturbed risk limits.</p><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../reference/">« Reference</a><a class="docs-footer-nextpage" href="../Planar_Arm_Example/">Planar Arm Example »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Sunday 15 February 2026 23:02">Sunday 15 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
