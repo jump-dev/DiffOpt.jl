@@ -19,9 +19,7 @@ function runtests()
         end
     end
     return
-end # module
-
-TestVNOBridge.runtests()
+end
 
 mutable struct _BridgeMockModel <: MOI.ModelLike
     deleted::Vector{MOI.ConstraintIndex}
@@ -643,3 +641,5 @@ function test_VectorNonlinearOracle_bridge_utility_paths()
 end
 
 end
+
+TestVNOBridge.runtests()
