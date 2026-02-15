@@ -490,10 +490,15 @@ function _compute_sensitivity(model::Model; tol = 1e-6)
     ∂s[((num_w+num_cons+num_lower+1):end), :] *= -_sense_multiplier
 
     grad = _compute_gradient(model)
+    # `grad` = [∇ₓf(x,p); ∇ₚf(x,p)] where `x` is the primal vars, `p` is the params,
+    #  and `f(x,p)` is the objective function. we extract the components
+    #  so we can form `∇ₚfᵒ(x,p) = ∇ₓf(x,p) * ∇ₚxᵒ(p) + ∇ₚf(x,p) * ∇ₚpᵒ(p)`
+    #  where `ᵒ` denotes "optimal". note that parameters are fixed, so
+    #  pᵒ(p) = p and ∇ₚpᵒ(p) = 𝐈ₚ.
     primal_idx = [i.value for i in model.cache.primal_vars]
     params_idx = [i.value for i in model.cache.params]
-    df_dx = grad[primal_idx]
-    df_dp_direct = grad[params_idx]
-    df_dp = df_dx'∂s[1:num_vars, :] + df_dp_direct'
+    df_dx = grad[primal_idx]  # ∇ₓf(x,p)
+    df_dp_direct = grad[params_idx]  # ∇ₚf(x,p)
+    df_dp = df_dx'∂s[1:num_vars, :] + df_dp_direct'  # ∇ₚfᵒ(x,p) = ∇ₓf(x,p) * ∇ₚxᵒ(p) + ∇ₚf(x,p) * 𝐈ₚ
     return ∂s, df_dp
 end
