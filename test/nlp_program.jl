@@ -8,7 +8,6 @@ using FiniteDiff
 import DelimitedFiles
 using SparseArrays
 using LinearAlgebra
-import MathOptInterface as MOI
 
 include(joinpath(@__DIR__, "data/nlp_problems.jl"))
 
