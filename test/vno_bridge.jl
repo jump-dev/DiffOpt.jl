@@ -70,7 +70,6 @@ function MOI.get(
     return model.variable_start[vi]
 end
 
-
 function test_VectorNonlinearOracle_default_constructor_selection()
     # Ensure default `diff_optimizer` routes VNO constraints to NonLinearProgram.
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
