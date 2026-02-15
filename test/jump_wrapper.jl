@@ -77,10 +77,17 @@ function test_obj_simple()
 end
 
 function test_obj_simple_quad()
+    # Note: conic_diff_model excluded - doesn't properly support quadratic objectives
     for (MODEL, SOLVER) in [
-        # (DiffOpt.diff_model, HiGHS.Optimizer),
-        # (DiffOpt.diff_model, SCS.Optimizer),
-        # (DiffOpt.diff_model, Ipopt.Optimizer),
+            (DiffOpt.diff_model, HiGHS.Optimizer),
+            (DiffOpt.diff_model, SCS.Optimizer),
+            (DiffOpt.diff_model, Ipopt.Optimizer),
+            (DiffOpt.quadratic_diff_model, HiGHS.Optimizer),
+            (DiffOpt.quadratic_diff_model, SCS.Optimizer),
+            (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
+            (DiffOpt.nonlinear_diff_model, HiGHS.Optimizer),
+            (DiffOpt.nonlinear_diff_model, SCS.Optimizer),
+            (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
         ],
         sign in [+1, -1],
         sign_p in [-1, +1],
@@ -88,6 +95,11 @@ function test_obj_simple_quad()
         with_bridge_type in [Float64, nothing]
 
         if isnothing(with_bridge_type) && SOLVER === SCS.Optimizer
+            continue
+        end
+        # Skip invalid quadratic cases: convex (sign=1) needs Min, concave (sign=-1) needs Max
+        if SOLVER != Ipopt.Optimizer &&
+           ((sign == 1 && sense == :Max) || (sign == -1 && sense == :Min))
             continue
         end
 
@@ -106,20 +118,21 @@ function test_obj_simple_quad()
             optimize!(model)
             @test value(x) ≈ sign_p * 3 * p_val atol = ATOL rtol = RTOL
 
-            # DiffOpt.empty_input_sensitivities!(model)
-            # direction_obj = 2.0
-            # DiffOpt.set_reverse_objective(model, direction_obj)
-            # DiffOpt.reverse_differentiate!(model)
-            # @test DiffOpt.get_reverse_parameter(model, p) ≈
-            #       sign_p * sign * 3 * (2 * value(x) + 7) * direction_obj atol =
-            #     ATOL rtol = RTOL
+            DiffOpt.empty_input_sensitivities!(model)
+            direction_obj = 2.0
+            DiffOpt.set_reverse_objective(model, direction_obj)
+            DiffOpt.reverse_differentiate!(model)
+            @test DiffOpt.get_reverse_parameter(model, p) ≈
+                  sign_p * sign * 3 * (4 * value(x) + 7) * direction_obj atol =
+                ATOL rtol = RTOL
 
-            # DiffOpt.empty_input_sensitivities!(model)
-            # direction_p = 3.0
-            # DiffOpt.set_forward_parameter(model, p, direction_p)
-            # DiffOpt.forward_differentiate!(model)
-            # @test DiffOpt.get_forward_objective(model) ≈
-            #       sign_p * sign * 6 * direction_p atol = ATOL rtol = RTOL
+            DiffOpt.empty_input_sensitivities!(model)
+            direction_p = 3.0
+            DiffOpt.set_forward_parameter(model, p, direction_p)
+            DiffOpt.forward_differentiate!(model)
+            @test DiffOpt.get_forward_objective(model) ≈
+                  sign_p * sign * 3 * (4 * value(x) + 7) * direction_p atol =
+                ATOL rtol = RTOL
         end
     end
 
