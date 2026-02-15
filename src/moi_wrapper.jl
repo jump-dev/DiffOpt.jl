@@ -614,7 +614,7 @@ function _fallback_set_reverse_objective_sensitivity(model::Optimizer, val)
                 xj_val = MOI.get(model, MOI.VariablePrimal(), term.variable)
                 dd += term.coefficient * xj_val * val
             end
-            dd += df_dx * val
+            dd += df_dx.constant * val
         else
             error(
                 "Cannot compute forward objective sensitivity fallback: " *
