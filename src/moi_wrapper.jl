@@ -595,33 +595,52 @@ function reverse_differentiate!(model::Optimizer)
     return reverse_differentiate!(diff)
 end
 
+# Gradient evaluation functions for objective sensitivity fallbacks
+function _eval_gradient(::Optimizer, ::Number)
+    return Dict{MOI.VariableIndex,Float64}()
+end
+
+function _eval_gradient(::Optimizer, f::MOI.VariableIndex)
+    return Dict{MOI.VariableIndex,Float64}(f => 1.0)
+end
+
+function _eval_gradient(::Optimizer, f::MOI.ScalarAffineFunction{Float64})
+    grad = Dict{MOI.VariableIndex,Float64}()
+    for term in f.terms
+        grad[term.variable] = get(grad, term.variable, 0.0) + term.coefficient
+    end
+    return grad
+end
+
+function _eval_gradient(model::Optimizer, f::MOI.ScalarQuadraticFunction{Float64})
+    grad = Dict{MOI.VariableIndex,Float64}()
+    for term in f.affine_terms
+        grad[term.variable] = get(grad, term.variable, 0.0) + term.coefficient
+    end
+    # MOI convention: function is 0.5 * x' * Q * x, so derivative of diagonal
+    # term 0.5 * coef * xi^2 is coef * xi (not 2 * coef * xi)
+    for term in f.quadratic_terms
+        xi, xj = term.variable_1, term.variable_2
+        coef = term.coefficient
+        xi_val = MOI.get(model, MOI.VariablePrimal(), xi)
+        xj_val = MOI.get(model, MOI.VariablePrimal(), xj)
+        if xi == xj
+            grad[xi] = get(grad, xi, 0.0) + coef * xi_val
+        else
+            grad[xi] = get(grad, xi, 0.0) + coef * xj_val
+            grad[xj] = get(grad, xj, 0.0) + coef * xi_val
+        end
+    end
+    return grad
+end
+
 function _fallback_set_reverse_objective_sensitivity(model::Optimizer, val)
     diff = _diff(model)
     obj_type = MOI.get(model, MOI.ObjectiveFunctionType())
     obj_func = MOI.get(model, MOI.ObjectiveFunction{obj_type}())
-    for xi in MOI.Nonlinear.SymbolicAD.variables(obj_func)
-        df_dx = MOI.Nonlinear.SymbolicAD.simplify!(
-            MOI.Nonlinear.SymbolicAD.derivative(obj_func, xi),
-        )
-        if iszero(df_dx)
-            continue
-        end
-        dd = 0.0
-        if df_dx isa Number
-            dd = df_dx * val
-        elseif df_dx isa MOI.ScalarAffineFunction{Float64}
-            for term in df_dx.terms
-                xj_val = MOI.get(model, MOI.VariablePrimal(), term.variable)
-                dd += term.coefficient * xj_val * val
-            end
-            dd += df_dx.constant * val
-        else
-            error(
-                "Cannot compute forward objective sensitivity fallback: " *
-                "unsupported derivative found.",
-            )
-        end
-        MOI.set(diff, ReverseVariablePrimal(), model.index_map[xi], dd)
+    grad = _eval_gradient(model, obj_func)
+    for (xi, df_dxi) in grad
+        MOI.set(diff, ReverseVariablePrimal(), model.index_map[xi], df_dxi * val)
     end
     return
 end
@@ -892,31 +911,13 @@ function MOI.get(model::Optimizer, attr::ForwardObjectiveSensitivity)
 end
 
 function _fallback_get_forward_objective_sensitivity(model::Optimizer)
-    ret = 0.0
     obj_type = MOI.get(model, MOI.ObjectiveFunctionType())
     obj_func = MOI.get(model, MOI.ObjectiveFunction{obj_type}())
-    for xi in MOI.Nonlinear.SymbolicAD.variables(obj_func)
-        df_dx = MOI.Nonlinear.SymbolicAD.simplify!(
-            MOI.Nonlinear.SymbolicAD.derivative(obj_func, xi),
-        )
-        if iszero(df_dx)
-            continue
-        end
+    grad = _eval_gradient(model, obj_func)
+    ret = 0.0
+    for (xi, df_dxi) in grad
         dx_dp = MOI.get(model, ForwardVariablePrimal(), xi)
-        if df_dx isa Number
-            ret += df_dx * dx_dp
-        elseif df_dx isa MOI.ScalarAffineFunction{Float64}
-            for term in df_dx.terms
-                xj_val = MOI.get(model, MOI.VariablePrimal(), term.variable)
-                ret += term.coefficient * xj_val * dx_dp
-            end
-            ret += df_dx.constant * dx_dp
-        else
-            error(
-                "Cannot compute forward objective sensitivity fallback: " *
-                "unsupported derivative found.",
-            )
-        end
+        ret += df_dxi * dx_dp
     end
     return ret
 end
