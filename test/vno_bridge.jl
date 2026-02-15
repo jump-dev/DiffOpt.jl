@@ -19,7 +19,9 @@ function runtests()
         end
     end
     return
-end
+end # module
+
+TestVNOBridge.runtests()
 
 mutable struct _BridgeMockModel <: MOI.ModelLike
     deleted::Vector{MOI.ConstraintIndex}
