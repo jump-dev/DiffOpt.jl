@@ -446,7 +446,7 @@ end
 function MOI.set(
     model::AbstractModel,
     ::AllowObjectiveAndSolutionInput,
-    allow::Function,
+    allow::Bool,
 )
     model.input_cache.allow_objective_and_solution_input = allow
     return
