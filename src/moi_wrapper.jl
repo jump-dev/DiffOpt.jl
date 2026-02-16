@@ -555,10 +555,13 @@ function reverse_differentiate!(model::Optimizer)
             "Trying to compute the reverse differentiation on a model with termination status $(st)",
         )
     end
-    # if !iszero(model.input_cache.dobj) &&
-    #    (!isempty(model.input_cache.dx) || !isempty(model.input_cache.dy))
-    #     @warn "Computing reverse differentiation with both solution sensitivities and objective sensitivities."
-    # end
+    if !iszero(model.input_cache.dobj) &&
+       (!isempty(model.input_cache.dx) || !isempty(model.input_cache.dy))
+        if !MOI.get(model, AllowObjectiveAndSolutionInput())
+            @warn "Computing reverse differentiation with both solution sensitivities and objective sensitivities. " *
+                "Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
+        end
+    end
     diff = _diff(model)
     MOI.set(
         diff,
@@ -1123,6 +1126,14 @@ function MOI.supports(
     return true
 end
 
+function MOI.supports(
+    ::Optimizer,
+    ::AllowObjectiveAndSolutionInput,
+    ::Bool,
+)
+    return true
+end
+
 function MOI.set(
     model::Optimizer,
     ::NonLinearKKTJacobianFactorization,
@@ -1132,8 +1143,21 @@ function MOI.set(
     return
 end
 
+function MOI.set(
+    model::Optimizer,
+    ::AllowObjectiveAndSolutionInput,
+    allow,
+)
+    model.input_cache.allow_objective_and_solution_input = allow
+    return
+end
+
 function MOI.get(model::Optimizer, ::NonLinearKKTJacobianFactorization)
     return model.input_cache.factorization
+end
+
+function MOI.get(model::Optimizer, ::AllowObjectiveAndSolutionInput)
+    return model.input_cache.allow_objective_and_solution_input
 end
 
 function MOI.set(model::Optimizer, attr::MOI.AbstractOptimizerAttribute, value)
