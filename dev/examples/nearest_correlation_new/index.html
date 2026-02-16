@@ -38,21 +38,21 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.00e+00  2.56e-01  1.01e+00  5.26e-01  1.00e-01  3.58e-04
-   100| 5.96e-05  1.22e-06  9.38e-05  2.79e-01  1.00e-01  9.27e-04
+     0| 1.00e+00  2.56e-01  1.01e+00  5.26e-01  1.00e-01  1.71e-04
+   100| 5.96e-05  1.22e-06  9.38e-05  2.79e-01  1.00e-01  7.65e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 9.28e-04s = setup: 7.59e-05s + solve: 8.52e-04s
-	 lin-sys: 6.62e-05s, cones: 4.83e-04s, accel: 5.78e-06s
+timings: total: 7.66e-04s = setup: 6.92e-05s + solve: 6.97e-04s
+	 lin-sys: 6.01e-05s, cones: 5.07e-04s, accel: 6.18e-06s
 ------------------------------------------------------------------
 objective = 0.278512
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
  1.0       0.760733  0.157275
  0.760733  1.0       0.760733
  0.157275  0.760733  1.0</code></pre><p>The derivative of the projection with respect to a uniform increase of the weights of the diagonal entries is:</p><pre><code class="language-julia hljs">dX</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
-  1.58068e-16  2.3831e-14   -1.45981e-14
-  2.3831e-14   5.10933e-16   2.48852e-14
- -1.45981e-14  2.48852e-14   6.96893e-16</code></pre><p>Example from [H02, Section 4, p. 340]:</p><pre><code class="language-julia hljs">A = LinearAlgebra.Tridiagonal(-ones(3), 2ones(4), -ones(3))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 LinearAlgebra.Tridiagonal{Float64, Vector{Float64}}:
+  3.72132e-15  2.52072e-14  -1.64924e-14
+  2.52072e-14  1.53033e-15   2.00567e-14
+ -1.64924e-14  2.00567e-14   4.98516e-16</code></pre><p>Example from [H02, Section 4, p. 340]:</p><pre><code class="language-julia hljs">A = LinearAlgebra.Tridiagonal(-ones(3), 2ones(4), -ones(3))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 LinearAlgebra.Tridiagonal{Float64, Vector{Float64}}:
   2.0  -1.0    ⋅     ⋅ 
  -1.0   2.0  -1.0    ⋅ 
    ⋅   -1.0   2.0  -1.0
@@ -73,12 +73,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.95e+00  2.54e-01  1.26e+01  8.41e+00  1.00e-01  1.70e-04
-   125| 8.40e-08  1.20e-08  2.01e-07  4.55e+00  7.56e-01  1.12e-03
+     0| 1.95e+00  2.54e-01  1.26e+01  8.41e+00  1.00e-01  1.50e-04
+   125| 8.40e-08  1.20e-08  2.01e-07  4.55e+00  7.56e-01  1.17e-03
 ------------------------------------------------------------------
 status:  solved
-timings: total: 1.12e-03s = setup: 9.79e-05s + solve: 1.02e-03s
-	 lin-sys: 9.69e-05s, cones: 8.15e-04s, accel: 8.26e-06s
+timings: total: 1.17e-03s = setup: 7.23e-05s + solve: 1.10e-03s
+	 lin-sys: 1.19e-04s, cones: 8.40e-04s, accel: 8.07e-06s
 ------------------------------------------------------------------
 objective = 4.552800
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
@@ -86,7 +86,7 @@ objective = 4.552800
  -0.808413   1.0       -0.656233   0.191587
   0.191587  -0.656233   1.0       -0.808413
   0.106775   0.191587  -0.808413   1.0</code></pre><p>The derivative of the projection with respect to a uniform increase of the weights of the diagonal entries is:</p><pre><code class="language-julia hljs">dX</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
- 6.11904e-8  0.314394    0.314394     0.143315
- 0.314394    3.9053e-8   0.666831     0.314394
- 0.314394    0.666831   -1.08026e-8   0.314394
- 0.143315    0.314394    0.314394    -1.04625e-7</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nearest_correlation/">« Nearest correlation</a><a class="docs-footer-nextpage" href="../polyhedral_project/">Polyhedral QP layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Saturday 14 February 2026 02:05">Saturday 14 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ -4.81589e-8   0.314394    0.314394     0.143315
+  0.314394    -1.18536e-7  0.666831     0.314394
+  0.314394     0.666831    2.24313e-8   0.314393
+  0.143315     0.314394    0.314393    -3.39976e-8</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nearest_correlation/">« Nearest correlation</a><a class="docs-footer-nextpage" href="../polyhedral_project/">Polyhedral QP layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 16 February 2026 03:56">Monday 16 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
