@@ -612,7 +612,10 @@ function _eval_gradient(::Optimizer, f::MOI.ScalarAffineFunction{Float64})
     return grad
 end
 
-function _eval_gradient(model::Optimizer, f::MOI.ScalarQuadraticFunction{Float64})
+function _eval_gradient(
+    model::Optimizer,
+    f::MOI.ScalarQuadraticFunction{Float64},
+)
     grad = Dict{MOI.VariableIndex,Float64}()
     for term in f.affine_terms
         grad[term.variable] = get(grad, term.variable, 0.0) + term.coefficient
@@ -640,7 +643,12 @@ function _fallback_set_reverse_objective_sensitivity(model::Optimizer, val)
     obj_func = MOI.get(model, MOI.ObjectiveFunction{obj_type}())
     grad = _eval_gradient(model, obj_func)
     for (xi, df_dxi) in grad
-        MOI.set(diff, ReverseVariablePrimal(), model.index_map[xi], df_dxi * val)
+        MOI.set(
+            diff,
+            ReverseVariablePrimal(),
+            model.index_map[xi],
+            df_dxi * val,
+        )
     end
     return
 end
