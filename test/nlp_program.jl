@@ -770,7 +770,7 @@ function test_ObjectiveSensitivity_direct_param_contrib()
         optimize!(model)
         Δp * objective_value(model)
     end
-    df_dp_fd = (df_dp_fdpos - df_dp_fdneg) / (2ϵ)
+    df_dp_fd = (df_dp_fdpos - df_dp_fdneg) / (2ε)
 
     @test isapprox(df_dp, df_dp_fd, atol = 1e-4)
 end
