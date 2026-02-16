@@ -559,7 +559,7 @@ function reverse_differentiate!(model::Optimizer)
        (!isempty(model.input_cache.dx) || !isempty(model.input_cache.dy))
         if !MOI.get(model, AllowObjectiveAndSolutionInput())
             @warn "Computing reverse differentiation with both solution sensitivities and objective sensitivities. " *
-                "Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
+                  "Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
         end
     end
     diff = _diff(model)
@@ -682,7 +682,7 @@ function forward_differentiate!(model::Optimizer)
     MOI.set(
         diff,
         AllowObjectiveAndSolutionInput(),
-        model.input_cache.allow_objective_and_solution_input
+        model.input_cache.allow_objective_and_solution_input,
     )
     T = Float64
     list = MOI.get(
@@ -1136,11 +1136,7 @@ function MOI.supports(
     return true
 end
 
-function MOI.supports(
-    ::Optimizer,
-    ::AllowObjectiveAndSolutionInput,
-    ::Bool,
-)
+function MOI.supports(::Optimizer, ::AllowObjectiveAndSolutionInput, ::Bool)
     return true
 end
 
@@ -1153,11 +1149,7 @@ function MOI.set(
     return
 end
 
-function MOI.set(
-    model::Optimizer,
-    ::AllowObjectiveAndSolutionInput,
-    allow,
-)
+function MOI.set(model::Optimizer, ::AllowObjectiveAndSolutionInput, allow)
     model.input_cache.allow_objective_and_solution_input = allow
     return
 end

@@ -678,14 +678,16 @@ function test_ObjectiveSensitivity_model1()
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, Δp)
 
     @test !MOI.get(model, DiffOpt.AllowObjectiveAndSolutionInput())
-    @test_warn "Computing reverse differentiation with both" DiffOpt.reverse_differentiate!(model)
+    @test_warn "Computing reverse differentiation with both" DiffOpt.reverse_differentiate!(
+        model,
+    )
     MOI.set(model, DiffOpt.AllowObjectiveAndSolutionInput(), true)
     @test_nowarn DiffOpt.reverse_differentiate!(model)
 
     dp_combined =
         MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
-   ε = 1e-6
+    ε = 1e-6
     df_dp_fdpos = begin
         set_parameter_value(p, p_val + ε)
         optimize!(model)
