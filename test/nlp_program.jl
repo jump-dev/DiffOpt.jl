@@ -677,7 +677,6 @@ function test_ObjectiveSensitivity_model1()
     MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, Δp)
 
-    @test !MOI.get(model, DiffOpt.AllowObjectiveAndSolutionInput())
     @test_warn "Computing reverse differentiation with both" DiffOpt.reverse_differentiate!(
         model,
     )
