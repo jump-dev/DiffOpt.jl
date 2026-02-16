@@ -685,19 +685,19 @@ function test_ObjectiveSensitivity_model1()
     dp_combined =
         MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
-    ε = 1e-6
-    df_dp_fd =
-        (
-            begin
-                set_parameter_value(p, p_val + ε)
-                optimize!(model)
-                Δf * objective_value(model) + Δp * value(x)
-            end - begin
-                set_parameter_value(p, p_val - ε)
-                optimize!(model)
-                Δf * objective_value(model) + Δp * value(x)
-            end
-        ) / (2ε)
+   ε = 1e-6
+    df_dp_fdpos = begin
+        set_parameter_value(p, p_val + ε)
+        optimize!(model)
+        Δf * objective_value(model) + Δp * value(x)
+    end
+    df_dp_fdneg = begin
+        set_parameter_value(p, p_val - ε)
+        optimize!(model)
+        Δf * objective_value(model) + Δp * value(x)
+    end
+    df_dp_fd = (df_dp_fdpos - df_dp_fdneg) / (2ε)
+
     @test isapprox(df_dp_fd, dp_combined)
 
     set_parameter_value(p, p_val)
