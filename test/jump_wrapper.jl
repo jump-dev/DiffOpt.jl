@@ -328,6 +328,8 @@ function test_jump_api()
                   -direction_x * 3 * p_val / pc_val^2 atol = ATOL rtol = RTOL
         end
     end
+
+    return
 end
 
 end # module

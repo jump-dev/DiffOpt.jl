@@ -574,11 +574,6 @@ function reverse_differentiate!(model::Optimizer)
         MOI.set(diff, ReverseConstraintDual(), model.index_map[vi], value)
     end
     if !iszero(model.input_cache.dobj)
-        if !isempty(model.input_cache.dx)
-            error(
-                "Cannot compute the reverse differentiation with both solution sensitivities and objective sensitivities.",
-            )
-        end
         try
             MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
         catch e
