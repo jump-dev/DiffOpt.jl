@@ -450,12 +450,20 @@ function MOI.get(
     return MOI.get(model.model, attr, ci)
 end
 
+"""
+Method not supported for `DiffOpt.ConicProgram.Model` directly.
+However, a fallback is provided in `DiffOpt`.
+"""
 function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
     return throw(
         MOI.UnsupportedAttribute(DiffOpt.ForwardObjectiveSensitivity()),
     )
 end
 
+"""
+Method not supported for `DiffOpt.ConicProgram.Model` directly.
+However, a fallback is provided in `DiffOpt`.
+"""
 function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
     return throw(
         MOI.UnsupportedAttribute(DiffOpt.ReverseObjectiveSensitivity()),

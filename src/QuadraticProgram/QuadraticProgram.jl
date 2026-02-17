@@ -501,12 +501,20 @@ function MOI.set(model::Model, ::LinearAlgebraSolver, linear_solver)
     return model.linear_solver = linear_solver
 end
 
+"""
+Method not supported for `DiffOpt.QuadraticProgram.Model` directly.
+However, a fallback is provided in `DiffOpt`.
+"""
 function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
     return throw(
         MOI.UnsupportedAttribute(DiffOpt.ForwardObjectiveSensitivity()),
     )
 end
 
+"""
+Method not supported for `DiffOpt.QuadraticProgram.Model` directly.
+However, a fallback is provided in `DiffOpt`.
+"""
 function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
     return throw(
         MOI.UnsupportedAttribute(DiffOpt.ReverseObjectiveSensitivity()),
