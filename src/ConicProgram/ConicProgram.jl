@@ -408,7 +408,21 @@ function MOI.get(
     i = vi.value
     du = model.forw_grad_cache.du
     dw = model.forw_grad_cache.dw
+    # From https://arxiv.org/pdf/1904.09043, we have
+    # dx = du - (dw)x
+    # we just need to flip the sign due to different conventions.
     return -(du[i] - model.x[i] * dw[])
+end
+
+function MOI.get(
+    model::Model,
+    ::DiffOpt.ForwardConstraintDual,
+    ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{Float64},S},
+) where {S}
+    i = MOI.Utilities.rows(model.model.constraints, ci) # vector
+    # From https://arxiv.org/pdf/1904.09043, we have
+    # dy = DΠ(v)dv - (dw)y
+    return DΠ(v) * dv - dw[] * model.y[i]
 end
 
 function DiffOpt._get_db(
