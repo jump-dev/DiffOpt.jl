@@ -31,6 +31,14 @@ end
 
 function MOI.set(
     model::JuMP.Model,
+    attr::AllowObjectiveAndSolutionInput,
+    allow::Bool,
+)
+    return MOI.set(JuMP.backend(model), attr, allow)
+end
+
+function MOI.set(
+    model::JuMP.Model,
     attr::ForwardObjectiveFunction,
     func::Number,
 )

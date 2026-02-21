@@ -557,15 +557,21 @@ function reverse_differentiate!(model::Optimizer)
     end
     if !iszero(model.input_cache.dobj) &&
        (!isempty(model.input_cache.dx) || !isempty(model.input_cache.dy))
-        error(
-            "Cannot compute the reverse differentiation with both solution sensitivities and objective sensitivities.",
-        )
+        if !MOI.get(model, AllowObjectiveAndSolutionInput())
+            @warn "Computing reverse differentiation with both solution sensitivities and objective sensitivities. " *
+                  "Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
+        end
     end
     diff = _diff(model)
     MOI.set(
         diff,
         NonLinearKKTJacobianFactorization(),
         model.input_cache.factorization,
+    )
+    MOI.set(
+        diff,
+        AllowObjectiveAndSolutionInput(),
+        model.input_cache.allow_objective_and_solution_input,
     )
     for (vi, value) in model.input_cache.dx
         MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
@@ -672,6 +678,11 @@ function forward_differentiate!(model::Optimizer)
         diff,
         NonLinearKKTJacobianFactorization(),
         model.input_cache.factorization,
+    )
+    MOI.set(
+        diff,
+        AllowObjectiveAndSolutionInput(),
+        model.input_cache.allow_objective_and_solution_input,
     )
     T = Float64
     list = MOI.get(
@@ -1125,6 +1136,10 @@ function MOI.supports(
     return true
 end
 
+function MOI.supports(::Optimizer, ::AllowObjectiveAndSolutionInput, ::Bool)
+    return true
+end
+
 function MOI.set(
     model::Optimizer,
     ::NonLinearKKTJacobianFactorization,
@@ -1134,8 +1149,17 @@ function MOI.set(
     return
 end
 
+function MOI.set(model::Optimizer, ::AllowObjectiveAndSolutionInput, allow)
+    model.input_cache.allow_objective_and_solution_input = allow
+    return
+end
+
 function MOI.get(model::Optimizer, ::NonLinearKKTJacobianFactorization)
     return model.input_cache.factorization
+end
+
+function MOI.get(model::Optimizer, ::AllowObjectiveAndSolutionInput)
+    return model.input_cache.allow_objective_and_solution_input
 end
 
 function MOI.set(model::Optimizer, attr::MOI.AbstractOptimizerAttribute, value)
