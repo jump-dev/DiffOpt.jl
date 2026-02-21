@@ -11,9 +11,7 @@ import DiffOpt
 import HiGHS
 import Ipopt
 import SCS
-import ParametricOptInterface as POI
 import MathOptInterface as MOI
-import ParametricOptInterface as POI
 
 const ATOL = 1e-3
 const RTOL = 1e-3
@@ -28,6 +26,210 @@ function runtests()
     end
     return
 end
+
+function test_obj_simple()
+    for (MODEL, SOLVER) in [
+            (DiffOpt.diff_model, HiGHS.Optimizer),
+            (DiffOpt.diff_model, SCS.Optimizer),
+            (DiffOpt.diff_model, Ipopt.Optimizer),
+        ],
+        sign in [+1, -1],
+        sign_p in [-1, +1],
+        sense in [:Min, :Max],
+        with_bridge_type in [Float64, nothing]
+
+        if isnothing(with_bridge_type) && SOLVER === SCS.Optimizer
+            continue
+        end
+
+        @testset "$(MODEL) with: $(SOLVER), bridge:$with_bridge_type, sign:$sign, sense: $sense, sign_p: $sign_p" begin
+            model = MODEL(SOLVER; with_bridge_type)
+            set_silent(model)
+
+            p_val = 4.0
+            @variable(model, x)
+            @variable(model, p in Parameter(p_val))
+            @constraint(model, con, x == 3 * sign_p * p)
+            @objective(model, Min, 2 * sign * x)
+            if sense == :Max
+                @objective(model, Max, 2 * sign * x)
+            end
+            optimize!(model)
+            @test value(x) ≈ sign_p * 3 * p_val atol = ATOL rtol = RTOL
+
+            DiffOpt.empty_input_sensitivities!(model)
+            direction_obj = 2.0
+            DiffOpt.set_reverse_objective(model, direction_obj)
+            DiffOpt.reverse_differentiate!(model)
+            @test DiffOpt.get_reverse_parameter(model, p) ≈
+                  sign_p * sign * 6 * direction_obj atol = ATOL rtol = RTOL
+
+            DiffOpt.empty_input_sensitivities!(model)
+            direction_p = 3.0
+            DiffOpt.set_forward_parameter(model, p, direction_p)
+            DiffOpt.forward_differentiate!(model)
+            @test DiffOpt.get_forward_objective(model) ≈
+                  sign_p * sign * 6 * direction_p atol = ATOL rtol = RTOL
+        end
+    end
+
+    return
+end
+
+function test_obj_simple_quad()
+    # Note: conic_diff_model excluded - doesn't properly support quadratic objectives
+    for (MODEL, SOLVER) in [
+            (DiffOpt.diff_model, HiGHS.Optimizer),
+            (DiffOpt.diff_model, SCS.Optimizer),
+            (DiffOpt.diff_model, Ipopt.Optimizer),
+            (DiffOpt.quadratic_diff_model, HiGHS.Optimizer),
+            (DiffOpt.quadratic_diff_model, SCS.Optimizer),
+            (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
+            (DiffOpt.nonlinear_diff_model, HiGHS.Optimizer),
+            (DiffOpt.nonlinear_diff_model, SCS.Optimizer),
+            (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
+        ],
+        sign in [+1, -1],
+        sign_p in [-1, +1],
+        sense in [:Min, :Max],
+        with_bridge_type in [Float64, nothing]
+
+        if isnothing(with_bridge_type) && SOLVER === SCS.Optimizer
+            continue
+        end
+        # Skip invalid quadratic cases: convex (sign=1) needs Min, concave (sign=-1) needs Max
+        if SOLVER != Ipopt.Optimizer &&
+           ((sign == 1 && sense == :Max) || (sign == -1 && sense == :Min))
+            continue
+        end
+
+        @testset "$(MODEL) with: $(SOLVER), bridge:$with_bridge_type, sign:$sign, sense: $sense, sign_p: $sign_p" begin
+            model = MODEL(SOLVER; with_bridge_type)
+            set_silent(model)
+
+            p_val = 4.0
+            @variable(model, x)
+            @variable(model, p in Parameter(p_val))
+            @constraint(model, con, x == 3 * sign_p * p)
+            @objective(model, Min, sign * (2 * x^2 + 7x))
+            if sense == :Max
+                @objective(model, Max, sign * (2 * x^2 + 7x))
+            end
+            optimize!(model)
+            @test value(x) ≈ sign_p * 3 * p_val atol = ATOL rtol = RTOL
+
+            DiffOpt.empty_input_sensitivities!(model)
+            direction_obj = 2.0
+            DiffOpt.set_reverse_objective(model, direction_obj)
+            DiffOpt.reverse_differentiate!(model)
+            @test DiffOpt.get_reverse_parameter(model, p) ≈
+                  sign_p * sign * 3 * (4 * value(x) + 7) * direction_obj atol =
+                ATOL rtol = RTOL
+
+            DiffOpt.empty_input_sensitivities!(model)
+            direction_p = 3.0
+            DiffOpt.set_forward_parameter(model, p, direction_p)
+            DiffOpt.forward_differentiate!(model)
+            @test DiffOpt.get_forward_objective(model) ≈
+                  sign_p * sign * 3 * (4 * value(x) + 7) * direction_p atol =
+                ATOL rtol = RTOL
+        end
+    end
+
+    return
+end
+
+function test_obj()
+    for (MODEL, SOLVER) in [
+            (DiffOpt.diff_model, HiGHS.Optimizer),
+            (DiffOpt.diff_model, SCS.Optimizer),
+            (DiffOpt.diff_model, Ipopt.Optimizer),
+            (DiffOpt.quadratic_diff_model, HiGHS.Optimizer),
+            (DiffOpt.quadratic_diff_model, SCS.Optimizer),
+            (DiffOpt.quadratic_diff_model, Ipopt.Optimizer),
+            (DiffOpt.conic_diff_model, HiGHS.Optimizer),
+            (DiffOpt.conic_diff_model, SCS.Optimizer),
+            (DiffOpt.conic_diff_model, Ipopt.Optimizer),
+            (DiffOpt.nonlinear_diff_model, HiGHS.Optimizer),
+            (DiffOpt.nonlinear_diff_model, SCS.Optimizer),
+            (DiffOpt.nonlinear_diff_model, Ipopt.Optimizer),
+        ],
+        ineq in [true, false],
+        _min in [true, false],
+        flip in [true, false],
+        with_bridge_type in [Float64, nothing]
+
+        if isnothing(with_bridge_type) && SOLVER === SCS.Optimizer
+            continue
+        end
+
+        @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(_min ? "Min" : "Max"), $(flip ? "geq" : "leq") bridge:$with_bridge_type" begin
+            model = MODEL(SOLVER; with_bridge_type)
+            set_silent(model)
+
+            p_val = 4.0
+            pc_val = 2.0
+            @variable(model, x)
+            @variable(model, p in Parameter(p_val))
+            @variable(model, pc in Parameter(pc_val))
+            if ineq
+                if !flip
+                    cons = @constraint(model, con, pc * x >= 3 * p)
+                else
+                    cons = @constraint(model, con, pc * x <= 3 * p)
+                end
+            else
+                cons = @constraint(model, con, pc * x == 3 * p)
+            end
+
+            for obj_coef in [2, 5]
+                sign = flip ? -1 : 1
+                dir = _min ? 1 : -1
+                if _min
+                    @objective(model, Min, dir * obj_coef * x * sign)
+                else
+                    @objective(model, Max, dir * obj_coef * x * sign)
+                end
+
+                optimize!(model)
+                @test value(x) ≈ 3 * p_val / pc_val atol = ATOL rtol = RTOL
+
+                DiffOpt.empty_input_sensitivities!(model)
+                direction_obj = 2.0
+                DiffOpt.set_reverse_objective(model, direction_obj)
+                DiffOpt.reverse_differentiate!(model)
+                @test DiffOpt.get_reverse_parameter(model, p) ≈
+                      dir * sign * obj_coef * direction_obj * 3 / pc_val atol =
+                    ATOL rtol = RTOL
+                @test DiffOpt.get_reverse_parameter(model, pc) ≈
+                      -dir * sign * obj_coef * direction_obj * 3 * p_val /
+                      (pc_val^2) atol = ATOL rtol = RTOL
+
+                DiffOpt.empty_input_sensitivities!(model)
+                direction_p = 3.0
+                DiffOpt.set_forward_parameter(model, p, direction_p)
+                DiffOpt.forward_differentiate!(model)
+                @test DiffOpt.get_forward_objective(model) ≈
+                      dir * sign * obj_coef * direction_p * 3 / pc_val atol =
+                    ATOL rtol = RTOL
+
+                # stop differentiating with respect to p
+                DiffOpt.empty_input_sensitivities!(model)
+                # differentiate w.r.t. pc
+                direction_pc = 10.0
+                DiffOpt.set_forward_parameter(model, pc, direction_pc)
+                DiffOpt.forward_differentiate!(model)
+                @test DiffOpt.get_forward_objective(model) ≈
+                      -dir * sign * obj_coef * direction_pc * 3 * p_val /
+                      pc_val^2 atol = ATOL rtol = RTOL
+            end
+        end
+    end
+
+    return
+end
+
+# TODO test quadratic obj
 
 function test_jump_api()
     for (MODEL, SOLVER) in [
@@ -56,6 +258,11 @@ function test_jump_api()
         @testset "$(MODEL) with: $(SOLVER), $(ineq ? "ineqs" : "eqs"), $(_min ? "Min" : "Max"), $(flip ? "geq" : "leq") bridge:$with_bridge_type" begin
             model = MODEL(SOLVER; with_bridge_type)
             set_silent(model)
+            if SOLVER === Ipopt.Optimizer
+                # avoiding MOI.TimeLimitSec to cover the RawOptimizerAttribute path
+                # only tests that MOI doesn't throw an unsupported error (#335)
+                set_optimizer_attribute(model, "max_wall_time", 600.0)
+            end
 
             p_val = 4.0
             pc_val = 2.0
@@ -126,6 +333,8 @@ function test_jump_api()
                   -direction_x * 3 * p_val / pc_val^2 atol = ATOL rtol = RTOL
         end
     end
+
+    return
 end
 
 end # module

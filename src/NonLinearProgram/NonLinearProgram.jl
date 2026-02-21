@@ -553,45 +553,46 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
         # Compute Jacobian
         Δs, df_dp = _compute_sensitivity(model; tol = tol)
         Δp = if !iszero(model.input_cache.dobj)
-            model.input_cache.dobj * df_dp
+            df_dp'model.input_cache.dobj
         else
-            num_primal = length(cache.primal_vars)
-            # Fetch primal sensitivities
-            Δx = zeros(num_primal)
-            for (i, var_idx) in enumerate(cache.primal_vars)
-                if haskey(model.input_cache.dx, var_idx)
-                    Δx[i] = model.input_cache.dx[var_idx]
-                end
-            end
-            # Fetch dual sensitivities
-            num_constraints = length(cache.cons)
-            num_up = length(cache.has_up)
-            num_low = length(cache.has_low)
-            Δdual = zeros(num_constraints + num_up + num_low)
-            for (i, ci) in enumerate(cache.cons)
-                idx = form.nlp_index_2_constraint[ci]
-                if haskey(model.input_cache.dy, idx)
-                    Δdual[i] = model.input_cache.dy[idx]
-                end
-            end
-            for (i, var_idx) in enumerate(cache.primal_vars[cache.has_low])
-                idx = form.constraint_lower_bounds[var_idx.value]
-                if haskey(model.input_cache.dy, idx)
-                    Δdual[num_constraints+i] = model.input_cache.dy[idx]
-                end
-            end
-            for (i, var_idx) in enumerate(cache.primal_vars[cache.has_up])
-                idx = form.constraint_upper_bounds[var_idx.value]
-                if haskey(model.input_cache.dy, idx)
-                    Δdual[num_constraints+num_low+i] = model.input_cache.dy[idx]
-                end
-            end
-            # Extract Parameter sensitivities
-            Δw = zeros(size(Δs, 1))
-            Δw[1:num_primal] = Δx
-            Δw[cache.index_duals] = Δdual
-            Δp = Δs' * Δw
+            zeros(length(cache.params))
         end
+        num_primal = length(cache.primal_vars)
+        # Fetch primal sensitivities
+        Δx = zeros(num_primal)
+        for (i, var_idx) in enumerate(cache.primal_vars)
+            if haskey(model.input_cache.dx, var_idx)
+                Δx[i] = model.input_cache.dx[var_idx]
+            end
+        end
+        # Fetch dual sensitivities
+        num_constraints = length(cache.cons)
+        num_up = length(cache.has_up)
+        num_low = length(cache.has_low)
+        Δdual = zeros(num_constraints + num_up + num_low)
+        for (i, ci) in enumerate(cache.cons)
+            idx = form.nlp_index_2_constraint[ci]
+            if haskey(model.input_cache.dy, idx)
+                Δdual[i] = model.input_cache.dy[idx]
+            end
+        end
+        for (i, var_idx) in enumerate(cache.primal_vars[cache.has_low])
+            idx = form.constraint_lower_bounds[var_idx.value]
+            if haskey(model.input_cache.dy, idx)
+                Δdual[num_constraints+i] = model.input_cache.dy[idx]
+            end
+        end
+        for (i, var_idx) in enumerate(cache.primal_vars[cache.has_up])
+            idx = form.constraint_upper_bounds[var_idx.value]
+            if haskey(model.input_cache.dy, idx)
+                Δdual[num_constraints+num_low+i] = model.input_cache.dy[idx]
+            end
+        end
+        # Extract Parameter sensitivities
+        Δw = zeros(size(Δs, 1))
+        Δw[1:num_primal] = Δx
+        Δw[cache.index_duals] = Δdual
+        Δp += Δs' * Δw
 
         Δp_dict = Dict{MOI.ConstraintIndex,Float64}(
             form.var2ci[var_idx] => Δp[form.var2param[var_idx].value]
