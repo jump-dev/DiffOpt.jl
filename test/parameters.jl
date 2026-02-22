@@ -710,6 +710,379 @@ function test_empty_cache()
     return
 end
 
+# ============================================================
+# Tests for cubic objective differentiation (pvv, ppv, ppp)
+# ============================================================
+
+function test_cubic_obj_pvv_nonbinding()
+    # min p * x^2 + x  s.t. x >= -100
+    # FOC: 2p*x + 1 = 0  → x = -1/(2p)
+    # dx/dp = 1/(2p^2)
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in Parameter(2.0))
+    @constraint(model, x >= -100)
+    @objective(model, Min, p * x * x + x)
+    for p_val in [1.0, 2.0, 3.0]
+        set_parameter_value(p, p_val)
+        optimize!(model)
+        @test isapprox(value(x), -1 / (2 * p_val), atol = 1e-6)
+        for dir_p in [1.0, 2.0]
+            DiffOpt.set_forward_parameter(model, p, dir_p)
+            DiffOpt.forward_differentiate!(model)
+            @test isapprox(
+                DiffOpt.get_forward_variable(model, x),
+                dir_p / (2 * p_val^2),
+                atol = 1e-5,
+            )
+        end
+        for dir_x in [1.0, 2.0]
+            DiffOpt.set_reverse_variable(model, x, dir_x)
+            DiffOpt.reverse_differentiate!(model)
+            @test isapprox(
+                DiffOpt.get_reverse_parameter(model, p),
+                dir_x / (2 * p_val^2),
+                atol = 1e-5,
+            )
+        end
+    end
+    return
+end
+
+function test_cubic_obj_pvv_two_vars()
+    # min p*x*y + x^2 + y^2 + x + y  s.t. x >= -10, y >= -10
+    # FOC: p*y + 2x + 1 = 0, p*x + 2y + 1 = 0
+    # By symmetry x = y, so: p*x + 2x + 1 = 0 → x = -1/(2+p)
+    # dx/dp = 1/(2+p)^2
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, y)
+    @variable(model, p in Parameter(1.0))
+    @constraint(model, x >= -10)
+    @constraint(model, y >= -10)
+    @objective(model, Min, p * x * y + x^2 + y^2 + x + y)
+    for p_val in [0.5, 1.0, 1.5]
+        set_parameter_value(p, p_val)
+        optimize!(model)
+        expected_xy = -1 / (2 + p_val)
+        @test isapprox(value(x), expected_xy, atol = 1e-5)
+        @test isapprox(value(y), expected_xy, atol = 1e-5)
+        for dir_p in [1.0, 2.0]
+            DiffOpt.set_forward_parameter(model, p, dir_p)
+            DiffOpt.forward_differentiate!(model)
+            dx_dp = dir_p / (2 + p_val)^2
+            @test isapprox(
+                DiffOpt.get_forward_variable(model, x),
+                dx_dp,
+                atol = 1e-5,
+            )
+            @test isapprox(
+                DiffOpt.get_forward_variable(model, y),
+                dx_dp,
+                atol = 1e-5,
+            )
+        end
+        for dir_x in [1.0, 2.0]
+            DiffOpt.set_reverse_variable(model, x, dir_x)
+            DiffOpt.set_reverse_variable(model, y, 0.0)
+            DiffOpt.reverse_differentiate!(model)
+            @test isapprox(
+                DiffOpt.get_reverse_parameter(model, p),
+                dir_x / (2 + p_val)^2,
+                atol = 1e-5,
+            )
+        end
+    end
+    return
+end
+
+function test_cubic_obj_pvv_binding()
+    # min p * x^2  s.t. x >= 1
+    # x* = 1 (binding), dx/dp = 0
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in Parameter(2.0))
+    @constraint(model, x >= 1)
+    @objective(model, Min, p * x * x)
+    for p_val in [1.0, 2.0, 3.0]
+        set_parameter_value(p, p_val)
+        optimize!(model)
+        @test isapprox(value(x), 1.0, atol = 1e-6)
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            0.0,
+            atol = 1e-5,
+        )
+        DiffOpt.set_reverse_variable(model, x, 1.0)
+        DiffOpt.reverse_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, p),
+            0.0,
+            atol = 1e-5,
+        )
+    end
+    return
+end
+
+function test_cubic_obj_ppv()
+    # min p * q * x + x^2  s.t. x >= -10
+    # FOC: p*q + 2x = 0 → x = -p*q/2
+    # dx/dp = -q/2, dx/dq = -p/2
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in Parameter(2.0))
+    @variable(model, q in Parameter(3.0))
+    @constraint(model, x >= -100)
+    @objective(model, Min, p * q * x + x^2)
+    for p_val in [1.0, 2.0], q_val in [1.0, 3.0]
+        set_parameter_value(p, p_val)
+        set_parameter_value(q, q_val)
+        optimize!(model)
+        @test isapprox(value(x), -p_val * q_val / 2, atol = 1e-5)
+        # Forward dx/dp
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            -q_val / 2,
+            atol = 1e-5,
+        )
+        # Forward dx/dq
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            -p_val / 2,
+            atol = 1e-5,
+        )
+        # Reverse
+        DiffOpt.set_reverse_variable(model, x, 1.0)
+        DiffOpt.reverse_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, p),
+            -q_val / 2,
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, q),
+            -p_val / 2,
+            atol = 1e-5,
+        )
+    end
+    return
+end
+
+function test_cubic_obj_mixed()
+    # min p * x^2 + q * x + r  s.t. x >= -100
+    # FOC: 2p*x + q = 0 → x = -q/(2p)
+    # dx/dp = q/(2p^2), dx/dq = -1/(2p), dx/dr = 0
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in Parameter(2.0))
+    @variable(model, q in Parameter(1.0))
+    @variable(model, r in Parameter(5.0))
+    @constraint(model, x >= -100)
+    @objective(model, Min, p * x * x + q * x + r)
+    for p_val in [1.0, 2.0], q_val in [1.0, 3.0], r_val in [1.0, 5.0]
+        set_parameter_value(p, p_val)
+        set_parameter_value(q, q_val)
+        set_parameter_value(r, r_val)
+        optimize!(model)
+        @test isapprox(value(x), -q_val / (2 * p_val), atol = 1e-5)
+        # dx/dp
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 0.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            q_val / (2 * p_val^2),
+            atol = 1e-5,
+        )
+        # dx/dq
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            -1 / (2 * p_val),
+            atol = 1e-5,
+        )
+        # dx/dr = 0
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            0.0,
+            atol = 1e-5,
+        )
+        # Reverse
+        DiffOpt.set_reverse_variable(model, x, 1.0)
+        DiffOpt.reverse_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, p),
+            q_val / (2 * p_val^2),
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, q),
+            -1 / (2 * p_val),
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, r),
+            0.0,
+            atol = 1e-5,
+        )
+    end
+    return
+end
+
+function test_cubic_obj_multi_pvv()
+    # min p*x^2 + q*y^2 + x + y  s.t. x >= -10, y >= -10
+    # FOC: 2p*x + 1 = 0, 2q*y + 1 = 0
+    # x = -1/(2p), y = -1/(2q)
+    # dx/dp = 1/(2p^2), dx/dq = 0, dy/dp = 0, dy/dq = 1/(2q^2)
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, y)
+    @variable(model, p in Parameter(2.0))
+    @variable(model, q in Parameter(3.0))
+    @constraint(model, x >= -10)
+    @constraint(model, y >= -10)
+    @objective(model, Min, p * x * x + q * y * y + x + y)
+    for p_val in [1.0, 2.0], q_val in [2.0, 3.0]
+        set_parameter_value(p, p_val)
+        set_parameter_value(q, q_val)
+        optimize!(model)
+        @test isapprox(value(x), -1 / (2 * p_val), atol = 1e-5)
+        @test isapprox(value(y), -1 / (2 * q_val), atol = 1e-5)
+        # dx/dp
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            1 / (2 * p_val^2),
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, y),
+            0.0,
+            atol = 1e-5,
+        )
+        # Reverse: ∇x=1, ∇y=0
+        DiffOpt.set_reverse_variable(model, x, 1.0)
+        DiffOpt.set_reverse_variable(model, y, 0.0)
+        DiffOpt.reverse_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, p),
+            1 / (2 * p_val^2),
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, q),
+            0.0,
+            atol = 1e-5,
+        )
+    end
+    return
+end
+
+function test_cubic_obj_ppv_and_pv()
+    # min p * q * x + r * x + x^2  s.t. x >= -100
+    # After substitution: (p*q + r) * x + x^2
+    # FOC: p*q + r + 2x = 0  → x = -(p*q + r)/2
+    # dx/dp = -q/2, dx/dq = -p/2, dx/dr = -1/2
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in Parameter(2.0))
+    @variable(model, q in Parameter(3.0))
+    @variable(model, r in Parameter(1.0))
+    @constraint(model, x >= -100)
+    @objective(model, Min, p * q * x + r * x + x^2)
+    for p_val in [1.0, 2.0], q_val in [1.0, 3.0], r_val in [0.5, 2.0]
+        set_parameter_value(p, p_val)
+        set_parameter_value(q, q_val)
+        set_parameter_value(r, r_val)
+        optimize!(model)
+        @test isapprox(
+            value(x),
+            -(p_val * q_val + r_val) / 2,
+            atol = 1e-5,
+        )
+        # Forward dx/dp
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 0.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            -q_val / 2,
+            atol = 1e-5,
+        )
+        # Forward dx/dq
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            -p_val / 2,
+            atol = 1e-5,
+        )
+        # Forward dx/dr
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            -1 / 2,
+            atol = 1e-5,
+        )
+        # Forward combined direction: Δp=1, Δq=1, Δr=1
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            -(q_val + p_val + 1) / 2,
+            atol = 1e-5,
+        )
+        # Reverse
+        DiffOpt.set_reverse_variable(model, x, 1.0)
+        DiffOpt.reverse_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, p),
+            -q_val / 2,
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, q),
+            -p_val / 2,
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, r),
+            -1 / 2,
+            atol = 1e-5,
+        )
+    end
+    return
+end
+
 end # module
 
 TestParameters.runtests()
