@@ -635,9 +635,69 @@ function test_VectorNonlinearOracle_bridge_utility_paths()
     MOI.delete(mock, b_delete)
     @test mock.deleted == MOI.ConstraintIndex[leq(10), leq(11), geq(20), eq(30)]
 
-    # Length mismatch should hit the early return path without setting any dual starts.
-    MOI.set(mock, MOI.ConstraintDualStart(), bridge, [1.0, 2.0])
-    @test isempty(mock.dual_start)
+    # Length mismatch should now throw an informative error.
+    @test_throws ErrorException MOI.set(
+        mock,
+        MOI.ConstraintDualStart(),
+        bridge,
+        [1.0, 2.0],
+    )
+end
+
+function test_VectorNonlinearOracle_dual_start_size_error()
+    # Passing a value vector of unexpected length to ConstraintDualStart should
+    # throw an error with a message that reports the expected dimensions.
+    NLP = DiffOpt.NonLinearProgram
+
+    function eval_f(ret::AbstractVector, z::AbstractVector)
+        ret[1] = z[1]^2 + z[2]^2
+        return
+    end
+    jacobian_structure = [(1, 1), (1, 2)]
+    function eval_jacobian(ret::AbstractVector, z::AbstractVector)
+        ret[1] = 2.0 * z[1]
+        ret[2] = 2.0 * z[2]
+        return
+    end
+    hessian_lagrangian_structure = [(1, 1), (2, 2)]
+    function eval_hessian_lagrangian(
+        ret::AbstractVector,
+        z::AbstractVector,
+        μ::AbstractVector,
+    )
+        ret[1] = 2.0 * μ[1]
+        ret[2] = 2.0 * μ[1]
+        return
+    end
+
+    # m = 1 output, n = 2 inputs
+    set = MOI.VectorNonlinearOracle(;
+        dimension = 2,
+        l = [-Inf],
+        u = [1.0],
+        eval_f,
+        jacobian_structure,
+        eval_jacobian,
+        hessian_lagrangian_structure,
+        eval_hessian_lagrangian,
+    )
+    f = MOI.VectorOfVariables([MOI.VariableIndex(1), MOI.VariableIndex(2)])
+
+    leq = MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,MOI.LessThan{Float64}}
+    bridge = NLP.VNOToScalarNLBridge{Float64}(f, set, [leq(1)], [], [])
+
+    mock = _BridgeMockModel()
+
+    # Length 3 is neither m (1) nor n (2) – must error.
+    err = @test_throws ErrorException MOI.set(
+        mock,
+        MOI.ConstraintDualStart(),
+        bridge,
+        [1.0, 2.0, 3.0],
+    )
+    @test occursin("output dimension", err.value.msg)
+    @test occursin("input dimension", err.value.msg)
+    @test occursin("3", err.value.msg)
 end
 
 end
