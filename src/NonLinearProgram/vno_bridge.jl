@@ -15,7 +15,7 @@ const _vno_op_counter = Ref(0)
 """
     _unwrap_to_form(m)
 
-Unwrap various MOI optimizer wrappers to reach the [`Form`](@ref) object,
+Unwrap various MOI optimizer wrappers to reach the `Form` object,
 so we can call `MOI.Nonlinear.register_operator` on the underlying
 `MOI.Nonlinear.Model`.
 """
