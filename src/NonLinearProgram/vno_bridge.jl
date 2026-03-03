@@ -12,11 +12,13 @@ const _B = MOI.Bridges
 # A simple counter for unique operator symbols.
 const _vno_op_counter = Ref(0)
 
-# --------------------------------------------------------------------------
-# Helpers: unwrap various MOI optimizer wrappers to reach the `Form` object,
-# so we can call `MOI.Nonlinear.register_operator` on the underlying
-# `MOI.Nonlinear.Model`.
-# --------------------------------------------------------------------------
+"""
+    _unwrap_to_form(m)
+
+Unwrap various MOI optimizer wrappers to reach the [`Form`](@ref) object,
+so we can call `MOI.Nonlinear.register_operator` on the underlying
+`MOI.Nonlinear.Model`.
+"""
 function _unwrap_to_form(m)
     if m isa Form
         return m
@@ -42,24 +44,29 @@ function _vno_op_symbol(base_id::Int, row::Int)
     return Symbol(:_diffopt_vno_, base_id, :_, row)
 end
 
-# --------------------------------------------------------------------------
-# Register a scalar operator for one row of the vector oracle:
-#   op_i(x...) = (oracle_f(x))[i]
-# with gradient and Hessian (lower triangle) provided through the oracle.
-#
-# MOI.Nonlinear.register_operator docs:
-# https://jump.dev/MathOptInterface.jl/stable/submodules/Nonlinear/reference/
-#
-# Note: For univariate functions (n=1), MOI expects:
-#   f(x) -> Float64
-#   ∇f(x) -> Float64  (the derivative, not a vector)
-#   ∇²f(x) -> Float64 (the second derivative, not a matrix)
-#
-# For multivariate functions (n>1), MOI expects:
-#   f(x...) -> Float64
-#   ∇f(g::Vector, x...) -> nothing (fills g with gradient)
-#   ∇²f(H::Matrix, x...) -> nothing (fills H with lower-triangular Hessian)
-# --------------------------------------------------------------------------
+"""
+    _register_vno_row_operator!(nlm, op, s, row)
+
+Register a scalar operator for one row of the vector oracle:
+
+    op_i(x...) = (oracle_f(x))[i]
+
+with gradient and Hessian (lower triangle) provided through the oracle.
+
+See the [MOI.Nonlinear.register_operator docs](https://jump.dev/MathOptInterface.jl/stable/submodules/Nonlinear/reference/)
+for details.
+
+!!! note
+    For univariate functions (`n=1`), MOI expects:
+    - `f(x) -> Float64`
+    - `∇f(x) -> Float64` (the derivative, not a vector)
+    - `∇²f(x) -> Float64` (the second derivative, not a matrix)
+
+    For multivariate functions (`n>1`), MOI expects:
+    - `f(x...) -> Float64`
+    - `∇f(g::Vector, x...) -> nothing` (fills `g` with gradient)
+    - `∇²f(H::Matrix, x...) -> nothing` (fills `H` with lower-triangular Hessian)
+"""
 function _register_vno_row_operator!(
     nlm::MOI.Nonlinear.Model,
     op::Symbol,
@@ -190,9 +197,14 @@ function _register_multivariate_vno_row_operator!(
     return
 end
 
-# --------------------------------------------------------------------------
-# The actual bridge type
-# --------------------------------------------------------------------------
+"""
+    VNOToScalarNLBridge{T<:Real} <: MOI.Bridges.Constraint.AbstractBridge
+
+Bridge that converts a `MOI.VectorNonlinearOracle` constraint (with a
+`MOI.VectorOfVariables` function) into a set of scalar `MOI.ScalarNonlinearFunction`
+constraints with `MOI.LessThan`, `MOI.GreaterThan`, or `MOI.EqualTo` sets,
+one per output row of the oracle.
+"""
 struct VNOToScalarNLBridge{T<:Real} <: _B.Constraint.AbstractBridge
     f::MOI.VectorOfVariables
     s::MOI.VectorNonlinearOracle{T}
@@ -411,8 +423,11 @@ function MOI.set(
         # The dual is per-input-variable (J' * λ), need to recover λ
         _set_duals_from_input_duals!(model, b, value)
     else
-        # Unexpected size, skip
-        return
+        error(
+            "ConstraintDualStart for VNOToScalarNLBridge expects a vector of " *
+            "length equal to the output dimension ($m) or input dimension ($n), " *
+            "but got length $(length(value)).",
+        )
     end
     return
 end
