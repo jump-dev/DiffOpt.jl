@@ -695,8 +695,8 @@ function test_VectorNonlinearOracle_dual_start_size_error()
         bridge,
         [1.0, 2.0, 3.0],
     )
-    @test occursin("output dimension", err.value.msg)
     @test occursin("input dimension", err.value.msg)
+    @test !occursin("output dimension", err.value.msg)
     @test occursin("3", err.value.msg)
 end
 

@@ -405,30 +405,22 @@ function MOI.set(
     b::VNOToScalarNLBridge{T},
     value::AbstractVector,
 ) where {T}
-    # For VectorOfVariables in VectorNonlinearOracle, the ConstraintDual from solvers 
-    # like Ipopt has length = input_dimension (variables), not output_dimension.
-    # This is because it represents the dual contribution per variable: J' * λ
-    # where J is the Jacobian and λ is the vector of constraint duals.
-    #
-    # For our bridged scalar constraints, we need the dual per output (λ).
-    # We can recover λ from the Jacobian: λ = (J * J')^{-1} * J * dual_per_var
+    # The dual for the VNO constraint is λ (length n = input_dimension), one
+    # multiplier per variable. The bridged scalar constraints have duals μ
+    # (length m = output_dimension). The Lagrangian gradient identity
+    # `λ = J(x)' * μ` determines the relationship, so we always solve
+    # J(x)' * μ = λ regardless of whether m == n.
 
-    m = b.s.output_dimension
     n = b.s.input_dimension
 
-    if length(value) == m
-        # Direct mapping: value[i] is dual for output i
-        _set_duals_from_output_duals!(model, b, value)
-    elseif length(value) == n
-        # The dual is per-input-variable (J' * λ), need to recover λ
-        _set_duals_from_input_duals!(model, b, value)
-    else
+    if length(value) != n
         error(
             "ConstraintDualStart for VNOToScalarNLBridge expects a vector of " *
-            "length equal to the output dimension ($m) or input dimension ($n), " *
+            "length equal to the input dimension ($n), " *
             "but got length $(length(value)).",
         )
     end
+    _set_duals_from_input_duals!(model, b, value)
     return
 end
 
@@ -456,14 +448,13 @@ function _set_duals_from_input_duals!(
         J[r, c] = vals[k]
     end
 
-    # Compute λ from dual_per_var = J' * λ
-    # λ = (J * J')^{-1} * J * dual_per_var
-    # For numerical stability, use least squares: λ = J' \ dual_per_var
-    # which solves min ||J' * λ - dual_per_var||
-    λ = J' \ dual_per_var
+    # Solve J(x)' * μ = dual_per_var (= λ) for the output duals μ.
+    # J' is (n×m), so this is an n-equation system in m unknowns.
+    # Julia's \ uses the minimum-norm / least-squares solution as appropriate.
+    μ = J' \ dual_per_var
 
-    # Now set the scalar constraint duals
-    _set_duals_from_output_duals!(model, b, λ)
+    # Set the scalar constraint dual starts to μ.
+    _set_duals_from_output_duals!(model, b, μ)
     return
 end
 
