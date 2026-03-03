@@ -76,6 +76,89 @@ and the following objective types:
 | `ScalarQuadraticFunction`  | 
 | `ScalarNonlinearFunction`  |
 
+### `VectorNonlinearOracle` bridge (`NonlinearProgram`)
+
+`DiffOpt.NonLinearProgram` supports `MOI.VectorOfVariables` in
+`MOI.VectorNonlinearOracle` through an internal bridge that rewrites the vector
+oracle into scalar nonlinear constraints.
+
+At a high level, for a vector oracle $f:\mathbb{R}^n \to \mathbb{R}^m$ with
+bounds $l \le f(x) \le u$:
+
+- one scalar nonlinear operator is registered per output row $f_i(x)$
+- each row is converted into one or two scalar constraints based on bounds:
+  - finite and equal $l[i] == u[i]$: `EqualTo(l[i])`
+  - finite lower only: `GreaterThan(l[i])`
+  - finite upper only: `LessThan(u[i])`
+  - both finite and different: one `GreaterThan` and one `LessThan`
+  - infinite bounds are skipped
+
+Callback signature requirements follow MOI:
+
+- univariate (`input_dimension == 1`):
+  - `f(x)::Real`
+  - `∇f(x)::Real`
+  - `∇²f(x)::Real`
+- multivariate (`input_dimension > 1`):
+  - `f(x...)::Real`
+  - `∇f(g, x...)` fills `g`
+  - `∇²f(H, x...)` fills the lower-triangular part of `H`
+
+Warm-start mapping for bridged constraints:
+
+- `ConstraintPrimalStart` expects an input vector `x` (not `f(x)`), evaluates
+  the oracle at `x`, and writes starts for each generated scalar constraint.
+- `ConstraintDualStart` accepts either:
+  - length = output dimension `m`: treated as direct row duals
+  - length = input dimension `n`: interpreted as `J' * λ` and converted to row
+    duals `λ` via a least-squares solve
+
+Current limitation:
+
+- for dual starts on rows with both finite bounds (`l[i] < u[i]`), only the
+  lower-bound side is propagated explicitly (the upper-side split is not
+  modeled in this bridge-level helper).
+
+Minimal JuMP example:
+
+```julia
+using JuMP, DiffOpt, Ipopt
+import MathOptInterface as MOI
+
+model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+@variable(model, x[1:2])
+@objective(model, Min, x[1]^2 + x[2]^2)
+
+function eval_f(ret, z)
+    ret[1] = z[1]^2 + z[2]^2
+    return
+end
+function eval_jacobian(ret, z)
+    ret[1] = 2z[1]
+    ret[2] = 2z[2]
+    return
+end
+function eval_hessian_lagrangian(ret, z, μ)
+    ret[1] = 2μ[1]  # (1,1)
+    ret[2] = 2μ[1]  # (2,2)
+    return
+end
+
+set = MOI.VectorNonlinearOracle(;
+    dimension = 2,
+    l = [-Inf],
+    u = [1.0],
+    eval_f,
+    jacobian_structure = [(1, 1), (1, 2)],
+    eval_jacobian,
+    hessian_lagrangian_structure = [(1, 1), (2, 2)],
+    eval_hessian_lagrangian,
+)
+
+@constraint(model, [x[1], x[2]] in set)
+optimize!(model)
+```
+
 ## Creating a differentiable MOI optimizer
 
 You can create a differentiable optimizer over an existing MOI solver by using the `diff_optimizer` utility. 

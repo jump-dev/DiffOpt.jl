@@ -353,6 +353,7 @@ function MOI.empty!(model::Model)
 end
 
 include("nlp_utilities.jl")
+include("vno_bridge.jl")
 
 """
     _inertia_correction(
