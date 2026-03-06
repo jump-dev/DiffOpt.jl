@@ -42,3 +42,33 @@ jobs:
         with:
           file: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+  test-xpress:
+    name: Xpress Extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Instantiate Xpress test environment
+        run: julia --project=test/xpress -e 'using Pkg; Pkg.instantiate()'
+      - name: Run Xpress tests
+        run: julia --project=test/xpress test/xpress/runtests.jl
+  test-gurobi:
+    name: Gurobi Extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v2
+      - shell: bash
+        run: echo "${{ secrets.GUROBI_LICENSE }}" > ~/gurobi.lic
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Instantiate Gurobi test environment
+        run: julia --project=test/gurobi -e 'using Pkg; Pkg.instantiate()'
+      - name: Run Gurobi tests
+        run: julia --project=test/gurobi test/gurobi/runtests.jl
