@@ -1,0 +1,10 @@
+[deps]
+DiffOpt = "930fe3bc-9c6b-11ea-2d94-6184641e85e7"
+Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+ParametricOptInterface = "0ce4ce61-57bf-432b-a095-efac525d185e"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Gurobi = "1"

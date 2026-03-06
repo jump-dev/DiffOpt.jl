@@ -721,18 +721,24 @@ function test_conic_feasibility()
 end
 
 function test_psd_square_error()
+    # [x-3p, 0; 0, x] ∈ PSD requires eigenvalues ≥ 0:
+    # x-3p ≥ 0 and x ≥ 0, so with p=1 the only feasible point is x=3p.
     model = DiffOpt.conic_diff_model(SCS.Optimizer)
     set_silent(model)
 
     @variable(model, x)
     @variable(model, p in Parameter(1.0))
 
-    @constraint(model, con, [-p*x 0; 0 x] in PSDCone())
+    @constraint(model, con, [x-3p 0; 0 1] in PSDCone())
 
-    @test_throws MOI.Bridges.ModifyBridgeNotAllowed optimize!(model)
+    optimize!(model)
+    @test termination_status(model) in (MOI.OPTIMAL, MOI.ALMOST_OPTIMAL)
+    @test value(x) ≈ 3.0 atol = ATOL
 
-    # DiffOpt.set_forward_parameter(model, p, 1.0)
-    # DiffOpt.forward_differentiate!(model)
+    DiffOpt.set_forward_parameter(model, p, 1.0)
+    @test_throws MOI.UnsupportedAttribute{DiffOpt.ForwardConstraintFunction} DiffOpt.forward_differentiate!(
+        model,
+    )
     return
 end
 

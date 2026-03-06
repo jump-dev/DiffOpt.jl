@@ -148,6 +148,16 @@ function MOI.supports_constraint(
     return false
 end
 
+# Disambiguate: VAF{Float64} matches both the generic S<:AbstractVectorSet
+# method above and the PSDConeSquare method. This explicit method resolves it.
+function MOI.supports_constraint(
+    ::Model,
+    ::Type{MOI.VectorAffineFunction{Float64}},
+    ::Type{MOI.PositiveSemidefiniteConeSquare},
+)
+    return false
+end
+
 function MOI.set(
     model::Model,
     ::MOI.ConstraintPrimalStart,

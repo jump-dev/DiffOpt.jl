@@ -319,12 +319,62 @@ MOI.attribute_value_type(::DifferentiateTimeSec) = Float64
 MOI.is_set_by_optimize(::DifferentiateTimeSec) = true
 
 """
+    _InputConstraintBasisStatus <: MOI.AbstractConstraintAttribute
+
+Set the basis status of a constraint on the diff model at init time.
+Flows through POI with automatic CI translation.
+"""
+struct _InputConstraintBasisStatus <: MOI.AbstractConstraintAttribute end
+
+"""
+    _InputVariableBasisStatus <: MOI.AbstractVariableAttribute
+
+Set the basis status of a variable on the diff model at init time.
+Flows through POI automatically.
+"""
+struct _InputVariableBasisStatus <: MOI.AbstractVariableAttribute end
+
+"""
     abstract type AbstractModel <: MOI.ModelLike end
 
 Model supporting [`forward_differentiate!`](@ref) and
 [`reverse_differentiate!`](@ref).
 """
 abstract type AbstractModel <: MOI.ModelLike end
+
+# Default no-ops for init-data attributes (overridden by BasisLP GeneralModel)
+function MOI.set(
+    ::AbstractModel,
+    ::_InputConstraintBasisStatus,
+    ::MOI.ConstraintIndex,
+    ::Any,
+)
+    return nothing
+end
+function MOI.set(
+    ::AbstractModel,
+    ::_InputVariableBasisStatus,
+    ::MOI.VariableIndex,
+    ::Any,
+)
+    return nothing
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::_InputConstraintBasisStatus,
+    ::Type{MOI.ConstraintIndex{F,S}},
+) where {F,S}
+    return false
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::_InputVariableBasisStatus,
+    ::Type{MOI.VariableIndex},
+)
+    return false
+end
 
 function empty_input_sensitivities!(model::AbstractModel)
     empty!(model.input_cache)

@@ -96,6 +96,47 @@ function quadratic_diff_model(
 end
 
 """
+    basis_diff_model(optimizer_constructor; with_bridge_type = Float64, with_cache_type = Float64, with_outer_cache = true, _allow_direct = true)
+
+Create a JuMP model with a differentiable optimizer using basis operations
+for LP sensitivity. Auto-selects `DirectModel` (solver-native basis solve)
+if the solver supports it, otherwise falls back to `GeneralModel` (MOI-based
+basis queries with LU factorization).
+
+Set `_allow_direct = false` to force the `GeneralModel` path even when the
+solver supports native basis operations.
+
+See also: [`diff_model`](@ref), [`quadratic_diff_model`](@ref).
+"""
+function basis_diff_model(
+    optimizer_constructor;
+    with_bridge_type = Float64,
+    with_cache_type = Float64,
+    with_outer_cache = true,
+    _allow_direct = true,
+)
+    test_opt = optimizer_constructor()
+    use_direct = _allow_direct && BasisLinearProgram._supports_basis_solve(test_opt)
+    actual_constructor = if use_direct
+        () -> _SensitivityCache.Optimizer(optimizer_constructor())
+    else
+        optimizer_constructor
+    end
+    inner = diff_optimizer(
+        actual_constructor;
+        with_bridge_type,
+        with_cache_type,
+        with_outer_cache,
+    )
+    if use_direct
+        MOI.set(inner, ModelConstructor(), BasisLinearProgram.DirectModel)
+    else
+        MOI.set(inner, ModelConstructor(), BasisLinearProgram.GeneralModel)
+    end
+    return JuMP.direct_model(inner)
+end
+
+"""
     set_forward_parameter(model::JuMP.Model, variable::JuMP.VariableRef, value::Number)
 
 Set the value of a parameter input sensitivity for forward mode.

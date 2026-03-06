@@ -555,6 +555,7 @@ function reverse_differentiate!(model::Optimizer)
             "Trying to compute the reverse differentiation on a model with termination status $(st)",
         )
     end
+    diff = _diff(model)
     if !iszero(model.input_cache.dobj) &&
        (!isempty(model.input_cache.dx) || !isempty(model.input_cache.dy))
         if !MOI.get(model, AllowObjectiveAndSolutionInput())
@@ -562,7 +563,6 @@ function reverse_differentiate!(model::Optimizer)
                   "Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
         end
     end
-    diff = _diff(model)
     MOI.set(
         diff,
         NonLinearKKTJacobianFactorization(),
@@ -690,8 +690,8 @@ function forward_differentiate!(model::Optimizer)
         MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{T}}(),
     )
     parametric_diff = !isempty(list)
-    if parametric_diff # MOI.supports_constraint(model, MOI.VariableIndex, MOI.Parameter{T})
-        # @show "param mode"
+    if parametric_diff
+        # All diff models: use ForwardConstraintSet (POI handles translation)
         for (vi, value) in model.input_cache.parameter_constraints
             MOI.set(
                 diff,
@@ -702,7 +702,6 @@ function forward_differentiate!(model::Optimizer)
         end
         return forward_differentiate!(diff)
     end
-    # @show "func mode"
     if model.input_cache.objective !== nothing
         MOI.set(
             diff,
@@ -782,10 +781,35 @@ function _instantiate_diff(model::Optimizer, constructor)
     return model_bridged
 end
 
+"""
+    _build_identity_index_map(optimizer)
+
+Build an identity `IndexMap` where each VI and CI maps to itself.
+Used by DirectModel which operates directly on the optimizer's indices.
+"""
+function _build_identity_index_map(optimizer)
+    index_map = MOI.Utilities.IndexMap()
+    for vi in MOI.get(optimizer, MOI.ListOfVariableIndices())
+        index_map[vi] = vi
+    end
+    for (F, S) in MOI.get(optimizer, MOI.ListOfConstraintTypesPresent())
+        for ci in MOI.get(optimizer, MOI.ListOfConstraintIndices{F,S}())
+            index_map[ci] = ci
+        end
+    end
+    return index_map
+end
+
 function _diff(model::Optimizer)
     if model.diff === nothing
         _check_termination_status(model)
         model_constructor = MOI.get(model, ModelConstructor())
+        # _SensitivityCache path: use optimizer chain directly, identity index_map
+        if model_constructor === BasisLinearProgram.DirectModel
+            model.diff = model.optimizer
+            model.index_map = _build_identity_index_map(model.optimizer)
+            return model.diff
+        end
         if isnothing(model_constructor)
             for constructor in model.model_constructors
                 model.diff = _instantiate_diff(model, constructor)
@@ -812,13 +836,72 @@ function _diff(model::Optimizer)
                     "and try again to see an error indicating why it is not supported.",
                 )
             end
+            _copy_dual(model.diff, model.optimizer, model.index_map)
+            _copy_basis(model.diff, model.optimizer, model.index_map)
         else
             model.diff = _instantiate_diff(model, model_constructor)
             model.index_map = MOI.copy_to(model.diff, model.optimizer)
+            _copy_dual(model.diff, model.optimizer, model.index_map)
+            _copy_basis(model.diff, model.optimizer, model.index_map)
         end
-        _copy_dual(model.diff, model.optimizer, model.index_map)
     end
     return model.diff
+end
+
+# ============================================================================
+# _copy_basis: flow basis status through MOI attributes (GeneralModel only)
+# ============================================================================
+
+"""
+    _copy_basis(diff, optimizer, index_map)
+
+Set init-time data on the diff model via MOI attributes.
+Only sets basis status — used by BasisLinearProgram.GeneralModel.
+Other models define no-ops for these attributes.
+"""
+function _copy_basis(diff, optimizer, index_map)
+    # Only attempt if the optimizer supports basis status (LP solvers do, conic don't)
+    _has_basis = try
+        vis = MOI.get(optimizer, MOI.ListOfVariableIndices())
+        !isempty(vis) &&
+            MOI.get(optimizer, MOI.VariableBasisStatus(), first(vis))
+        true
+    catch
+        false
+    end
+    _has_basis || return
+    if !MOI.supports(diff, _InputVariableBasisStatus(), MOI.VariableIndex)
+        return
+    end
+    for opt_vi in MOI.get(optimizer, MOI.ListOfVariableIndices())
+        param_ci =
+            MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{Float64}}(
+                opt_vi.value,
+            )
+        MOI.is_valid(optimizer, param_ci) && continue
+        diff_vi = index_map[opt_vi]
+        MOI.set(
+            diff,
+            _InputVariableBasisStatus(),
+            diff_vi,
+            MOI.get(optimizer, MOI.VariableBasisStatus(), opt_vi),
+        )
+    end
+    for (F, S) in MOI.get(optimizer, MOI.ListOfConstraintTypesPresent())
+        F <: MOI.ScalarAffineFunction || continue
+        for opt_ci in MOI.get(optimizer, MOI.ListOfConstraintIndices{F,S}())
+            if haskey(index_map.con_map[F, S], opt_ci)
+                diff_ci = index_map.con_map[F, S][opt_ci]
+                MOI.set(
+                    diff,
+                    _InputConstraintBasisStatus(),
+                    diff_ci,
+                    MOI.get(optimizer, MOI.ConstraintBasisStatus(), opt_ci),
+                )
+            end
+        end
+    end
+    return
 end
 
 function _check_termination_status(model::Optimizer)
@@ -890,11 +973,8 @@ function MOI.get(
     attr::ReverseConstraintSet,
     ci::MOI.ConstraintIndex,
 )
-    return MOI.get(
-        _checked_diff(model, attr, :reverse_differentiate!),
-        attr,
-        model.index_map[ci],
-    )
+    diff = _checked_diff(model, attr, :reverse_differentiate!)
+    return MOI.get(diff, attr, model.index_map[ci])
 end
 
 function MOI.get(

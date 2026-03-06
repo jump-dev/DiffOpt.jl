@@ -18,9 +18,6 @@ import SparseArrays
 include("utils.jl")
 include("product_of_sets.jl")
 include("diff_opt.jl")
-include("moi_wrapper.jl")
-include("parameters.jl")
-include("jump_moi_overloads.jl")
 
 include("copy_dual.jl")
 include("bridges.jl")
@@ -28,6 +25,13 @@ include("bridges.jl")
 include("QuadraticProgram/QuadraticProgram.jl")
 include("ConicProgram/ConicProgram.jl")
 include("NonLinearProgram/NonLinearProgram.jl")
+include("BasisLinearProgram/BasisLinearProgram.jl")
+# helper
+include("SensitivityCache/SensitivityCache.jl")
+
+include("moi_wrapper.jl")
+include("parameters.jl")
+include("jump_moi_overloads.jl")
 
 """
     add_all_model_constructors(model)

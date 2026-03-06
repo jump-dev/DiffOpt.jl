@@ -6,7 +6,8 @@
 using Test
 
 @testset "$file" for file in readdir(@__DIR__)
-    if !endswith(file, ".jl") || file in ("runtests.jl", "utils.jl")
+    if !endswith(file, ".jl") ||
+       file in ("runtests.jl", "utils.jl", "BasisLinearProgramTests.jl")
         continue
     end
     include(file)
