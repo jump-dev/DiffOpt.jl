@@ -1067,6 +1067,116 @@ function test_cubic_obj_ppv_and_pv()
     return
 end
 
+function test_cubic_obj_pp()
+    # min p*q + p^2 + p*x + x^2  s.t. x >= -100
+    # pp terms: p*q (off-diagonal), p^2 (diagonal, exercises p_1 === p_2 branch)
+    # pv term: p*x drives solution sensitivity
+    # x = -p/2, dx/dp = -1/2, dx/dq = 0 (pp terms are constants)
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in Parameter(2.0))
+    @variable(model, q in Parameter(3.0))
+    @constraint(model, x >= -100)
+    @objective(model, Min, p * q + p^2 + p * x + x^2)
+    for p_val in [1.0, 2.0], q_val in [1.0, 3.0]
+        set_parameter_value(p, p_val)
+        set_parameter_value(q, q_val)
+        optimize!(model)
+        @test isapprox(value(x), -p_val / 2, atol = 1e-5)
+        # Forward Δp=1, Δq=0: dx/dp = -1/2 (from pv), pp contributes only to constant
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            -1 / 2,
+            atol = 1e-5,
+        )
+        # Forward Δp=0, Δq=1: dx/dq = 0 (pp is constant, no variable dependence)
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
+        # Reverse
+        DiffOpt.set_reverse_variable(model, x, 1.0)
+        DiffOpt.reverse_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, p),
+            -1 / 2,
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, q),
+            0.0,
+            atol = 1e-5,
+        )
+    end
+    return
+end
+
+function test_cubic_obj_ppp()
+    # min p*q*r + p*x + x^2  s.t. x >= -100
+    # ppp term: p*q*r (pure cubic constant, exercises ppp branch)
+    # pv term: p*x keeps solution non-trivial
+    # x = -p/2
+    # dx/dp = -1/2 (from pv), dx/dq = dx/dr = 0 (ppp is constant)
+    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in Parameter(2.0))
+    @variable(model, q in Parameter(3.0))
+    @variable(model, r in Parameter(1.5))
+    @constraint(model, x >= -100)
+    @objective(model, Min, p * q * r + p * x + x^2)
+    for p_val in [1.0, 2.0], q_val in [1.0, 3.0], r_val in [1.0, 2.0]
+        set_parameter_value(p, p_val)
+        set_parameter_value(q, q_val)
+        set_parameter_value(r, r_val)
+        optimize!(model)
+        @test isapprox(value(x), -p_val / 2, atol = 1e-5)
+        # Forward Δp=1, others 0: dx/dp = -1/2
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 0.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_forward_variable(model, x),
+            -1 / 2,
+            atol = 1e-5,
+        )
+        # Forward Δq=1: dx/dq = 0 (ppp constant, no variable coupling)
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
+        # Forward Δr=1: dx/dr = 0
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
+        # Reverse
+        DiffOpt.set_reverse_variable(model, x, 1.0)
+        DiffOpt.reverse_differentiate!(model)
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, p),
+            -1 / 2,
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, q),
+            0.0,
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, r),
+            0.0,
+            atol = 1e-5,
+        )
+    end
+    return
+end
+
 end # module
 
 TestParameters.runtests()
