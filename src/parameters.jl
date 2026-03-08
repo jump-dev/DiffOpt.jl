@@ -278,7 +278,7 @@ function _cubic_objective_set_forward!(model::POI.Optimizer{T}) where {T}
     quadratic_terms = MOI.ScalarQuadraticTerm{T}[]
 
     # pvv terms: Δp * coeff → quadratic perturbation
-    for term in POI._cubic_pvv_terms(pf)
+    for term in POI.cubic_parameter_variable_variable_terms(pf)
         p = term.index_1
         v1 = term.index_2
         v2 = term.index_3
@@ -288,15 +288,12 @@ function _cubic_objective_set_forward!(model::POI.Optimizer{T}) where {T}
             if v1 == v2
                 qcoeff *= 2  # MOI diagonal convention
             end
-            push!(
-                quadratic_terms,
-                MOI.ScalarQuadraticTerm{T}(qcoeff, v1, v2),
-            )
+            push!(quadratic_terms, MOI.ScalarQuadraticTerm{T}(qcoeff, v1, v2))
         end
     end
 
     # ppv terms: chain rule on two params → affine perturbation
-    for term in POI._cubic_ppv_terms(pf)
+    for term in POI.cubic_parameter_parameter_variable_terms(pf)
         p1 = term.index_1
         p2 = term.index_2
         v = term.index_3
@@ -312,7 +309,7 @@ function _cubic_objective_set_forward!(model::POI.Optimizer{T}) where {T}
     end
 
     # ppp terms: chain rule on three params → constant perturbation
-    for term in POI._cubic_ppp_terms(pf)
+    for term in POI.cubic_parameter_parameter_parameter_terms(pf)
         p1 = term.index_1
         p2 = term.index_2
         p3 = term.index_3
@@ -322,49 +319,39 @@ function _cubic_objective_set_forward!(model::POI.Optimizer{T}) where {T}
         p1_val = MOI.get(model, MOI.VariablePrimal(), p1)
         p2_val = MOI.get(model, MOI.VariablePrimal(), p2)
         p3_val = MOI.get(model, MOI.VariablePrimal(), p3)
-        cte += term.coefficient * (
-            Δp1 * p2_val * p3_val +
-            p1_val * Δp2 * p3_val +
-            p1_val * p2_val * Δp3
-        )
+        cte +=
+            term.coefficient * (
+                Δp1 * p2_val * p3_val +
+                p1_val * Δp2 * p3_val +
+                p1_val * p2_val * Δp3
+            )
     end
 
     # Degree-2: p terms (affine parameter → constant perturbation)
-    for term in pf.p
+    for term in POI.cubic_affine_parameter_terms(pf)
         p = term.variable
         Δp = get(sensitivity_data.parameter_input_forward, p, zero(T))
         cte += Δp * term.coefficient
     end
     # Degree-2: pp terms (parameter-parameter → constant perturbation)
-    for term in pf.pp
+    for term in POI.cubic_parameter_parameter_terms(pf)
         p_1 = term.variable_1
         p_2 = term.variable_2
         Δp1 = get(sensitivity_data.parameter_input_forward, p_1, zero(T))
         Δp2 = get(sensitivity_data.parameter_input_forward, p_2, zero(T))
         p1_val = MOI.get(model, MOI.VariablePrimal(), p_1)
         p2_val = MOI.get(model, MOI.VariablePrimal(), p_2)
-        cte +=
-            Δp1 *
-            term.coefficient *
-            p2_val /
-            ifelse(p_1 === p_2, T(2), T(1))
-        cte +=
-            Δp2 *
-            term.coefficient *
-            p1_val /
-            ifelse(p_1 === p_2, T(2), T(1))
+        cte += Δp1 * term.coefficient * p2_val / ifelse(p_1 === p_2, T(2), T(1))
+        cte += Δp2 * term.coefficient * p1_val / ifelse(p_1 === p_2, T(2), T(1))
     end
     # Degree-2: pv terms (parameter-variable → affine perturbation)
-    for term in pf.pv
+    for term in POI.cubic_parameter_variable_terms(pf)
         p = term.variable_1
         Δp = get(sensitivity_data.parameter_input_forward, p, zero(T))
         if !iszero(Δp)
             push!(
                 affine_terms,
-                MOI.ScalarAffineTerm{T}(
-                    Δp * term.coefficient,
-                    term.variable_2,
-                ),
+                MOI.ScalarAffineTerm{T}(Δp * term.coefficient, term.variable_2),
             )
         end
     end
@@ -385,14 +372,18 @@ function _cubic_objective_get_reverse!(model::POI.Optimizer{T}) where {T}
         model,
         POI.ParametricObjectiveFunction{POI.ParametricCubicFunction{T}}(),
     )
-    pvv_terms = POI._cubic_pvv_terms(pf)
-    ppv_terms = POI._cubic_ppv_terms(pf)
-    ppp_terms = POI._cubic_ppp_terms(pf)
-    p_terms = pf.p
-    pp_terms = pf.pp
-    pv_terms = pf.pv
-    if isempty(pvv_terms) && isempty(ppv_terms) && isempty(ppp_terms) &&
-       isempty(p_terms) && isempty(pp_terms) && isempty(pv_terms)
+    pvv_terms = POI.cubic_parameter_variable_variable_terms(pf)
+    ppv_terms = POI.cubic_parameter_parameter_variable_terms(pf)
+    ppp_terms = POI.cubic_parameter_parameter_parameter_terms(pf)
+    p_terms = POI.cubic_affine_parameter_terms(pf)
+    pp_terms = POI.cubic_parameter_parameter_terms(pf)
+    pv_terms = POI.cubic_parameter_variable_terms(pf)
+    if isempty(pvv_terms) &&
+       isempty(ppv_terms) &&
+       isempty(ppp_terms) &&
+       isempty(p_terms) &&
+       isempty(pp_terms) &&
+       isempty(pv_terms)
         return
     end
     sensitivity_data = _get_sensitivity_data(model)

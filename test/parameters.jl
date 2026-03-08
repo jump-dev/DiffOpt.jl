@@ -813,11 +813,7 @@ function test_cubic_obj_pvv_binding()
         @test isapprox(value(x), 1.0, atol = 1e-6)
         DiffOpt.set_forward_parameter(model, p, 1.0)
         DiffOpt.forward_differentiate!(model)
-        @test isapprox(
-            DiffOpt.get_forward_variable(model, x),
-            0.0,
-            atol = 1e-5,
-        )
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
         DiffOpt.set_reverse_variable(model, x, 1.0)
         DiffOpt.reverse_differentiate!(model)
         @test isapprox(
@@ -921,11 +917,7 @@ function test_cubic_obj_mixed()
         DiffOpt.set_forward_parameter(model, q, 0.0)
         DiffOpt.set_forward_parameter(model, r, 1.0)
         DiffOpt.forward_differentiate!(model)
-        @test isapprox(
-            DiffOpt.get_forward_variable(model, x),
-            0.0,
-            atol = 1e-5,
-        )
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
         # Reverse
         DiffOpt.set_reverse_variable(model, x, 1.0)
         DiffOpt.reverse_differentiate!(model)
@@ -977,11 +969,7 @@ function test_cubic_obj_multi_pvv()
             1 / (2 * p_val^2),
             atol = 1e-5,
         )
-        @test isapprox(
-            DiffOpt.get_forward_variable(model, y),
-            0.0,
-            atol = 1e-5,
-        )
+        @test isapprox(DiffOpt.get_forward_variable(model, y), 0.0, atol = 1e-5)
         # Reverse: ∇x=1, ∇y=0
         DiffOpt.set_reverse_variable(model, x, 1.0)
         DiffOpt.set_reverse_variable(model, y, 0.0)
@@ -1018,11 +1006,7 @@ function test_cubic_obj_ppv_and_pv()
         set_parameter_value(q, q_val)
         set_parameter_value(r, r_val)
         optimize!(model)
-        @test isapprox(
-            value(x),
-            -(p_val * q_val + r_val) / 2,
-            atol = 1e-5,
-        )
+        @test isapprox(value(x), -(p_val * q_val + r_val) / 2, atol = 1e-5)
         # Forward dx/dp
         DiffOpt.set_forward_parameter(model, p, 1.0)
         DiffOpt.set_forward_parameter(model, q, 0.0)
