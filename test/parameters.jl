@@ -1067,35 +1067,43 @@ function test_cubic_obj_ppv_and_pv()
     return
 end
 
-function test_cubic_obj_pp()
-    # min p*q + p^2 + p*x + x^2  s.t. x >= -100
-    # pp terms: p*q (off-diagonal), p^2 (diagonal, exercises p_1 === p_2 branch)
-    # pv term: p*x drives solution sensitivity
-    # x = -p/2, dx/dp = -1/2, dx/dq = 0 (pp terms are constants)
+function test_cubic_obj_pvv_pp()
+    # min p*x^2 + q*r + q^2 + x  s.t. x >= -100
+    # pvv term: p*x^2 → forces ParametricCubicFunction (exercises pp loop in cubic forward/reverse)
+    # pp terms: q*r (off-diagonal) and q^2 (diagonal, exercises p_1 === p_2 branch)
+    # x* = -1/(2p), dx*/dp = 1/(2p^2), dx*/dq = dx*/dr = 0 (pp terms are constants)
     model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
     set_silent(model)
     @variable(model, x)
     @variable(model, p in Parameter(2.0))
     @variable(model, q in Parameter(3.0))
+    @variable(model, r in Parameter(1.0))
     @constraint(model, x >= -100)
-    @objective(model, Min, p * q + p^2 + p * x + x^2)
-    for p_val in [1.0, 2.0], q_val in [1.0, 3.0]
+    @objective(model, Min, p * x^2 + q * r + q^2 + x)
+    for p_val in [1.0, 2.0], q_val in [1.0, 3.0], r_val in [1.0, 2.0]
         set_parameter_value(p, p_val)
         set_parameter_value(q, q_val)
+        set_parameter_value(r, r_val)
         optimize!(model)
-        @test isapprox(value(x), -p_val / 2, atol = 1e-5)
-        # Forward Δp=1, Δq=0: dx/dp = -1/2 (from pv), pp contributes only to constant
+        @test isapprox(value(x), -1 / (2 * p_val), atol = 1e-5)
+        # Forward Δp=1, others=0: dx*/dp = 1/(2p^2) (from pvv)
         DiffOpt.set_forward_parameter(model, p, 1.0)
         DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 0.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
             DiffOpt.get_forward_variable(model, x),
-            -1 / 2,
+            1 / (2 * p_val^2),
             atol = 1e-5,
         )
-        # Forward Δp=0, Δq=1: dx/dq = 0 (pp is constant, no variable dependence)
+        # Forward Δq=1: dx*/dq = 0 (pp is constant, no variable coupling)
         DiffOpt.set_forward_parameter(model, p, 0.0)
         DiffOpt.set_forward_parameter(model, q, 1.0)
+        DiffOpt.forward_differentiate!(model)
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
+        # Forward Δr=1: dx*/dr = 0
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
         # Reverse
@@ -1103,11 +1111,16 @@ function test_cubic_obj_pp()
         DiffOpt.reverse_differentiate!(model)
         @test isapprox(
             DiffOpt.get_reverse_parameter(model, p),
-            -1 / 2,
+            1 / (2 * p_val^2),
             atol = 1e-5,
         )
         @test isapprox(
             DiffOpt.get_reverse_parameter(model, q),
+            0.0,
+            atol = 1e-5,
+        )
+        @test isapprox(
+            DiffOpt.get_reverse_parameter(model, r),
             0.0,
             atol = 1e-5,
         )
