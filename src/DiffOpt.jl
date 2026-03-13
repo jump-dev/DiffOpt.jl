@@ -28,6 +28,7 @@ include("bridges.jl")
 include("QuadraticProgram/QuadraticProgram.jl")
 include("ConicProgram/ConicProgram.jl")
 include("NonLinearProgram/NonLinearProgram.jl")
+include("SolverBackedDiff.jl")
 
 """
     add_all_model_constructors(model)
