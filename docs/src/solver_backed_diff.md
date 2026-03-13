@@ -35,20 +35,22 @@ dobj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
 
 ## Solver Interface
 
-A solver opts in to native differentiation by implementing the following trait:
-
-```julia
-DiffOpt.SolverBackedDiff.supports_native_differentiation(::MySolver) = true
-```
-
-Then it must implement the methods below. All MOI indices passed to these
+A solver opts in to native differentiation by implementing standard MOI
+attribute methods using [`DiffOpt.BackwardDifferentiate`](@ref) and
+[`DiffOpt.ForwardDifferentiate`](@ref). All MOI indices passed to these
 methods are in the **solver's own index space** (DiffOpt handles the mapping
 between wrapper and solver indices internally).
 
 ### Required for reverse mode
 
 ```julia
-DiffOpt.SolverBackedDiff.reverse_differentiate!(solver, dx, dy)
+MOI.supports(::MySolver, ::DiffOpt.BackwardDifferentiate) = true
+```
+
+Declare that the solver supports native backward differentiation.
+
+```julia
+MOI.set(::MySolver, ::DiffOpt.BackwardDifferentiate, (dx, dy))
 ```
 
 Perform the backward pass using the solver's cached factorizations. `dx` is a
@@ -57,17 +59,17 @@ Perform the backward pass using the solver's cached factorizations. `dx` is a
 constraint indices to ``\partial l / \partial \lambda`` values.
 
 ```julia
-DiffOpt.SolverBackedDiff.reverse_objective(solver) -> MOI.ScalarAffineFunction{Float64}
+MOI.get(::MySolver, ::DiffOpt.ReverseObjectiveFunction) -> MOI.ScalarAffineFunction{Float64}
 ```
 
-Return the objective sensitivity after `reverse_differentiate!`. The returned
+Return the objective sensitivity after the backward pass. The returned
 function encodes sensitivities with respect to the linear objective coefficients.
 
 ```julia
-DiffOpt.SolverBackedDiff.reverse_constraint(solver, ci) -> MOI.ScalarAffineFunction{Float64}
+MOI.get(::MySolver, ::DiffOpt.ReverseConstraintFunction, ci) -> MOI.ScalarAffineFunction{Float64}
 ```
 
-Return constraint `ci` sensitivity after `reverse_differentiate!`. The affine
+Return constraint `ci` sensitivity after the backward pass. The affine
 terms encode sensitivities with respect to constraint coefficients (the matrix
 rows), and the constant encodes the negated sensitivity with respect to the
 constraint right-hand side.
@@ -75,7 +77,13 @@ constraint right-hand side.
 ### Optional for forward mode
 
 ```julia
-DiffOpt.SolverBackedDiff.forward_differentiate!(solver, dobj, dcons)
+MOI.supports(::MySolver, ::DiffOpt.ForwardDifferentiate) = true
+```
+
+Declare that the solver supports native forward differentiation.
+
+```julia
+MOI.set(::MySolver, ::DiffOpt.ForwardDifferentiate, (dobj, dcons))
 ```
 
 Perform the forward pass. `dobj` is either `nothing` or a
@@ -84,16 +92,16 @@ Perform the forward pass. `dobj` is either `nothing` or a
 representing constraint perturbations.
 
 ```julia
-DiffOpt.SolverBackedDiff.forward_primal(solver, vi) -> Float64
+MOI.get(::MySolver, ::DiffOpt.ForwardVariablePrimal, vi) -> Float64
 ```
 
-Return the primal tangent for variable `vi` after `forward_differentiate!`.
+Return the primal tangent for variable `vi` after the forward pass.
 
 ```julia
-DiffOpt.SolverBackedDiff.forward_dual(solver, ci) -> Float64
+MOI.get(::MySolver, ::DiffOpt.ForwardConstraintDual, ci) -> Float64
 ```
 
-Return the dual tangent for constraint `ci` after `forward_differentiate!`.
+Return the dual tangent for constraint `ci` after the forward pass.
 
 ## Example: Equality-Constrained QP Solver
 
@@ -123,7 +131,8 @@ s.kkt_factor = lu(K)
 sol = s.kkt_factor \ rhs
 
 # During backward pass — reuse the factorization:
-function DiffOpt.SolverBackedDiff.reverse_differentiate!(s::MySolver, dx, dy)
+function MOI.set(s::MySolver, ::DiffOpt.BackwardDifferentiate, seeds)
+    dx, dy = seeds
     # Build the adjoint RHS from the seeds dx, dy
     rhs = zeros(n + m)
     for (vi, val) in dx
@@ -155,24 +164,19 @@ called on a `diff_optimizer` model:
 
 1. DiffOpt walks through the MOI wrapper layers (CachingOptimizer, bridges,
    POI) to find the innermost solver using `_unwrap_solver`.
-2. If the solver implements `supports_native_differentiation` and no explicit
+2. If the solver supports `DiffOpt.BackwardDifferentiate` and no explicit
    `ModelConstructor` has been set, DiffOpt creates a `SolverBackedDiff.Model`
    that wraps the solver.
 3. The `SolverBackedDiff.Model` translates between DiffOpt's index space and
-   the solver's index space, then delegates the actual differentiation to the
-   solver's native methods.
+   the solver's index space, then delegates the actual differentiation via
+   standard `MOI.set` and `MOI.get` calls on the solver.
 4. Results are translated back to the caller's index space automatically.
 
 ## API Reference
 
 ```@docs
-DiffOpt.SolverBackedDiff.supports_native_differentiation
-DiffOpt.SolverBackedDiff.reverse_differentiate!
-DiffOpt.SolverBackedDiff.reverse_objective
-DiffOpt.SolverBackedDiff.reverse_constraint
-DiffOpt.SolverBackedDiff.forward_differentiate!
-DiffOpt.SolverBackedDiff.forward_primal
-DiffOpt.SolverBackedDiff.forward_dual
+DiffOpt.BackwardDifferentiate
+DiffOpt.ForwardDifferentiate
 DiffOpt.SolverBackedDiff.Model
 DiffOpt.SolverBackedDiff.set_index_mapping!
 ```
