@@ -206,15 +206,17 @@ function MOI.optimize!(s::EqQPSolver)
     return
 end
 
-# ── SolverBackedDiff interface ───────────────────────────────────────────────
+# ── Native differentiation interface via MOI attributes ───────────────────────
 
-DiffOpt.SolverBackedDiff.supports_native_differentiation(::EqQPSolver) = true
+MOI.supports(::EqQPSolver, ::DiffOpt.BackwardDifferentiate) = true
+MOI.supports(::EqQPSolver, ::DiffOpt.ForwardDifferentiate) = true
 
-function DiffOpt.SolverBackedDiff.reverse_differentiate!(
+function MOI.set(
     s::EqQPSolver,
-    dx::Dict{MOI.VariableIndex,Float64},
-    dy::Dict{MOI.ConstraintIndex,Float64},
+    ::DiffOpt.BackwardDifferentiate,
+    seeds::Tuple{Dict{MOI.VariableIndex,Float64},Dict{MOI.ConstraintIndex,Float64}},
 )
+    dx, dy = seeds
     n, m = s.n_vars, s.n_cons
     rhs = zeros(n + m)
     for (vi, val) in dx
@@ -233,24 +235,28 @@ function DiffOpt.SolverBackedDiff.reverse_differentiate!(
     return
 end
 
-function DiffOpt.SolverBackedDiff.reverse_objective(s::EqQPSolver)
+function MOI.get(s::EqQPSolver, ::DiffOpt.ReverseObjectiveFunction)
     terms = [MOI.ScalarAffineTerm(s.dc[j], MOI.VariableIndex(j))
              for j in 1:s.n_vars]
     return MOI.ScalarAffineFunction(terms, 0.0)
 end
 
-function DiffOpt.SolverBackedDiff.reverse_constraint(s::EqQPSolver, ci::EQ_CI)
+function MOI.get(s::EqQPSolver, ::DiffOpt.ReverseConstraintFunction, ci::EQ_CI)
     row = ci.value
     terms = [MOI.ScalarAffineTerm(s.dA[row, j], MOI.VariableIndex(j))
              for j in 1:s.n_vars]
     return MOI.ScalarAffineFunction(terms, -s.db[row])
 end
 
-function DiffOpt.SolverBackedDiff.forward_differentiate!(
+function MOI.set(
     s::EqQPSolver,
-    dobj::Union{Nothing,MOI.ScalarAffineFunction{Float64}},
-    dcons::Dict{MOI.ConstraintIndex,MOI.ScalarAffineFunction{Float64}},
+    ::DiffOpt.ForwardDifferentiate,
+    inputs::Tuple{
+        Union{Nothing,MOI.ScalarAffineFunction{Float64}},
+        Dict{MOI.ConstraintIndex,MOI.ScalarAffineFunction{Float64}},
+    },
 )
+    dobj, dcons = inputs
     n, m = s.n_vars, s.n_cons
     # Build perturbation: d_c and d_b from dobj and dcons
     d_c = zeros(n)
@@ -278,11 +284,11 @@ function DiffOpt.SolverBackedDiff.forward_differentiate!(
     return
 end
 
-function DiffOpt.SolverBackedDiff.forward_primal(s::EqQPSolver, vi::MOI.VariableIndex)
+function MOI.get(s::EqQPSolver, ::DiffOpt.ForwardVariablePrimal, vi::MOI.VariableIndex)
     return s.dx_fwd[vi.value]
 end
 
-function DiffOpt.SolverBackedDiff.forward_dual(s::EqQPSolver, ci::EQ_CI)
+function MOI.get(s::EqQPSolver, ::DiffOpt.ForwardConstraintDual, ci::EQ_CI)
     return s.dν_fwd[ci.value]
 end
 
@@ -312,9 +318,9 @@ function test_unwrap_solver_returns_nothing_for_unsupported()
     @test DiffOpt.SolverBackedDiff._unwrap_solver(42) === nothing
 end
 
-function test_supports_native_differentiation()
-    @test DiffOpt.SolverBackedDiff.supports_native_differentiation(EqQPSolver()) == true
-    @test DiffOpt.SolverBackedDiff.supports_native_differentiation("not a solver") == false
+function test_supports_backward_differentiate()
+    @test MOI.supports(EqQPSolver(), DiffOpt.BackwardDifferentiate()) == true
+    @test MOI.supports(EqQPSolver(), DiffOpt.ForwardDifferentiate()) == true
 end
 
 # ── Helper to set up and solve the standard test problem ─────────────────────

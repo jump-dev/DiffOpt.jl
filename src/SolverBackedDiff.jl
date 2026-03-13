@@ -15,33 +15,33 @@ solver rather than reconstructing the KKT system from scratch.
 
 ## Solver Interface
 
-A solver opts in to native differentiation by implementing:
-
-    DiffOpt.SolverBackedDiff.supports_native_differentiation(::MySolver) = true
-
-Then it must implement the methods below. All MOI indices are in the
-**solver's own index space**.
+A solver opts in to native differentiation by implementing standard MOI
+attribute methods. All MOI indices are in the **solver's own index space**.
 
 ### Required for reverse mode
 
-    DiffOpt.SolverBackedDiff.reverse_differentiate!(solver, dx, dy)
+    MOI.supports(::MySolver, ::DiffOpt.BackwardDifferentiate) = true
+
+    MOI.set(::MySolver, ::DiffOpt.BackwardDifferentiate, (dx, dy))
 
 Perform the backward pass using cached factorizations. `dx` maps variable
 indices to ∂l/∂x values; `dy` maps constraint indices to ∂l/∂λ values.
 
-    DiffOpt.SolverBackedDiff.reverse_objective(solver)
+    MOI.get(::MySolver, ::DiffOpt.ReverseObjectiveFunction)
 
 Return objective sensitivity as `MOI.ScalarAffineFunction{Float64}`.
 
-    DiffOpt.SolverBackedDiff.reverse_constraint(solver, ci)
+    MOI.get(::MySolver, ::DiffOpt.ReverseConstraintFunction, ci)
 
 Return constraint `ci` sensitivity as `MOI.ScalarAffineFunction{Float64}`.
 
 ### Optional for forward mode
 
-    DiffOpt.SolverBackedDiff.forward_differentiate!(solver, dobj, dcons)
-    DiffOpt.SolverBackedDiff.forward_primal(solver, vi) -> Float64
-    DiffOpt.SolverBackedDiff.forward_dual(solver, ci) -> Float64
+    MOI.supports(::MySolver, ::DiffOpt.ForwardDifferentiate) = true
+
+    MOI.set(::MySolver, ::DiffOpt.ForwardDifferentiate, (dobj, dcons))
+    MOI.get(::MySolver, ::DiffOpt.ForwardVariablePrimal, vi) -> Float64
+    MOI.get(::MySolver, ::DiffOpt.ForwardConstraintDual, ci) -> Float64
 
 ## Usage
 
@@ -67,60 +67,18 @@ import MathOptInterface as MOI
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
-    supports_native_differentiation(solver) -> Bool
+    supports_backward(solver) -> Bool
 
-Return `true` if `solver` implements the `SolverBackedDiff` interface.
-Solvers opt in by defining a method:
-
-    DiffOpt.SolverBackedDiff.supports_native_differentiation(::MySolver) = true
+Return `true` if `solver` supports native backward differentiation via
+`MOI.supports(solver, DiffOpt.BackwardDifferentiate())`.
 """
-supports_native_differentiation(::Any) = false
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Solver interface (the solver must implement these)
-# ─────────────────────────────────────────────────────────────────────────────
-
-"""
-    reverse_differentiate!(solver, dx, dy)
-
-Perform the backward pass using the solver's cached factorizations.
-"""
-function reverse_differentiate! end
-
-"""
-    reverse_objective(solver) -> MOI.ScalarAffineFunction{Float64}
-
-Return objective sensitivity after `reverse_differentiate!`.
-"""
-function reverse_objective end
-
-"""
-    reverse_constraint(solver, ci) -> MOI.ScalarAffineFunction{Float64}
-
-Return constraint `ci` sensitivity after `reverse_differentiate!`.
-"""
-function reverse_constraint end
-
-"""
-    forward_differentiate!(solver, dobj, dcons)
-
-Perform the forward pass. Optional; required only for forward mode.
-"""
-function forward_differentiate! end
-
-"""
-    forward_primal(solver, vi) -> Float64
-
-Return primal tangent for variable `vi` after `forward_differentiate!`.
-"""
-function forward_primal end
-
-"""
-    forward_dual(solver, ci) -> Float64
-
-Return dual tangent for constraint `ci` after `forward_differentiate!`.
-"""
-function forward_dual end
+function supports_backward(solver)
+    try
+        return MOI.supports(solver, DiffOpt.BackwardDifferentiate())
+    catch _
+        return false
+    end
+end
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Unwrap the solver from DiffOpt/MOI wrapper layers
@@ -146,7 +104,7 @@ function _unwrap_solver(model)
         return _unwrap_solver(getfield(model, :optimizer))
     end
     # Leaf: check if it supports native differentiation
-    if supports_native_differentiation(model)
+    if supports_backward(model)
         return model
     end
     return nothing
@@ -280,7 +238,7 @@ function DiffOpt.reverse_differentiate!(model::Model)
         for (ci, val) in model.input_cache.dy
             solver_dy[model.con_to_solver[ci]] = val
         end
-        reverse_differentiate!(model.solver, solver_dx, solver_dy)
+        MOI.set(model.solver, DiffOpt.BackwardDifferentiate(), (solver_dx, solver_dy))
     end
     return
 end
@@ -302,13 +260,13 @@ end
 
 function MOI.get(model::Model, ::DiffOpt.ReverseObjectiveFunction)
     _ensure_index_maps!(model)
-    return _to_vector_affine(model, reverse_objective(model.solver))
+    return _to_vector_affine(model, MOI.get(model.solver, DiffOpt.ReverseObjectiveFunction()))
 end
 
 function MOI.get(model::Model, ::DiffOpt.ReverseConstraintFunction, ci::MOI.ConstraintIndex)
     _ensure_index_maps!(model)
     solver_ci = model.con_to_solver[ci]
-    return _to_vector_affine(model, reverse_constraint(model.solver, solver_ci))
+    return _to_vector_affine(model, MOI.get(model.solver, DiffOpt.ReverseConstraintFunction(), solver_ci))
 end
 
 # ── Forward input: override to bypass the Parameter check in AbstractModel ────
@@ -337,7 +295,7 @@ function DiffOpt.forward_differentiate!(model::Model)
             solver_dcons[model.con_to_solver[ci]] =
                 _remap_affine_to_solver_space(model, func)
         end
-        forward_differentiate!(model.solver, solver_dobj, solver_dcons)
+        MOI.set(model.solver, DiffOpt.ForwardDifferentiate(), (solver_dobj, solver_dcons))
     end
     return
 end
@@ -351,11 +309,11 @@ end
 # ── Forward output attributes ────────────────────────────────────────────────
 
 function MOI.get(model::Model, ::DiffOpt.ForwardVariablePrimal, vi::MOI.VariableIndex)
-    return forward_primal(model.solver, model.var_to_solver[vi])
+    return MOI.get(model.solver, DiffOpt.ForwardVariablePrimal(), model.var_to_solver[vi])
 end
 
 function MOI.get(model::Model, ::DiffOpt.ForwardConstraintDual, ci::MOI.ConstraintIndex)
-    return forward_dual(model.solver, model.con_to_solver[ci])
+    return MOI.get(model.solver, DiffOpt.ForwardConstraintDual(), model.con_to_solver[ci])
 end
 
 end # module SolverBackedDiff

@@ -307,6 +307,44 @@ struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::ReverseConstraintSet) = true
 
 """
+    BackwardDifferentiate <: MOI.AbstractModelAttribute
+
+A model attribute used to trigger the backward (reverse) differentiation pass
+on a solver that supports native differentiation.
+
+Solvers opt in to native differentiation by implementing:
+
+    MOI.supports(::MySolver, ::DiffOpt.BackwardDifferentiate) = true
+
+Then they trigger the backward pass by implementing:
+
+    MOI.set(::MySolver, ::DiffOpt.BackwardDifferentiate, (dx, dy))
+
+where `dx::Dict{MOI.VariableIndex,Float64}` and
+`dy::Dict{MOI.ConstraintIndex,Float64}` are the seed values.
+Results are then queried via [`ReverseObjectiveFunction`](@ref) and
+[`ReverseConstraintFunction`](@ref).
+"""
+struct BackwardDifferentiate <: MOI.AbstractModelAttribute end
+
+"""
+    ForwardDifferentiate <: MOI.AbstractModelAttribute
+
+A model attribute used to trigger the forward differentiation pass
+on a solver that supports native differentiation.
+
+Solvers implement:
+
+    MOI.set(::MySolver, ::DiffOpt.ForwardDifferentiate, (dobj, dcons))
+
+where `dobj` is a `Union{Nothing,MOI.ScalarAffineFunction{Float64}}` and
+`dcons` is a `Dict{MOI.ConstraintIndex,MOI.ScalarAffineFunction{Float64}}`.
+Results are then queried via [`ForwardVariablePrimal`](@ref) and
+[`ForwardConstraintDual`](@ref).
+"""
+struct ForwardDifferentiate <: MOI.AbstractModelAttribute end
+
+"""
     DifferentiateTimeSec()
 
 A model attribute for the total elapsed time (in seconds) for computing
