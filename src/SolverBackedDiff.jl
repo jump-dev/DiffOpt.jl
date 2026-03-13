@@ -311,6 +311,18 @@ function MOI.get(model::Model, ::DiffOpt.ReverseConstraintFunction, ci::MOI.Cons
     return _to_vector_affine(model, reverse_constraint(model.solver, solver_ci))
 end
 
+# ── Forward input: override to bypass the Parameter check in AbstractModel ────
+
+function MOI.set(
+    model::Model,
+    ::DiffOpt.ForwardConstraintFunction,
+    ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
+    func::MOI.ScalarAffineFunction{T},
+) where {T,S}
+    model.input_cache.scalar_constraints[ci] = func
+    return
+end
+
 # ── Forward differentiation ──────────────────────────────────────────────────
 
 function DiffOpt.forward_differentiate!(model::Model)
