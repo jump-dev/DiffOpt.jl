@@ -8,7 +8,7 @@
 
 Module for integrating solvers that provide their own (native) differentiation.
 
-Many convex optimization solvers cache matrix factorizations during the solve
+Some convex optimization solvers cache matrix factorizations during the solve
 that can be reused for the backward pass. This module provides a
 `DiffOpt.AbstractModel` subtype that delegates the differentiation to the
 solver rather than reconstructing the KKT system from scratch.
