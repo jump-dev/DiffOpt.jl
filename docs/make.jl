@@ -57,6 +57,7 @@ makedocs(;
         "Introduction" => "intro.md",
         "Manual" => "manual.md",
         "Usage" => "usage.md",
+        "Solver-Backed Differentiation" => "solver_backed_diff.md",
         "Reference" => "reference.md",
         "Tutorials" => [
             joinpath("examples", f) for
