@@ -785,6 +785,17 @@ end
 function _diff(model::Optimizer)
     if model.diff === nothing
         _check_termination_status(model)
+        # Check if the inner solver supports native differentiation first.
+        native_solver = SolverBackedDiff._unwrap_solver(model.optimizer)
+        if !isnothing(native_solver) && isnothing(MOI.get(model, ModelConstructor()))
+            model.diff = _instantiate_diff(
+                model,
+                () -> SolverBackedDiff.Model(native_solver),
+            )
+            model.index_map = MOI.copy_to(model.diff, model.optimizer)
+            _copy_dual(model.diff, model.optimizer, model.index_map)
+            return model.diff
+        end
         model_constructor = MOI.get(model, ModelConstructor())
         if isnothing(model_constructor)
             for constructor in model.model_constructors
