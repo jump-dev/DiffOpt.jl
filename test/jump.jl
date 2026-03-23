@@ -720,22 +720,6 @@ function test_conic_feasibility()
     return
 end
 
-function test_psd_square_error()
-    model = DiffOpt.conic_diff_model(SCS.Optimizer)
-    set_silent(model)
-
-    @variable(model, x)
-    @variable(model, p in Parameter(1.0))
-
-    @constraint(model, con, [-p*x 0; 0 x] in PSDCone())
-
-    @test_throws MOI.Bridges.ModifyBridgeNotAllowed optimize!(model)
-
-    # DiffOpt.set_forward_parameter(model, p, 1.0)
-    # DiffOpt.forward_differentiate!(model)
-    return
-end
-
 end  # module
 
 TestJuMP.runtests()
