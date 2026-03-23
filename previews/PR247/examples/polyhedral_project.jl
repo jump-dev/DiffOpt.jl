@@ -54,7 +54,7 @@ function (polytope::Polytope{N})(
     )
     @objective(model, Min, dot(x - y, x - y))
     optimize!(model)
-    return JuMP.value.(x)
+    return Float32.(JuMP.value.(x))
 end
 
 # The `@functor` macro from Flux implements auxiliary functions for collecting the parameters of
@@ -75,12 +75,12 @@ function ChainRulesCore.rrule(
     model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
     xv = polytope(y; model = model)
     function pullback_matrix_projection(dl_dx)
-        layer_size, batch_size = size(dl_dx)
         dl_dx = ChainRulesCore.unthunk(dl_dx)
         ##  `dl_dy` is the derivative of `l` wrt `y`
-        x = model[:x]
+        x = model[:x]::Matrix{JuMP.VariableRef}
+        layer_size, batch_size = size(x)
         ## grad wrt input parameters
-        dl_dy = zeros(size(dl_dx))
+        dl_dy = zeros(size(x))
         ## grad wrt layer parameters
         dl_dw = zero.(polytope.w)
         dl_db = zero(polytope.b)
@@ -122,13 +122,13 @@ m = Flux.Chain(
 
 M = 500 # batch size
 ## Preprocessing train data
-imgs = MLDatasets.MNIST.traintensor(1:M)
-labels = MLDatasets.MNIST.trainlabels(1:M);
+imgs = MLDatasets.MNIST(; split = :train).features[:, :, 1:M]
+labels = MLDatasets.MNIST(; split = :train).targets[1:M]
 train_X = float.(reshape(imgs, size(imgs, 1) * size(imgs, 2), M)) # stack images
 train_Y = Flux.onehotbatch(labels, 0:9);
 ## Preprocessing test data
-test_imgs = MLDatasets.MNIST.testtensor(1:M)
-test_labels = MLDatasets.MNIST.testlabels(1:M)
+test_imgs = MLDatasets.MNIST(; split = :test).features[:, :, 1:M]
+test_labels = MLDatasets.MNIST(; split = :test).targets[1:M]
 test_X = float.(reshape(test_imgs, size(test_imgs, 1) * size(test_imgs, 2), M))
 test_Y = Flux.onehotbatch(test_labels, 0:9);
 
@@ -142,19 +142,12 @@ dataset = repeated((train_X, train_Y), epochs);
 # ## Network training
 
 # training loss function, Flux optimizer
-custom_loss(x, y) = Flux.crossentropy(m(x), y)
-opt = Flux.ADAM()
-evalcb = () -> @show(custom_loss(train_X, train_Y))
+custom_loss(m, x, y) = Flux.crossentropy(m(x), y)
+opt = Flux.setup(Flux.Adam(), m)
 
 # Train to optimize network parameters
 
-@time Flux.train!(
-    custom_loss,
-    Flux.params(m),
-    dataset,
-    opt,
-    cb = Flux.throttle(evalcb, 5),
-);
+@time Flux.train!(custom_loss, m, dataset, opt);
 
 # Although our custom implementation takes time, it is able to reach similar
 # accuracy as the usual ReLU function implementation.
