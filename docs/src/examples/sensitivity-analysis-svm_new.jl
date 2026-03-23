@@ -39,14 +39,14 @@ N = 100
 D = 2
 
 Random.seed!(62)
-X = vcat(randn(N ÷ 2, D), randn(N ÷ 2, D) .+ [2.0, 2.0]')
+X_data = vcat(randn(N ÷ 2, D), randn(N ÷ 2, D) .+ [2.0, 2.0]')
 y = append!(ones(N ÷ 2), -ones(N ÷ 2))
 λ = 0.05;
 
 # Let's initialize a special model that can understand sensitivities
 
-model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
-MOI.set(model, MOI.Silent(), true)
+model = DiffOpt.quadratic_diff_model(Ipopt.Optimizer)
+set_silent(model)
 
 # Add the variables
 
@@ -54,7 +54,11 @@ MOI.set(model, MOI.Silent(), true)
 @variable(model, w[1:D])
 @variable(model, b);
 
-# Add the constraints.
+# Add the parameters to be differentiated
+
+@variable(model, X[1:N, 1:D] in Parameter.(X_data))
+
+# Add the constraints
 
 @constraint(
     model,
@@ -80,8 +84,8 @@ svm_x = [-2.0, 4.0] # arbitrary points
 svm_y = (-bv .- wv[1] * svm_x) / wv[2]
 
 p = Plots.scatter(
-    X[:, 1],
-    X[:, 2];
+    X_data[:, 1],
+    X_data[:, 2];
     color = [yi > 0 ? :red : :blue for yi in y],
     label = "",
 )
@@ -113,19 +117,14 @@ for i in 1:N
     for j in 1:N
         if i == j
             ## we consider identical perturbations on all x_i coordinates
-            MOI.set(
-                model,
-                DiffOpt.ForwardConstraintFunction(),
-                con[j],
-                y[j] * sum(w),
-            )
+            DiffOpt.set_forward_parameter.(model, X[i, :], 1.0)
         else
-            MOI.set(model, DiffOpt.ForwardConstraintFunction(), con[j], 0.0)
+            DiffOpt.set_forward_parameter.(model, X[i, :], 0.0)
         end
     end
     DiffOpt.forward_differentiate!(model)
-    dw = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), w)
-    db = MOI.get(model, DiffOpt.ForwardVariablePrimal(), b)
+    dw = DiffOpt.get_forward_variable.(model, w)
+    db = DiffOpt.get_forward_variable.(model, b)
     ∇[i] = LinearAlgebra.norm(dw) + LinearAlgebra.norm(db)
 end
 
@@ -134,8 +133,8 @@ end
 # largest value to show all the points of the set.
 
 p3 = Plots.scatter(
-    X[:, 1],
-    X[:, 2];
+    X_data[:, 1],
+    X_data[:, 2];
     color = [yi > 0 ? :red : :blue for yi in y],
     label = "",
     markersize = 2 * (max.(1.8∇, 0.2 * maximum(∇))),

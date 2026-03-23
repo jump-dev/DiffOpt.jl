@@ -22,39 +22,41 @@ using LinearAlgebra
 
 # Define a relu through an optimization problem solved by a quadratic solver.
 # Return the solution of the problem.
+# TODO: use HiGHS
 function matrix_relu(
-    y::Matrix;
-    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer)),
+    y_data::Matrix;
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer),
 )
-    layer_size, batch_size = size(y)
+    layer_size, batch_size = size(y_data)
     empty!(model)
     set_silent(model)
     @variable(model, x[1:layer_size, 1:batch_size] >= 0)
+    @variable(model, y[1:layer_size, 1:batch_size] in Parameter.(y_data))
     @objective(model, Min, x[:]'x[:] - 2y[:]'x[:])
     optimize!(model)
     return Float32.(value.(x))
 end
 
 # Define the reverse differentiation rule, for the function we defined above.
-function ChainRulesCore.rrule(::typeof(matrix_relu), y::Matrix{T}) where {T}
-    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
-    pv = matrix_relu(y; model = model)
+function ChainRulesCore.rrule(
+    ::typeof(matrix_relu),
+    y_data::Matrix{T},
+) where {T}
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    pv = matrix_relu(y_data; model = model)
     function pullback_matrix_relu(dl_dx)
         ## some value from the backpropagation (e.g., loss) is denoted by `l`
         ## so `dl_dy` is the derivative of `l` wrt `y`
         x = model[:x]::Matrix{JuMP.VariableRef} # load decision variable `x` into scope
-        dl_dy = zeros(T, size(x))
-        dl_dq = zeros(T, size(x))
-        ## set sensitivities
-        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x[:], dl_dx[:])
-        ## compute grad
+        y = model[:y]::Matrix{JuMP.VariableRef} # load parameter variable `y` into scope
+        ## set sensitivities (dl/dx)
+        for i in eachindex(x)
+            DiffOpt.set_reverse_variable(model, x[i], dl_dx[i])
+        end
+        ## compute grad (dx/dy)
         DiffOpt.reverse_differentiate!(model)
-        ## return gradient wrt objective function parameters
-        obj_exp = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
-        ## coeff of `x` in q'x = -2y'x
-        dl_dq[:] .= JuMP.coefficient.(obj_exp, x[:])
-        dq_dy = -2 # dq/dy = -2
-        dl_dy[:] .= dl_dq[:] * dq_dy
+        ## return gradient (dl/dy = dl/dx * dx/dy)
+        dl_dy = DiffOpt.get_reverse_parameter.(model, y)
         return (ChainRulesCore.NoTangent(), dl_dy)
     end
     return pv, pullback_matrix_relu
@@ -90,7 +92,7 @@ test_Y = Flux.onehotbatch(test_labels, 0:9);
 # The original data is repeated `epochs` times because `Flux.train!` only
 # loops through the data set once
 
-epochs = 50 # ~1 minute (i7 8th gen with 16gb RAM)
+epochs = 2#50 # ~1 minute (i7 8th gen with 16gb RAM)
 ## epochs = 100 # leads to 77.8% in about 2 minutes
 dataset = repeated((train_X, train_Y), epochs);
 

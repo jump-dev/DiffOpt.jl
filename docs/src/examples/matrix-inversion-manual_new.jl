@@ -100,16 +100,20 @@ h = [-1.0;]   # initial values set
 
 # Initialize empty model
 
-model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+model = DiffOpt.quadratic_diff_model(Ipopt.Optimizer)
 set_silent(model)
 
 # Add the variables
 
 @variable(model, x[1:2])
 
+# Add the parameters
+
+@variable(model, y[1:length(h)] in Parameter.(h))
+
 # Add the constraints.
 
-@constraint(model, cons[j in 1:1], sum(G[j, i] * x[i] for i in 1:2) <= h[j]);
+@constraint(model, cons[j in 1:1], sum(G[j, i] * x[i] for i in 1:2) <= y[j]);
 
 @objective(
     model,
@@ -132,15 +136,7 @@ dual.(cons)
 
 # set sensitivitity
 
-MOI.set(
-    model,
-    DiffOpt.ForwardConstraintFunction(),
-    cons[1],
-    0.0 * index(x[1]) - 1.0,  # to indicate the direction vector to get directional derivatives
-)
-
-# Note that `0.0 * index(x[1])` is used to make its type `typeof(0.0 * index(x[1]) - 1.0) <: MOI.AbstractScalarFunction`.
-# To indicate different direction to get directional derivative, users should replace `0.0 * index(x[1]) - 1.0` as the form of `dG*x - dh`, where `dG` and `dh` correspond to the elements of direction vectors along `G` and `h` axes, respectively.
+DiffOpt.set_forward_parameter.(model, y, 1.0)
 
 # Compute derivatives
 
@@ -148,7 +144,7 @@ DiffOpt.forward_differentiate!(model)
 
 # Query derivative
 
-dx = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), x)
+dx = DiffOpt.get_forward_variable.(model, x)
 
 using Test                                  #src
 @test dx ≈ [0.25, 0.75] atol = 1e-4 rtol = 1e-4 #src

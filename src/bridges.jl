@@ -5,6 +5,30 @@
 
 function MOI.get(
     model::MOI.ModelLike,
+    attr::ObjectiveFunctionAttribute{ReverseObjectiveFunction,G},
+    ::MOI.Bridges.Objective.FunctionConversionBridge{T,F,G},
+) where {T,F,G}
+    return MOI.get(
+        model,
+        ObjectiveFunctionAttribute{ReverseObjectiveFunction,F}(attr.attr),
+    )
+end
+
+function MOI.set(
+    model::MOI.ModelLike,
+    attr::ObjectiveFunctionAttribute{ForwardObjectiveFunction,G},
+    ::MOI.Bridges.Objective.FunctionConversionBridge{T,F,G},
+    value,
+) where {T,F,G}
+    return MOI.set(
+        model,
+        ObjectiveFunctionAttribute{ForwardObjectiveFunction,F}(attr.attr),
+        value,
+    )
+end
+
+function MOI.get(
+    model::MOI.ModelLike,
     ::ObjectiveFunctionAttribute{ReverseObjectiveFunction},
     bridge::MOI.Bridges.Objective.SlackBridge,
 )
@@ -43,6 +67,25 @@ function MOI.get(
         MOI.get(model, attr, bridge.vector_constraint),
     )[1]
 end
+
+function MOI.set(
+    model::MOI.ModelLike,
+    attr::ForwardConstraintFunction,
+    bridge::MOI.Bridges.Constraint.ScalarizeBridge,
+    value,
+)
+    MOI.set.(model, attr, bridge.scalar_constraints, value)
+    return
+end
+
+function MOI.get(
+    model::MOI.ModelLike,
+    attr::ReverseConstraintFunction,
+    bridge::MOI.Bridges.Constraint.ScalarizeBridge,
+)
+    return _vectorize(MOI.get.(model, attr, bridge.scalar_constraints))
+end
+
 function MOI.get(
     model::MOI.ModelLike,
     attr::DiffOpt.ReverseConstraintFunction,

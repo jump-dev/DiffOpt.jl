@@ -12,12 +12,14 @@ import LazyArrays
 import LinearAlgebra
 import MathOptInterface as MOI
 import MathOptSetDistances as MOSD
+import ParametricOptInterface as POI
 import SparseArrays
 
 include("utils.jl")
 include("product_of_sets.jl")
 include("diff_opt.jl")
 include("moi_wrapper.jl")
+include("parameters.jl")
 include("jump_moi_overloads.jl")
 
 include("copy_dual.jl")
@@ -25,6 +27,7 @@ include("bridges.jl")
 
 include("QuadraticProgram/QuadraticProgram.jl")
 include("ConicProgram/ConicProgram.jl")
+include("NonLinearProgram/NonLinearProgram.jl")
 
 """
     add_all_model_constructors(model)
@@ -35,9 +38,21 @@ Add all constructors of [`AbstractModel`](@ref) defined in this package to
 function add_all_model_constructors(model)
     add_model_constructor(model, QuadraticProgram.Model)
     add_model_constructor(model, ConicProgram.Model)
+    add_model_constructor(model, NonLinearProgram.Model)
     return
 end
 
+function add_default_factorization(model)
+    model.input_cache.factorization =
+        NonLinearProgram._lu_with_inertia_correction
+    return
+end
+
+include("jump_wrapper.jl")
+
 export diff_optimizer
+
+# TODO
+# add precompilation statements
 
 end # module

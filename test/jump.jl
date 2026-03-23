@@ -30,6 +30,49 @@ function runtests()
     return
 end
 
+function test_single_variable_objective_forward()
+    model = Model(() -> DiffOpt.diff_optimizer(SCS.Optimizer))
+    @variable(model, x[1:7] >= 0)
+    @constraint(model, c1, sum(x[i] for i in 1:6) == 10)
+    @constraint(model, c2, x[7] == 10)
+    @constraint(
+        model,
+        c3,
+        LinearAlgebra.Symmetric([
+            x[7] 0.0
+            0.0 x[1]
+        ]) in PSDCone()
+    )
+    @objective(model, Max, x[7])
+    optimize!(model)
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), sum(x))
+    DiffOpt.forward_differentiate!(model)
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[7]) ≈ 0 atol = ATOL
+    return
+end
+
+function test_single_variable_objective_reverse()
+    model = Model(() -> DiffOpt.diff_optimizer(SCS.Optimizer))
+    @variable(model, x[1:7] >= 0)
+    @constraint(model, c1, sum(x[i] for i in 1:6) == 10)
+    @constraint(model, c2, x[7] == 10)
+    @constraint(
+        model,
+        c3,
+        LinearAlgebra.Symmetric([
+            x[7] 0.0
+            0.0 x[1]
+        ]) in PSDCone()
+    )
+    @objective(model, Max, x[7])
+    optimize!(model)
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x[7], 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    func = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
+    @test JuMP.coefficient(func, x[7]) ≈ 0.0 atol = ATOL rtol = RTOL
+    return
+end
+
 function test_forward_on_trivial_qp()
     # using example on https://osqp.org/docs/examples/setup-and-solve.html
     Q = [4.0 1.0; 1.0 2.0]
@@ -464,7 +507,7 @@ function test_differentiating_simple_socp()
     db = zeros(5)
     dc = zeros(3)
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), vv, 1.0)
-    @test_broken DiffOpt.reverse_differentiate!(model)
+    DiffOpt.reverse_differentiate!(model)
     # TODO add tests
     return
 end
@@ -633,6 +676,62 @@ function test_sensitivity_index_issue()
     @test -dprimal_dcons[:, 11] ≈ -dprimal_dconsKKT[:, 11] atol = ATOL
     @test -dprimal_dcons[:, 12] ≈ dprimal_dconsKKT[:, 12] atol = ATOL
     @test -dprimal_dcons[:, 13] ≈ dprimal_dconsKKT[:, 13] atol = ATOL
+    return
+end
+
+function test_conic_supports()
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    @test MOI.supports(backend(model), DiffOpt.ForwardObjectiveFunction())
+    @test MOI.supports(
+        backend(model),
+        DiffOpt.ForwardConstraintSet(),
+        MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{Float64}},
+    )
+    function some end
+    @test MOI.supports(
+        backend(model),
+        DiffOpt.NonLinearKKTJacobianFactorization(),
+        some,
+    )
+    MOI.is_set_by_optimize(DiffOpt.ReverseConstraintFunction())
+    MOI.is_set_by_optimize(DiffOpt.ReverseConstraintSet())
+    model = DiffOpt.ConicProgram.Model()
+    @test !MOI.supports(model, MOI.Name())
+    @test MOI.supports_incremental_interface(model)
+    return
+end
+
+function test_conic_feasibility()
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(model)
+
+    @variable(model, x)
+    @variable(model, p in Parameter(1.0))
+
+    @constraint(model, con, [0.0, x, p * x] in SecondOrderCone())
+
+    set_objective_sense(model, MOI.FEASIBILITY_SENSE)
+
+    optimize!(model)
+
+    DiffOpt.set_forward_parameter(model, p, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    return
+end
+
+function test_psd_square_error()
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(model)
+
+    @variable(model, x)
+    @variable(model, p in Parameter(1.0))
+
+    @constraint(model, con, [-p*x 0; 0 x] in PSDCone())
+
+    @test_throws MOI.Bridges.ModifyBridgeNotAllowed optimize!(model)
+
+    # DiffOpt.set_forward_parameter(model, p, 1.0)
+    # DiffOpt.forward_differentiate!(model)
     return
 end
 

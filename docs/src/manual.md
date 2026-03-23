@@ -1,12 +1,8 @@
 # Manual
 
-!!! note
-    As of now, this package only works for optimization models that can be written either in convex conic form or convex quadratic form.
-
-
 ## Supported objectives & constraints - scheme 1
 
-For `QPTH`/`OPTNET` style backend, the package supports following `Function-in-Set` constraints: 
+For `QuadraticProgram` backend, the package supports following `Function-in-Set` constraints: 
 
 |  MOI Function | MOI Set |
 |:-------|:---------------|
@@ -26,9 +22,9 @@ and the following objective types:
 | `ScalarQuadraticFunction`  | 
 
 
-## Supported objectives & constraints - scheme 2
+## Supported objectives & constraints - `ConicProgram` backend
 
-For `DiffCP`/`CVXPY` style backend, the package supports following `Function-in-Set` constraints: 
+For the `ConicProgram` backend, the package supports following `Function-in-Set` constraints: 
 
 |  MOI Function | MOI Set |
 |:-------|:---------------|
@@ -50,18 +46,42 @@ and the following objective types:
 |   `VariableIndex`   |
 |   `ScalarAffineFunction`   |
 
+Other conic sets such as `RotatedSecondOrderCone` and `PositiveSemidefiniteConeSquare` are supported through bridges.
 
-## Creating a differentiable optimizer
+## Supported objectives & constraints - `NonlinearProgram` backend
+
+For the `NonlinearProgram` backend, the package supports following `Function-in-Set` constraints:
+
+|  MOI Function | MOI Set |
+|:-------|:---------------|
+|    `VariableIndex`    |    `GreaterThan`    |
+|    `VariableIndex`    |    `LessThan`    |
+|    `VariableIndex`    |    `EqualTo`    |
+|    `ScalarAffineFunction`    |    `GreaterThan`    |
+|    `ScalarAffineFunction`    |    `LessThan`    |
+|    `ScalarAffineFunction`    |    `EqualTo`    |
+|    `ScalarQuadraticFunction`    |    `GreaterThan`    |
+|    `ScalarQuadraticFunction`    |    `LessThan`    |
+|    `ScalarQuadraticFunction`    |    `EqualTo`    |
+|    `ScalarNonlinearFunction`    |    `GreaterThan`    |
+|    `ScalarNonlinearFunction`    |    `LessThan`    |
+|    `ScalarNonlinearFunction`    |    `EqualTo`    |
+
+and the following objective types: 
+
+|  MOI Function |
+|:-------:|
+|   `VariableIndex`   |
+|   `ScalarAffineFunction`   |
+| `ScalarQuadraticFunction`  | 
+| `ScalarNonlinearFunction`  |
+
+## Creating a differentiable MOI optimizer
 
 You can create a differentiable optimizer over an existing MOI solver by using the `diff_optimizer` utility. 
 ```@docs
 diff_optimizer
 ```
-
-## Adding new sets and constraints
-
-The DiffOpt `Optimizer` behaves similarly to other MOI Optimizers
-and implements the `MOI.AbstractOptimizer` API.
 
 ## Projections on cone sets
 
@@ -71,7 +91,7 @@ DiffOpt requires taking projections and finding projection gradients of vectors 
 ## Conic problem formulation
 
 !!! note
-    As of now, the package is using `SCS` geometric form for affine expressions in cones.
+    As of now, when defining a conic or convex quadratic problem, the package is using `SCS` geometric form for affine expressions in cones.
 
 Consider a convex conic optimization problem in its primal (P) and dual (D) forms:
 ```math
@@ -104,6 +124,4 @@ In the light of above, DiffOpt differentiates program variables ``x``, ``s``, ``
 - OptNet: Differentiable Optimization as a Layer in Neural Networks
 
 ### Backward Pass vector
-One possible point of confusion in finding Jacobians is the role of the backward pass vector - above eqn (7), *OptNet: Differentiable Optimization as a Layer in Neural Networks*. While differentiating convex programs, it is often the case that we don't want to find the acutal derivatives, rather we might be interested in computing the product of Jacobians with a *backward pass vector*, often used in backprop in machine learning/automatic differentiation. This is what happens in scheme 1 of `DiffOpt` backend.
-
-But, for the conic system (scheme 2), we provide perturbations in conic data (`dA`, `db`, `dc`) to compute pertubations (`dx`, `dy`, `dz`) in input variables. Unlike the quadratic case, these perturbations are actual derivatives, not the product with a backward pass vector. This is an important distinction between the two schemes of differential optimization.
+One possible point of confusion in finding Jacobians is the role of the backward pass vector - above eqn (7), *OptNet: Differentiable Optimization as a Layer in Neural Networks*. While differentiating convex programs, it is often the case that we don't want to find the actual derivatives, rather we might be interested in computing the product of Jacobians with a *backward pass vector*, often used in backpropagation in machine learning/automatic differentiation. This is what happens in `DiffOpt` backends.

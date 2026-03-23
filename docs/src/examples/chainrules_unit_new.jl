@@ -37,8 +37,8 @@ import ChainRulesCore
 # solution map taking in input the problem parameters and returning the solution.
 
 function unit_commitment(
-    load1_demand,
-    load2_demand,
+    _load1_demand,
+    _load2_demand,
     gen_costs,
     noload_costs;
     model = Model(HiGHS.Optimizer),
@@ -54,9 +54,13 @@ function unit_commitment(
     Pmax = Dict(1 => fill(3.0, n_periods), 2 => fill(3.0, n_periods)) # Maximum power output (pu)
     RR = Dict(1 => 0.25, 2 => 0.25) # Ramp rates (pu/min)
     P0 = Dict(1 => 0.0, 2 => 0.0) # Initial power output (pu)
-    D = Dict("Load1" => load1_demand, "Load2" => load2_demand) # Demand (pu)
-    Cp = Dict(1 => gen_costs[1], 2 => gen_costs[2]) # Generation cost coefficient ($/pu)
-    Cnl = Dict(1 => noload_costs[1], 2 => noload_costs[2]) # No-load cost ($)
+
+    ## Parameters
+    @variable(model, load1_demand[1:n_periods] in Parameter.(_load1_demand)) # Load 1 demand (pu)
+    @variable(model, load2_demand[1:n_periods] in Parameter.(_load2_demand)) # Load 2 demand (pu)
+    D = Dict("Load1" => load1_demand, "Load2" => load2_demand)
+    @variable(model, Cp[1:2] in Parameter.(gen_costs)) # Generation costs ($/pu)
+    @variable(model, Cnl[1:2] in Parameter.(noload_costs)) # No-load costs ($)
 
     ## Variables
     ## Note: u represents the activation of generation units.
@@ -171,7 +175,7 @@ function ChainRulesCore.frule(
     optimizer = HiGHS.Optimizer,
 )
     ## creating the UC model with a DiffOpt optimizer wrapper around HiGHS
-    model = Model(() -> DiffOpt.diff_optimizer(optimizer))
+    model = DiffOpt.diff_model(optimizer)
     ## building and solving the main model
     pv = unit_commitment(
         load1_demand,
@@ -180,31 +184,15 @@ function ChainRulesCore.frule(
         noload_costs;
         model = model,
     )
-    energy_balance_cons = model[:energy_balance_cons]
-
-    ## Setting some perturbation of the energy balance constraints
-    ## Perturbations are set as MOI functions
-    Δenergy_balance = [
-        convert(MOI.ScalarAffineFunction{Float64}, d1 + d2) for
-        (d1, d2) in zip(Δload1_demand, Δload2_demand)
-    ]
-    MOI.set.(
-        model,
-        DiffOpt.ForwardConstraintFunction(),
-        energy_balance_cons,
-        Δenergy_balance,
-    )
-
-    p = model[:p]
-    u = model[:u]
-
-    ## setting the perturbation of the linear objective
-    Δobj =
-        sum(Δgen_costs ⋅ p[:, t] + Δnoload_costs ⋅ u[:, t] for t in size(p, 2))
-    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), Δobj)
-    DiffOpt.forward_differentiate!(JuMP.backend(model))
+    ## Setting perturbations in the parameters
+    DiffOpt.set_forward_parameter.(model, model[:load1_demand], Δload1_demand)
+    DiffOpt.set_forward_parameter.(model, model[:load2_demand], Δload2_demand)
+    DiffOpt.set_forward_parameter.(model, model[:Cp], Δgen_costs)
+    DiffOpt.set_forward_parameter.(model, model[:Cnl], Δnoload_costs)
+    ## computing the forward differentiation
+    DiffOpt.forward_differentiate!(model)
     ## querying the corresponding perturbation of the decision
-    Δp = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), p)
+    Δp = DiffOpt.get_forward_variable.(model, model[:p])
     return (pv, Δp.data)
 end
 
@@ -252,7 +240,7 @@ function ChainRulesCore.rrule(
     optimizer = HiGHS.Optimizer,
     silent = false,
 )
-    model = Model(() -> DiffOpt.diff_optimizer(optimizer))
+    model = DiffOpt.diff_model(optimizer)
     ## solve the forward UC problem
     pv = unit_commitment(
         load1_demand,
@@ -263,33 +251,17 @@ function ChainRulesCore.rrule(
         silent = silent,
     )
     function pullback_unit_commitment(pb)
-        p = model[:p]
-        u = model[:u]
-        energy_balance_cons = model[:energy_balance_cons]
-
-        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), p, pb)
-        DiffOpt.reverse_differentiate!(JuMP.backend(model))
-
-        obj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
-
-        ## computing derivative wrt linear objective costs
-        dgen_costs = similar(gen_costs)
-        dgen_costs[1] = sum(JuMP.coefficient.(obj, p[1, :]))
-        dgen_costs[2] = sum(JuMP.coefficient.(obj, p[2, :]))
-
-        dnoload_costs = similar(noload_costs)
-        dnoload_costs[1] = sum(JuMP.coefficient.(obj, u[1, :]))
-        dnoload_costs[2] = sum(JuMP.coefficient.(obj, u[2, :]))
-
-        ## computing derivative wrt constraint constant
-        dload1_demand = JuMP.constant.(
-            MOI.get.(
-                model,
-                DiffOpt.ReverseConstraintFunction(),
-                energy_balance_cons,
-            ),
-        )
-        dload2_demand = copy(dload1_demand)
+        ## set sensitivities
+        DiffOpt.set_reverse_variable.(model, model[:p], pb)
+        ## compute the gradients
+        DiffOpt.reverse_differentiate!(model)
+        ## retrieve the gradients with respect to the parameters
+        dload1_demand =
+            DiffOpt.get_reverse_parameter.(model, model[:load1_demand])
+        dload2_demand =
+            DiffOpt.get_reverse_parameter.(model, model[:load2_demand])
+        dgen_costs = DiffOpt.get_reverse_parameter.(model, model[:Cp])
+        dnoload_costs = DiffOpt.get_reverse_parameter.(model, model[:Cnl])
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
     end
     return (pv, pullback_unit_commitment)

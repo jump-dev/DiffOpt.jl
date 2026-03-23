@@ -13,6 +13,9 @@ const MOIDD = MOI.Utilities.DoubleDicts
 
 Base.@kwdef mutable struct InputCache
     dx::Dict{MOI.VariableIndex,Float64} = Dict{MOI.VariableIndex,Float64}()# dz for QP
+    dy::Dict{MOI.ConstraintIndex,Float64} = Dict{MOI.ConstraintIndex,Float64}()
+    # Dual sensitivity currently only works for NonLinearProgram
+    dobj::Float64 = 0.0 # Objective input sensitivity for reverse differentiation
     # ds
     # dy #= [d\lambda, d\nu] for QP
     # FIXME Would it be possible to have a DoubleDict where the value depends
@@ -20,15 +23,22 @@ Base.@kwdef mutable struct InputCache
     #       concrete value types.
     # `scalar_constraints` and `vector_constraints` includes `A` and `b` for CPs
     # or `G` and `h` for QPs
+    parameter_constraints::Dict{MOI.ConstraintIndex,Float64} =
+        Dict{MOI.ConstraintIndex,Float64}() # Specifically for NonLinearProgram
     scalar_constraints::MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}} =
         MOIDD.DoubleDict{MOI.ScalarAffineFunction{Float64}}() # also includes G for QPs
     vector_constraints::MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}} =
         MOIDD.DoubleDict{MOI.VectorAffineFunction{Float64}}() # also includes G for QPs
     objective::Union{Nothing,MOI.AbstractScalarFunction} = nothing
+    factorization::Union{Nothing,Function} = nothing
+    allow_objective_and_solution_input::Bool = false
 end
 
 function Base.empty!(cache::InputCache)
     empty!(cache.dx)
+    empty!(cache.dy)
+    cache.dobj = 0.0
+    empty!(cache.parameter_constraints)
     empty!(cache.scalar_constraints)
     empty!(cache.vector_constraints)
     cache.objective = nothing
@@ -59,6 +69,17 @@ The output solution differentials can be queried with the attribute
 function forward_differentiate! end
 
 """
+    empty_input_sensitivities!(model::MOI.ModelLike)
+
+Empty the input sensitivities of the model.
+Sets to zero all the sensitivities set by the user with method such as:
+- `MOI.set(model, DiffOpt.ReverseVariablePrimal(), variable_index, value)`
+- `MOI.set(model, DiffOpt.ForwardObjectiveFunction(), expression)`
+- `MOI.set(model, DiffOpt.ForwardConstraintFunction(), index, expression)`
+"""
+function empty_input_sensitivities! end
+
+"""
     ForwardObjectiveFunction <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to set input data to forward differentiation, that
@@ -77,6 +98,34 @@ where `x` and `y` are the relevant `MOI.VariableIndex`.
 struct ForwardObjectiveFunction <: MOI.AbstractModelAttribute end
 
 """
+    NonLinearKKTJacobianFactorization <: MOI.AbstractModelAttribute
+
+A `MOI.AbstractModelAttribute` to set which factorization method to use for the
+nonlinear KKT Jacobian matrix, necessary for the implict function
+diferentiation for `NonLinearProgram` models.
+
+The function will be called with the following signature:
+```julia
+function factorization(M::SparseMatrixCSC{T<Real}, # The matrix to factorize
+    model::NonLinearProgram.Model (can be ignored - useful for inertia correction)
+)
+```
+
+* `M` is the matrix to factorize.
+* `model` is the nonlinear model data that generated `M`. This can be used for
+some factorization techniques such as LU with inertia correction.
+
+Can be set by the user to use a custom factorization function:
+
+```julia
+MOI.set(model, DiffOpt.NonLinearKKTJacobianFactorization(), factorization)
+```
+"""
+struct NonLinearKKTJacobianFactorization <: MOI.AbstractModelAttribute end
+
+struct AllowObjectiveAndSolutionInput <: MOI.AbstractModelAttribute end
+
+"""
     ForwardConstraintFunction <: MOI.AbstractConstraintAttribute
 
 A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
@@ -92,6 +141,16 @@ Note that we use `-5` as the `ForwardConstraintFunction` sets the tangent of the
 ConstraintFunction so we consider the expression `θ * (x + 2y - 5)`.
 """
 struct ForwardConstraintFunction <: MOI.AbstractConstraintAttribute end
+
+"""
+    ForwardConstraintSet <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to set input data to forward differentiation, that
+is, problem input data.
+
+Currently, this only works for the set `MOI.Parameter`.
+"""
+struct ForwardConstraintSet <: MOI.AbstractConstraintAttribute end
 
 """
     ForwardVariablePrimal <: MOI.AbstractVariableAttribute
@@ -123,6 +182,63 @@ MOI.set(model, DiffOpt.ReverseVariablePrimal(), x)
 ```
 """
 struct ReverseVariablePrimal <: MOI.AbstractVariableAttribute end
+
+"""
+    ReverseConstraintDual <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to set input data from reverse differentiation.
+
+For instance, to set the sensitivity `value` with respect to the dual variable of constraint
+with index `ci` do the following:
+```julia
+MOI.set(model, DiffOpt.ReverseConstraintDual(), ci, value)
+```
+"""
+struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
+
+"""
+    ReverseObjectiveSensitivity <: MOI.AbstractModelAttribute
+
+A `MOI.AbstractModelAttribute` to set input data for reverse differentiation.
+
+For instance, to set the sensitivity of the parameter perturbation with respect to the
+objective function perturbation, do the following:
+
+```julia
+MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), value)
+```
+"""
+struct ReverseObjectiveSensitivity <: MOI.AbstractModelAttribute end
+
+"""
+    ForwardConstraintDual <: MOI.AbstractConstraintAttribute
+
+A `MOI.AbstractConstraintAttribute` to get output data from forward differentiation for the dual variable.
+
+For instance, to get the sensitivity of the dual of constraint of index `ci` with respect to the parameter perturbation, do the following:
+
+```julia
+MOI.get(model, DiffOpt.ForwardConstraintDual(), ci)
+```
+"""
+struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
+
+MOI.is_set_by_optimize(::ForwardConstraintDual) = true
+
+"""
+    ForwardObjectiveSensitivity <: MOI.AbstractModelAttribute
+
+A `MOI.AbstractModelAttribute` to get output objective sensitivity data from forward differentiation.
+
+For instance, to get the sensitivity of the objective function with respect to the parameter perturbation, do the following:
+
+```julia
+MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+```
+"""
+struct ForwardObjectiveSensitivity <: MOI.AbstractModelAttribute end
+
+MOI.is_set_by_optimize(::ForwardObjectiveSensitivity) = true
 
 """
     ReverseObjectiveFunction <: MOI.AbstractModelAttribute
@@ -179,6 +295,18 @@ struct ReverseConstraintFunction <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::ReverseConstraintFunction) = true
 
 """
+    ReverseConstraintSet
+
+An `MOI.AbstractConstraintAttribute` to get output data to reverse differentiation, that
+is, problem input data.
+
+Currently, this only works for the set `MOI.Parameter`.
+"""
+struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
+
+MOI.is_set_by_optimize(::ReverseConstraintSet) = true
+
+"""
     DifferentiateTimeSec()
 
 A model attribute for the total elapsed time (in seconds) for computing
@@ -198,6 +326,11 @@ Model supporting [`forward_differentiate!`](@ref) and
 """
 abstract type AbstractModel <: MOI.ModelLike end
 
+function empty_input_sensitivities!(model::AbstractModel)
+    empty!(model.input_cache)
+    return
+end
+
 MOI.supports_incremental_interface(::AbstractModel) = true
 
 function MOI.is_valid(model::AbstractModel, idx::MOI.Index)
@@ -211,6 +344,8 @@ end
 function MOI.add_variables(model::AbstractModel, n)
     return MOI.add_variables(model.model, n)
 end
+
+# TODO: add support for add_constrained_variable(s) and supports_
 
 function MOI.Utilities.pass_nonvariable_constraints(
     dest::AbstractModel,
@@ -257,6 +392,25 @@ function _enlarge_set(vec::Vector, idx, value)
     return
 end
 
+# The following `supports` methods are needed because
+# `MOI.set(::MOI.ModelLike, ::SlackBridgePrimalDualStart, ::SlackBridge, ::Nothing)`
+# checks that the model supports these starting value attributes.
+function MOI.supports(
+    ::AbstractModel,
+    ::MOI.VariablePrimalStart,
+    ::Type{<:MOI.VariableIndex},
+)
+    return true
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::Union{MOI.ConstraintDualStart,MOI.ConstraintPrimalStart},
+    ::Type{<:MOI.ConstraintIndex},
+)
+    return true
+end
+
 function MOI.get(
     model::AbstractModel,
     ::MOI.VariablePrimalStart,
@@ -282,6 +436,24 @@ end
 
 function MOI.set(
     model::AbstractModel,
+    ::NonLinearKKTJacobianFactorization,
+    factorization::Function,
+)
+    model.input_cache.factorization = factorization
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
+    ::AllowObjectiveAndSolutionInput,
+    allow::Bool,
+)
+    model.input_cache.allow_objective_and_solution_input = allow
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
     ::ReverseVariablePrimal,
     vi::MOI.VariableIndex,
     val,
@@ -292,10 +464,25 @@ end
 
 function MOI.set(
     model::AbstractModel,
+    ::ReverseConstraintDual,
+    vi::MOI.ConstraintIndex,
+    val,
+)
+    model.input_cache.dy[vi] = val
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
     ::ForwardConstraintFunction,
     ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
     func::MOI.ScalarAffineFunction{T},
 ) where {T,S}
+    if MOI.supports_add_constrained_variable(model.model, MOI.Parameter{T})
+        error(
+            "The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.",
+        )
+    end
     model.input_cache.scalar_constraints[ci] = func
     return
 end
@@ -306,7 +493,27 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{T},S},
     func::MOI.VectorAffineFunction{T},
 ) where {T,S}
+    if MOI.supports_add_constrained_variable(model.model, MOI.Parameter{T})
+        error(
+            "The model with type $(typeof(model)) does support Parameters, so setting ForwardConstraintFunction fails.",
+        )
+    end
     model.input_cache.vector_constraints[ci] = func
+    return
+end
+
+function MOI.set(
+    model::AbstractModel,
+    ::ForwardConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+    set::MOI.Parameter{T},
+) where {T}
+    if !MOI.supports_add_constrained_variable(model.model, MOI.Parameter{T})
+        error(
+            "The model with type $(typeof(model)) does not support Parameters",
+        )
+    end
+    model.input_cache.parameter_constraints[ci] = set.value
     return
 end
 
@@ -540,6 +747,26 @@ function _push_term(
     term::MOI.VectorAffineTerm,
 )
     return _push_term(I, J, V, neg, r[term.output_index], term.scalar_term)
+end
+
+function MOI.supports(::AbstractModel, ::MOI.Name)
+    return false
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::MOI.VariableName,
+    ::Type{MOI.VariableIndex},
+)
+    return false
+end
+
+function MOI.supports(
+    ::AbstractModel,
+    ::MOI.ConstraintName,
+    ::Type{MOI.ConstraintIndex{F,S}},
+) where {F,S}
+    return false
 end
 
 function MOI.supports(model::AbstractModel, attr::MOI.AbstractModelAttribute)

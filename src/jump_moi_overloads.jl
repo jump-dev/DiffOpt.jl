@@ -3,6 +3,15 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+# FIXME
+# Some function in this file are overloads to skip JuMP dirty state.
+# Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
+# This workaround is necessary because once some attributes are set the JuMP
+# model changes to a dirty state, then getting some attributes is blocked.
+# However, getting and setting forward and backward sensitivities is
+# done after the model is optimized, so we add function to bypass the
+# dirty state.
+
 function MOI.set(
     model::JuMP.Model,
     attr::ForwardObjectiveFunction,
@@ -10,6 +19,22 @@ function MOI.set(
 )
     JuMP.check_belongs_to_model(func, model)
     return MOI.set(model, attr, JuMP.moi_function(func))
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::NonLinearKKTJacobianFactorization,
+    factorization::Function,
+)
+    return MOI.set(JuMP.backend(model), attr, factorization)
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::AllowObjectiveAndSolutionInput,
+    allow::Bool,
+)
+    return MOI.set(JuMP.backend(model), attr, allow)
 end
 
 function MOI.set(
@@ -39,6 +64,16 @@ function MOI.set(
     return MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
 end
 
+function MOI.get(
+    model::JuMP.Model,
+    attr::ForwardConstraintDual,
+    con_ref::JuMP.ConstraintRef,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    moi_func = MOI.get(JuMP.backend(model), attr, JuMP.index(con_ref))
+    return JuMP.jump_function(model, moi_func)
+end
+
 function MOI.get(model::JuMP.Model, attr::ReverseObjectiveFunction)
     func = MOI.get(JuMP.backend(model), attr)
     return JuMP.jump_function(model, func)
@@ -54,7 +89,7 @@ function MOI.get(
     return JuMP.jump_function(model, moi_func)
 end
 
-# FIXME Workaround for https://github.com/jump-dev/JuMP.jl/issues/2797
+# see FIXME comment in the top of the file
 function _moi_get_result(model::MOI.ModelLike, args...)
     if MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
         throw(OptimizeNotCalled())
@@ -78,6 +113,35 @@ function MOI.get(
 )
     JuMP.check_belongs_to_model(var_ref, model)
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
+end
+
+function MOI.get(
+    model::JuMP.Model,
+    attr::ReverseConstraintSet,
+    var_ref::JuMP.ConstraintRef,
+)
+    JuMP.check_belongs_to_model(var_ref, model)
+    return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintSet,
+    con_ref::JuMP.ConstraintRef,
+    set::MOI.AbstractScalarSet,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(JuMP.backend(model), attr, JuMP.index(con_ref), set)
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintSet,
+    con_ref::JuMP.ConstraintRef,
+    set::JuMP.AbstractScalarSet,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(model, attr, con_ref, JuMP.moi_set(set))
 end
 
 """
@@ -307,6 +371,11 @@ function forward_differentiate!(model::JuMP.Model)
     return forward_differentiate!(JuMP.backend(model))
 end
 
+function empty_input_sensitivities!(model::JuMP.Model)
+    empty_input_sensitivities!(JuMP.backend(model))
+    return
+end
+
 # MOI.Utilities
 
 function reverse_differentiate!(model::MOI.Utilities.CachingOptimizer)
@@ -317,6 +386,11 @@ function forward_differentiate!(model::MOI.Utilities.CachingOptimizer)
     return forward_differentiate!(model.optimizer)
 end
 
+function empty_input_sensitivities!(model::MOI.Utilities.CachingOptimizer)
+    empty_input_sensitivities!(model.optimizer)
+    return
+end
+
 # MOIB
 
 function reverse_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer)
@@ -325,4 +399,9 @@ end
 
 function forward_differentiate!(model::MOI.Bridges.AbstractBridgeOptimizer)
     return forward_differentiate!(model.model)
+end
+
+function empty_input_sensitivities!(model::MOI.Bridges.AbstractBridgeOptimizer)
+    empty_input_sensitivities!(model.model)
+    return
 end

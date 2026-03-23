@@ -45,10 +45,10 @@ Random.seed!(42)
 
 N = 150
 
-w = 2 * abs(randn())
+w_orig = 2 * abs(randn())
 b = rand()
 X = randn(N)
-Y = w * X .+ b + 0.8 * randn(N);
+Y = w_orig * X .+ b + 0.8 * randn(N);
 
 # The helper method `fit_ridge` defines and solves the corresponding model.
 # The ridge regression is modeled with quadratic programming
@@ -56,19 +56,29 @@ Y = w * X .+ b + 0.8 * randn(N);
 # of Ipopt. This is not the standard way of solving the ridge regression problem
 # this is done here for didactic purposes.
 
-function fit_ridge(X, Y, alpha = 0.1)
-    N = length(Y)
+function build_fit_ridge(X_data, Y_data, alpha = 0.1)
+    N = length(Y_data)
     ## Initialize a JuMP Model with Ipopt solver
-    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    ## model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer)) # TODO: this is not auto detecting scalar nonlinear function (alpha * w * w)
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
     set_silent(model)
     @variable(model, w) # angular coefficient
     @variable(model, b) # linear coefficient
+    @variable(model, α in Parameter(alpha)) # regularization parameter
+    @variable(model, X[1:N] in Parameter.(X_data))
+    @variable(model, Y[1:N] in Parameter.(Y_data))
     ## expression defining approximation error
     @expression(model, e[i=1:N], Y[i] - w * X[i] - b)
     ## objective minimizing squared error and ridge penalty
-    @objective(model, Min, 1 / N * dot(e, e) + alpha * (w^2))
+    @objective(model, Min, 1 / N * dot(e, e) + α * (w^2))
     optimize!(model)
-    return model, w, b # return model & variables
+    return model
+end
+
+function optimize_fit_ridge!(model, alpha)
+    set_parameter_value(model[:α], alpha)
+    optimize!(model)
+    return model[:w], model[:b]
 end
 
 # Plot the data points and the fitted line for different alpha values
@@ -77,8 +87,9 @@ p = Plots.scatter(X, Y; label = nothing, legend = :topleft)
 mi, ma = minimum(X), maximum(X)
 Plots.title!("Fitted lines and points")
 
+model = build_fit_ridge(X, Y)
 for alpha in 0.5:0.5:1.5
-    local model, w, b = fit_ridge(X, Y, alpha)
+    local w, b = optimize_fit_ridge!(model, alpha)
     ŵ = value(w)
     b̂ = value(b)
     Plots.plot!(
@@ -98,36 +109,25 @@ p
 # respect to perturbations in the data points (`x`,`y`).
 
 alpha = 0.4
-model, w, b = fit_ridge(X, Y, alpha)
+w, b = optimize_fit_ridge!(model, alpha)
 ŵ = value(w)
 b̂ = value(b)
-
-# We first compute sensitivity of the slope with respect to a perturbation of the independent
-# variable `x`.
-
-# Recalling that the points $(x_i, y_i)$ appear in the objective function as:
-# `(yi - b - w*xi)^2`, the `DiffOpt.ForwardObjectiveFunction` attribute must be set accordingly,
-# with the terms multiplying the parameter in the objective.
-# When considering the perturbation of a parameter θ, `DiffOpt.ForwardObjectiveFunction()` takes in the expression in the
-# objective that multiplies θ.
-# If θ appears with a quadratic and a linear form: `θ^2 a x + θ b y`, then the expression to pass to
-# `ForwardObjectiveFunction` is `2θ a x + b y`.
 
 # Sensitivity with respect to x and y
 
 ∇y = zero(X)
 ∇x = zero(X)
 for i in 1:N
-    MOI.set(
-        model,
-        DiffOpt.ForwardObjectiveFunction(),
-        2w^2 * X[i] + 2b * w - 2 * w * Y[i],
-    )
+    ## X[i] sensitivity
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, model[:X][i], 1.0)
     DiffOpt.forward_differentiate!(model)
-    ∇x[i] = MOI.get(model, DiffOpt.ForwardVariablePrimal(), w)
-    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), (2Y[i] - 2b - 2w * X[i]))
+    ∇x[i] = DiffOpt.get_forward_variable(model, w)
+    ## Y[i] sensitivity
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, model[:Y][i], 1.0)
     DiffOpt.forward_differentiate!(model)
-    ∇y[i] = MOI.get(model, DiffOpt.ForwardVariablePrimal(), w)
+    ∇y[i] = DiffOpt.get_forward_variable(model, w)
 end
 
 # Visualize point sensitivities with respect to regression points.

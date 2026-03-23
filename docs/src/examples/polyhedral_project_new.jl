@@ -40,17 +40,23 @@ Polytope(w::NTuple{N}) where {N} = Polytope{N}(w, randn(N))
 # We define a "call" operation on the polytope, making it a so-called functor.
 # Calling the polytope with a matrix `y` operates an Euclidean projection of this matrix onto the polytope.
 function (polytope::Polytope{N})(
-    y::AbstractMatrix;
-    model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer)),
+    y_data::AbstractMatrix;
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer),
 ) where {N}
-    layer_size, batch_size = size(y)
+    layer_size, batch_size = size(y_data)
     empty!(model)
     set_silent(model)
     @variable(model, x[1:layer_size, 1:batch_size])
+    @variable(model, y[1:layer_size, 1:batch_size] in Parameter.(y_data))
+    @variable(model, b[idx=1:N] in Parameter.(polytope.b[idx]))
+    @variable(
+        model,
+        w[idx=1:N, i=1:layer_size] in Parameter(polytope.w[idx][i])
+    )
     @constraint(
         model,
         greater_than_cons[idx in 1:N, sample in 1:batch_size],
-        dot(polytope.w[idx], x[:, sample]) ≥ polytope.b[idx]
+        dot(polytope.w[idx], x[:, sample]) ≥ b[idx]
     )
     @objective(model, Min, dot(x - y, x - y))
     optimize!(model)
@@ -70,38 +76,33 @@ Flux.@functor Polytope
 
 function ChainRulesCore.rrule(
     polytope::Polytope{N},
-    y::AbstractMatrix,
+    y_data::AbstractMatrix,
 ) where {N}
-    model = direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
-    xv = polytope(y; model = model)
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    xv = polytope(y_data; model = model)
     function pullback_matrix_projection(dl_dx)
         dl_dx = ChainRulesCore.unthunk(dl_dx)
         ##  `dl_dy` is the derivative of `l` wrt `y`
         x = model[:x]::Matrix{JuMP.VariableRef}
+        y = model[:y]::Matrix{JuMP.VariableRef}
+        w = model[:w]::Matrix{JuMP.VariableRef}
+        b = model[:b]::Vector{JuMP.VariableRef}
         layer_size, batch_size = size(x)
-        ## grad wrt input parameters
-        dl_dy = zeros(size(x))
-        ## grad wrt layer parameters
-        dl_dw = zero.(polytope.w)
-        dl_db = zero(polytope.b)
         ## set sensitivities
-        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, dl_dx)
+        for i in eachindex(x)
+            DiffOpt.set_reverse_variable(model, x[i], dl_dx[i])
+        end
         ## compute grad
         DiffOpt.reverse_differentiate!(model)
         ## compute gradient wrt objective function parameter y
-        obj_expr = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
-        dl_dy .= -2 * JuMP.coefficient.(obj_expr, x)
-        greater_than_cons = model[:greater_than_cons]
-        for idx in 1:N, sample in 1:batch_size
-            cons_expr = MOI.get(
-                model,
-                DiffOpt.ReverseConstraintFunction(),
-                greater_than_cons[idx, sample],
-            )
-            dl_db[idx] -= JuMP.constant(cons_expr) / batch_size
-            dl_dw[idx] .+=
-                JuMP.coefficient.(cons_expr, x[:, sample]) / batch_size
+        dl_dy = DiffOpt.get_reverse_parameter.(model, y)
+        ## compute gradient wrt objective function parameter w and b
+        _dl_dw = DiffOpt.get_reverse_parameter.(model, w)
+        dl_dw = zero.(polytope.w)
+        for idx in 1:N
+            dl_dw[idx] .= _dl_dw[idx, :]
         end
+        dl_db = DiffOpt.get_reverse_parameter.(model, b)
         dself = ChainRulesCore.Tangent{Polytope{N}}(; w = dl_dw, b = dl_db)
         return (dself, dl_dy)
     end
@@ -136,7 +137,7 @@ test_Y = Flux.onehotbatch(test_labels, 0:9);
 # The original data is repeated `epochs` times because `Flux.train!` only
 # loops through the data set once
 
-epochs = 50
+epochs = 5
 dataset = repeated((train_X, train_Y), epochs);
 
 # ## Network training

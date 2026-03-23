@@ -1,0 +1,29 @@
+name: Documentation
+on:
+  push:
+    branches: [master]
+    tags: '*'
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  pull-requests: read  # Required when using `push_preview=true`
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - name: Install dependencies
+        shell: julia --color=yes --project=docs/ {0}
+        run: |
+          using Pkg
+          Pkg.develop(PackageSpec(path=pwd()))
+          Pkg.instantiate()
+      - name: Build and deploy
+        run: julia --project=docs --color=yes docs/make.jl
+        env:
+          DATADEPS_ALWAYS_ACCEPT: true # For MLDatasets.MNIST
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}

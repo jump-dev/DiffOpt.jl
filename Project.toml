@@ -1,7 +1,7 @@
 name = "DiffOpt"
 uuid = "930fe3bc-9c6b-11ea-2d94-6184641e85e7"
-authors = ["Akshay Sharma", "Mathieu Besançon", "Joaquim Dias Garcia", "Benoît Legat", "Oscar Dowson"]
-version = "0.4.2"
+version = "0.5.5"
+authors = ["Akshay Sharma", "Mathieu Besançon", "Joaquim Dias Garcia", "Benoît Legat", "Oscar Dowson", "Andrew Rosemberg"]
 
 [deps]
 BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
@@ -12,14 +12,16 @@ LazyArrays = "5078a376-72f3-5289-bfd5-ec5146d43c02"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 MathOptSetDistances = "3b969827-a86c-476c-9527-bb6f1a8fbad5"
+ParametricOptInterface = "0ce4ce61-57bf-432b-a095-efac525d185e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-BlockDiagonals = "0.1"
+BlockDiagonals = "0.1, 0.2"
 ChainRulesCore = "1"
 IterativeSolvers = "0.9"
 JuMP = "1"
-LazyArrays = "0.21, 0.22, 1"
-MathOptInterface = "1.14.1"
-MathOptSetDistances = "0.2.7"
+LazyArrays = "1, 2"
+MathOptInterface = "1.18"
+MathOptSetDistances = "0.2.9"
+ParametricOptInterface = "0.15.1"
 julia = "1.6"

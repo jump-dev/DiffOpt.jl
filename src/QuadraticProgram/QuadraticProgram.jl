@@ -335,8 +335,8 @@ function DiffOpt.reverse_differentiate!(model::Model)
         partial_grads = -solve_system(solver, LHS, RHS, iterative)
 
         dz = partial_grads[1:nv]
-        dλ = partial_grads[nv+1:nv+nineq]
-        dν = partial_grads[nv+nineq+1:end]
+        dλ = partial_grads[(nv+1):(nv+nineq)]
+        dν = partial_grads[(nv+nineq+1):end]
 
         model.back_grad_cache = ForwardReverseCache(dz, dλ, dν)
     end
@@ -437,8 +437,8 @@ function DiffOpt.forward_differentiate!(model::Model)
         solver = model.linear_solver
         partial_grads = -solve_system(solver, LHS', RHS, iterative)
         dz = partial_grads[1:nv]
-        dλ = partial_grads[nv+1:nv+length(λ)]
-        dν = partial_grads[nv+length(λ)+1:end]
+        dλ = partial_grads[(nv+1):(nv+length(λ))]
+        dν = partial_grads[(nv+length(λ)+1):end]
 
         model.forw_grad_cache = ForwardReverseCache(dz, dλ, dν)
     end
@@ -499,6 +499,26 @@ MOI.supports(::Model, ::LinearAlgebraSolver) = true
 MOI.get(model::Model, ::LinearAlgebraSolver) = model.linear_solver
 function MOI.set(model::Model, ::LinearAlgebraSolver, linear_solver)
     return model.linear_solver = linear_solver
+end
+
+"""
+Method not supported for `DiffOpt.QuadraticProgram.Model` directly.
+However, a fallback is provided in `DiffOpt`.
+"""
+function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
+    return throw(
+        MOI.UnsupportedAttribute(DiffOpt.ForwardObjectiveSensitivity()),
+    )
+end
+
+"""
+Method not supported for `DiffOpt.QuadraticProgram.Model` directly.
+However, a fallback is provided in `DiffOpt`.
+"""
+function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
+    return throw(
+        MOI.UnsupportedAttribute(DiffOpt.ReverseObjectiveSensitivity()),
+    )
 end
 
 end

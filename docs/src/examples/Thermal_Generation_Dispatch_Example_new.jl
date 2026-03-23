@@ -34,19 +34,22 @@ import Plots
 # Define the model that will be construct given a set of parameters.
 
 function generate_model(
-    d::Float64;
+    d_data::Float64;
     g_sup::Vector{Float64},
     c_g::Vector{Float64},
     c_ϕ::Float64,
 )
     ## Creation of the Model and Parameters
-    model = Model(() -> DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    model = DiffOpt.quadratic_diff_model(HiGHS.Optimizer)
     set_silent(model)
     I = length(g_sup)
 
     ## Variables
     @variable(model, g[i in 1:I] >= 0.0)
     @variable(model, ϕ >= 0.0)
+
+    ## Parameters
+    @variable(model, d in Parameter(d_data))
 
     ## Constraints
     @constraint(model, limit_constraints_sup[i in 1:I], g[i] <= g_sup[i])
@@ -67,23 +70,21 @@ end
 function diff_forward(model::Model, ϵ::Float64 = 1.0)
     ## Initialization of parameters and references to simplify the notation
     vect_ref = [model[:g]; model[:ϕ]]
-    I = length(model[:g])
 
     ## Get the primal solution of the model
-    vect = MOI.get.(model, MOI.VariablePrimal(), vect_ref)
+    vect = value.(vect_ref)
 
-    ## Pass the perturbation to the DiffOpt Framework and set the context to Forward
-    constraint_equation = convert(MOI.ScalarAffineFunction{Float64}, ϵ)
-    MOI.set(
-        model,
-        DiffOpt.ForwardConstraintFunction(),
-        model[:demand_constraint],
-        constraint_equation,
-    )
+    ## Reset the sensitivities of the model
+    DiffOpt.empty_input_sensitivities!(model)
+
+    ## Pass the perturbation to the DiffOpt Framework
+    DiffOpt.set_forward_parameter(model, model[:d], ϵ)
+
+    ## Compute the derivatives with the Forward Mode
     DiffOpt.forward_differentiate!(model)
 
     ## Get the derivative of the model
-    dvect = MOI.get.(model, DiffOpt.ForwardVariablePrimal(), vect_ref)
+    dvect = DiffOpt.get_forward_variable.(model, vect_ref)
 
     ## Return the values as a vector
     return [vect; dvect]
@@ -92,31 +93,26 @@ end
 function diff_reverse(model::Model, ϵ::Float64 = 1.0)
     ## Initialization of parameters and references to simplify the notation
     vect_ref = [model[:g]; model[:ϕ]]
-    I = length(model[:g])
 
     ## Get the primal solution of the model
-    vect = MOI.get.(model, MOI.VariablePrimal(), vect_ref)
+    vect = value.(vect_ref)
 
     ## Set variables needed for the DiffOpt Backward Framework
-    dvect = Array{Float64,1}(undef, I + 1)
-    perturbation = zeros(I + 1)
+    dvect = Array{Float64,1}(undef, length(vect_ref))
 
     ## Loop for each primal variable
     for i in 1:(I+1)
-        ## Set the perturbation in the Primal Variables and set the context to Backward
-        perturbation[i] = ϵ
-        MOI.set.(model, DiffOpt.ReverseVariablePrimal(), vect_ref, perturbation)
+        ## Reset the sensitivities of the model
+        DiffOpt.empty_input_sensitivities!(model)
+
+        ## Pass the perturbation to the DiffOpt Framework
+        DiffOpt.set_reverse_variable.(model, vect_ref[i], ϵ)
+
+        ## Compute the derivatives with the Forward Mode
         DiffOpt.reverse_differentiate!(model)
 
-        ## Get the value of the derivative of the model
-        dvect[i] = JuMP.constant(
-            MOI.get(
-                model,
-                DiffOpt.ReverseConstraintFunction(),
-                model[:demand_constraint],
-            ),
-        )
-        perturbation[i] = 0.0
+        ## Get the derivative of the model
+        dvect[i] = DiffOpt.get_reverse_parameter(model, model[:d])
     end
 
     ## Return the values as a vector

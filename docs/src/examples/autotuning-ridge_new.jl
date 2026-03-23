@@ -1,4 +1,4 @@
-# # Auto-tuning Hyperparameters
+# # Auto-tuning Hyperparameters (JuMP API)
 
 #md # [![](https://img.shields.io/badge/show-github-579ACA.svg)](@__REPO_ROOT_URL__/docs/src/examples/autotuning-ridge.jl)
 
@@ -25,7 +25,7 @@
 
 using JuMP     # The mathematical programming modelling language
 import DiffOpt # JuMP extension for differentiable optimization
-import Ipopt    # Optimization solver that handles quadratic programs
+import Ipopt   # Optimization solver that handles quadratic programs
 import LinearAlgebra
 import Plots
 import Random
@@ -52,12 +52,17 @@ y_test = y[(l+1):N];
 
 # We implement the regularized regression problem as a function taking the problem data,
 # building a JuMP model and solving it.
+# Note the cubic term in the objective function (`α * dot(w, w)`),
+# currently this is not handled by ParametricOptInterface smoothly,
+# so we use Ipopt as the solver that support parameters as part of
+# nonlinear (here only cubic) objective functions.
 
-function fit_ridge(model, X, y, α)
-    JuMP.empty!(model)
+function build_fit_ridge(X, y, α_val = 1.0)
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
     set_silent(model)
     N, D = size(X)
     @variable(model, w[1:D])
+    @variable(model, α in Parameter(α_val))
     @expression(model, err_term, X * w - y)
     @objective(
         model,
@@ -65,10 +70,13 @@ function fit_ridge(model, X, y, α)
         LinearAlgebra.dot(err_term, err_term) / (2 * N * D) +
         α * LinearAlgebra.dot(w, w) / (2 * D),
     )
+    return model
+end
+
+function optimize_fit_ridge!(model, α_val)
+    set_parameter_value(model[:α], α_val)
     optimize!(model)
-    @assert termination_status(model) in
-            [MOI.OPTIMAL, MOI.LOCALLY_SOLVED, MOI.ALMOST_LOCALLY_SOLVED]
-    return w
+    return value.(model[:w])
 end
 
 # We can solve the problem for several values of α
@@ -77,12 +85,11 @@ end
 αs = 0.00:0.01:0.50
 mse_test = Float64[]
 mse_train = Float64[]
-model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+model = build_fit_ridge(X, y)
 (Ntest, D) = size(X_test)
 (Ntrain, D) = size(X_train)
 for α in αs
-    w = fit_ridge(model, X_train, y_train, α)
-    ŵ = value.(w)
+    ŵ = optimize_fit_ridge!(model, α)
     ŷ_test = X_test * ŵ
     ŷ_train = X_train * ŵ
     push!(mse_test, LinearAlgebra.norm(ŷ_test - y_test)^2 / (2 * Ntest * D))
@@ -120,14 +127,10 @@ Plots.title!("Normalized MSE on training and testing sets")
 function compute_dw_dα(model, w)
     D = length(w)
     dw_dα = zeros(D)
-    MOI.set(
-        model,
-        DiffOpt.ForwardObjectiveFunction(),
-        LinearAlgebra.dot(w, w) / (2 * D),
-    )
+    DiffOpt.set_forward_parameter(model, model[:α], 1.0)
     DiffOpt.forward_differentiate!(model)
     for i in 1:D
-        dw_dα[i] = MOI.get(model, DiffOpt.ForwardVariablePrimal(), w[i])
+        dw_dα[i] = DiffOpt.get_forward_variable(model, w[i])
     end
     return dw_dα
 end
@@ -136,9 +139,9 @@ end
 # we can compute the derivative of the test loss w.r.t. the parameter α
 # by composing derivatives.
 
-function d_testloss_dα(model, X_test, y_test, w, ŵ)
+function d_testloss_dα(model, X_test, y_test, ŵ)
     N, D = size(X_test)
-    dw_dα = compute_dw_dα(model, w)
+    dw_dα = compute_dw_dα(model, model[:w])
     err_term = X_test * ŵ - y_test
     return sum(eachindex(err_term)) do i
         return LinearAlgebra.dot(X_test[i, :], dw_dα) * err_term[i]
@@ -154,12 +157,11 @@ function descent(α0, max_iters = 100; fixed_step = 0.01, grad_tol = 1e-3)
     test_loss = Float64[]
     α = α0
     N, D = size(X_test)
-    model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    model = build_fit_ridge(X_train, y_train)
     for iter in 1:max_iters
-        w = fit_ridge(model, X_train, y_train, α)
-        ŵ = value.(w)
+        ŵ = optimize_fit_ridge!(model, α)
         err_term = X_test * ŵ - y_test
-        ∂α = d_testloss_dα(model, X_test, y_test, w, ŵ)
+        ∂α = d_testloss_dα(model, X_test, y_test, ŵ)
         push!(α_s, α)
         push!(∂α_s, ∂α)
         push!(test_loss, LinearAlgebra.norm(err_term)^2 / (2 * N * D))

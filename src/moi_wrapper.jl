@@ -4,12 +4,28 @@
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
 """
-    diff_optimizer(optimizer_constructor)::Optimizer
+    function diff_optimizer(
+        optimizer_constructor;
+        with_bridge_type = Float64,
+        with_cache_type = Float64,
+        with_outer_cache = !isnothing(with_bridge_type),
+        allow_parametric_opt_interface = true,
+    )
 
 Creates a `DiffOpt.Optimizer`, which is an MOI layer with an internal optimizer
 and other utility methods. Results (primal, dual and slack values) are obtained
 by querying the internal optimizer instantiated using the
 `optimizer_constructor`. These values are required for find jacobians with respect to problem data.
+
+The inner optimizer is instantiated with
+`MOI.instantiate(optimizer_constructor; with_bridge_type, with_cache_type)`;
+see the docs of `MOI.instantiate`.
+
+If `allow_parametric_opt_interface` is `true` and the inner optimizer does not
+*natively* (in the sense, without the bridge layer) supports `ParameterSet`, then
+a `ParametricOptInterface.Optimizer` layer is added.
+
+If `with_outer_cache` is `true`, an additional layer of cache is added.
 
 One define a differentiable model by using any solver of choice. Example:
 
@@ -17,42 +33,75 @@ One define a differentiable model by using any solver of choice. Example:
 julia> import DiffOpt, HiGHS
 
 julia> model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
+julia> set_attribute(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model) # optional selection of diff method
 julia> x = model.add_variable(model)
 julia> model.add_constraint(model, ...)
 ```
 """
-function diff_optimizer(optimizer_constructor)::Optimizer
-    optimizer =
-        MOI.instantiate(optimizer_constructor; with_bridge_type = Float64)
+function diff_optimizer(
+    optimizer_constructor;
+    with_bridge_type = Float64,
+    with_cache_type = Float64,
+    with_outer_cache = !isnothing(with_bridge_type),
+    allow_parametric_opt_interface = true,
+)
+    optimizer = MOI.instantiate(
+        optimizer_constructor;
+        with_bridge_type,
+        with_cache_type,
+    )
+    if allow_parametric_opt_interface &&
+       !MOI.supports_add_constrained_variable(
+        isnothing(with_bridge_type) ? optimizer : optimizer.model,
+        MOI.Parameter{Float64},
+    )
+        optimizer = POI.Optimizer(optimizer)
+    end
     # When we do `MOI.copy_to(diff, optimizer)` we need to efficiently `MOI.get`
     # the model information from `optimizer`. However, 1) `optimizer` may not
     # implement some getters or it may be inefficient and 2) the getters may be
     # unimplemented or inefficient through some bridges.
     # For this reason we add a cache layer, the same cache JuMP adds.
-    caching_opt = MOI.Utilities.CachingOptimizer(
-        MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
-        optimizer,
-    )
-    return Optimizer(caching_opt)
+    if with_outer_cache
+        optimizer = MOI.Utilities.CachingOptimizer(
+            MOI.Utilities.UniversalFallback(
+                MOI.Utilities.Model{
+                    something(with_bridge_type, with_cache_type),
+                }(),
+            ),
+            optimizer,
+        )
+    end
+    return Optimizer(optimizer)
 end
 
 mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
+    # main optimizer responsible for caching the optimization problem data
+    # and for solving the optimization problem
     optimizer::OT
 
+    # list of differentiation backends for automatic differentiation
+    # without mode selection
     model_constructors::Vector{Any}
+    # used to select a single differentiation backend
+    # if not `nothing`, it is used to select the model constructor
+    # and the above is ignored
     model_constructor::Any
 
+    # instantiated differentiation backend from the options above
     diff::Any
 
+    # mapping between the `optimizer` and the `diff` models
     index_map::Union{Nothing,MOI.Utilities.IndexMap}
 
-    # sensitivity input cache using MOI like sparse format
+    # sensitivity input cache using MOI-like sparse format
     input_cache::InputCache
 
     function Optimizer(optimizer::OT) where {OT<:MOI.ModelLike}
         output =
             new{OT}(optimizer, Any[], nothing, nothing, nothing, InputCache())
         add_all_model_constructors(output)
+        add_default_factorization(output)
         return output
     end
 end
@@ -476,18 +525,28 @@ end
 Determines which subtype of [`DiffOpt.AbstractModel`](@ref) to use for
 differentiation. When set to `nothing`, the first one out of
 `model.model_constructors` that support the problem is used.
+
+Examples:
+
+```julia
+julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.QuadraticProgram.Model)
+
+julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.ConicProgram.Model)
+
+julia> MOI.set(model, DiffOpt.ModelConstructor(), DiffOpt.NonlinearProgram.Model)
+```
 """
 struct ModelConstructor <: MOI.AbstractOptimizerAttribute end
 
 MOI.supports(::Optimizer, ::ModelConstructor) = true
-
-MOI.get(model::Optimizer, ::ModelConstructor) = model.model_constructor
 
 function MOI.set(model::Optimizer, ::ModelConstructor, model_constructor)
     model.diff = nothing
     model.model_constructor = model_constructor
     return
 end
+
+MOI.get(model::Optimizer, ::ModelConstructor) = model.model_constructor
 
 function reverse_differentiate!(model::Optimizer)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
@@ -496,11 +555,103 @@ function reverse_differentiate!(model::Optimizer)
             "Trying to compute the reverse differentiation on a model with termination status $(st)",
         )
     end
+    if !iszero(model.input_cache.dobj) &&
+       (!isempty(model.input_cache.dx) || !isempty(model.input_cache.dy))
+        if !MOI.get(model, AllowObjectiveAndSolutionInput())
+            @warn "Computing reverse differentiation with both solution sensitivities and objective sensitivities. " *
+                  "Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
+        end
+    end
     diff = _diff(model)
+    MOI.set(
+        diff,
+        NonLinearKKTJacobianFactorization(),
+        model.input_cache.factorization,
+    )
+    MOI.set(
+        diff,
+        AllowObjectiveAndSolutionInput(),
+        model.input_cache.allow_objective_and_solution_input,
+    )
     for (vi, value) in model.input_cache.dx
         MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
     end
+    for (vi, value) in model.input_cache.dy
+        MOI.set(diff, ReverseConstraintDual(), model.index_map[vi], value)
+    end
+    if !iszero(model.input_cache.dobj)
+        try
+            MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
+        catch e
+            if e isa MOI.UnsupportedAttribute
+                _fallback_set_reverse_objective_sensitivity(
+                    model,
+                    model.input_cache.dobj,
+                )
+            else
+                rethrow(e)
+            end
+        end
+    end
     return reverse_differentiate!(diff)
+end
+
+# Gradient evaluation functions for objective sensitivity fallbacks
+function _eval_gradient(::Optimizer, ::Number)
+    return Dict{MOI.VariableIndex,Float64}()
+end
+
+function _eval_gradient(::Optimizer, f::MOI.VariableIndex)
+    return Dict{MOI.VariableIndex,Float64}(f => 1.0)
+end
+
+function _eval_gradient(::Optimizer, f::MOI.ScalarAffineFunction{Float64})
+    grad = Dict{MOI.VariableIndex,Float64}()
+    for term in f.terms
+        grad[term.variable] = get(grad, term.variable, 0.0) + term.coefficient
+    end
+    return grad
+end
+
+function _eval_gradient(
+    model::Optimizer,
+    f::MOI.ScalarQuadraticFunction{Float64},
+)
+    grad = Dict{MOI.VariableIndex,Float64}()
+    for term in f.affine_terms
+        grad[term.variable] = get(grad, term.variable, 0.0) + term.coefficient
+    end
+    # MOI convention: function is 0.5 * x' * Q * x, so derivative of diagonal
+    # term 0.5 * coef * xi^2 is coef * xi (not 2 * coef * xi)
+    for term in f.quadratic_terms
+        xi, xj = term.variable_1, term.variable_2
+        coef = term.coefficient
+        xi_val = MOI.get(model, MOI.VariablePrimal(), xi)
+        xj_val = MOI.get(model, MOI.VariablePrimal(), xj)
+        if xi == xj
+            grad[xi] = get(grad, xi, 0.0) + coef * xi_val
+        else
+            grad[xi] = get(grad, xi, 0.0) + coef * xj_val
+            grad[xj] = get(grad, xj, 0.0) + coef * xi_val
+        end
+    end
+    return grad
+end
+
+function _fallback_set_reverse_objective_sensitivity(model::Optimizer, val)
+    diff = _diff(model)
+    obj_type = MOI.get(model, MOI.ObjectiveFunctionType())
+    obj_func = MOI.get(model, MOI.ObjectiveFunction{obj_type}())
+    grad = _eval_gradient(model, obj_func)
+    for (xi, df_dxi) in grad
+        MOI.set(
+            diff,
+            ReverseVariablePrimal(),
+            model.index_map[xi],
+            df_dxi * val,
+        )
+    end
+    return
 end
 
 function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
@@ -523,6 +674,35 @@ function forward_differentiate!(model::Optimizer)
         )
     end
     diff = _diff(model)
+    MOI.set(
+        diff,
+        NonLinearKKTJacobianFactorization(),
+        model.input_cache.factorization,
+    )
+    MOI.set(
+        diff,
+        AllowObjectiveAndSolutionInput(),
+        model.input_cache.allow_objective_and_solution_input,
+    )
+    T = Float64
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{T}}(),
+    )
+    parametric_diff = !isempty(list)
+    if parametric_diff # MOI.supports_constraint(model, MOI.VariableIndex, MOI.Parameter{T})
+        # @show "param mode"
+        for (vi, value) in model.input_cache.parameter_constraints
+            MOI.set(
+                diff,
+                ForwardConstraintSet(),
+                model.index_map[vi],
+                MOI.Parameter(value),
+            )
+        end
+        return forward_differentiate!(diff)
+    end
+    # @show "func mode"
     if model.input_cache.objective !== nothing
         MOI.set(
             diff,
@@ -533,7 +713,9 @@ function forward_differentiate!(model::Optimizer)
             ),
         )
     end
-    for (F, S) in keys(model.input_cache.scalar_constraints.dict)
+    for (F, S) in MOI.Utilities.DoubleDicts.nonempty_outer_keys(
+        model.input_cache.scalar_constraints,
+    )
         _copy_forward_in_constraint(
             diff,
             model.index_map,
@@ -541,7 +723,9 @@ function forward_differentiate!(model::Optimizer)
             model.input_cache.scalar_constraints[F, S],
         )
     end
-    for (F, S) in keys(model.input_cache.vector_constraints.dict)
+    for (F, S) in MOI.Utilities.DoubleDicts.nonempty_outer_keys(
+        model.input_cache.vector_constraints,
+    )
         _copy_forward_in_constraint(
             diff,
             model.index_map,
@@ -552,8 +736,16 @@ function forward_differentiate!(model::Optimizer)
     return forward_differentiate!(diff)
 end
 
-function _instantiate_with_bridges(model_constructor)
-    model = MOI.Bridges.LazyBridgeOptimizer(MOI.instantiate(model_constructor))
+function empty_input_sensitivities!(model::Optimizer)
+    empty!(model.input_cache)
+    if model.diff !== nothing
+        empty_input_sensitivities!(model.diff)
+    end
+    return
+end
+
+function _add_bridges(instantiated_model)
+    model = MOI.Bridges.LazyBridgeOptimizer(instantiated_model)
     # We don't add any variable bridge here because:
     # 1) If `ZerosBridge` is used, `MOI.Bridges.unbridged_function` does not work.
     #    This is in fact expected: since `ZerosBridge` drops the variable, we dont
@@ -566,14 +758,37 @@ function _instantiate_with_bridges(model_constructor)
     return model
 end
 
+function _instantiate_diff(model::Optimizer, constructor)
+    # parametric_diff = MOI.supports_constraint(
+    #     model,
+    #     MOI.VariableIndex,
+    #     MOI.Parameter{Float64},
+    # )
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{Float64}}(),
+    )
+    parametric_diff = !isempty(list)
+    model_instance = MOI.instantiate(constructor)
+    needs_poi =
+        !MOI.supports_add_constrained_variable(
+            model_instance,
+            MOI.Parameter{Float64},
+        )
+    model_bridged = _add_bridges(model_instance)
+    if needs_poi && parametric_diff
+        return POI.Optimizer(model_bridged)
+    end
+    return model_bridged
+end
+
 function _diff(model::Optimizer)
     if model.diff === nothing
         _check_termination_status(model)
         model_constructor = MOI.get(model, ModelConstructor())
         if isnothing(model_constructor)
-            model.diff = nothing
             for constructor in model.model_constructors
-                model.diff = _instantiate_with_bridges(constructor)
+                model.diff = _instantiate_diff(model, constructor)
                 try
                     model.index_map = MOI.copy_to(model.diff, model.optimizer)
                 catch err
@@ -590,11 +805,15 @@ function _diff(model::Optimizer)
             end
             if isnothing(model.diff)
                 error(
-                    "No differentiation model supports the problem. If you believe it should be supported, say by `DiffOpt.QuadraticProgram.Model`, use `MOI.set(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model)` and try again to see an error indicating why it is not supported.",
+                    "No differentiation model supports the problem. If you " *
+                    "believe it should be supported, say by " *
+                    "`DiffOpt.QuadraticProgram.Model`, use " *
+                    "`MOI.set(model, DiffOpt.ModelConstructor, DiffOpt.QuadraticProgram.Model)`" *
+                    "and try again to see an error indicating why it is not supported.",
                 )
             end
         else
-            model.diff = _instantiate_with_bridges(model_constructor)
+            model.diff = _instantiate_diff(model, model_constructor)
             model.index_map = MOI.copy_to(model.diff, model.optimizer)
         end
         _copy_dual(model.diff, model.optimizer, model.index_map)
@@ -633,13 +852,25 @@ end
 
 MOI.supports(::Optimizer, ::ForwardObjectiveFunction) = true
 
-function MOI.get(model::Optimizer, ::ForwardObjectiveFunction)
-    return model.input_cache.objective
-end
-
 function MOI.set(model::Optimizer, ::ForwardObjectiveFunction, objective)
+    T = Float64
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{T}}(),
+    )
+    parametric_diff = !isempty(list)
+    if parametric_diff
+        error(
+            "Cannot set forward objective function for a model with parameters. " *
+            "Use `MOI.set(model, ForwardConstraintSet(), ParameterRef(vi), Parameter(val))` instead.",
+        )
+    end
     model.input_cache.objective = objective
     return
+end
+
+function MOI.get(model::Optimizer, ::ForwardObjectiveFunction)
+    return model.input_cache.objective
 end
 
 function MOI.get(
@@ -654,12 +885,81 @@ function MOI.get(
     )
 end
 
+function MOI.get(
+    model::Optimizer,
+    attr::ReverseConstraintSet,
+    ci::MOI.ConstraintIndex,
+)
+    return MOI.get(
+        _checked_diff(model, attr, :reverse_differentiate!),
+        attr,
+        model.index_map[ci],
+    )
+end
+
+function MOI.get(
+    model::Optimizer,
+    attr::ForwardConstraintDual,
+    ci::MOI.ConstraintIndex,
+)
+    return MOI.get(
+        _checked_diff(model, attr, :reverse_differentiate!),
+        attr,
+        model.index_map[ci],
+    )
+end
+
+function MOI.get(model::Optimizer, attr::ForwardObjectiveSensitivity)
+    diff_model = _checked_diff(model, attr, :forward_differentiate!)
+    val = 0.0
+    try
+        val = MOI.get(diff_model, attr)
+    catch e
+        if e isa MOI.UnsupportedAttribute
+            val = _fallback_get_forward_objective_sensitivity(model)
+        else
+            rethrow(e)
+        end
+    end
+    return val
+end
+
+function _fallback_get_forward_objective_sensitivity(model::Optimizer)
+    obj_type = MOI.get(model, MOI.ObjectiveFunctionType())
+    obj_func = MOI.get(model, MOI.ObjectiveFunction{obj_type}())
+    grad = _eval_gradient(model, obj_func)
+    ret = 0.0
+    for (xi, df_dxi) in grad
+        dx_dp = MOI.get(model, ForwardVariablePrimal(), xi)
+        ret += df_dxi * dx_dp
+    end
+    return ret
+end
+
 function MOI.supports(
     ::Optimizer,
     ::ReverseVariablePrimal,
     ::Type{MOI.VariableIndex},
 )
     return true
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::ReverseVariablePrimal,
+    vi::MOI.VariableIndex,
+    val,
+)
+    T = Float64
+    is_param = MOI.is_valid(
+        model,
+        MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}(vi.value),
+    )
+    if is_param
+        error("Trying to set a backward variable sensitivity for a parameter")
+    end
+    model.input_cache.dx[vi] = val
+    return
 end
 
 function MOI.get(
@@ -670,14 +970,36 @@ function MOI.get(
     return get(model.input_cache.dx, vi, 0.0)
 end
 
+function MOI.supports(
+    ::Optimizer,
+    ::ReverseConstraintDual,
+    ::Type{MOI.ConstraintIndex},
+)
+    return true
+end
+
 function MOI.set(
     model::Optimizer,
-    ::ReverseVariablePrimal,
-    vi::MOI.VariableIndex,
+    ::ReverseConstraintDual,
+    ci::MOI.ConstraintIndex,
     val,
 )
-    model.input_cache.dx[vi] = val
+    model.input_cache.dy[ci] = val
     return
+end
+
+function MOI.set(model::Optimizer, ::ReverseObjectiveSensitivity, val)
+    model.input_cache.dobj = val
+    return
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::ReverseConstraintDual,
+    ci::MOI.ConstraintIndex,
+    val,
+)
+    return return get(model.input_cache.dy, ci, 0.0)
 end
 
 function MOI.get(
@@ -695,6 +1017,56 @@ function MOI.get(
     )
 end
 
+function MOI.supports(
+    ::Optimizer,
+    ::ForwardConstraintFunction,
+    ::Type{MOI.ConstraintIndex{F,S}},
+) where {F<:Union{MOI.ScalarAffineFunction,MOI.VectorAffineFunction},S}
+    return true
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::ForwardConstraintFunction,
+    ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
+    func::MOI.ScalarAffineFunction{T},
+) where {T,S}
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{T}}(),
+    )
+    parametric_diff = !isempty(list)
+    if parametric_diff
+        error(
+            "Cannot set forward constraint function for a model with parameters. " *
+            "Use `MOI.set(model, ForwardConstraintSet(), ParameterRef(vi), Parameter(val))` instead.",
+        )
+    end
+    model.input_cache.scalar_constraints[ci] = func
+    return
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::ForwardConstraintFunction,
+    ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{T},S},
+    func::MOI.VectorAffineFunction{T},
+) where {T,S}
+    list = MOI.get(
+        model,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{T}}(),
+    )
+    parametric_diff = !isempty(list)
+    if parametric_diff
+        error(
+            "Cannot set forward constraint function for a model with parameters. " *
+            "Use `MOI.set(model, ForwardConstraintSet(), ParameterRef(vi), Parameter(val))` instead.",
+        )
+    end
+    model.input_cache.vector_constraints[ci] = func
+    return
+end
+
 function MOI.get(
     model::Optimizer,
     ::ForwardConstraintFunction,
@@ -705,14 +1077,6 @@ function MOI.get(
         ci,
         zero(MOI.ScalarAffineFunction{T}),
     )
-end
-
-function MOI.supports(
-    ::Optimizer,
-    ::ForwardConstraintFunction,
-    ::Type{MOI.ConstraintIndex{F,S}},
-) where {F<:Union{MOI.ScalarAffineFunction,MOI.VectorAffineFunction},S}
-    return true
 end
 
 function MOI.get(
@@ -733,26 +1097,71 @@ function MOI.get(
     end
 end
 
-function MOI.set(
+function MOI.supports(
+    ::Optimizer,
+    ::ForwardConstraintSet,
+    ::Type{MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}}},
+) where {T}
+    return true
+end
+
+function MOI.get(
     model::Optimizer,
-    ::ForwardConstraintFunction,
-    ci::MOI.ConstraintIndex{MOI.ScalarAffineFunction{T},S},
-    func::MOI.ScalarAffineFunction{T},
-) where {T,S}
-    model.input_cache.scalar_constraints[ci] = func
-    return
+    ::ForwardConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+) where {T}
+    set = get(model.input_cache.parameter_constraints, ci, zero(T))
+    return MOI.Parameter{T}(set)
 end
 
 function MOI.set(
     model::Optimizer,
-    ::ForwardConstraintFunction,
-    ci::MOI.ConstraintIndex{MOI.VectorAffineFunction{T},S},
-    func::MOI.VectorAffineFunction{T},
-) where {T,S}
-    model.input_cache.vector_constraints[ci] = func
+    ::ForwardConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+    set::MOI.Parameter,
+) where {T}
+    model.input_cache.parameter_constraints[ci] = set.value
     return
 end
 
 function MOI.get(model::Optimizer, attr::DifferentiateTimeSec)
     return MOI.get(model.diff, attr)
+end
+
+function MOI.supports(
+    ::Optimizer,
+    ::NonLinearKKTJacobianFactorization,
+    ::Function,
+)
+    return true
+end
+
+function MOI.supports(::Optimizer, ::AllowObjectiveAndSolutionInput, ::Bool)
+    return true
+end
+
+function MOI.set(
+    model::Optimizer,
+    ::NonLinearKKTJacobianFactorization,
+    factorization,
+)
+    model.input_cache.factorization = factorization
+    return
+end
+
+function MOI.set(model::Optimizer, ::AllowObjectiveAndSolutionInput, allow)
+    model.input_cache.allow_objective_and_solution_input = allow
+    return
+end
+
+function MOI.get(model::Optimizer, ::NonLinearKKTJacobianFactorization)
+    return model.input_cache.factorization
+end
+
+function MOI.get(model::Optimizer, ::AllowObjectiveAndSolutionInput)
+    return model.input_cache.allow_objective_and_solution_input
+end
+
+function MOI.set(model::Optimizer, attr::MOI.AbstractOptimizerAttribute, value)
+    return MOI.set(model.optimizer, attr, value)
 end

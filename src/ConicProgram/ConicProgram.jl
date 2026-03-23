@@ -50,6 +50,8 @@ const Form{T} = MOI.Utilities.GenericModel{
         DiffOpt.ProductOfSets{T},
     },
 }
+
+# should the be applied on Model?
 function MOI.supports(
     ::Form{T},
     ::MOI.ObjectiveFunction{F},
@@ -91,7 +93,6 @@ mutable struct Model <: DiffOpt.AbstractModel
     input_cache::DiffOpt.InputCache
 
     x::Vector{Float64} # Primal
-    s::Vector{Float64} # Slack
     y::Vector{Float64} # Dual
     diff_time::Float64
 end
@@ -103,7 +104,6 @@ function Model()
         nothing,
         nothing,
         DiffOpt.InputCache(),
-        Float64[],
         Float64[],
         Float64[],
         NaN,
@@ -121,7 +121,6 @@ function MOI.empty!(model::Model)
     model.back_grad_cache = nothing
     empty!(model.input_cache)
     empty!(model.x)
-    empty!(model.s)
     empty!(model.y)
     model.diff_time = NaN
     return
@@ -141,6 +140,14 @@ function MOI.supports_constraint(
     return MOI.supports_constraint(model.model, F, S)
 end
 
+function MOI.supports_constraint(
+    ::Model,
+    ::Type{MOI.VectorAffineFunction{T}},
+    ::Type{MOI.PositiveSemidefiniteConeSquare},
+) where {T}
+    return false
+end
+
 function MOI.set(
     model::Model,
     ::MOI.ConstraintPrimalStart,
@@ -148,11 +155,7 @@ function MOI.set(
     value,
 )
     MOI.throw_if_not_valid(model, ci)
-    return DiffOpt._enlarge_set(
-        model.s,
-        MOI.Utilities.rows(model.model.constraints, ci),
-        value,
-    )
+    return
 end
 
 function MOI.set(
@@ -183,6 +186,12 @@ function _gradient_cache(model::Model)
         )
     b = model.model.constraints.constants
 
+    if any(isnan, model.y) || length(model.y) < length(b)
+        error(
+            "Some constraints are missing a value for the `ConstraintDualStart` attribute.",
+        )
+    end
+
     if MOI.get(model, MOI.ObjectiveSense()) == MOI.FEASIBILITY_SENSE
         c = SparseArrays.spzeros(size(A, 2))
     else
@@ -204,10 +213,12 @@ function _gradient_cache(model::Model)
     m = A.m
     n = A.n
     N = m + n + 1
+
+    slack = b - A * model.x
     # NOTE: w = 1.0 systematically since we asserted the primal-dual pair is optimal
     # `inv(M)((x, y, 1), (0, s, 0)) = (x, y, 1) - (0, s, 0)`,
     # see Minty parametrization in https://stanford.edu/~boyd/papers/pdf/cone_prog_refine.pdf
-    (u, v, w) = (model.x, model.y - model.s, 1.0)
+    (u, v, w) = (model.x, model.y - slack, 1.0)
 
     # find gradient of projections on dual of the cones
     Dπv = DiffOpt.Dπ(v, model.model, model.model.constraints.sets)
@@ -248,12 +259,12 @@ function DiffOpt.forward_differentiate!(model::Model)
         M = gradient_cache.M
         vp = gradient_cache.vp
         Dπv = gradient_cache.Dπv
-        x = model.x
-        y = model.y
-        s = model.s
         A = gradient_cache.A
         b = gradient_cache.b
         c = gradient_cache.c
+        x = model.x
+        y = model.y
+        slack = b - A * x
 
         objective_function = DiffOpt._convert(
             MOI.ScalarAffineFunction{Float64},
@@ -290,13 +301,14 @@ function DiffOpt.forward_differentiate!(model::Model)
             dAj,
             dAv,
         )
+        dAv .*= -1.0
         dA = SparseArrays.sparse(dAi, dAj, dAv, lines, cols)
 
         m = size(A, 1)
         n = size(A, 2)
         N = m + n + 1
         # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-        (u, v, w) = (x, y - s, 1.0)
+        (u, v, w) = (x, y - slack, 1.0)
 
         # g = dQ * Π(z/|w|) = dQ * [u, vp, 1.0]
         RHS = [
@@ -311,7 +323,7 @@ function DiffOpt.forward_differentiate!(model::Model)
             IterativeSolvers.lsqr(M, RHS)
         end
 
-        du, dv, dw = dz[1:n], dz[n+1:n+m], dz[n+m+1]
+        du, dv, dw = dz[1:n], dz[(n+1):(n+m)], dz[n+m+1]
         model.forw_grad_cache = ForwCache(du, dv, [dw])
     end
     return nothing
@@ -327,12 +339,12 @@ function DiffOpt.reverse_differentiate!(model::Model)
         M = gradient_cache.M
         vp = gradient_cache.vp
         Dπv = gradient_cache.Dπv
-        x = model.x
-        y = model.y
-        s = model.s
         A = gradient_cache.A
         b = gradient_cache.b
         c = gradient_cache.c
+        x = model.x
+        y = model.y
+        slack = b - A * x
 
         dx = zeros(length(c))
         for (vi, value) in model.input_cache.dx
@@ -345,13 +357,13 @@ function DiffOpt.reverse_differentiate!(model::Model)
         n = size(A, 2)
         N = m + n + 1
         # NOTE: w = 1 systematically since we asserted the primal-dual pair is optimal
-        (u, v, w) = (x, y - s, 1.0)
+        (u, v, w) = (x, y - slack, 1.0)
 
         # dz = D \phi (z)^T (dx,dy,dz)
         dz = [
             dx
             Dπv' * (dy + ds) - ds
-            -x' * dx - y' * dy - s' * ds
+            -x' * dx - y' * dy - slack' * ds
         ]
 
         g = if LinearAlgebra.norm(dz) <= 1e-4 # TODO: parametrize or remove
@@ -427,7 +439,7 @@ function DiffOpt._get_dA(
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
     #return DiffOpt.lazy_combination(-, g, πz, n .+ i, 1:n)
-    return g[n.+i] * πz[1:n]' - πz[n.+i] * g[1:n]'
+    return g[n .+ i] * πz[1:n]' - πz[n .+ i] * g[1:n]'
 end
 
 function MOI.get(
@@ -436,6 +448,26 @@ function MOI.get(
     ci::MOI.ConstraintIndex,
 )
     return MOI.get(model.model, attr, ci)
+end
+
+"""
+Method not supported for `DiffOpt.ConicProgram.Model` directly.
+However, a fallback is provided in `DiffOpt`.
+"""
+function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
+    return throw(
+        MOI.UnsupportedAttribute(DiffOpt.ForwardObjectiveSensitivity()),
+    )
+end
+
+"""
+Method not supported for `DiffOpt.ConicProgram.Model` directly.
+However, a fallback is provided in `DiffOpt`.
+"""
+function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
+    return throw(
+        MOI.UnsupportedAttribute(DiffOpt.ReverseObjectiveSensitivity()),
+    )
 end
 
 end
