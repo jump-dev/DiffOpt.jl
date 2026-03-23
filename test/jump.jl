@@ -46,7 +46,7 @@ function test_single_variable_objective_forward()
     )
     @objective(model, Max, x[7])
     optimize!(model)
-    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), sum(x))
+    DiffOpt.set_forward_objective_function(model, sum(x))
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[7]) ≈ 0 atol = ATOL
     return
@@ -69,7 +69,7 @@ function test_single_variable_objective_reverse()
     optimize!(model)
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x[7], 1.0)
     DiffOpt.reverse_differentiate!(model)
-    func = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
+    func = DiffOpt.get_reverse_objective_function(model)
     @test JuMP.coefficient(func, x[7]) ≈ 0.0 atol = ATOL rtol = RTOL
     return
 end
@@ -113,11 +113,11 @@ function test_differentiating_trivial_qp_1()
     DiffOpt.reverse_differentiate!(model)
     DiffOpt.reverse_differentiate!(model)
     grad_constraint = JuMP.constant(
-        MOI.get(model, DiffOpt.ReverseConstraintFunction(), ctr_le[1]),
+        DiffOpt.get_reverse_constraint_function(model, ctr_le[1]),
     )
     @test grad_constraint ≈ -1.0 atol = ATOL rtol = RTOL
     # Test some overloads from https://github.com/jump-dev/DiffOpt.jl/issues/211
-    grad_obj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
+    grad_obj = DiffOpt.get_reverse_objective_function(model)
     @test JuMP.coefficient(grad_obj, x[1], x[2]) ≈
           DiffOpt.quad_sym_half.(grad_obj, x[1], x[2]) atol = ATOL rtol = RTOL
     @test DiffOpt.quad_sym_half(grad_obj, x[1], x[1]) ≈
@@ -717,6 +717,59 @@ function test_conic_feasibility()
 
     DiffOpt.set_forward_parameter(model, p, 1.0)
     DiffOpt.forward_differentiate!(model)
+    return
+end
+
+function test_psd_square()
+    # min -x  s.t. [p-x 0; 0 x] ∈ PSD
+    # PSD requires 0 ≤ x ≤ p, so x* = p = 1, dx/dp = 1
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(model)
+
+    @variable(model, x)
+    @variable(model, p in Parameter(1.0))
+    @objective(model, Min, -x)
+    @constraint(model, con, [p - x 0; 0 x] in PSDCone())
+
+    optimize!(model)
+    @test is_solved_and_feasible(model)
+    @test value(x) ≈ 1.0 atol = ATOL rtol = RTOL
+
+    DiffOpt.set_forward_parameter(model, p, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    @test DiffOpt.get_forward_variable(model, x) ≈ 1.0 atol = ATOL rtol = RTOL
+    @test DiffOpt.get_forward_objective(model) ≈ -1.0 atol = ATOL rtol = RTOL
+
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_objective(model, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ -1.0 atol = ATOL rtol = RTOL
+    return
+end
+
+function test_nlp_forward_constraint_dual()
+    # min 2x² + y² + xy + x + y  s.t. x + y == p, x ≥ 0, y ≥ 0
+    # KKT gives x = p/4, y = 3p/4, dual = 7p/4 + 1
+    # At p=1: dx/dp = 1/4, dy/dp = 3/4, d(dual)/dp = 7/4
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+
+    @variable(model, x >= 0)
+    @variable(model, y >= 0)
+    @variable(model, p in Parameter(1.0))
+
+    @constraint(model, c1, x + y == p)
+    @objective(model, Min, 2x^2 + y^2 + x * y + x + y)
+    optimize!(model)
+    @test value(x) ≈ 0.25 atol = ATOL rtol = RTOL
+    @test value(y) ≈ 0.75 atol = ATOL rtol = RTOL
+
+    DiffOpt.set_forward_parameter(model, p, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    @test DiffOpt.get_forward_variable(model, x) ≈ 0.25 atol = ATOL rtol = RTOL
+    @test DiffOpt.get_forward_variable(model, y) ≈ 0.75 atol = ATOL rtol = RTOL
+    @test DiffOpt.get_forward_constraint_dual(model, c1) ≈ 1.75 atol = ATOL rtol = RTOL
+    @test DiffOpt.get_forward_objective(model) ≈ 2.75 atol = ATOL rtol = RTOL
     return
 end
 
