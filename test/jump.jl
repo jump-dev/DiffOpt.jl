@@ -112,9 +112,8 @@ function test_differentiating_trivial_qp_1()
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
     DiffOpt.reverse_differentiate!(model)
     DiffOpt.reverse_differentiate!(model)
-    grad_constraint = JuMP.constant(
-        DiffOpt.get_reverse_constraint_function(model, ctr_le[1]),
-    )
+    grad_constraint =
+        JuMP.constant(DiffOpt.get_reverse_constraint_function(model, ctr_le[1]))
     @test grad_constraint ≈ -1.0 atol = ATOL rtol = RTOL
     # Test some overloads from https://github.com/jump-dev/DiffOpt.jl/issues/211
     grad_obj = DiffOpt.get_reverse_objective_function(model)
@@ -768,7 +767,8 @@ function test_nlp_forward_constraint_dual()
     DiffOpt.forward_differentiate!(model)
     @test DiffOpt.get_forward_variable(model, x) ≈ 0.25 atol = ATOL rtol = RTOL
     @test DiffOpt.get_forward_variable(model, y) ≈ 0.75 atol = ATOL rtol = RTOL
-    @test DiffOpt.get_forward_constraint_dual(model, c1) ≈ 1.75 atol = ATOL rtol = RTOL
+    @test DiffOpt.get_forward_constraint_dual(model, c1) ≈ 1.75 atol = ATOL rtol =
+        RTOL
     @test DiffOpt.get_forward_objective(model) ≈ 2.75 atol = ATOL rtol = RTOL
     return
 end
