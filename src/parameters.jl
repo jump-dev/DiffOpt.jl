@@ -194,6 +194,69 @@ function _constraint_set_forward!(
     return
 end
 
+function _constraint_set_forward!(
+    model::POI.Optimizer{T},
+    vector_quadratic_constraint_cache_dict,
+    ::Type{P},
+) where {T,P<:POI.ParametricVectorQuadraticFunction}
+    sensitivity_data = _get_sensitivity_data(model)
+    for (inner_ci, pf) in vector_quadratic_constraint_cache_dict
+        cte = zeros(T, length(pf.c))
+        terms = MOI.VectorAffineTerm{T}[]
+        # affine parameter terms (p)
+        for term in POI.vector_affine_parameter_terms(pf)
+            p = term.scalar_term.variable
+            sensitivity = get(sensitivity_data.parameter_input_forward, p, 0.0)
+            cte[term.output_index] += sensitivity * term.scalar_term.coefficient
+        end
+        # quadratic parameter-parameter terms (pp)
+        for term in POI.vector_quadratic_parameter_parameter_terms(pf)
+            p_1 = term.scalar_term.variable_1
+            p_2 = term.scalar_term.variable_2
+            sensitivity_1 =
+                get(sensitivity_data.parameter_input_forward, p_1, 0.0)
+            sensitivity_2 =
+                get(sensitivity_data.parameter_input_forward, p_2, 0.0)
+            cte[term.output_index] +=
+                sensitivity_1 *
+                term.scalar_term.coefficient *
+                MOI.get(model, MOI.VariablePrimal(), p_2) /
+                ifelse(p_1 === p_2, 2, 1)
+            cte[term.output_index] +=
+                sensitivity_2 *
+                term.scalar_term.coefficient *
+                MOI.get(model, MOI.VariablePrimal(), p_1) /
+                ifelse(p_1 === p_2, 2, 1)
+        end
+        # quadratic parameter-variable terms (pv)
+        for term in POI.vector_quadratic_parameter_variable_terms(pf)
+            p = term.scalar_term.variable_1
+            sensitivity = get(sensitivity_data.parameter_input_forward, p, NaN)
+            if !isnan(sensitivity)
+                push!(
+                    terms,
+                    MOI.VectorAffineTerm{T}(
+                        term.output_index,
+                        MOI.ScalarAffineTerm{T}(
+                            sensitivity * term.scalar_term.coefficient,
+                            term.scalar_term.variable_2,
+                        ),
+                    ),
+                )
+            end
+        end
+        if !iszero(cte) || !isempty(terms)
+            MOI.set(
+                model.optimizer,
+                ForwardConstraintFunction(),
+                inner_ci,
+                MOI.VectorAffineFunction{T}(terms, cte),
+            )
+        end
+    end
+    return
+end
+
 function _affine_objective_set_forward!(model::POI.Optimizer{T}) where {T}
     cte = zero(T)
     terms = MOI.ScalarAffineTerm{T}[]
@@ -626,6 +689,60 @@ function _constraint_get_reverse!(
             value = get!(sensitivity_data.parameter_output_backward, p, 0.0)
             sensitivity_data.parameter_output_backward[p] =
                 value + term.coefficient * JuMP.coefficient(grad_pf, v) # * fixed value of the parameter ?
+        end
+    end
+    return
+end
+
+function _constraint_get_reverse!(
+    model::POI.Optimizer{T},
+    vector_quadratic_constraint_cache_dict,
+    ::Type{P},
+) where {T,P<:POI.ParametricVectorQuadraticFunction}
+    sensitivity_data = _get_sensitivity_data(model)
+    for (inner_ci, pf) in vector_quadratic_constraint_cache_dict
+        p_terms = POI.vector_affine_parameter_terms(pf)
+        pp_terms = POI.vector_quadratic_parameter_parameter_terms(pf)
+        pv_terms = POI.vector_quadratic_parameter_variable_terms(pf)
+        if isempty(p_terms) && isempty(pp_terms) && isempty(pv_terms)
+            continue
+        end
+        grad_pf =
+            MOI.get(model.optimizer, ReverseConstraintFunction(), inner_ci)
+        grad_pf_cte = MOI.constant(grad_pf)
+        for term in p_terms
+            p = term.scalar_term.variable
+            value = get!(sensitivity_data.parameter_output_backward, p, 0.0)
+            sensitivity_data.parameter_output_backward[p] =
+                value +
+                term.scalar_term.coefficient * grad_pf_cte[term.output_index]
+        end
+        for term in pp_terms
+            p_1 = term.scalar_term.variable_1
+            p_2 = term.scalar_term.variable_2
+            value_1 = get!(sensitivity_data.parameter_output_backward, p_1, 0.0)
+            value_2 = get!(sensitivity_data.parameter_output_backward, p_2, 0.0)
+            sensitivity_data.parameter_output_backward[p_1] =
+                value_1 +
+                term.scalar_term.coefficient *
+                grad_pf_cte[term.output_index] *
+                MOI.get(model, MOI.VariablePrimal(), p_2) /
+                ifelse(p_1 === p_2, 1, 1)
+            sensitivity_data.parameter_output_backward[p_2] =
+                value_2 +
+                term.scalar_term.coefficient *
+                grad_pf_cte[term.output_index] *
+                MOI.get(model, MOI.VariablePrimal(), p_1) /
+                ifelse(p_1 === p_2, 1, 1)
+        end
+        for term in pv_terms
+            p = term.scalar_term.variable_1
+            v = term.scalar_term.variable_2
+            value = get!(sensitivity_data.parameter_output_backward, p, 0.0)
+            sensitivity_data.parameter_output_backward[p] =
+                value +
+                term.scalar_term.coefficient *
+                JuMP.coefficient(grad_pf, v, term.output_index)
         end
     end
     return

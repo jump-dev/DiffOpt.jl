@@ -104,6 +104,88 @@ function MOI.set(
     return MOI.set(model, attr, bridge.constraint, mapped_func)
 end
 
+"""
+    _square_offset(s::MOI.AbstractSymmetricMatrixSetSquare)
+
+Number of extra entries before the matrix in a square-form set.
+Own implementation to avoid depending on the private
+`MOI.Bridges.Constraint._square_offset`.
+"""
+_square_offset(::MOI.AbstractSymmetricMatrixSetSquare) = 0
+_square_offset(::MOI.RootDetConeSquare) = 1
+_square_offset(::MOI.LogDetConeSquare) = 2
+
+function _square_to_triangle_indices(
+    bridge::MOI.Bridges.Constraint.SquareBridge,
+)
+    s = bridge.square_set
+    dim = MOI.side_dimension(s)
+    offset = _square_offset(s)
+    upper_triangle_indices = collect(1:offset)
+    sizehint!(upper_triangle_indices, offset + div(dim * (dim + 1), 2))
+    k = offset
+    for j in 1:dim
+        for i in 1:j
+            k += 1
+            push!(upper_triangle_indices, k)
+        end
+        k += dim - j
+    end
+    return upper_triangle_indices
+end
+
+"""
+    _triangle_to_square_scalars(tri_scalars, s)
+
+Expand triangle-vectorized scalars to square column-major form, mirroring
+off-diagonal entries. `s` is the square set (e.g. `PositiveSemidefiniteConeSquare`).
+"""
+function _triangle_to_square_scalars(tri_scalars, s)
+    dim = MOI.side_dimension(s)
+    offset = _square_offset(s)
+    square_dim = offset + dim * dim
+    square = Vector{eltype(tri_scalars)}(undef, square_dim)
+    for i in 1:offset
+        square[i] = tri_scalars[i]
+    end
+    tri_k = offset
+    for j in 1:dim
+        for i in 1:j
+            tri_k += 1
+            ij = offset + i + (j - 1) * dim
+            square[ij] = tri_scalars[tri_k]
+            if i != j
+                ji = offset + j + (i - 1) * dim
+                square[ji] = tri_scalars[tri_k]
+            end
+        end
+    end
+    return square
+end
+
+function MOI.set(
+    model::MOI.ModelLike,
+    attr::DiffOpt.ForwardConstraintFunction,
+    bridge::MOI.Bridges.Constraint.SquareBridge{T},
+    func::MOI.VectorAffineFunction{T},
+) where {T}
+    indices = _square_to_triangle_indices(bridge)
+    tri_func = MOI.Utilities.eachscalar(func)[indices]
+    return MOI.set(model, attr, bridge.triangle, tri_func)
+end
+
+function MOI.get(
+    model::MOI.ModelLike,
+    attr::DiffOpt.ReverseConstraintFunction,
+    bridge::MOI.Bridges.Constraint.SquareBridge{T},
+) where {T}
+    tri_func_raw = MOI.get(model, attr, bridge.triangle)
+    tri_func = DiffOpt.standard_form(tri_func_raw)
+    tri_scalars = MOI.Utilities.eachscalar(tri_func)
+    square_scalars = _triangle_to_square_scalars(tri_scalars, bridge.square_set)
+    return MOI.Utilities.operate(vcat, T, square_scalars...)
+end
+
 function _variable_to_index_map(bridge)
     return Dict{MOI.VariableIndex,MOI.VariableIndex}(
         v => MOI.VariableIndex(i) for

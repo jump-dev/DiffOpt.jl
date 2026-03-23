@@ -247,6 +247,29 @@ struct MatrixVectorAffineFunction{AT,VT} <: MOI.AbstractVectorFunction
 end
 
 MOI.constant(func::MatrixVectorAffineFunction) = func.constants
+
+function JuMP.coefficient(
+    func::MatrixVectorAffineFunction,
+    vi::MOI.VariableIndex,
+    output_index::Int,
+)
+    return func.terms[output_index, vi.value]
+end
+
+function JuMP.coefficient(
+    func::MOI.VectorAffineFunction{T},
+    vi::MOI.VariableIndex,
+    output_index::Int,
+) where {T}
+    result = zero(T)
+    for term in func.terms
+        if term.scalar_term.variable == vi && term.output_index == output_index
+            result += term.scalar_term.coefficient
+        end
+    end
+    return result
+end
+
 function Base.convert(
     ::Type{MOI.VectorAffineFunction{T}},
     func::MatrixVectorAffineFunction,
@@ -263,7 +286,8 @@ function Base.convert(
         func.constants,
     )
 end
-function standard_form(func::MatrixVectorAffineFunction{T}) where {T}
+function standard_form(func::MatrixVectorAffineFunction)
+    T = eltype(func.terms)
     return convert(MOI.VectorAffineFunction{T}, func)
 end
 

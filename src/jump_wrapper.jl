@@ -105,11 +105,12 @@ function set_forward_parameter(
     variable::JuMP.VariableRef,
     value::Number,
 )
+    JuMP.check_belongs_to_model(variable, model)
     return MOI.set(
-        model,
+        JuMP.backend(model),
         ForwardConstraintSet(),
-        ParameterRef(variable),
-        Parameter(value),
+        JuMP.index(ParameterRef(variable)),
+        MOI.Parameter(value),
     )
 end
 
@@ -119,7 +120,12 @@ end
 Get the value of a parameter output sensitivity for reverse mode.
 """
 function get_reverse_parameter(model::JuMP.Model, variable::JuMP.VariableRef)
-    return MOI.get(model, ReverseConstraintSet(), ParameterRef(variable)).value
+    JuMP.check_belongs_to_model(variable, model)
+    return MOI.get(
+        JuMP.backend(model),
+        ReverseConstraintSet(),
+        JuMP.index(ParameterRef(variable)),
+    ).value
 end
 
 """
@@ -132,7 +138,13 @@ function set_reverse_variable(
     variable::JuMP.VariableRef,
     value::Number,
 )
-    return MOI.set(model, ReverseVariablePrimal(), variable, value)
+    JuMP.check_belongs_to_model(variable, model)
+    return MOI.set(
+        JuMP.backend(model),
+        ReverseVariablePrimal(),
+        JuMP.index(variable),
+        value,
+    )
 end
 
 """
@@ -141,7 +153,12 @@ end
 Get the value of a variable output sensitivity for forward mode.
 """
 function get_forward_variable(model::JuMP.Model, variable::JuMP.VariableRef)
-    return MOI.get(model, ForwardVariablePrimal(), variable)
+    JuMP.check_belongs_to_model(variable, model)
+    return _moi_get_result(
+        JuMP.backend(model),
+        ForwardVariablePrimal(),
+        JuMP.index(variable),
+    )
 end
 
 """
@@ -160,4 +177,184 @@ Get the value of the objective output sensitivity for forward mode.
 """
 function get_forward_objective(model::JuMP.Model)
     return MOI.get(model, ForwardObjectiveSensitivity())
+end
+
+"""
+    set_forward_objective_function(model::JuMP.Model, func)
+
+Set the function to be used for forward mode differentiation of the objective.
+"""
+function set_forward_objective_function(
+    model::JuMP.Model,
+    func::JuMP.AbstractJuMPScalar,
+)
+    return MOI.set(
+        JuMP.backend(model),
+        ForwardObjectiveFunction(),
+        JuMP.moi_function(func),
+    )
+end
+
+function set_forward_objective_function(model::JuMP.Model, value::Number)
+    return MOI.set(
+        JuMP.backend(model),
+        ForwardObjectiveFunction(),
+        JuMP.moi_function(JuMP.AffExpr(value)),
+    )
+end
+
+"""
+    set_forward_constraint_function(model::JuMP.Model, con_ref::JuMP.ConstraintRef, func)
+
+Set the function to be used for forward mode differentiation of a constraint.
+"""
+function set_forward_constraint_function(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef,
+    func::JuMP.AbstractJuMPScalar,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    JuMP.check_belongs_to_model(func, model)
+    return MOI.set(
+        JuMP.backend(model),
+        ForwardConstraintFunction(),
+        JuMP.index(con_ref),
+        JuMP.moi_function(func),
+    )
+end
+
+function set_forward_constraint_function(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef,
+    value::Number,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(
+        JuMP.backend(model),
+        ForwardConstraintFunction(),
+        JuMP.index(con_ref),
+        JuMP.moi_function(JuMP.AffExpr(value)),
+    )
+end
+
+function set_forward_constraint_function(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef,
+    value::AbstractArray{<:JuMP.AbstractJuMPScalar},
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    JuMP.check_belongs_to_model.(value, model)
+    return MOI.set(
+        JuMP.backend(model),
+        ForwardConstraintFunction(),
+        JuMP.index(con_ref),
+        JuMP.moi_function(value),
+    )
+end
+
+function set_forward_constraint_function(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef,
+    value::AbstractArray{<:Number},
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(
+        JuMP.backend(model),
+        ForwardConstraintFunction(),
+        JuMP.index(con_ref),
+        JuMP.moi_function(JuMP.AffExpr.(value)),
+    )
+end
+
+function set_forward_constraint_function(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef{<:JuMP.AbstractModel,<:MOI.ConstraintIndex,S},
+    value::AbstractMatrix{<:Number},
+) where {S<:Union{JuMP.SquareMatrixShape,JuMP.SymmetricMatrixShape}}
+    if !LinearAlgebra.issymmetric(value)
+        error(
+            "ForwardConstraintFunction perturbation matrix must be " *
+            "symmetric for PSD cone constraints.",
+        )
+    end
+    JuMP.check_belongs_to_model(con_ref, model)
+    v = JuMP.vectorize(value, con_ref.shape)
+    func = JuMP.moi_function(JuMP.AffExpr.(v))
+    MOI.set(
+        JuMP.backend(model),
+        ForwardConstraintFunction(),
+        JuMP.index(con_ref),
+        func,
+    )
+    return
+end
+
+function set_forward_constraint_function(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef{<:JuMP.AbstractModel,<:MOI.ConstraintIndex,S},
+    value::AbstractMatrix{<:JuMP.AbstractJuMPScalar},
+) where {S<:Union{JuMP.SquareMatrixShape,JuMP.SymmetricMatrixShape}}
+    if !LinearAlgebra.issymmetric(value)
+        error(
+            "ForwardConstraintFunction perturbation matrix must be " *
+            "symmetric for PSD cone constraints.",
+        )
+    end
+    JuMP.check_belongs_to_model(con_ref, model)
+    JuMP.check_belongs_to_model.(value, model)
+    v = JuMP.vectorize(value, con_ref.shape)
+    func = JuMP.moi_function(v)
+    MOI.set(
+        JuMP.backend(model),
+        ForwardConstraintFunction(),
+        JuMP.index(con_ref),
+        func,
+    )
+    return
+end
+
+"""
+    get_forward_constraint_dual(model::JuMP.Model, con_ref::JuMP.ConstraintRef)
+
+Get the value of a constraint dual output sensitivity for forward mode.
+"""
+function get_forward_constraint_dual(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    moi_func = MOI.get(
+        JuMP.backend(model),
+        ForwardConstraintDual(),
+        JuMP.index(con_ref),
+    )
+    return JuMP.jump_function(model, moi_func)
+end
+
+"""
+    get_reverse_objective_function(model::JuMP.Model)
+
+Get the function to be used for reverse mode differentiation of the objective.
+"""
+function get_reverse_objective_function(model::JuMP.Model)
+    func = MOI.get(JuMP.backend(model), ReverseObjectiveFunction())
+    return JuMP.jump_function(model, func)
+end
+
+"""
+    get_reverse_constraint_function(model::JuMP.Model, con_ref::JuMP.ConstraintRef)
+
+Get the function to be used for reverse mode differentiation of a constraint.
+"""
+function get_reverse_constraint_function(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    moi_func = MOI.get(
+        JuMP.backend(model),
+        ReverseConstraintFunction(),
+        JuMP.index(con_ref),
+    )
+    return JuMP.jump_function(model, moi_func)
 end
