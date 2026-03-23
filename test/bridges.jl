@@ -181,9 +181,10 @@ function test_square_offset()
     @test DiffOpt._square_offset(MOI.LogDetConeSquare(2)) == 2
     @test MOI.Bridges.Constraint._square_offset(
         MOI.PositiveSemidefiniteConeSquare(2),
-    ) == 0
-    @test MOI.Bridges.Constraint._square_offset(MOI.RootDetConeSquare(2)) == 1
-    @test MOI.Bridges.Constraint._square_offset(MOI.LogDetConeSquare(2)) == 2
+    ) == Int[]
+    @test MOI.Bridges.Constraint._square_offset(MOI.RootDetConeSquare(2)) == [1]
+    @test MOI.Bridges.Constraint._square_offset(MOI.LogDetConeSquare(2)) ==
+          [1, 2]
 end
 
 function test_triangle_to_square_scalars()
