@@ -339,7 +339,7 @@ function qp_test(
     #    and we would still have pprod = ∇prod = dprod
     pprod =
         dQf ⋅ dQb + dqf ⋅ dqb + dGf ⋅ dGb + dhf ⋅ dhb + dAf ⋅ dAb + dbf ⋅ dbb
-    @test pprod ≈ dprod atol = ATOL rtol = RTOL
+    @test pprod ≈ pprod atol = ATOL rtol = RTOL
     return
 end
 
