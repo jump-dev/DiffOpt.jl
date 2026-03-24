@@ -210,9 +210,12 @@ Set the function to be used for forward mode differentiation of a constraint.
 """
 function set_forward_constraint_function(
     model::JuMP.Model,
-    con_ref::JuMP.ConstraintRef,
+    con_ref::JuMP.ConstraintRef{
+        M,
+        <:MOI.ConstraintIndex{<:MOI.AbstractScalarFunction},
+    },
     func::JuMP.AbstractJuMPScalar,
-)
+) where {M}
     JuMP.check_belongs_to_model(con_ref, model)
     JuMP.check_belongs_to_model(func, model)
     return MOI.set(
@@ -225,9 +228,12 @@ end
 
 function set_forward_constraint_function(
     model::JuMP.Model,
-    con_ref::JuMP.ConstraintRef,
+    con_ref::JuMP.ConstraintRef{
+        M,
+        <:MOI.ConstraintIndex{<:MOI.AbstractScalarFunction},
+    },
     value::Number,
-)
+) where {M}
     JuMP.check_belongs_to_model(con_ref, model)
     return MOI.set(
         JuMP.backend(model),
@@ -239,9 +245,12 @@ end
 
 function set_forward_constraint_function(
     model::JuMP.Model,
-    con_ref::JuMP.ConstraintRef,
+    con_ref::JuMP.ConstraintRef{
+        M,
+        <:MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
+    },
     value::AbstractArray{<:JuMP.AbstractJuMPScalar},
-)
+) where {M}
     JuMP.check_belongs_to_model(con_ref, model)
     JuMP.check_belongs_to_model.(value, model)
     return MOI.set(
@@ -254,9 +263,12 @@ end
 
 function set_forward_constraint_function(
     model::JuMP.Model,
-    con_ref::JuMP.ConstraintRef,
+    con_ref::JuMP.ConstraintRef{
+        M,
+        <:MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
+    },
     value::AbstractArray{<:Number},
-)
+) where {M}
     JuMP.check_belongs_to_model(con_ref, model)
     return MOI.set(
         JuMP.backend(model),
@@ -268,7 +280,11 @@ end
 
 function set_forward_constraint_function(
     model::JuMP.Model,
-    con_ref::JuMP.ConstraintRef{<:JuMP.AbstractModel,<:MOI.ConstraintIndex,S},
+    con_ref::JuMP.ConstraintRef{
+        <:JuMP.AbstractModel,
+        <:MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
+        S,
+    },
     value::AbstractMatrix{<:Number},
 ) where {S<:Union{JuMP.SquareMatrixShape,JuMP.SymmetricMatrixShape}}
     if !LinearAlgebra.issymmetric(value)
