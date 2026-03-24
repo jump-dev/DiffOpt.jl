@@ -11,6 +11,7 @@ import DiffOpt
 import HiGHS
 import Ipopt
 import SCS
+import LinearAlgebra
 import MathOptInterface as MOI
 
 const ATOL = 1e-3
@@ -334,6 +335,98 @@ function test_jump_api()
         end
     end
 
+    return
+end
+
+function test_forward_wrappers_non_parametric()
+    # Tests set_forward_objective_function and set_forward_constraint_function
+    # overloads on a non-parametric model.
+    #
+    # min x  s.t.  x + y == 1, x >= 0, y >= 0
+    # Solution: x=0, y=1
+    # Perturb constraint RHS: x + y + ϵ == 1
+    # Sensitivity should be dy/dϵ = -1
+    # since the slack goes to y and x is at its lower bound (active).
+    model = JuMP.direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(model)
+    @variable(model, x >= 0)
+    @variable(model, y >= 0)
+    @constraint(model, c1, x + y == 1)
+    @objective(model, Min, 1.0 * x)
+    optimize!(model)
+    @test value(x) ≈ 0.0 atol = ATOL
+    @test value(y) ≈ 1.0 atol = ATOL
+
+    DiffOpt.set_forward_objective_function(model, 0.0)
+    DiffOpt.set_forward_constraint_function(model, c1, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    dy = DiffOpt.get_forward_variable(model, y)
+    @test dy ≈ -1.0 atol = ATOL
+
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_constraint_function(model, c1, 0.0 * x + 1.0)
+    DiffOpt.forward_differentiate!(model)
+    dy2 = DiffOpt.get_forward_variable(model, y)
+    @test dy2 ≈ dy atol = ATOL
+    return
+end
+
+function test_forward_vector_constraint_wrappers()
+    # Tests set_forward_constraint_function overloads for vector constraints
+    # using conic_diff_model (direct_model + diff_optimizer bridges differently).
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, y)
+    @constraint(model, c_eq, x + y == 1)
+    @constraint(model, c_nn, [1.0 * y, 1.0 * x] in MOI.Nonnegatives(2))
+    @objective(model, Min, 1.0 * x)
+    optimize!(model)
+    @test value(x) ≈ 0.0 atol = ATOL
+    @test value(y) ≈ 1.0 atol = ATOL
+
+    DiffOpt.set_forward_constraint_function(model, c_nn, [0.0, 0.0])
+    DiffOpt.set_forward_constraint_function(model, c_eq, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    dy = DiffOpt.get_forward_variable(model, y)
+    @test dy ≈ -1.0 atol = ATOL
+
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_constraint_function(model, c_nn, [0.0 * x, 0.0 * x])
+    DiffOpt.set_forward_constraint_function(model, c_eq, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    dy2 = DiffOpt.get_forward_variable(model, y)
+    @test dy2 ≈ dy atol = ATOL
+    return
+end
+
+function test_forward_psd_matrix_wrapper()
+    # Tests set_forward_constraint_function with AbstractMatrix{<:AbstractJuMPScalar}
+    # for PSD cone constraints. Uses a non-parametric model since
+    # ForwardConstraintFunction is blocked on parametric models.
+    model = Model(() -> DiffOpt.diff_optimizer(SCS.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @objective(model, Min, -x)
+    @constraint(
+        model,
+        con,
+        LinearAlgebra.Symmetric([1.0-x 0.0; 0.0 x]) in PSDCone(),
+    )
+    optimize!(model)
+    @test value(x) ≈ 1.0 atol = ATOL
+
+    perturbation = [1.0+0.0*x 0.0*x; 0.0*x 0.0*x]
+    DiffOpt.set_forward_constraint_function(model, con, perturbation)
+    DiffOpt.forward_differentiate!(model)
+    @test DiffOpt.get_forward_variable(model, x) ≈ 1.0 atol = ATOL
+
+    bad = [0.0*x 1.0*x; 0.0*x 0.0*x]
+    @test_throws ErrorException DiffOpt.set_forward_constraint_function(
+        model,
+        con,
+        bad,
+    )
     return
 end
 
