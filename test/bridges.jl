@@ -104,77 +104,6 @@ function test_dU_from_dQ()
     return _test_dU_dQ(U, dU)
 end
 
-function _make_square_bridge(dim)
-    s = MOI.PositiveSemidefiniteConeSquare(dim)
-    return MOI.Bridges.Constraint.SquareBridge{
-        Float64,
-        MOI.VectorAffineFunction{Float64},
-        MOI.ScalarAffineFunction{Float64},
-        MOI.PositiveSemidefiniteConeTriangle,
-        MOI.PositiveSemidefiniteConeSquare,
-    }(
-        s,
-        MOI.ConstraintIndex{
-            MOI.VectorAffineFunction{Float64},
-            MOI.PositiveSemidefiniteConeTriangle,
-        }(
-            1,
-        ),
-        Pair{
-            Tuple{Int,Int},
-            MOI.ConstraintIndex{
-                MOI.ScalarAffineFunction{Float64},
-                MOI.EqualTo{Float64},
-            },
-        }[],
-    )
-end
-
-function test_square_to_triangle_indices()
-    # 2x2: square col-major [a11, a21, a12, a22] → upper tri [a11, a12, a22]
-    @test DiffOpt._square_to_triangle_indices(_make_square_bridge(2)) ==
-          [1, 3, 4]
-    # 3x3: square col-major [a11,a21,a31, a12,a22,a32, a13,a23,a33]
-    #   → upper tri [a11, a12,a22, a13,a23,a33] at indices [1, 4,5, 7,8,9]
-    @test DiffOpt._square_to_triangle_indices(_make_square_bridge(3)) ==
-          [1, 4, 5, 7, 8, 9]
-    # 1x1: trivial
-    @test DiffOpt._square_to_triangle_indices(_make_square_bridge(1)) == [1]
-end
-
-function _make_rootdet_square_bridge(dim)
-    s = MOI.RootDetConeSquare(dim)
-    return MOI.Bridges.Constraint.SquareBridge{
-        Float64,
-        MOI.VectorAffineFunction{Float64},
-        MOI.ScalarAffineFunction{Float64},
-        MOI.RootDetConeTriangle,
-        MOI.RootDetConeSquare,
-    }(
-        s,
-        MOI.ConstraintIndex{
-            MOI.VectorAffineFunction{Float64},
-            MOI.RootDetConeTriangle,
-        }(
-            1,
-        ),
-        Pair{
-            Tuple{Int,Int},
-            MOI.ConstraintIndex{
-                MOI.ScalarAffineFunction{Float64},
-                MOI.EqualTo{Float64},
-            },
-        }[],
-    )
-end
-
-function test_square_to_triangle_indices_with_offset()
-    # RootDetConeSquare(2) has 1 offset entry (the rootdet variable t)
-    # Full square: [t, a11, a21, a12, a22] → triangle: [t, a11, a12, a22]
-    bridge = _make_rootdet_square_bridge(2)
-    @test DiffOpt._square_to_triangle_indices(bridge) == [1, 2, 4, 5]
-end
-
 function test_square_offset()
     @test DiffOpt._square_offset(MOI.PositiveSemidefiniteConeSquare(2)) == 0
     @test DiffOpt._square_offset(MOI.RootDetConeSquare(2)) == 1
@@ -185,27 +114,6 @@ function test_square_offset()
     @test MOI.Bridges.Constraint._square_offset(MOI.RootDetConeSquare(2)) == [1]
     @test MOI.Bridges.Constraint._square_offset(MOI.LogDetConeSquare(2)) ==
           [1, 2]
-end
-
-function test_triangle_to_square_scalars()
-    # 2x2 PSD: triangle [a11, a12, a22] → square [a11, a12, a12, a22]
-    s = MOI.PositiveSemidefiniteConeSquare(2)
-    @test DiffOpt._triangle_to_square_scalars([1, 2, 3], s) == [1, 2, 2, 3]
-    # 3x3 PSD: triangle [a11, a12, a22, a13, a23, a33]
-    #   → square col-major [a11, a12, a13, a12, a22, a23, a13, a23, a33]
-    s3 = MOI.PositiveSemidefiniteConeSquare(3)
-    @test DiffOpt._triangle_to_square_scalars([1, 2, 3, 4, 5, 6], s3) ==
-          [1, 2, 4, 2, 3, 5, 4, 5, 6]
-    # RootDetConeSquare(2): triangle [t, a11, a12, a22]
-    #   → square [t, a11, a12, a12, a22]
-    sr = MOI.RootDetConeSquare(2)
-    @test DiffOpt._triangle_to_square_scalars([10, 1, 2, 3], sr) ==
-          [10, 1, 2, 2, 3]
-    # LogDetConeSquare(2): triangle [u, t, a11, a12, a22]
-    #   → square [u, t, a11, a12, a12, a22]
-    sl = MOI.LogDetConeSquare(2)
-    @test DiffOpt._triangle_to_square_scalars([10, 20, 1, 2, 3], sl) ==
-          [10, 20, 1, 2, 2, 3]
 end
 
 end

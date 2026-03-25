@@ -234,99 +234,41 @@ function set_forward_constraint_function(
     },
     value::Number,
 ) where {M}
-    JuMP.check_belongs_to_model(con_ref, model)
-    return MOI.set(
-        JuMP.backend(model),
-        ForwardConstraintFunction(),
-        JuMP.index(con_ref),
-        JuMP.moi_function(JuMP.AffExpr(value)),
-    )
+    return set_forward_constraint_function(model, con_ref, JuMP.AffExpr(value))
 end
 
-function set_forward_constraint_function(
-    model::JuMP.Model,
-    con_ref::JuMP.ConstraintRef{
-        M,
-        <:MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
-    },
-    value::AbstractArray{<:JuMP.AbstractJuMPScalar},
-) where {M}
-    JuMP.check_belongs_to_model(con_ref, model)
-    JuMP.check_belongs_to_model.(value, model)
-    return MOI.set(
-        JuMP.backend(model),
-        ForwardConstraintFunction(),
-        JuMP.index(con_ref),
-        JuMP.moi_function(value),
-    )
-end
-
-function set_forward_constraint_function(
-    model::JuMP.Model,
-    con_ref::JuMP.ConstraintRef{
-        M,
-        <:MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
-    },
-    value::AbstractArray{<:Number},
-) where {M}
-    JuMP.check_belongs_to_model(con_ref, model)
-    return MOI.set(
-        JuMP.backend(model),
-        ForwardConstraintFunction(),
-        JuMP.index(con_ref),
-        JuMP.moi_function(JuMP.AffExpr.(value)),
-    )
-end
-
+# Similar to `JuMP.set_start_value` for vector `ConstraintRef` in
+# JuMP/src/constraints.jl
 function set_forward_constraint_function(
     model::JuMP.Model,
     con_ref::JuMP.ConstraintRef{
         <:JuMP.AbstractModel,
         <:MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
-        S,
     },
-    value::AbstractMatrix{<:Number},
-) where {S<:Union{JuMP.SquareMatrixShape,JuMP.SymmetricMatrixShape}}
-    if !LinearAlgebra.issymmetric(value)
-        error(
-            "ForwardConstraintFunction perturbation matrix must be " *
-            "symmetric for PSD cone constraints.",
-        )
-    end
-    JuMP.check_belongs_to_model(con_ref, model)
-    v = JuMP.vectorize(value, con_ref.shape)
-    func = JuMP.moi_function(JuMP.AffExpr.(v))
-    MOI.set(
-        JuMP.backend(model),
-        ForwardConstraintFunction(),
-        JuMP.index(con_ref),
-        func,
-    )
-    return
-end
-
-function set_forward_constraint_function(
-    model::JuMP.Model,
-    con_ref::JuMP.ConstraintRef{<:JuMP.AbstractModel,<:MOI.ConstraintIndex,S},
-    value::AbstractMatrix{<:JuMP.AbstractJuMPScalar},
-) where {S<:Union{JuMP.SquareMatrixShape,JuMP.SymmetricMatrixShape}}
-    if !LinearAlgebra.issymmetric(value)
-        error(
-            "ForwardConstraintFunction perturbation matrix must be " *
-            "symmetric for PSD cone constraints.",
-        )
-    end
+    value::AbstractArray{<:JuMP.AbstractJuMPScalar},
+)
     JuMP.check_belongs_to_model(con_ref, model)
     JuMP.check_belongs_to_model.(value, model)
     v = JuMP.vectorize(value, con_ref.shape)
-    func = JuMP.moi_function(v)
-    MOI.set(
+    return MOI.set(
         JuMP.backend(model),
         ForwardConstraintFunction(),
         JuMP.index(con_ref),
-        func,
+        JuMP.moi_function(v),
     )
-    return
+end
+
+# Similar to `JuMP.set_start_value` for vector `ConstraintRef` in
+# JuMP/src/constraints.jl
+function set_forward_constraint_function(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef{
+        <:JuMP.AbstractModel,
+        <:MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
+    },
+    value::AbstractArray{<:Number},
+)
+    return set_forward_constraint_function(model, con_ref, JuMP.AffExpr.(value))
 end
 
 """

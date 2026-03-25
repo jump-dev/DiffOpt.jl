@@ -115,75 +115,85 @@ _square_offset(::MOI.AbstractSymmetricMatrixSetSquare) = 0
 _square_offset(::MOI.RootDetConeSquare) = 1
 _square_offset(::MOI.LogDetConeSquare) = 2
 
-function _square_to_triangle_indices(
-    bridge::MOI.Bridges.Constraint.SquareBridge,
-)
-    s = bridge.square_set
-    dim = MOI.side_dimension(s)
-    offset = _square_offset(s)
-    upper_triangle_indices = collect(1:offset)
-    sizehint!(upper_triangle_indices, offset + div(dim * (dim + 1), 2))
-    k = offset
-    for j in 1:dim
-        for i in 1:j
-            k += 1
-            push!(upper_triangle_indices, k)
-        end
-        k += dim - j
-    end
-    return upper_triangle_indices
-end
-
-"""
-    _triangle_to_square_scalars(tri_scalars, s)
-
-Expand triangle-vectorized scalars to square column-major form, mirroring
-off-diagonal entries. `s` is the square set (e.g. `PositiveSemidefiniteConeSquare`).
-"""
-function _triangle_to_square_scalars(tri_scalars, s)
-    dim = MOI.side_dimension(s)
-    offset = _square_offset(s)
-    square_dim = offset + dim * dim
-    square = Vector{eltype(tri_scalars)}(undef, square_dim)
-    for i in 1:offset
-        square[i] = tri_scalars[i]
-    end
-    tri_k = offset
-    for j in 1:dim
-        for i in 1:j
-            tri_k += 1
-            ij = offset + i + (j - 1) * dim
-            square[ij] = tri_scalars[tri_k]
-            if i != j
-                ji = offset + j + (i - 1) * dim
-                square[ji] = tri_scalars[tri_k]
-            end
-        end
-    end
-    return square
-end
-
+# Similar to `MOI.set` for `MOI.ConstraintPrimalStart` on `SquareBridge` in
+# MathOptInterface/src/Bridges/Constraint/bridges/SquareBridge.jl
 function MOI.set(
     model::MOI.ModelLike,
     attr::DiffOpt.ForwardConstraintFunction,
     bridge::MOI.Bridges.Constraint.SquareBridge{T},
     func::MOI.VectorAffineFunction{T},
 ) where {T}
-    indices = _square_to_triangle_indices(bridge)
-    tri_func = MOI.Utilities.eachscalar(func)[indices]
-    return MOI.set(model, attr, bridge.triangle, tri_func)
+    dim = MOI.side_dimension(bridge.square_set)
+    offset = _square_offset(bridge.square_set)
+    scalars = MOI.Utilities.eachscalar(func)
+    tri_scalars =
+        Vector{eltype(scalars)}(undef, offset + div(dim * (dim + 1), 2))
+    for i in 1:offset
+        tri_scalars[i] = scalars[i]
+    end
+    k = offset
+    for j in 1:dim, i in 1:j
+        k += 1
+        tri_scalars[k] = scalars[offset+j+(i-1)*dim]
+    end
+    MOI.set(
+        model,
+        attr,
+        bridge.triangle,
+        MOI.Utilities.operate(vcat, T, tri_scalars...),
+    )
+    for ((i, j), ci) in bridge.sym
+        f_ij = scalars[offset+i+(j-1)*dim]
+        f_ji = scalars[offset+j+(i-1)*dim]
+        MOI.set(model, attr, ci, MOI.Utilities.operate(-, T, f_ij, f_ji))
+    end
+    return
 end
 
+# Adjoint of `MOI.set` for `ForwardConstraintFunction` on `SquareBridge` above.
+# The forward map extracts upper triangle and sym diffs; this is its transpose.
+# Similar structure to `MOI.get` for `MOI.ConstraintPrimal` on `SquareBridge` in
+# MathOptInterface/src/Bridges/Constraint/bridges/SquareBridge.jl
 function MOI.get(
     model::MOI.ModelLike,
     attr::DiffOpt.ReverseConstraintFunction,
     bridge::MOI.Bridges.Constraint.SquareBridge{T},
 ) where {T}
-    tri_func_raw = MOI.get(model, attr, bridge.triangle)
-    tri_func = DiffOpt.standard_form(tri_func_raw)
-    tri_scalars = MOI.Utilities.eachscalar(tri_func)
-    square_scalars = _triangle_to_square_scalars(tri_scalars, bridge.square_set)
-    return MOI.Utilities.operate(vcat, T, square_scalars...)
+    tri_func = DiffOpt.standard_form(MOI.get(model, attr, bridge.triangle))
+    tri = MOI.Utilities.eachscalar(tri_func)
+    dim = MOI.side_dimension(bridge.square_set)
+    offset = _square_offset(bridge.square_set)
+    square = Vector{eltype(tri)}(undef, offset + dim^2)
+    for i in 1:offset
+        square[i] = tri[i]
+    end
+    k = offset
+    sym_index = 1
+    for j in 1:dim, i in 1:j
+        k += 1
+        upper_index = offset + i + (j - 1) * dim
+        lower_index = offset + j + (i - 1) * dim
+        if i == j
+            square[upper_index] = tri[k]
+        elseif sym_index <= length(bridge.sym) &&
+               bridge.sym[sym_index].first == (i, j)
+            π = DiffOpt.standard_form(
+                MOI.get(model, attr, bridge.sym[sym_index].second),
+            )
+            square[upper_index] = MOI.Utilities.operate(
+                +,
+                T,
+                MOI.Utilities.operate(+, T, tri[k], tri[k]),
+                π,
+            )
+            square[lower_index] = MOI.Utilities.operate(-, T, π)
+            sym_index += 1
+        else
+            square[upper_index] = tri[k]
+            square[lower_index] = tri[k]
+        end
+    end
+    return MOI.Utilities.operate(vcat, T, square...)
 end
 
 function _variable_to_index_map(bridge)

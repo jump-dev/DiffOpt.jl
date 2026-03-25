@@ -420,13 +420,6 @@ function test_forward_psd_matrix_wrapper()
     DiffOpt.set_forward_constraint_function(model, con, perturbation)
     DiffOpt.forward_differentiate!(model)
     @test DiffOpt.get_forward_variable(model, x) ≈ 1.0 atol = ATOL
-
-    bad = [0.0*x 1.0*x; 0.0*x 0.0*x]
-    @test_throws ErrorException DiffOpt.set_forward_constraint_function(
-        model,
-        con,
-        bad,
-    )
     return
 end
 
