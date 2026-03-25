@@ -562,6 +562,22 @@ function reverse_differentiate!(model::Optimizer)
                   "Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
         end
     end
+    if MOI.supports(model.optimizer, BackwardDifferentiate())
+        # Solver natively supports backward differentiation.
+        # Copy input_cache directly into model.optimizer and trigger differentiation.
+        opt = model.optimizer
+        for (vi, value) in model.input_cache.dx
+            MOI.set(opt, ReverseVariablePrimal(), vi, value)
+        end
+        for (ci, value) in model.input_cache.dy
+            MOI.set(opt, ReverseConstraintDual(), ci, value)
+        end
+        if !iszero(model.input_cache.dobj)
+            MOI.set(opt, ReverseObjectiveSensitivity(), model.input_cache.dobj)
+        end
+        MOI.set(opt, BackwardDifferentiate(), nothing)
+        return
+    end
     diff = _diff(model)
     MOI.set(
         diff,
@@ -673,6 +689,34 @@ function forward_differentiate!(model::Optimizer)
             "Trying to compute the forward differentiation on a model with termination status $(st)",
         )
     end
+    if MOI.supports(model.optimizer, ForwardDifferentiate())
+        # Solver natively supports forward differentiation.
+        # Copy input_cache directly into model.optimizer and trigger differentiation.
+        opt = model.optimizer
+        T = Float64
+        for (ci, value) in model.input_cache.parameter_constraints
+            MOI.set(opt, ForwardConstraintSet(), ci, MOI.Parameter(value))
+        end
+        if model.input_cache.objective !== nothing
+            MOI.set(opt, ForwardObjectiveFunction(), model.input_cache.objective)
+        end
+        for (F, S) in MOI.Utilities.DoubleDicts.nonempty_outer_keys(
+            model.input_cache.scalar_constraints,
+        )
+            for (index, value) in model.input_cache.scalar_constraints[F, S]
+                MOI.set(opt, ForwardConstraintFunction(), index, value)
+            end
+        end
+        for (F, S) in MOI.Utilities.DoubleDicts.nonempty_outer_keys(
+            model.input_cache.vector_constraints,
+        )
+            for (index, value) in model.input_cache.vector_constraints[F, S]
+                MOI.set(opt, ForwardConstraintFunction(), index, value)
+            end
+        end
+        MOI.set(opt, ForwardDifferentiate(), nothing)
+        return
+    end
     diff = _diff(model)
     MOI.set(
         diff,
@@ -738,7 +782,9 @@ end
 
 function empty_input_sensitivities!(model::Optimizer)
     empty!(model.input_cache)
-    if model.diff !== nothing
+    if _solver_supports_differentiate(model)
+        empty_input_sensitivities!(model.optimizer)
+    elseif model.diff !== nothing
         empty_input_sensitivities!(model.diff)
     end
     return
@@ -782,7 +828,16 @@ function _instantiate_diff(model::Optimizer, constructor)
     return model_bridged
 end
 
+function _solver_supports_differentiate(model::Optimizer)
+    return MOI.supports(model.optimizer, BackwardDifferentiate()) ||
+           MOI.supports(model.optimizer, ForwardDifferentiate())
+end
+
 function _diff(model::Optimizer)
+    if _solver_supports_differentiate(model)
+        model.index_map = MOI.Utilities.identity_index_map(model.optimizer)
+        return model.optimizer
+    end
     if model.diff === nothing
         _check_termination_status(model)
         model_constructor = MOI.get(model, ModelConstructor())
@@ -837,6 +892,13 @@ end
 # DiffOpt attributes redirected to `diff`
 
 function _checked_diff(model::Optimizer, attr::MOI.AnyAttribute, call)
+    if _solver_supports_differentiate(model)
+        if model.index_map === nothing
+            model.index_map =
+                MOI.Utilities.identity_index_map(model.optimizer)
+        end
+        return model.optimizer
+    end
     if model.diff === nothing
         error("Cannot get attribute `$attr`. First call `DiffOpt.$call`.")
     end
@@ -1125,6 +1187,9 @@ function MOI.set(
 end
 
 function MOI.get(model::Optimizer, attr::DifferentiateTimeSec)
+    if _solver_supports_differentiate(model)
+        return MOI.get(model.optimizer, attr)
+    end
     return MOI.get(model.diff, attr)
 end
 

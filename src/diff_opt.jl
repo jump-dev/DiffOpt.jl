@@ -314,6 +314,40 @@ the differentiation information.
 """
 struct DifferentiateTimeSec <: MOI.AbstractModelAttribute end
 
+"""
+    BackwardDifferentiate <: MOI.AbstractOptimizerAttribute
+
+An `MOI.AbstractOptimizerAttribute` that triggers backward differentiation
+on the solver. If `MOI.supports(optimizer, DiffOpt.BackwardDifferentiate())`
+returns `true`, then the solver natively supports backward differentiation
+through the DiffOpt attribute interface, and DiffOpt will delegate
+differentiation directly to the solver instead of using its own
+differentiation backend.
+
+Trigger the computation with:
+```julia
+MOI.set(optimizer, DiffOpt.BackwardDifferentiate(), nothing)
+```
+"""
+struct BackwardDifferentiate <: MOI.AbstractOptimizerAttribute end
+
+"""
+    ForwardDifferentiate <: MOI.AbstractOptimizerAttribute
+
+An `MOI.AbstractOptimizerAttribute` that triggers forward differentiation
+on the solver. If `MOI.supports(optimizer, DiffOpt.ForwardDifferentiate())`
+returns `true`, then the solver natively supports forward differentiation
+through the DiffOpt attribute interface, and DiffOpt will delegate
+differentiation directly to the solver instead of using its own
+differentiation backend.
+
+Trigger the computation with:
+```julia
+MOI.set(optimizer, DiffOpt.ForwardDifferentiate(), nothing)
+```
+"""
+struct ForwardDifferentiate <: MOI.AbstractOptimizerAttribute end
+
 MOI.attribute_value_type(::DifferentiateTimeSec) = Float64
 
 MOI.is_set_by_optimize(::DifferentiateTimeSec) = true
