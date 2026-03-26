@@ -513,7 +513,9 @@ function MOI.get(s::EqQPSolver, ::DiffOpt.ForwardConstraintDual, ci::EQ_CI)
 end
 
 # ForwardObjectiveSensitivity
-MOI.get(s::EqQPSolver, ::DiffOpt.ForwardObjectiveSensitivity) = s.fwd_obj_sensitivity
+function MOI.get(s::EqQPSolver, ::DiffOpt.ForwardObjectiveSensitivity)
+    return s.fwd_obj_sensitivity
+end
 
 # DifferentiateTimeSec
 MOI.get(s::EqQPSolver, ::DiffOpt.DifferentiateTimeSec) = s.diff_time
@@ -896,7 +898,8 @@ function test_forward_objective_sensitivity()
     # dobj/dt = (Qx + c)'dx + dc'x = [3,3]'*dx + [1,0]'*[0,1]
     expected = dot([3.0, 3.0], fwd[1:2]) + dot([1.0, 0.0], [0.0, 1.0])
 
-    @test MOI.get(model, DiffOpt.ForwardObjectiveSensitivity()) ≈ expected atol = ATOL
+    @test MOI.get(model, DiffOpt.ForwardObjectiveSensitivity()) ≈ expected atol =
+        ATOL
 end
 
 # ── Test forward twice (re-differentiation in forward mode) ──────────────
@@ -911,7 +914,8 @@ function test_forward_twice()
     DiffOpt.forward_differentiate!(model)
 
     fwd1 = K \ [-1.0, 0.0, 0.0]
-    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x1) ≈ fwd1[1] atol = ATOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x1) ≈ fwd1[1] atol =
+        ATOL
 
     # Second: perturb dc = [0, 1]
     DiffOpt.empty_input_sensitivities!(model)
@@ -919,8 +923,10 @@ function test_forward_twice()
     DiffOpt.forward_differentiate!(model)
 
     fwd2 = K \ [0.0, -1.0, 0.0]
-    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x1) ≈ fwd2[1] atol = ATOL
-    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x2) ≈ fwd2[2] atol = ATOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x1) ≈ fwd2[1] atol =
+        ATOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x2) ≈ fwd2[2] atol =
+        ATOL
 end
 
 # ── Test ReverseConstraintSet (not applicable without parameters, but test the getter path) ──
