@@ -985,11 +985,7 @@ function test_poi_forwarding_reverse()
     # Add problem through POI
     x1 = MOI.add_variable(poi)
     x2 = MOI.add_variable(poi)
-    c1 = MOI.add_constraint(
-        poi,
-        1.0 * x1 + 1.0 * x2,
-        MOI.EqualTo(1.0),
-    )
+    c1 = MOI.add_constraint(poi, 1.0 * x1 + 1.0 * x2, MOI.EqualTo(1.0))
     obj = MOI.ScalarQuadraticFunction(
         [
             MOI.ScalarQuadraticTerm(1.0, x1, x1),
@@ -1056,7 +1052,9 @@ function test_poi_forwarding_forward()
     ci = MOI.ConstraintIndex{
         MOI.ScalarAffineFunction{Float64},
         MOI.EqualTo{Float64},
-    }(1)
+    }(
+        1,
+    )
     fwd_con = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm{Float64}[], -1.0)
     MOI.set(poi, DiffOpt.ForwardConstraintFunction(), ci, fwd_con)
 
@@ -1100,9 +1098,12 @@ function test_forward_combined_perturbation()
     DiffOpt.forward_differentiate!(model)
 
     fwd = K \ [-1.0, 0.0, 1.0]
-    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x1) ≈ fwd[1] atol = ATOL
-    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x2) ≈ fwd[2] atol = ATOL
-    @test MOI.get(model, DiffOpt.ForwardConstraintDual(), c1) ≈ fwd[3] atol = ATOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x1) ≈ fwd[1] atol =
+        ATOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x2) ≈ fwd[2] atol =
+        ATOL
+    @test MOI.get(model, DiffOpt.ForwardConstraintDual(), c1) ≈ fwd[3] atol =
+        ATOL
 end
 
 TestSolverNativeDiff.runtests()
