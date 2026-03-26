@@ -10,6 +10,7 @@ using LinearAlgebra
 import DiffOpt
 import MathOptInterface as MOI
 import JuMP
+import ParametricOptInterface as POI
 
 const ATOL = 1e-8
 const RTOL = 1e-8
@@ -961,6 +962,147 @@ function test_empty_input_sensitivities()
     for term in sf.terms
         @test term.coefficient ≈ 0.0 atol = ATOL
     end
+end
+
+# ── Test POI forwarding of DiffOpt attributes when native solver is underneath ─
+
+function test_poi_forwarding_reverse()
+    # Build a POI → Bridge → CachingOptimizer → EqQPSolver chain
+    solver = EqQPSolver()
+    cached = MOI.Utilities.CachingOptimizer(
+        MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
+        solver,
+    )
+    bridged = MOI.Bridges.full_bridge_optimizer(cached, Float64)
+    poi = POI.Optimizer(bridged)
+
+    # POI should report support since inner supports native diff
+    @test MOI.supports(poi, DiffOpt.ReverseObjectiveFunction())
+    @test MOI.supports(poi, DiffOpt.ReverseConstraintFunction())
+    @test MOI.supports(poi, DiffOpt.ForwardObjectiveFunction())
+    @test MOI.supports(poi, DiffOpt.ForwardConstraintFunction())
+
+    # Add problem through POI
+    x1 = MOI.add_variable(poi)
+    x2 = MOI.add_variable(poi)
+    c1 = MOI.add_constraint(
+        poi,
+        1.0 * x1 + 1.0 * x2,
+        MOI.EqualTo(1.0),
+    )
+    obj = MOI.ScalarQuadraticFunction(
+        [
+            MOI.ScalarQuadraticTerm(1.0, x1, x1),
+            MOI.ScalarQuadraticTerm(1.0, x2, x2),
+        ],
+        [MOI.ScalarAffineTerm(3.0, x1), MOI.ScalarAffineTerm(2.0, x2)],
+        0.0,
+    )
+    MOI.set(
+        poi,
+        MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(),
+        obj,
+    )
+    MOI.set(poi, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    MOI.optimize!(poi)
+
+    # Set reverse seeds directly on the solver
+    MOI.set(solver, DiffOpt.ReverseVariablePrimal(), MOI.VariableIndex(1), 1.0)
+    MOI.set(solver, DiffOpt.BackwardDifferentiate(), nothing)
+
+    # Get results through POI forwarding
+    dobj = MOI.get(poi, DiffOpt.ReverseObjectiveFunction())
+    @test dobj isa MOI.ScalarAffineFunction
+
+    dcon = MOI.get(poi, DiffOpt.ReverseConstraintFunction(), c1)
+    @test dcon isa MOI.ScalarAffineFunction
+end
+
+function test_poi_forwarding_forward()
+    solver = EqQPSolver()
+    cached = MOI.Utilities.CachingOptimizer(
+        MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}()),
+        solver,
+    )
+    bridged = MOI.Bridges.full_bridge_optimizer(cached, Float64)
+    poi = POI.Optimizer(bridged)
+
+    x1 = MOI.add_variable(poi)
+    x2 = MOI.add_variable(poi)
+    MOI.add_constraint(poi, 1.0 * x1 + 1.0 * x2, MOI.EqualTo(1.0))
+    obj = MOI.ScalarQuadraticFunction(
+        [
+            MOI.ScalarQuadraticTerm(1.0, x1, x1),
+            MOI.ScalarQuadraticTerm(1.0, x2, x2),
+        ],
+        [MOI.ScalarAffineTerm(3.0, x1), MOI.ScalarAffineTerm(2.0, x2)],
+        0.0,
+    )
+    MOI.set(
+        poi,
+        MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}}(),
+        obj,
+    )
+    MOI.set(poi, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    MOI.optimize!(poi)
+
+    # Set forward perturbations through POI (should forward to inner)
+    fwd_obj = MOI.ScalarAffineFunction(
+        [MOI.ScalarAffineTerm(1.0, MOI.VariableIndex(1))],
+        0.0,
+    )
+    MOI.set(poi, DiffOpt.ForwardObjectiveFunction(), fwd_obj)
+
+    ci = MOI.ConstraintIndex{
+        MOI.ScalarAffineFunction{Float64},
+        MOI.EqualTo{Float64},
+    }(1)
+    fwd_con = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm{Float64}[], -1.0)
+    MOI.set(poi, DiffOpt.ForwardConstraintFunction(), ci, fwd_con)
+
+    # These should not error — the set calls went through POI to the solver
+    @test true
+end
+
+# ── Test reverse with both dobj and dx seed (AllowObjectiveAndSolutionInput) ──
+
+function test_reverse_dobj_and_dx_seed()
+    model, x1, x2, c1 = _setup_model()
+
+    MOI.set(model, DiffOpt.AllowObjectiveAndSolutionInput(), true)
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 1.0)
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x1, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+
+    # x* = [0, 1], Q = I, c = [3, 2]
+    # rhs = dx + dobj * (Qx + c) = [1, 0] + 1.0 * [3, 3] = [4, 3]
+    K = [1.0 0.0 1.0; 0.0 1.0 1.0; 1.0 1.0 0.0]
+    rhs = [4.0, 3.0, 0.0]
+    adj = K \ rhs
+    dc_expected = -adj[1:2]
+
+    dobj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
+    @test JuMP.coefficient(dobj, x1) ≈ dc_expected[1] atol = ATOL
+    @test JuMP.coefficient(dobj, x2) ≈ dc_expected[2] atol = ATOL
+end
+
+# ── Test forward with both objective and constraint perturbation ──────────
+
+function test_forward_combined_perturbation()
+    model, x1, x2, c1 = _setup_model()
+
+    K = [1.0 0.0 1.0; 0.0 1.0 1.0; 1.0 1.0 0.0]
+
+    # Perturb both objective (dc = [1, 0]) and constraint RHS (db = [1])
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), 1.0 * x1)
+    func = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm{Float64}[], -1.0)
+    MOI.set(model, DiffOpt.ForwardConstraintFunction(), c1, func)
+    DiffOpt.forward_differentiate!(model)
+
+    fwd = K \ [-1.0, 0.0, 1.0]
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x1) ≈ fwd[1] atol = ATOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x2) ≈ fwd[2] atol = ATOL
+    @test MOI.get(model, DiffOpt.ForwardConstraintDual(), c1) ≈ fwd[3] atol = ATOL
 end
 
 TestSolverNativeDiff.runtests()

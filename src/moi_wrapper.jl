@@ -863,10 +863,6 @@ function _find_native_solver(opt::POI.Optimizer)
 end
 
 function _diff(model::Optimizer)
-    if _solver_supports_differentiate(model)
-        model.index_map = MOI.Utilities.identity_index_map(model.optimizer)
-        return model.optimizer
-    end
     if model.diff === nothing
         _check_termination_status(model)
         model_constructor = MOI.get(model, ModelConstructor())
