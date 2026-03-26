@@ -42,6 +42,7 @@ mutable struct EqQPSolver <: MOI.AbstractOptimizer
     # Reverse input seeds
     rev_dx::Dict{MOI.VariableIndex,Float64}
     rev_dy::Dict{EQ_CI,Float64}
+    rev_dobj::Float64
     # Reverse results
     dc::Vector{Float64}
     dQ::Matrix{Float64}
@@ -53,6 +54,7 @@ mutable struct EqQPSolver <: MOI.AbstractOptimizer
     # Forward results
     dx_fwd::Vector{Float64}
     dnu_fwd::Vector{Float64}
+    fwd_obj_sensitivity::Float64
     diff_time::Float64
 
     function EqQPSolver()
@@ -71,6 +73,7 @@ mutable struct EqQPSolver <: MOI.AbstractOptimizer
             MOI.OPTIMIZE_NOT_CALLED,
             Dict{MOI.VariableIndex,Float64}(),
             Dict{EQ_CI,Float64}(),
+            0.0,
             Float64[],
             zeros(0, 0),
             zeros(0, 0),
@@ -79,6 +82,7 @@ mutable struct EqQPSolver <: MOI.AbstractOptimizer
             Dict{EQ_CI,MOI.ScalarAffineFunction{Float64}}(),
             Float64[],
             Float64[],
+            0.0,
             0.0,
         )
     end
@@ -103,6 +107,7 @@ function MOI.empty!(s::EqQPSolver)
     s.status = MOI.OPTIMIZE_NOT_CALLED
     empty!(s.rev_dx)
     empty!(s.rev_dy)
+    s.rev_dobj = 0.0
     s.dc = Float64[]
     s.dQ = zeros(0, 0)
     s.dA = zeros(0, 0)
@@ -111,6 +116,7 @@ function MOI.empty!(s::EqQPSolver)
     empty!(s.fwd_constraints)
     s.dx_fwd = Float64[]
     s.dnu_fwd = Float64[]
+    s.fwd_obj_sensitivity = 0.0
     s.diff_time = 0.0
     return
 end
@@ -386,6 +392,11 @@ function MOI.set(
     return
 end
 
+function MOI.set(s::EqQPSolver, ::DiffOpt.ReverseObjectiveSensitivity, value)
+    s.rev_dobj = value
+    return
+end
+
 # Trigger backward differentiation
 function MOI.set(s::EqQPSolver, ::DiffOpt.BackwardDifferentiate, ::Nothing)
     s.diff_time = @elapsed _backward_differentiate!(s)
@@ -401,6 +412,11 @@ function _backward_differentiate!(s::EqQPSolver)
     for (ci, val) in s.rev_dy
         rhs[n+ci.value] = val
     end
+    # If dobj seed is nonzero, add the gradient of the objective w.r.t. x
+    # dobj * (Qx + c) contributes to the rhs for the primal variables
+    if !iszero(s.rev_dobj)
+        rhs[1:n] .+= s.rev_dobj .* (s.Q * s.x .+ s.c)
+    end
     adj = s.kkt_factor \ rhs
     dx_adj = adj[1:n]
     dnu_adj = adj[(n+1):end]
@@ -411,6 +427,7 @@ function _backward_differentiate!(s::EqQPSolver)
     # Clear seeds
     empty!(s.rev_dx)
     empty!(s.rev_dy)
+    s.rev_dobj = 0.0
     return
 end
 
@@ -473,6 +490,9 @@ function _forward_differentiate!(s::EqQPSolver)
     sol = s.kkt_factor \ rhs
     s.dx_fwd = sol[1:n]
     s.dnu_fwd = sol[(n+1):end]
+    # Compute forward objective sensitivity: d(obj)/dt = (Qx + c)'dx + x'Q*dx/2 + d_c'x
+    # Actually: obj = 1/2 x'Qx + c'x, so dobj/dt = (Qx+c)'dx_fwd + d_c'x
+    s.fwd_obj_sensitivity = dot(s.Q * s.x .+ s.c, s.dx_fwd) + dot(d_c, s.x)
     # Clear inputs
     s.fwd_objective = nothing
     empty!(s.fwd_constraints)
@@ -492,6 +512,9 @@ function MOI.get(s::EqQPSolver, ::DiffOpt.ForwardConstraintDual, ci::EQ_CI)
     return s.dnu_fwd[ci.value]
 end
 
+# ForwardObjectiveSensitivity
+MOI.get(s::EqQPSolver, ::DiffOpt.ForwardObjectiveSensitivity) = s.fwd_obj_sensitivity
+
 # DifferentiateTimeSec
 MOI.get(s::EqQPSolver, ::DiffOpt.DifferentiateTimeSec) = s.diff_time
 
@@ -499,6 +522,7 @@ MOI.get(s::EqQPSolver, ::DiffOpt.DifferentiateTimeSec) = s.diff_time
 function DiffOpt.empty_input_sensitivities!(s::EqQPSolver)
     empty!(s.rev_dx)
     empty!(s.rev_dy)
+    s.rev_dobj = 0.0
     s.fwd_objective = nothing
     empty!(s.fwd_constraints)
     return
@@ -832,6 +856,90 @@ function test_three_variable_problem()
         fd = (x_pert[1] - x_base[1]) / eps
         @test JuMP.coefficient(dobj, x[j]) ≈ fd atol = 1e-4
     end
+end
+
+# ── Test reverse with dobj seed (ReverseObjectiveSensitivity) ─────────────
+
+function test_reverse_dobj_seed()
+    model, x1, x2, c1 = _setup_model()
+
+    # Set dobj = 1.0: sensitivity of the objective value w.r.t. problem data
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 1.0)
+    DiffOpt.reverse_differentiate!(model)
+
+    # x* = [0, 1], nu* = [-3], Q = I, c = [3, 2]
+    # grad_obj w.r.t. x = Q*x + c = [3, 3]
+    # KKT solve with rhs = [3, 3, 0] gives the adjoint
+    K = [1.0 0.0 1.0; 0.0 1.0 1.0; 1.0 1.0 0.0]
+    rhs = [3.0, 3.0, 0.0]
+    adj = K \ rhs
+    dc_expected = -adj[1:2]
+
+    dobj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
+    @test JuMP.coefficient(dobj, x1) ≈ dc_expected[1] atol = ATOL
+    @test JuMP.coefficient(dobj, x2) ≈ dc_expected[2] atol = ATOL
+end
+
+# ── Test forward objective sensitivity ────────────────────────────────────
+
+function test_forward_objective_sensitivity()
+    model, x1, x2, c1 = _setup_model()
+
+    # Perturb dc = [1, 0]
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), 1.0 * x1)
+    DiffOpt.forward_differentiate!(model)
+
+    # x* = [0, 1], Q = I, c = [3, 2]
+    # K * [dx; dnu] = [-dc; 0] = [-1; 0; 0]
+    K = [1.0 0.0 1.0; 0.0 1.0 1.0; 1.0 1.0 0.0]
+    fwd = K \ [-1.0, 0.0, 0.0]
+    # dobj/dt = (Qx + c)'dx + dc'x = [3,3]'*dx + [1,0]'*[0,1]
+    expected = dot([3.0, 3.0], fwd[1:2]) + dot([1.0, 0.0], [0.0, 1.0])
+
+    @test MOI.get(model, DiffOpt.ForwardObjectiveSensitivity()) ≈ expected atol = ATOL
+end
+
+# ── Test forward twice (re-differentiation in forward mode) ──────────────
+
+function test_forward_twice()
+    model, x1, x2, c1 = _setup_model()
+
+    K = [1.0 0.0 1.0; 0.0 1.0 1.0; 1.0 1.0 0.0]
+
+    # First: perturb dc = [1, 0]
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), 1.0 * x1)
+    DiffOpt.forward_differentiate!(model)
+
+    fwd1 = K \ [-1.0, 0.0, 0.0]
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x1) ≈ fwd1[1] atol = ATOL
+
+    # Second: perturb dc = [0, 1]
+    DiffOpt.empty_input_sensitivities!(model)
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), 1.0 * x2)
+    DiffOpt.forward_differentiate!(model)
+
+    fwd2 = K \ [0.0, -1.0, 0.0]
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x1) ≈ fwd2[1] atol = ATOL
+    @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x2) ≈ fwd2[2] atol = ATOL
+end
+
+# ── Test ReverseConstraintSet (not applicable without parameters, but test the getter path) ──
+
+function test_reverse_constraint_set()
+    model, x1, x2, c1 = _setup_model()
+
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x1, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+
+    dc, db, dA = _expected_reverse([1.0, 0.0], [0.0])
+
+    # ReverseConstraintFunction returns dA and db
+    dcon = MOI.get(model, DiffOpt.ReverseConstraintFunction(), c1)
+    @test MOI.constant(dcon) ≈ -db[1] atol = ATOL
+
+    # standard_form should convert the lazy function
+    sf = DiffOpt.standard_form(dcon)
+    @test sf isa MOI.ScalarAffineFunction
 end
 
 # ── Test empty_input_sensitivities! ──────────────────────────────────────────
