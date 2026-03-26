@@ -5,45 +5,70 @@
 
 # block other methods
 
-MOI.supports(::POI.Optimizer, ::ForwardObjectiveFunction) = false
+function _poi_inner_supports_native_diff(model::POI.Optimizer)
+    return MOI.supports(model.optimizer, BackwardDifferentiate()) ||
+           MOI.supports(model.optimizer, ForwardDifferentiate())
+end
 
-function MOI.set(::POI.Optimizer, ::ForwardObjectiveFunction, _)
+function MOI.supports(model::POI.Optimizer, ::ForwardObjectiveFunction)
+    return _poi_inner_supports_native_diff(model)
+end
+
+function MOI.set(model::POI.Optimizer, attr::ForwardObjectiveFunction, v)
+    if _poi_inner_supports_native_diff(model)
+        return MOI.set(model.optimizer, attr, v)
+    end
     return error(
         "Forward objective function is not supported when " *
         "`JuMP.Parameter`s (or `MOI.Parameter`s) are present in the model.",
     )
 end
 
-MOI.supports(::POI.Optimizer, ::ForwardConstraintFunction) = false
+function MOI.supports(model::POI.Optimizer, ::ForwardConstraintFunction)
+    return _poi_inner_supports_native_diff(model)
+end
 
 function MOI.set(
-    ::POI.Optimizer,
-    ::ForwardConstraintFunction,
-    ::MOI.ConstraintIndex,
-    _,
+    model::POI.Optimizer,
+    attr::ForwardConstraintFunction,
+    ci::MOI.ConstraintIndex,
+    v,
 )
+    if _poi_inner_supports_native_diff(model)
+        return MOI.set(model.optimizer, attr, ci, v)
+    end
     return error(
         "Forward constraint function is not supported when " *
         "`JuMP.Parameter`s (or `MOI.Parameter`s) are present in the model.",
     )
 end
 
-MOI.supports(::POI.Optimizer, ::ReverseObjectiveFunction) = false
+function MOI.supports(model::POI.Optimizer, ::ReverseObjectiveFunction)
+    return _poi_inner_supports_native_diff(model)
+end
 
-function MOI.get(::POI.Optimizer, ::ReverseObjectiveFunction)
+function MOI.get(model::POI.Optimizer, attr::ReverseObjectiveFunction)
+    if _poi_inner_supports_native_diff(model)
+        return MOI.get(model.optimizer, attr)
+    end
     return error(
         "Reverse objective function is not supported when " *
         "`JuMP.Parameter`s (or `MOI.Parameter`s) are present in the model.",
     )
 end
 
-MOI.supports(::POI.Optimizer, ::ReverseConstraintFunction) = false
+function MOI.supports(model::POI.Optimizer, ::ReverseConstraintFunction)
+    return _poi_inner_supports_native_diff(model)
+end
 
 function MOI.get(
-    ::POI.Optimizer,
-    ::ReverseConstraintFunction,
-    ::MOI.ConstraintIndex,
+    model::POI.Optimizer,
+    attr::ReverseConstraintFunction,
+    ci::MOI.ConstraintIndex,
 )
+    if _poi_inner_supports_native_diff(model)
+        return MOI.get(model.optimizer, attr, ci)
+    end
     return error(
         "Reverse constraint function is not supported when " *
         "`JuMP.Parameter`s (or `MOI.Parameter`s) are present in the model.",

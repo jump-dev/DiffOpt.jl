@@ -782,8 +782,9 @@ end
 
 function empty_input_sensitivities!(model::Optimizer)
     empty!(model.input_cache)
-    if _solver_supports_differentiate(model)
-        empty_input_sensitivities!(model.optimizer)
+    solver = _native_diff_solver(model)
+    if solver !== nothing
+        empty_input_sensitivities!(solver)
     elseif model.diff !== nothing
         empty_input_sensitivities!(model.diff)
     end
@@ -831,6 +832,30 @@ end
 function _solver_supports_differentiate(model::Optimizer)
     return MOI.supports(model.optimizer, BackwardDifferentiate()) ||
            MOI.supports(model.optimizer, ForwardDifferentiate())
+end
+
+# Find the native differentiation solver in the optimizer chain.
+# Cached in `model.diff` to avoid repeated unwrapping.
+function _native_diff_solver(model::Optimizer)
+    if model.diff === nothing && _solver_supports_differentiate(model)
+        model.diff = _find_native_solver(model.optimizer)
+        model.index_map = MOI.Utilities.identity_index_map(model.optimizer)
+    end
+    return model.diff
+end
+
+_find_native_solver(opt) = opt
+
+function _find_native_solver(opt::MOI.Utilities.CachingOptimizer)
+    return _find_native_solver(opt.optimizer)
+end
+
+function _find_native_solver(opt::MOI.Bridges.LazyBridgeOptimizer)
+    return _find_native_solver(opt.model)
+end
+
+function _find_native_solver(opt::POI.Optimizer)
+    return _find_native_solver(opt.optimizer)
 end
 
 function _diff(model::Optimizer)
@@ -892,12 +917,9 @@ end
 # DiffOpt attributes redirected to `diff`
 
 function _checked_diff(model::Optimizer, attr::MOI.AnyAttribute, call)
-    if _solver_supports_differentiate(model)
-        if model.index_map === nothing
-            model.index_map =
-                MOI.Utilities.identity_index_map(model.optimizer)
-        end
-        return model.optimizer
+    solver = _native_diff_solver(model)
+    if solver !== nothing
+        return solver
     end
     if model.diff === nothing
         error("Cannot get attribute `$attr`. First call `DiffOpt.$call`.")
@@ -1187,8 +1209,9 @@ function MOI.set(
 end
 
 function MOI.get(model::Optimizer, attr::DifferentiateTimeSec)
-    if _solver_supports_differentiate(model)
-        return MOI.get(model.optimizer, attr)
+    solver = _native_diff_solver(model)
+    if solver !== nothing
+        return MOI.get(solver, attr)
     end
     return MOI.get(model.diff, attr)
 end

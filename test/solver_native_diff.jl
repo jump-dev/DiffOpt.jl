@@ -739,6 +739,7 @@ function test_reverse_twice()
     @test JuMP.coefficient(dobj1, x1) ≈ dc1[1] atol = ATOL
 
     # Differentiate again with different seed
+    DiffOpt.empty_input_sensitivities!(model)
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x2, 1.0)
     DiffOpt.reverse_differentiate!(model)
     dobj2 = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
@@ -861,8 +862,10 @@ function test_empty_input_sensitivities()
     # After clearing, differentiation with zero seeds should give zero results
     DiffOpt.reverse_differentiate!(model)
     dobj = MOI.get(model, DiffOpt.ReverseObjectiveFunction())
-    @test JuMP.coefficient(dobj, x1) ≈ 0.0 atol = ATOL
-    @test JuMP.coefficient(dobj, x2) ≈ 0.0 atol = ATOL
+    sf = DiffOpt.standard_form(dobj)
+    for term in sf.terms
+        @test term.coefficient ≈ 0.0 atol = ATOL
+    end
 end
 
 TestSolverNativeDiff.runtests()
