@@ -698,7 +698,11 @@ function forward_differentiate!(model::Optimizer)
             MOI.set(opt, ForwardConstraintSet(), ci, MOI.Parameter(value))
         end
         if model.input_cache.objective !== nothing
-            MOI.set(opt, ForwardObjectiveFunction(), model.input_cache.objective)
+            MOI.set(
+                opt,
+                ForwardObjectiveFunction(),
+                model.input_cache.objective,
+            )
         end
         for (F, S) in MOI.Utilities.DoubleDicts.nonempty_outer_keys(
             model.input_cache.scalar_constraints,

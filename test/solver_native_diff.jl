@@ -23,10 +23,8 @@ const RTOL = 1e-8
 #   s.t. Ax = b
 # ─────────────────────────────────────────────────────────────────────────────
 
-const EQ_CI = MOI.ConstraintIndex{
-    MOI.ScalarAffineFunction{Float64},
-    MOI.EqualTo{Float64},
-}
+const EQ_CI =
+    MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64},MOI.EqualTo{Float64}}
 
 mutable struct EqQPSolver <: MOI.AbstractOptimizer
     Q::Matrix{Float64}
@@ -123,7 +121,7 @@ function MOI.add_variable(s::EqQPSolver)
     push!(s.var_indices, vi)
     n = s.n_vars
     Q_new = zeros(n, n)
-    Q_new[1:n-1, 1:n-1] .= s.Q
+    Q_new[1:(n-1), 1:(n-1)] .= s.Q
     s.Q = Q_new
     push!(s.c, 0.0)
     s.A = s.n_cons > 0 ? hcat(s.A, zeros(s.n_cons)) : zeros(0, n)
@@ -278,8 +276,8 @@ end
 function MOI.get(s::EqQPSolver, ::MOI.ConstraintFunction, ci::EQ_CI)
     row = ci.value
     terms = [
-        MOI.ScalarAffineTerm(s.A[row, j], MOI.VariableIndex(j))
-        for j in 1:s.n_vars if !iszero(s.A[row, j])
+        MOI.ScalarAffineTerm(s.A[row, j], MOI.VariableIndex(j)) for
+        j in 1:s.n_vars if !iszero(s.A[row, j])
     ]
     return MOI.ScalarAffineFunction(terms, 0.0)
 end
@@ -288,15 +286,17 @@ function MOI.get(s::EqQPSolver, ::MOI.ConstraintSet, ci::EQ_CI)
     return MOI.EqualTo(s.b[ci.value])
 end
 
-MOI.get(::EqQPSolver, ::MOI.ObjectiveFunctionType) = MOI.ScalarAffineFunction{Float64}
+function MOI.get(::EqQPSolver, ::MOI.ObjectiveFunctionType)
+    return MOI.ScalarAffineFunction{Float64}
+end
 
 function MOI.get(
     s::EqQPSolver,
     ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}},
 )
     terms = [
-        MOI.ScalarAffineTerm(s.c[j], MOI.VariableIndex(j))
-        for j in 1:s.n_vars if !iszero(s.c[j])
+        MOI.ScalarAffineTerm(s.c[j], MOI.VariableIndex(j)) for
+        j in 1:s.n_vars if !iszero(s.c[j])
     ]
     return MOI.ScalarAffineFunction(terms, 0.0)
 end
@@ -347,7 +347,7 @@ function MOI.optimize!(s::EqQPSolver)
     s.kkt_factor = lu(K)
     sol = s.kkt_factor \ rhs
     s.x = sol[1:n]
-    s.nu = sol[n+1:end]
+    s.nu = sol[(n+1):end]
     s.status = MOI.OPTIMAL
     return
 end
@@ -403,7 +403,7 @@ function _backward_differentiate!(s::EqQPSolver)
     end
     adj = s.kkt_factor \ rhs
     dx_adj = adj[1:n]
-    dnu_adj = adj[n+1:end]
+    dnu_adj = adj[(n+1):end]
     s.dc = -dx_adj
     s.db = dnu_adj
     s.dA = -(s.nu * dx_adj' + dnu_adj * s.x')
@@ -417,21 +417,16 @@ end
 # Reverse output: results
 function MOI.get(s::EqQPSolver, ::DiffOpt.ReverseObjectiveFunction)
     terms = [
-        MOI.ScalarAffineTerm(s.dc[j], MOI.VariableIndex(j))
-        for j in 1:s.n_vars
+        MOI.ScalarAffineTerm(s.dc[j], MOI.VariableIndex(j)) for j in 1:s.n_vars
     ]
     return MOI.ScalarAffineFunction(terms, 0.0)
 end
 
-function MOI.get(
-    s::EqQPSolver,
-    ::DiffOpt.ReverseConstraintFunction,
-    ci::EQ_CI,
-)
+function MOI.get(s::EqQPSolver, ::DiffOpt.ReverseConstraintFunction, ci::EQ_CI)
     row = ci.value
     terms = [
-        MOI.ScalarAffineTerm(s.dA[row, j], MOI.VariableIndex(j))
-        for j in 1:s.n_vars
+        MOI.ScalarAffineTerm(s.dA[row, j], MOI.VariableIndex(j)) for
+        j in 1:s.n_vars
     ]
     return MOI.ScalarAffineFunction(terms, -s.db[row])
 end
@@ -477,7 +472,7 @@ function _forward_differentiate!(s::EqQPSolver)
     rhs = vcat(-d_c, d_b)
     sol = s.kkt_factor \ rhs
     s.dx_fwd = sol[1:n]
-    s.dnu_fwd = sol[n+1:end]
+    s.dnu_fwd = sol[(n+1):end]
     # Clear inputs
     s.fwd_objective = nothing
     empty!(s.fwd_constraints)
@@ -530,10 +525,7 @@ end
 #   x* = [0, 1], nu* = [-3]
 #   K = [Q A'; A 0] = [1 0 1; 0 1 1; 1 1 0]
 
-function _expected_reverse(
-    dx_seed::Vector{Float64},
-    dy_seed::Vector{Float64},
-)
+function _expected_reverse(dx_seed::Vector{Float64}, dy_seed::Vector{Float64})
     Q = [1.0 0.0; 0.0 1.0]
     A = [1.0 1.0]
     x_star = [0.0, 1.0]
@@ -543,7 +535,7 @@ function _expected_reverse(
     rhs = vcat(dx_seed, dy_seed)
     adj = K \ rhs
     adj_x = adj[1:n]
-    adj_nu = adj[n+1:end]
+    adj_nu = adj[(n+1):end]
     dc = -adj_x
     db = adj_nu
     dA = -(nu_star * adj_x' + adj_nu * x_star')
@@ -561,20 +553,13 @@ function _setup_model()
     model = DiffOpt.diff_optimizer(EqQPSolver)
     x1 = MOI.add_variable(model)
     x2 = MOI.add_variable(model)
-    c1 = MOI.add_constraint(
-        model,
-        1.0 * x1 + 1.0 * x2,
-        MOI.EqualTo(1.0),
-    )
+    c1 = MOI.add_constraint(model, 1.0 * x1 + 1.0 * x2, MOI.EqualTo(1.0))
     obj = MOI.ScalarQuadraticFunction(
         [
             MOI.ScalarQuadraticTerm(1.0, x1, x1),
             MOI.ScalarQuadraticTerm(1.0, x2, x2),
         ],
-        [
-            MOI.ScalarAffineTerm(3.0, x1),
-            MOI.ScalarAffineTerm(2.0, x2),
-        ],
+        [MOI.ScalarAffineTerm(3.0, x1), MOI.ScalarAffineTerm(2.0, x2)],
         0.0,
     )
     MOI.set(
@@ -811,11 +796,7 @@ function test_three_variable_problem()
         1.0 * x[1] + 1.0 * x[2] + 1.0 * x[3],
         MOI.EqualTo(1.0),
     )
-    c2 = MOI.add_constraint(
-        model,
-        1.0 * x[1] - 1.0 * x[2],
-        MOI.EqualTo(0.0),
-    )
+    c2 = MOI.add_constraint(model, 1.0 * x[1] - 1.0 * x[2], MOI.EqualTo(0.0))
 
     MOI.optimize!(model)
 
