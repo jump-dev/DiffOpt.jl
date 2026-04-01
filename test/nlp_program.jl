@@ -1035,6 +1035,54 @@ function test_changing_factorization()
     )
 end
 
+function test_attributes_passed_to_inner_diff_forward()
+    P = 2
+    m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    MOI.set(m, DiffOpt.ModelConstructor(), DiffOpt.NonLinearProgram.Model)
+    set_silent(m)
+    @variable(m, x[1:P])
+    @constraint(m, x .≥ 0)
+    @constraint(m, x .≤ 1)
+    @variable(m, p[1:P] ∈ Parameter.(0.5))
+    @constraint(m, x .≥ p)
+    @objective(m, Min, sum(x))
+    optimize!(m)
+    @assert is_solved_and_feasible(m)
+    custom_fact = (M, model) -> SparseArrays.lu(M)
+    MOI.set(m, DiffOpt.NonLinearKKTJacobianFactorization(), custom_fact)
+    MOI.set(m, DiffOpt.AllowObjectiveAndSolutionInput(), true)
+    Δp = [0.1 for _ in 1:P]
+    MOI.set.(
+        m,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef.(p),
+        Parameter.(Δp),
+    )
+    DiffOpt.forward_differentiate!(m)
+    opt = JuMP.backend(m)
+    @test opt.diff.input_cache.factorization === custom_fact
+    @test opt.diff.input_cache.allow_objective_and_solution_input == true
+end
+
+function test_attributes_passed_to_inner_diff_reverse()
+    m = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(m)
+    @variable(m, x >= 0)
+    @variable(m, p in MOI.Parameter(0.5))
+    @constraint(m, x >= p)
+    @objective(m, Min, x)
+    optimize!(m)
+    @assert is_solved_and_feasible(m)
+    custom_fact = (M, model) -> SparseArrays.lu(M)
+    MOI.set(m, DiffOpt.NonLinearKKTJacobianFactorization(), custom_fact)
+    MOI.set(m, DiffOpt.AllowObjectiveAndSolutionInput(), true)
+    MOI.set(m, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+    DiffOpt.reverse_differentiate!(m)
+    opt = JuMP.backend(m)
+    @test opt.diff.input_cache.factorization === custom_fact
+    @test opt.diff.input_cache.allow_objective_and_solution_input == true
+end
+
 function test_reverse_bounds_lower()
     model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
     set_silent(model)

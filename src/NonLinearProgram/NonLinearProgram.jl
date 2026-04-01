@@ -514,7 +514,11 @@ end
 
 MOI.supports(::Model, ::DiffOpt.ForwardDifferentiate) = true
 
-function MOI.set(model::Model, ::DiffOpt.ForwardDifferentiate, ::Nothing)
+function MOI.set(model::Model, ::DiffOpt.ForwardDifferentiate, kws = (;))
+    return DiffOpt.forward_differentiate(model; kws...)
+end
+
+function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model

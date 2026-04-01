@@ -550,7 +550,7 @@ MOI.get(model::Optimizer, ::ModelConstructor) = model.model_constructor
 
 MOI.supports(::Optimizer, ::ReverseDifferentiate) = true
 
-function MOI.set(model::Optimizer, attr::ReverseDifferentiate, ::Nothing)
+function MOI.set(model::Optimizer, attr::ReverseDifferentiate, value)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st, (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
         error(
@@ -600,7 +600,7 @@ function MOI.set(model::Optimizer, attr::ReverseDifferentiate, ::Nothing)
             end
         end
     end
-    return MOI.set(diff, attr, nothing)
+    return MOI.set(diff, attr, value)
 end
 
 # Gradient evaluation functions for objective sensitivity fallbacks
@@ -675,7 +675,7 @@ end
 
 MOI.supports(model::Optimizer, attr::ForwardDifferentiate) = true
 
-function MOI.set(model::Optimizer, attr::ForwardDifferentiate, ::Nothing)
+function MOI.set(model::Optimizer, attr::ForwardDifferentiate, value)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st, (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
         error(
@@ -713,7 +713,7 @@ function MOI.set(model::Optimizer, attr::ForwardDifferentiate, ::Nothing)
                 MOI.Parameter(value),
             )
         end
-        return MOI.set(diff, attr, nothing)
+        return MOI.set(diff, attr, value)
     end
     # @show "func mode"
     if model.input_cache.objective !== nothing
@@ -746,7 +746,7 @@ function MOI.set(model::Optimizer, attr::ForwardDifferentiate, ::Nothing)
             model.input_cache.vector_constraints[F, S],
         )
     end
-    return MOI.set(diff, attr, nothing)
+    return MOI.set(diff, attr, value)
 end
 
 function empty_input_sensitivities!(model::Optimizer)
