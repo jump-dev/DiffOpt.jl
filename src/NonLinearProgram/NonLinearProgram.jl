@@ -552,7 +552,11 @@ end
 
 MOI.supports(::Model, ::DiffOpt.ReverseDifferentiate) = true
 
-function MOI.set(model::Model, ::DiffOpt.ReverseDifferentiate, ::Nothing)
+function MOI.set(model::Model, ::DiffOpt.ReverseDifferentiate, kws = (;))
+    return DiffOpt.reverse_differentiate(model; kws...)
+end
+
+function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
