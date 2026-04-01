@@ -6,6 +6,7 @@ using Ipopt
 using Test
 using FiniteDiff
 import DelimitedFiles
+import MathOptInterface as MOI
 using SparseArrays
 using LinearAlgebra
 
@@ -1037,8 +1038,11 @@ end
 
 function _inner_diff(m)
     opt = JuMP.backend(m)
-    # opt.diff is a LazyBridgeOptimizer wrapping the NonLinearProgram.Model
-    return opt.diff.model
+    # Unwrap CachingOptimizer and LazyBridgeOptimizer to reach DiffOpt.Optimizer
+    inner = opt isa MOI.Utilities.CachingOptimizer ? opt.optimizer : opt
+    inner = inner isa MOI.Bridges.LazyBridgeOptimizer ? inner.model : inner
+    # inner.diff is a LazyBridgeOptimizer wrapping the NonLinearProgram.Model
+    return inner.diff.model
 end
 
 function test_attributes_passed_to_inner_diff_forward()
