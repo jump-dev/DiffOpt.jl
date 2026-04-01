@@ -512,7 +512,9 @@ function _cache_evaluator!(model::Model)
     return model.cache
 end
 
-function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6)
+MOI.supports(::Model, ::DiffOpt.ForwardDifferentiate) = true
+
+function MOI.set(model::Model, ::DiffOpt.ForwardDifferentiate, ::Nothing)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model
@@ -544,7 +546,9 @@ function DiffOpt.forward_differentiate!(model::Model; tol = 1e-6)
     return nothing
 end
 
-function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
+MOI.supports(::Model, ::DiffOpt.ReverseDifferentiate) = true
+
+function MOI.set(model::Model, ::DiffOpt.ReverseDifferentiate, ::Nothing)
     model.diff_time = @elapsed begin
         cache = _cache_evaluator!(model)
         form = model.model

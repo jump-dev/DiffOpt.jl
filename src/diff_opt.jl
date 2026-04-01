@@ -54,10 +54,13 @@ with respect to the solution set with the [`ReverseVariablePrimal`](@ref) attrib
 The output problem data differentials can be queried with the
 attributes [`ReverseObjectiveFunction`](@ref) and [`ReverseConstraintFunction`](@ref).
 """
-function reverse_differentiate! end
+function reverse_differentiate!(model)
+    return MOI.set(model, ReverseDifferentiate(), nothing)
+end
+
 
 """
-    forward_differentiate!(model::Optimizer)
+    forward_differentiate!(model::Union{MOI.ModelLike,JuMP.AbstractModel})
 
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and
@@ -66,7 +69,10 @@ the [`ForwardObjectiveFunction`](@ref) and  [`ForwardConstraintFunction`](@ref) 
 The output solution differentials can be queried with the attribute
 [`ForwardVariablePrimal`](@ref).
 """
-function forward_differentiate! end
+function forward_differentiate!(model)
+    return MOI.set(model, ForwardDifferentiate(), nothing)
+end
+
 
 """
     empty_input_sensitivities!(model::MOI.ModelLike)
@@ -317,9 +323,9 @@ struct DifferentiateTimeSec <: MOI.AbstractModelAttribute end
 """
     ReverseDifferentiate <: MOI.AbstractOptimizerAttribute
 
-An `MOI.AbstractOptimizerAttribute` that triggers backward differentiation
+An `MOI.AbstractOptimizerAttribute` that triggers reverse differentiation
 on the solver. If `MOI.supports(optimizer, DiffOpt.ReverseDifferentiate())`
-returns `true`, then the solver natively supports backward differentiation
+returns `true`, then the solver natively supports reverse differentiation
 through the DiffOpt attribute interface, and DiffOpt will delegate
 differentiation directly to the solver instead of using its own
 differentiation backend.
