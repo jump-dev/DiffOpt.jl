@@ -472,6 +472,14 @@ function MOI.set(model::AbstractModel, ::ForwardObjectiveFunction, objective)
     return
 end
 
+function MOI.supports(::AbstractModel, ::NonLinearKKTJacobianFactorization)
+    return true
+end
+
+function MOI.supports(::AbstractModel, ::AllowObjectiveAndSolutionInput)
+    return true
+end
+
 function MOI.set(
     model::AbstractModel,
     ::NonLinearKKTJacobianFactorization,

@@ -1035,6 +1035,12 @@ function test_changing_factorization()
     )
 end
 
+function _inner_diff(m)
+    opt = JuMP.backend(m)
+    # opt.diff is a LazyBridgeOptimizer wrapping the NonLinearProgram.Model
+    return opt.diff.model
+end
+
 function test_attributes_passed_to_inner_diff_forward()
     P = 2
     m = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
@@ -1059,9 +1065,9 @@ function test_attributes_passed_to_inner_diff_forward()
         Parameter.(Δp),
     )
     DiffOpt.forward_differentiate!(m)
-    opt = JuMP.backend(m)
-    @test opt.diff.input_cache.factorization === custom_fact
-    @test opt.diff.input_cache.allow_objective_and_solution_input == true
+    diff = _inner_diff(m)
+    @test diff.input_cache.factorization === custom_fact
+    @test diff.input_cache.allow_objective_and_solution_input == true
 end
 
 function test_attributes_passed_to_inner_diff_reverse()
@@ -1078,9 +1084,9 @@ function test_attributes_passed_to_inner_diff_reverse()
     MOI.set(m, DiffOpt.AllowObjectiveAndSolutionInput(), true)
     MOI.set(m, DiffOpt.ReverseVariablePrimal(), x, 1.0)
     DiffOpt.reverse_differentiate!(m)
-    opt = JuMP.backend(m)
-    @test opt.diff.input_cache.factorization === custom_fact
-    @test opt.diff.input_cache.allow_objective_and_solution_input == true
+    diff = _inner_diff(m)
+    @test diff.input_cache.factorization === custom_fact
+    @test diff.input_cache.allow_objective_and_solution_input == true
 end
 
 function test_reverse_bounds_lower()
