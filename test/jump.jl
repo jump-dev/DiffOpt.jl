@@ -688,11 +688,9 @@ function test_conic_supports()
         DiffOpt.ForwardConstraintSet(),
         MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{Float64}},
     )
-    function some end
     @test MOI.supports(
         backend(model),
         DiffOpt.NonLinearKKTJacobianFactorization(),
-        some,
     )
     MOI.is_set_by_optimize(DiffOpt.ReverseConstraintFunction())
     MOI.is_set_by_optimize(DiffOpt.ReverseConstraintSet())
