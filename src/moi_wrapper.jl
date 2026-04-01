@@ -562,7 +562,7 @@ function reverse_differentiate!(model::Optimizer)
                   "Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
         end
     end
-    if MOI.supports(model.optimizer, BackwardDifferentiate())
+    if MOI.supports(model.optimizer, ReverseDifferentiate())
         # Solver natively supports backward differentiation.
         # Copy input_cache directly into model.optimizer and trigger differentiation.
         opt = model.optimizer
@@ -575,7 +575,7 @@ function reverse_differentiate!(model::Optimizer)
         if !iszero(model.input_cache.dobj)
             MOI.set(opt, ReverseObjectiveSensitivity(), model.input_cache.dobj)
         end
-        MOI.set(opt, BackwardDifferentiate(), nothing)
+        MOI.set(opt, ReverseDifferentiate(), nothing)
         return
     end
     diff = _diff(model)
@@ -834,7 +834,7 @@ function _instantiate_diff(model::Optimizer, constructor)
 end
 
 function _solver_supports_differentiate(model::Optimizer)
-    return MOI.supports(model.optimizer, BackwardDifferentiate()) ||
+    return MOI.supports(model.optimizer, ReverseDifferentiate()) ||
            MOI.supports(model.optimizer, ForwardDifferentiate())
 end
 

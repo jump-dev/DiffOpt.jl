@@ -315,10 +315,10 @@ the differentiation information.
 struct DifferentiateTimeSec <: MOI.AbstractModelAttribute end
 
 """
-    BackwardDifferentiate <: MOI.AbstractOptimizerAttribute
+    ReverseDifferentiate <: MOI.AbstractOptimizerAttribute
 
 An `MOI.AbstractOptimizerAttribute` that triggers backward differentiation
-on the solver. If `MOI.supports(optimizer, DiffOpt.BackwardDifferentiate())`
+on the solver. If `MOI.supports(optimizer, DiffOpt.ReverseDifferentiate())`
 returns `true`, then the solver natively supports backward differentiation
 through the DiffOpt attribute interface, and DiffOpt will delegate
 differentiation directly to the solver instead of using its own
@@ -326,10 +326,10 @@ differentiation backend.
 
 Trigger the computation with:
 ```julia
-MOI.set(optimizer, DiffOpt.BackwardDifferentiate(), nothing)
+MOI.set(optimizer, DiffOpt.ReverseDifferentiate(), nothing)
 ```
 """
-struct BackwardDifferentiate <: MOI.AbstractOptimizerAttribute end
+struct ReverseDifferentiate <: MOI.AbstractOptimizerAttribute end
 
 """
     ForwardDifferentiate <: MOI.AbstractOptimizerAttribute

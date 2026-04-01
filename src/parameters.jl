@@ -6,7 +6,7 @@
 # block other methods
 
 function _poi_inner_supports_native_diff(model::POI.Optimizer)
-    return MOI.supports(model.optimizer, BackwardDifferentiate()) ||
+    return MOI.supports(model.optimizer, ReverseDifferentiate()) ||
            MOI.supports(model.optimizer, ForwardDifferentiate())
 end
 

@@ -17,11 +17,14 @@ const RTOL = 1e-8
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EqQPSolver: a minimal equality-constrained QP solver with native
-# differentiation support via DiffOpt.BackwardDifferentiate and
+# differentiation support via DiffOpt.ReverseDifferentiate and
 # DiffOpt.ForwardDifferentiate.
 #
 #   min  (1/2) x'Qx + c'x
 #   s.t. Ax = b
+#
+# Written by @PTNobel in https://github.com/jump-dev/DiffOpt.jl/pull/344
+#
 # ─────────────────────────────────────────────────────────────────────────────
 
 const EQ_CI =
@@ -361,7 +364,7 @@ end
 
 # ── Native differentiation via DiffOpt attributes ────────────────────────────
 
-MOI.supports(::EqQPSolver, ::DiffOpt.BackwardDifferentiate) = true
+MOI.supports(::EqQPSolver, ::DiffOpt.ReverseDifferentiate) = true
 MOI.supports(::EqQPSolver, ::DiffOpt.ForwardDifferentiate) = true
 
 # Reverse input: seeds
@@ -399,7 +402,7 @@ function MOI.set(s::EqQPSolver, ::DiffOpt.ReverseObjectiveSensitivity, value)
 end
 
 # Trigger backward differentiation
-function MOI.set(s::EqQPSolver, ::DiffOpt.BackwardDifferentiate, ::Nothing)
+function MOI.set(s::EqQPSolver, ::DiffOpt.ReverseDifferentiate, ::Nothing)
     s.diff_time = @elapsed _backward_differentiate!(s)
     return
 end
@@ -602,7 +605,7 @@ end
 # ── Test that the solver supports native differentiation ─────────────────────
 
 function test_supports_native_differentiation()
-    @test MOI.supports(EqQPSolver(), DiffOpt.BackwardDifferentiate()) == true
+    @test MOI.supports(EqQPSolver(), DiffOpt.ReverseDifferentiate()) == true
     @test MOI.supports(EqQPSolver(), DiffOpt.ForwardDifferentiate()) == true
 end
 
@@ -1004,7 +1007,7 @@ function test_poi_forwarding_reverse()
 
     # Set reverse seeds directly on the solver
     MOI.set(solver, DiffOpt.ReverseVariablePrimal(), MOI.VariableIndex(1), 1.0)
-    MOI.set(solver, DiffOpt.BackwardDifferentiate(), nothing)
+    MOI.set(solver, DiffOpt.ReverseDifferentiate(), nothing)
 
     # Get results through POI forwarding
     dobj = MOI.get(poi, DiffOpt.ReverseObjectiveFunction())
