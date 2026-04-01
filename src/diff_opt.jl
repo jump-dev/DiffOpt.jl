@@ -58,7 +58,6 @@ function reverse_differentiate!(model)
     return MOI.set(model, ReverseDifferentiate(), nothing)
 end
 
-
 """
     forward_differentiate!(model::Union{MOI.ModelLike,JuMP.AbstractModel})
 
@@ -72,7 +71,6 @@ The output solution differentials can be queried with the attribute
 function forward_differentiate!(model)
     return MOI.set(model, ForwardDifferentiate(), nothing)
 end
-
 
 """
     empty_input_sensitivities!(model::MOI.ModelLike)

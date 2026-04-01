@@ -805,7 +805,10 @@ function _native_diff_solver(model::Optimizer)
     return model.diff
 end
 
-function _diff(model::Optimizer, attr::Union{ForwardDifferentiate,ReverseDifferentiate})
+function _diff(
+    model::Optimizer,
+    attr::Union{ForwardDifferentiate,ReverseDifferentiate},
+)
     if MOI.supports(model.optimizer, attr)
         model.diff = model.optimizer
         model.index_map = MOI.Utilities.identity_index_map(model.optimizer)
@@ -1154,10 +1157,7 @@ function MOI.get(model::Optimizer, attr::DifferentiateTimeSec)
     return MOI.get(model.diff, attr)
 end
 
-function MOI.supports(
-    ::Optimizer,
-    ::NonLinearKKTJacobianFactorization,
-)
+function MOI.supports(::Optimizer, ::NonLinearKKTJacobianFactorization)
     return true
 end
 
