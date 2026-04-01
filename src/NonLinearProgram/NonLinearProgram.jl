@@ -514,7 +514,8 @@ end
 
 MOI.supports(::Model, ::DiffOpt.ForwardDifferentiate) = true
 
-function MOI.set(model::Model, ::DiffOpt.ForwardDifferentiate, kws = (;))
+function MOI.set(model::Model, ::DiffOpt.ForwardDifferentiate, value)
+    kws = something(value, (;))
     return DiffOpt.forward_differentiate(model; kws...)
 end
 
@@ -552,7 +553,8 @@ end
 
 MOI.supports(::Model, ::DiffOpt.ReverseDifferentiate) = true
 
-function MOI.set(model::Model, ::DiffOpt.ReverseDifferentiate, kws = (;))
+function MOI.set(model::Model, ::DiffOpt.ReverseDifferentiate, value)
+    kws = something(value, (;))
     return DiffOpt.reverse_differentiate(model; kws...)
 end
 
