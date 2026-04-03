@@ -646,13 +646,12 @@ function _eval_gradient(
 end
 
 function _fallback_set_reverse_objective_sensitivity(model::Optimizer, val)
-    diff = _diff(model)
     obj_type = MOI.get(model, MOI.ObjectiveFunctionType())
     obj_func = MOI.get(model, MOI.ObjectiveFunction{obj_type}())
     grad = _eval_gradient(model, obj_func)
     for (xi, df_dxi) in grad
         MOI.set(
-            diff,
+            model.diff,
             ReverseVariablePrimal(),
             model.index_map[xi],
             df_dxi * val,
