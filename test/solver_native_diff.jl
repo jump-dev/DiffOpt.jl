@@ -580,7 +580,10 @@ end
 # KKT solution: x = [0, 1], nu = -3
 
 function _setup_model()
-    model = DiffOpt.diff_optimizer(EqQPSolver; allow_parametric_opt_interface = false)
+    model = DiffOpt.diff_optimizer(
+        EqQPSolver;
+        allow_parametric_opt_interface = false,
+    )
     x1 = MOI.add_variable(model)
     x2 = MOI.add_variable(model)
     c1 = MOI.add_constraint(model, 1.0 * x1 + 1.0 * x2, MOI.EqualTo(1.0))
@@ -798,7 +801,10 @@ end
 # ── Test with a 3-variable problem ───────────────────────────────────────────
 
 function test_three_variable_problem()
-    model = DiffOpt.diff_optimizer(EqQPSolver; allow_parametric_opt_interface = false)
+    model = DiffOpt.diff_optimizer(
+        EqQPSolver;
+        allow_parametric_opt_interface = false,
+    )
 
     x = [MOI.add_variable(model) for _ in 1:3]
 
