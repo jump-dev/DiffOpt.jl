@@ -6,21 +6,8 @@
 # block other methods
 
 function _poi_inner_supports_native_diff(model::POI.Optimizer)
-    if !(
-        MOI.supports(model.optimizer, ReverseDifferentiate()) ||
-        MOI.supports(model.optimizer, ForwardDifferentiate())
-    )
-        return false
-    end
-    # DiffOpt's own diff models (QuadProgram, ConicProgram, etc.) also support
-    # these attributes, but they are NOT native solvers — POI still needs to
-    # handle parameter differentiation for them. Only bypass POI's parameter
-    # logic when the inner solver is an actual native solver.
-    inner = model.optimizer
-    while inner isa MOI.Bridges.AbstractBridgeOptimizer
-        inner = inner.model
-    end
-    return !(inner isa AbstractModel)
+    return MOI.supports(model.optimizer, ReverseDifferentiate()) ||
+           MOI.supports(model.optimizer, ForwardDifferentiate())
 end
 
 function MOI.supports(model::POI.Optimizer, ::ForwardObjectiveFunction)
