@@ -504,7 +504,11 @@ function empty_input_sensitivities!(model::POI.Optimizer{T}) where {T}
     return
 end
 
-function MOI.set(model::POI.Optimizer{T}, attr::ForwardDifferentiate, value) where {T}
+function MOI.set(
+    model::POI.Optimizer{T},
+    attr::ForwardDifferentiate,
+    value,
+) where {T}
     ctr_types = MOI.get(model, POI.ListOfParametricConstraintTypesPresent())
     for (F, S, P) in ctr_types
         dict = MOI.get(

@@ -76,7 +76,10 @@ function test_compute_optimal_hess_jacobian()
         optimize!(model)
         @assert is_solved_and_feasible(model)
         # Create evaluator
-        nlp_model = DiffOpt._diff(model.moi_backend.optimizer.model, DiffOpt.ForwardDifferentiate()).model
+        nlp_model = DiffOpt._diff(
+            model.moi_backend.optimizer.model,
+            DiffOpt.ForwardDifferentiate(),
+        ).model
         _test_create_evaluator(nlp_model)
         cons = nlp_model.cache.cons
         y = [
