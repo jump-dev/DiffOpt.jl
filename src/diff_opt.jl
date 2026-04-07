@@ -54,10 +54,12 @@ with respect to the solution set with the [`ReverseVariablePrimal`](@ref) attrib
 The output problem data differentials can be queried with the
 attributes [`ReverseObjectiveFunction`](@ref) and [`ReverseConstraintFunction`](@ref).
 """
-function reverse_differentiate! end
+function reverse_differentiate!(model)
+    return MOI.set(model, ReverseDifferentiate(), nothing)
+end
 
 """
-    forward_differentiate!(model::Optimizer)
+    forward_differentiate!(model::Union{MOI.ModelLike,JuMP.AbstractModel})
 
 Wrapper method for the forward pass.
 This method will consider as input a currently solved problem and
@@ -66,7 +68,9 @@ the [`ForwardObjectiveFunction`](@ref) and  [`ForwardConstraintFunction`](@ref) 
 The output solution differentials can be queried with the attribute
 [`ForwardVariablePrimal`](@ref).
 """
-function forward_differentiate! end
+function forward_differentiate!(model)
+    return MOI.set(model, ForwardDifferentiate(), nothing)
+end
 
 """
     empty_input_sensitivities!(model::MOI.ModelLike)
@@ -314,6 +318,40 @@ the differentiation information.
 """
 struct DifferentiateTimeSec <: MOI.AbstractModelAttribute end
 
+"""
+    ReverseDifferentiate <: MOI.AbstractOptimizerAttribute
+
+An `MOI.AbstractOptimizerAttribute` that triggers reverse differentiation
+on the solver. If `MOI.supports(optimizer, DiffOpt.ReverseDifferentiate())`
+returns `true`, then the solver natively supports reverse differentiation
+through the DiffOpt attribute interface, and DiffOpt will delegate
+differentiation directly to the solver instead of using its own
+differentiation backend.
+
+Trigger the computation with:
+```julia
+MOI.set(optimizer, DiffOpt.ReverseDifferentiate(), nothing)
+```
+"""
+struct ReverseDifferentiate <: MOI.AbstractOptimizerAttribute end
+
+"""
+    ForwardDifferentiate <: MOI.AbstractOptimizerAttribute
+
+An `MOI.AbstractOptimizerAttribute` that triggers forward differentiation
+on the solver. If `MOI.supports(optimizer, DiffOpt.ForwardDifferentiate())`
+returns `true`, then the solver natively supports forward differentiation
+through the DiffOpt attribute interface, and DiffOpt will delegate
+differentiation directly to the solver instead of using its own
+differentiation backend.
+
+Trigger the computation with:
+```julia
+MOI.set(optimizer, DiffOpt.ForwardDifferentiate(), nothing)
+```
+"""
+struct ForwardDifferentiate <: MOI.AbstractOptimizerAttribute end
+
 MOI.attribute_value_type(::DifferentiateTimeSec) = Float64
 
 MOI.is_set_by_optimize(::DifferentiateTimeSec) = true
@@ -432,6 +470,14 @@ end
 function MOI.set(model::AbstractModel, ::ForwardObjectiveFunction, objective)
     model.input_cache.objective = objective
     return
+end
+
+function MOI.supports(::AbstractModel, ::NonLinearKKTJacobianFactorization)
+    return true
+end
+
+function MOI.supports(::AbstractModel, ::AllowObjectiveAndSolutionInput)
+    return true
 end
 
 function MOI.set(

@@ -548,7 +548,9 @@ end
 
 MOI.get(model::Optimizer, ::ModelConstructor) = model.model_constructor
 
-function reverse_differentiate!(model::Optimizer)
+MOI.supports(::Optimizer, ::ReverseDifferentiate) = true
+
+function MOI.set(model::Optimizer, attr::ReverseDifferentiate, value)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st, (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
         error(
@@ -562,17 +564,22 @@ function reverse_differentiate!(model::Optimizer)
                   "Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
         end
     end
-    diff = _diff(model)
-    MOI.set(
-        diff,
-        NonLinearKKTJacobianFactorization(),
-        model.input_cache.factorization,
-    )
-    MOI.set(
-        diff,
-        AllowObjectiveAndSolutionInput(),
-        model.input_cache.allow_objective_and_solution_input,
-    )
+    diff = _diff(model, attr)
+    # Native differentiation interface are allow to not support it
+    if MOI.supports(diff, NonLinearKKTJacobianFactorization())
+        MOI.set(
+            diff,
+            NonLinearKKTJacobianFactorization(),
+            model.input_cache.factorization,
+        )
+    end
+    if MOI.supports(diff, AllowObjectiveAndSolutionInput())
+        MOI.set(
+            diff,
+            AllowObjectiveAndSolutionInput(),
+            model.input_cache.allow_objective_and_solution_input,
+        )
+    end
     for (vi, value) in model.input_cache.dx
         MOI.set(diff, ReverseVariablePrimal(), model.index_map[vi], value)
     end
@@ -593,7 +600,7 @@ function reverse_differentiate!(model::Optimizer)
             end
         end
     end
-    return reverse_differentiate!(diff)
+    return MOI.set(diff, attr, value)
 end
 
 # Gradient evaluation functions for objective sensitivity fallbacks
@@ -639,13 +646,12 @@ function _eval_gradient(
 end
 
 function _fallback_set_reverse_objective_sensitivity(model::Optimizer, val)
-    diff = _diff(model)
     obj_type = MOI.get(model, MOI.ObjectiveFunctionType())
     obj_func = MOI.get(model, MOI.ObjectiveFunction{obj_type}())
     grad = _eval_gradient(model, obj_func)
     for (xi, df_dxi) in grad
         MOI.set(
-            diff,
+            model.diff,
             ReverseVariablePrimal(),
             model.index_map[xi],
             df_dxi * val,
@@ -666,24 +672,30 @@ function _copy_forward_in_constraint(diff, index_map, con_map, constraints)
     return
 end
 
-function forward_differentiate!(model::Optimizer)
+MOI.supports(model::Optimizer, attr::ForwardDifferentiate) = true
+
+function MOI.set(model::Optimizer, attr::ForwardDifferentiate, value)
     st = MOI.get(model.optimizer, MOI.TerminationStatus())
     if !in(st, (MOI.LOCALLY_SOLVED, MOI.OPTIMAL))
         error(
             "Trying to compute the forward differentiation on a model with termination status $(st)",
         )
     end
-    diff = _diff(model)
-    MOI.set(
-        diff,
-        NonLinearKKTJacobianFactorization(),
-        model.input_cache.factorization,
-    )
-    MOI.set(
-        diff,
-        AllowObjectiveAndSolutionInput(),
-        model.input_cache.allow_objective_and_solution_input,
-    )
+    diff = _diff(model, attr)
+    if MOI.supports(diff, NonLinearKKTJacobianFactorization())
+        MOI.set(
+            diff,
+            NonLinearKKTJacobianFactorization(),
+            model.input_cache.factorization,
+        )
+    end
+    if MOI.supports(diff, AllowObjectiveAndSolutionInput())
+        MOI.set(
+            diff,
+            AllowObjectiveAndSolutionInput(),
+            model.input_cache.allow_objective_and_solution_input,
+        )
+    end
     T = Float64
     list = MOI.get(
         model,
@@ -700,7 +712,7 @@ function forward_differentiate!(model::Optimizer)
                 MOI.Parameter(value),
             )
         end
-        return forward_differentiate!(diff)
+        return MOI.set(diff, attr, value)
     end
     # @show "func mode"
     if model.input_cache.objective !== nothing
@@ -733,7 +745,7 @@ function forward_differentiate!(model::Optimizer)
             model.input_cache.vector_constraints[F, S],
         )
     end
-    return forward_differentiate!(diff)
+    return MOI.set(diff, attr, value)
 end
 
 function empty_input_sensitivities!(model::Optimizer)
@@ -782,8 +794,24 @@ function _instantiate_diff(model::Optimizer, constructor)
     return model_bridged
 end
 
-function _diff(model::Optimizer)
-    if model.diff === nothing
+# Find the native differentiation solver in the optimizer chain.
+# Cached in `model.diff` to avoid repeated unwrapping.
+function _native_diff_solver(model::Optimizer)
+    if isnothing(model.diff)
+        model.diff = model.optimizer
+        model.index_map = MOI.Utilities.identity_index_map(model.optimizer)
+    end
+    return model.diff
+end
+
+function _diff(
+    model::Optimizer,
+    attr::Union{ForwardDifferentiate,ReverseDifferentiate},
+)
+    if MOI.supports(model.optimizer, attr)
+        model.diff = model.optimizer
+        model.index_map = MOI.Utilities.identity_index_map(model.optimizer)
+    elseif isnothing(model.diff)
         _check_termination_status(model)
         model_constructor = MOI.get(model, ModelConstructor())
         if isnothing(model_constructor)
@@ -1128,15 +1156,7 @@ function MOI.get(model::Optimizer, attr::DifferentiateTimeSec)
     return MOI.get(model.diff, attr)
 end
 
-function MOI.supports(
-    ::Optimizer,
-    ::NonLinearKKTJacobianFactorization,
-    ::Function,
-)
-    return true
-end
-
-function MOI.supports(::Optimizer, ::AllowObjectiveAndSolutionInput, ::Bool)
+function MOI.supports(::Optimizer, ::NonLinearKKTJacobianFactorization)
     return true
 end
 

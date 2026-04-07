@@ -253,7 +253,9 @@ function _gradient_cache(model::Model)
     return model.gradient_cache
 end
 
-function DiffOpt.forward_differentiate!(model::Model)
+MOI.supports(::Model, ::DiffOpt.ForwardDifferentiate) = true
+
+function MOI.set(model::Model, ::DiffOpt.ForwardDifferentiate, ::Nothing)
     model.diff_time = @elapsed begin
         gradient_cache = _gradient_cache(model)
         M = gradient_cache.M
@@ -333,7 +335,9 @@ function DiffOpt.forward_differentiate!(model::Model)
     # return -dx, -dy, -ds
 end
 
-function DiffOpt.reverse_differentiate!(model::Model)
+MOI.supports(::Model, ::DiffOpt.ReverseDifferentiate) = true
+
+function MOI.set(model::Model, ::DiffOpt.ReverseDifferentiate, ::Nothing)
     model.diff_time = @elapsed begin
         gradient_cache = _gradient_cache(model)
         M = gradient_cache.M

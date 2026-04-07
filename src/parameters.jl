@@ -479,8 +479,11 @@ function empty_input_sensitivities!(model::POI.Optimizer{T}) where {T}
     return
 end
 
-function forward_differentiate!(model::POI.Optimizer{T}) where {T}
-    empty_input_sensitivities!(model.optimizer)
+function MOI.set(
+    model::POI.Optimizer{T},
+    attr::ForwardDifferentiate,
+    value,
+) where {T}
     ctr_types = MOI.get(model, POI.ListOfParametricConstraintTypesPresent())
     for (F, S, P) in ctr_types
         dict = MOI.get(
@@ -497,7 +500,7 @@ function forward_differentiate!(model::POI.Optimizer{T}) where {T}
     elseif obj_type <: POI.ParametricCubicFunction
         _cubic_objective_set_forward!(model)
     end
-    forward_differentiate!(model.optimizer)
+    MOI.set(model.optimizer, attr, value)
     return
 end
 
@@ -699,8 +702,8 @@ function _quadratic_objective_get_reverse!(model::POI.Optimizer{T}) where {T}
     return
 end
 
-function reverse_differentiate!(model::POI.Optimizer)
-    reverse_differentiate!(model.optimizer)
+function MOI.set(model::POI.Optimizer, attr::ReverseDifferentiate, value)
+    MOI.set(model.optimizer, attr, value)
     sensitivity_data = _get_sensitivity_data(model)
     empty!(sensitivity_data.parameter_output_backward)
     sizehint!(
