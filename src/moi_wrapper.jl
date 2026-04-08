@@ -1081,6 +1081,16 @@ function MOI.set(
             "Use `MOI.set(model, ForwardConstraintSet(), ParameterRef(vi), Parameter(val))` instead.",
         )
     end
+    # check dimension of func matches the number of rows corresponding to ci
+    # TODO: is there a mode efficient way?
+    set = MOI.get(model, MOI.ConstraintSet(), ci)
+    if length(func.constants) != MOI.dimension(set)
+        throw(
+            DimensionMismatch(
+                "The length of the ForwardConstraintFunction does not match the dimension of the constraint set. Length of function: $(length(func.constants)), dimension of constraint set: $(MOI.dimension(set)).",
+            ),
+        )
+    end
     model.input_cache.vector_constraints[ci] = func
     return
 end

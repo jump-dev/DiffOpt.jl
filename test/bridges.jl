@@ -104,6 +104,18 @@ function test_dU_from_dQ()
     return _test_dU_dQ(U, dU)
 end
 
+function test_square_offset()
+    @test DiffOpt._square_offset(MOI.PositiveSemidefiniteConeSquare(2)) == 0
+    @test DiffOpt._square_offset(MOI.RootDetConeSquare(2)) == 1
+    @test DiffOpt._square_offset(MOI.LogDetConeSquare(2)) == 2
+    @test MOI.Bridges.Constraint._square_offset(
+        MOI.PositiveSemidefiniteConeSquare(2),
+    ) == Int[]
+    @test MOI.Bridges.Constraint._square_offset(MOI.RootDetConeSquare(2)) == [1]
+    @test MOI.Bridges.Constraint._square_offset(MOI.LogDetConeSquare(2)) ==
+          [1, 2]
+end
+
 end
 
 TestBridges.runtests()
