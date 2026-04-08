@@ -794,16 +794,6 @@ function _instantiate_diff(model::Optimizer, constructor)
     return model_bridged
 end
 
-# Find the native differentiation solver in the optimizer chain.
-# Cached in `model.diff` to avoid repeated unwrapping.
-function _native_diff_solver(model::Optimizer)
-    if isnothing(model.diff)
-        model.diff = model.optimizer
-        model.index_map = MOI.Utilities.identity_index_map(model.optimizer)
-    end
-    return model.diff
-end
-
 function _diff(
     model::Optimizer,
     attr::Union{ForwardDifferentiate,ReverseDifferentiate},
