@@ -251,20 +251,6 @@ end
 
 MOI.constant(func::IndexMappedFunction) = MOI.constant(func.func)
 
-# Support JuMP.coefficient on plain MOI functions returned by native solvers
-function JuMP.coefficient(
-    func::MOI.ScalarAffineFunction{T},
-    vi::MOI.VariableIndex,
-) where {T}
-    coef = zero(T)
-    for term in func.terms
-        if term.variable == vi
-            coef += term.coefficient
-        end
-    end
-    return coef
-end
-
 function JuMP.coefficient(func::IndexMappedFunction, vi::MOI.VariableIndex)
     return JuMP.coefficient(func.func, func.index_map[vi])
 end
