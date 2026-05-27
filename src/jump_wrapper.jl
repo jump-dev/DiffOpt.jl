@@ -99,114 +99,140 @@ end
     set_forward_parameter(model::JuMP.Model, variable::JuMP.VariableRef, value::Number)
 
 Set the value of a parameter input sensitivity for forward mode.
+
+Equivalent to `set_attribute(variable, DiffOpt.ForwardParameterValue(), value)`,
+which is the preferred form going forward.
 """
 function set_forward_parameter(
     model::JuMP.Model,
     variable::JuMP.VariableRef,
     value::Number,
 )
-    JuMP.check_belongs_to_model(variable, model)
-    return MOI.set(
-        JuMP.backend(model),
-        ForwardConstraintSet(),
-        JuMP.index(ParameterRef(variable)),
-        MOI.Parameter(value),
+    Base.depwarn(
+        "`DiffOpt.set_forward_parameter(model, variable, value)` is deprecated; use `set_attribute(variable, DiffOpt.ForwardParameterValue(), value)`.",
+        :set_forward_parameter,
     )
+    return JuMP.set_attribute(variable, ForwardParameterValue(), value)
 end
 
 """
     get_reverse_parameter(model::JuMP.Model, variable::JuMP.VariableRef)
 
 Get the value of a parameter output sensitivity for reverse mode.
+
+Equivalent to `get_attribute(variable, DiffOpt.ReverseParameterValue())`,
+which is the preferred form going forward.
 """
 function get_reverse_parameter(model::JuMP.Model, variable::JuMP.VariableRef)
-    JuMP.check_belongs_to_model(variable, model)
-    return MOI.get(
-        JuMP.backend(model),
-        ReverseConstraintSet(),
-        JuMP.index(ParameterRef(variable)),
-    ).value
+    Base.depwarn(
+        "`DiffOpt.get_reverse_parameter(model, variable)` is deprecated; use `get_attribute(variable, DiffOpt.ReverseParameterValue())`.",
+        :get_reverse_parameter,
+    )
+    return JuMP.get_attribute(variable, ReverseParameterValue())
 end
 
 """
     set_reverse_variable(model::JuMP.Model, variable::JuMP.VariableRef, value::Number)
 
 Set the value of a variable input sensitivity for reverse mode.
+
+Equivalent to `set_attribute(variable, DiffOpt.ReverseVariablePrimal(), value)`,
+which is the preferred form going forward.
 """
 function set_reverse_variable(
     model::JuMP.Model,
     variable::JuMP.VariableRef,
     value::Number,
 )
-    JuMP.check_belongs_to_model(variable, model)
-    return MOI.set(
-        JuMP.backend(model),
-        ReverseVariablePrimal(),
-        JuMP.index(variable),
-        value,
+    Base.depwarn(
+        "`DiffOpt.set_reverse_variable(model, variable, value)` is deprecated; use `set_attribute(variable, DiffOpt.ReverseVariablePrimal(), value)`.",
+        :set_reverse_variable,
     )
+    return JuMP.set_attribute(variable, ReverseVariablePrimal(), value)
 end
 
 """
     get_forward_variable(model::JuMP.Model, variable::JuMP.VariableRef)
 
 Get the value of a variable output sensitivity for forward mode.
+
+Equivalent to `get_attribute(variable, DiffOpt.ForwardVariablePrimal())`,
+which is the preferred form going forward.
 """
 function get_forward_variable(model::JuMP.Model, variable::JuMP.VariableRef)
-    JuMP.check_belongs_to_model(variable, model)
-    return _moi_get_result(
-        JuMP.backend(model),
-        ForwardVariablePrimal(),
-        JuMP.index(variable),
+    Base.depwarn(
+        "`DiffOpt.get_forward_variable(model, variable)` is deprecated; use `get_attribute(variable, DiffOpt.ForwardVariablePrimal())`.",
+        :get_forward_variable,
     )
+    return JuMP.get_attribute(variable, ForwardVariablePrimal())
 end
 
 """
     set_reverse_objective(model::JuMP.Model, value::Number)
 
 Set the value of the objective input sensitivity for reverse mode.
+
+Equivalent to `set_attribute(model, DiffOpt.ReverseObjectiveValue(), value)`,
+which is the preferred form going forward.
 """
 function set_reverse_objective(model::JuMP.Model, value::Number)
-    return MOI.set(model, ReverseObjectiveSensitivity(), value)
+    Base.depwarn(
+        "`DiffOpt.set_reverse_objective(model, value)` is deprecated; use `set_attribute(model, DiffOpt.ReverseObjectiveValue(), value)`.",
+        :set_reverse_objective,
+    )
+    return JuMP.set_attribute(model, ReverseObjectiveValue(), value)
 end
 
 """
     get_forward_objective(model::JuMP.Model)
 
 Get the value of the objective output sensitivity for forward mode.
+
+Equivalent to `get_attribute(model, DiffOpt.ForwardObjectiveSensitivity())`,
+which is the preferred form going forward.
 """
 function get_forward_objective(model::JuMP.Model)
-    return MOI.get(model, ForwardObjectiveSensitivity())
+    Base.depwarn(
+        "`DiffOpt.get_forward_objective(model)` is deprecated; use `get_attribute(model, DiffOpt.ForwardObjectiveSensitivity())`.",
+        :get_forward_objective,
+    )
+    return JuMP.get_attribute(model, ForwardObjectiveSensitivity())
 end
 
 """
     set_forward_objective_function(model::JuMP.Model, func)
 
 Set the function to be used for forward mode differentiation of the objective.
+
+Equivalent to `set_attribute(model, DiffOpt.ForwardObjectiveFunction(), func)`,
+which is the preferred form going forward.
 """
 function set_forward_objective_function(
     model::JuMP.Model,
     func::JuMP.AbstractJuMPScalar,
 )
-    return MOI.set(
-        JuMP.backend(model),
-        ForwardObjectiveFunction(),
-        JuMP.moi_function(func),
+    Base.depwarn(
+        "`DiffOpt.set_forward_objective_function(model, func)` is deprecated; use `set_attribute(model, DiffOpt.ForwardObjectiveFunction(), func)`.",
+        :set_forward_objective_function,
     )
+    return JuMP.set_attribute(model, ForwardObjectiveFunction(), func)
 end
 
 function set_forward_objective_function(model::JuMP.Model, value::Number)
-    return MOI.set(
-        JuMP.backend(model),
-        ForwardObjectiveFunction(),
-        JuMP.moi_function(JuMP.AffExpr(value)),
+    Base.depwarn(
+        "`DiffOpt.set_forward_objective_function(model, value)` is deprecated; use `set_attribute(model, DiffOpt.ForwardObjectiveFunction(), value)`.",
+        :set_forward_objective_function,
     )
+    return JuMP.set_attribute(model, ForwardObjectiveFunction(), value)
 end
 
 """
     set_forward_constraint_function(model::JuMP.Model, con_ref::JuMP.ConstraintRef, func)
 
 Set the function to be used for forward mode differentiation of a constraint.
+
+Equivalent to `set_attribute(con_ref, DiffOpt.ForwardConstraintFunction(), func)`,
+which is the preferred form going forward.
 """
 function set_forward_constraint_function(
     model::JuMP.Model,
@@ -216,14 +242,11 @@ function set_forward_constraint_function(
     },
     func::JuMP.AbstractJuMPScalar,
 ) where {M}
-    JuMP.check_belongs_to_model(con_ref, model)
-    JuMP.check_belongs_to_model(func, model)
-    return MOI.set(
-        JuMP.backend(model),
-        ForwardConstraintFunction(),
-        JuMP.index(con_ref),
-        JuMP.moi_function(func),
+    Base.depwarn(
+        "`DiffOpt.set_forward_constraint_function(model, con_ref, func)` is deprecated; use `set_attribute(con_ref, DiffOpt.ForwardConstraintFunction(), func)`.",
+        :set_forward_constraint_function,
     )
+    return JuMP.set_attribute(con_ref, ForwardConstraintFunction(), func)
 end
 
 function set_forward_constraint_function(
@@ -234,11 +257,13 @@ function set_forward_constraint_function(
     },
     value::Number,
 ) where {M}
-    return set_forward_constraint_function(model, con_ref, JuMP.AffExpr(value))
+    Base.depwarn(
+        "`DiffOpt.set_forward_constraint_function(model, con_ref, value)` is deprecated; use `set_attribute(con_ref, DiffOpt.ForwardConstraintFunction(), value)`.",
+        :set_forward_constraint_function,
+    )
+    return JuMP.set_attribute(con_ref, ForwardConstraintFunction(), value)
 end
 
-# Similar to `JuMP.set_start_value` for vector `ConstraintRef` in
-# JuMP/src/constraints.jl
 function set_forward_constraint_function(
     model::JuMP.Model,
     con_ref::JuMP.ConstraintRef{
@@ -247,19 +272,13 @@ function set_forward_constraint_function(
     },
     value::AbstractArray{<:JuMP.AbstractJuMPScalar},
 )
-    JuMP.check_belongs_to_model(con_ref, model)
-    JuMP.check_belongs_to_model.(value, model)
-    v = JuMP.vectorize(value, con_ref.shape)
-    return MOI.set(
-        JuMP.backend(model),
-        ForwardConstraintFunction(),
-        JuMP.index(con_ref),
-        JuMP.moi_function(v),
+    Base.depwarn(
+        "`DiffOpt.set_forward_constraint_function(model, con_ref, value)` is deprecated; use `set_attribute(con_ref, DiffOpt.ForwardConstraintFunction(), value)`.",
+        :set_forward_constraint_function,
     )
+    return JuMP.set_attribute(con_ref, ForwardConstraintFunction(), value)
 end
 
-# Similar to `JuMP.set_start_value` for vector `ConstraintRef` in
-# JuMP/src/constraints.jl
 function set_forward_constraint_function(
     model::JuMP.Model,
     con_ref::JuMP.ConstraintRef{
@@ -268,51 +287,63 @@ function set_forward_constraint_function(
     },
     value::AbstractArray{<:Number},
 )
-    return set_forward_constraint_function(model, con_ref, JuMP.AffExpr.(value))
+    Base.depwarn(
+        "`DiffOpt.set_forward_constraint_function(model, con_ref, value)` is deprecated; use `set_attribute(con_ref, DiffOpt.ForwardConstraintFunction(), value)`.",
+        :set_forward_constraint_function,
+    )
+    return JuMP.set_attribute(con_ref, ForwardConstraintFunction(), value)
 end
 
 """
     get_forward_constraint_dual(model::JuMP.Model, con_ref::JuMP.ConstraintRef)
 
 Get the value of a constraint dual output sensitivity for forward mode.
+
+Equivalent to `get_attribute(con_ref, DiffOpt.ForwardConstraintDual())`,
+which is the preferred form going forward.
 """
 function get_forward_constraint_dual(
     model::JuMP.Model,
     con_ref::JuMP.ConstraintRef,
 )
-    JuMP.check_belongs_to_model(con_ref, model)
-    moi_func = MOI.get(
-        JuMP.backend(model),
-        ForwardConstraintDual(),
-        JuMP.index(con_ref),
+    Base.depwarn(
+        "`DiffOpt.get_forward_constraint_dual(model, con_ref)` is deprecated; use `get_attribute(con_ref, DiffOpt.ForwardConstraintDual())`.",
+        :get_forward_constraint_dual,
     )
-    return JuMP.jump_function(model, moi_func)
+    return JuMP.get_attribute(con_ref, ForwardConstraintDual())
 end
 
 """
     get_reverse_objective_function(model::JuMP.Model)
 
 Get the function to be used for reverse mode differentiation of the objective.
+
+Equivalent to `get_attribute(model, DiffOpt.ReverseObjectiveFunction())`,
+which is the preferred form going forward.
 """
 function get_reverse_objective_function(model::JuMP.Model)
-    func = MOI.get(JuMP.backend(model), ReverseObjectiveFunction())
-    return JuMP.jump_function(model, func)
+    Base.depwarn(
+        "`DiffOpt.get_reverse_objective_function(model)` is deprecated; use `get_attribute(model, DiffOpt.ReverseObjectiveFunction())`.",
+        :get_reverse_objective_function,
+    )
+    return JuMP.get_attribute(model, ReverseObjectiveFunction())
 end
 
 """
     get_reverse_constraint_function(model::JuMP.Model, con_ref::JuMP.ConstraintRef)
 
 Get the function to be used for reverse mode differentiation of a constraint.
+
+Equivalent to `get_attribute(con_ref, DiffOpt.ReverseConstraintFunction())`,
+which is the preferred form going forward.
 """
 function get_reverse_constraint_function(
     model::JuMP.Model,
     con_ref::JuMP.ConstraintRef,
 )
-    JuMP.check_belongs_to_model(con_ref, model)
-    moi_func = MOI.get(
-        JuMP.backend(model),
-        ReverseConstraintFunction(),
-        JuMP.index(con_ref),
+    Base.depwarn(
+        "`DiffOpt.get_reverse_constraint_function(model, con_ref)` is deprecated; use `get_attribute(con_ref, DiffOpt.ReverseConstraintFunction())`.",
+        :get_reverse_constraint_function,
     )
-    return JuMP.jump_function(model, moi_func)
+    return JuMP.get_attribute(con_ref, ReverseConstraintFunction())
 end

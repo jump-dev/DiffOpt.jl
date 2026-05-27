@@ -51,12 +51,12 @@ function ChainRulesCore.rrule(
         y = model[:y]::Matrix{JuMP.VariableRef} # load parameter variable `y` into scope
         ## set sensitivities (dl/dx)
         for i in eachindex(x)
-            DiffOpt.set_reverse_variable(model, x[i], dl_dx[i])
+            set_attribute(x[i], DiffOpt.ReverseVariablePrimal(), dl_dx[i])
         end
         ## compute grad (dx/dy)
         DiffOpt.reverse_differentiate!(model)
         ## return gradient (dl/dy = dl/dx * dx/dy)
-        dl_dy = DiffOpt.get_reverse_parameter.(model, y)
+        dl_dy = get_attribute.(y, DiffOpt.ReverseParameterValue())
         return (ChainRulesCore.NoTangent(), dl_dy)
     end
     return pv, pullback_matrix_relu

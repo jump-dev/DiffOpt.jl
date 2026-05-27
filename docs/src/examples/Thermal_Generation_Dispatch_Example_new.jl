@@ -78,13 +78,13 @@ function diff_forward(model::Model, ϵ::Float64 = 1.0)
     DiffOpt.empty_input_sensitivities!(model)
 
     ## Pass the perturbation to the DiffOpt Framework
-    DiffOpt.set_forward_parameter(model, model[:d], ϵ)
+    set_attribute(model[:d], DiffOpt.ForwardParameterValue(), ϵ)
 
     ## Compute the derivatives with the Forward Mode
     DiffOpt.forward_differentiate!(model)
 
     ## Get the derivative of the model
-    dvect = DiffOpt.get_forward_variable.(model, vect_ref)
+    dvect = get_attribute.(vect_ref, DiffOpt.ForwardVariablePrimal())
 
     ## Return the values as a vector
     return [vect; dvect]
@@ -106,13 +106,13 @@ function diff_reverse(model::Model, ϵ::Float64 = 1.0)
         DiffOpt.empty_input_sensitivities!(model)
 
         ## Pass the perturbation to the DiffOpt Framework
-        DiffOpt.set_reverse_variable.(model, vect_ref[i], ϵ)
+        set_attribute.(vect_ref[i], DiffOpt.ReverseVariablePrimal(), ϵ)
 
         ## Compute the derivatives with the Forward Mode
         DiffOpt.reverse_differentiate!(model)
 
         ## Get the derivative of the model
-        dvect[i] = DiffOpt.get_reverse_parameter(model, model[:d])
+        dvect[i] = get_attribute(model[:d], DiffOpt.ReverseParameterValue())
     end
 
     ## Return the values as a vector

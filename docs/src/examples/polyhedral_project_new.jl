@@ -48,10 +48,10 @@ function (polytope::Polytope{N})(
     set_silent(model)
     @variable(model, x[1:layer_size, 1:batch_size])
     @variable(model, y[1:layer_size, 1:batch_size] in Parameter.(y_data))
-    @variable(model, b[idx=1:N] in Parameter.(polytope.b[idx]))
+    @variable(model, b[idx = 1:N] in Parameter.(polytope.b[idx]))
     @variable(
         model,
-        w[idx=1:N, i=1:layer_size] in Parameter(polytope.w[idx][i])
+        w[idx = 1:N, i = 1:layer_size] in Parameter(polytope.w[idx][i])
     )
     @constraint(
         model,
@@ -90,19 +90,19 @@ function ChainRulesCore.rrule(
         layer_size, batch_size = size(x)
         ## set sensitivities
         for i in eachindex(x)
-            DiffOpt.set_reverse_variable(model, x[i], dl_dx[i])
+            set_attribute(x[i], DiffOpt.ReverseVariablePrimal(), dl_dx[i])
         end
         ## compute grad
         DiffOpt.reverse_differentiate!(model)
         ## compute gradient wrt objective function parameter y
-        dl_dy = DiffOpt.get_reverse_parameter.(model, y)
+        dl_dy = get_attribute.(y, DiffOpt.ReverseParameterValue())
         ## compute gradient wrt objective function parameter w and b
-        _dl_dw = DiffOpt.get_reverse_parameter.(model, w)
+        _dl_dw = get_attribute.(w, DiffOpt.ReverseParameterValue())
         dl_dw = zero.(polytope.w)
         for idx in 1:N
             dl_dw[idx] .= _dl_dw[idx, :]
         end
-        dl_db = DiffOpt.get_reverse_parameter.(model, b)
+        dl_db = get_attribute.(b, DiffOpt.ReverseParameterValue())
         dself = ChainRulesCore.Tangent{Polytope{N}}(; w = dl_dw, b = dl_db)
         return (dself, dl_dy)
     end

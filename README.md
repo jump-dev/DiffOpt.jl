@@ -61,9 +61,9 @@ optimize!(model)
 
 # differentiate w.r.t. p
 direction_p = 3.0
-DiffOpt.set_forward_parameter(model, p, direction_p)
+set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
 DiffOpt.forward_differentiate!(model)
-@show DiffOpt.get_forward_variable(model, x) == direction_p * 3 / pc_val
+@show get_attribute(x, DiffOpt.ForwardVariablePrimal()) == direction_p * 3 / pc_val
 
 # update p and pc
 p_val = 2.0
@@ -79,19 +79,19 @@ optimize!(model)
 DiffOpt.empty_input_sensitivities!(model)
 # differentiate w.r.t. pc
 direction_pc = 10.0
-DiffOpt.set_forward_parameter(model, pc, direction_pc)
+set_attribute(pc, DiffOpt.ForwardParameterValue(), direction_pc)
 DiffOpt.forward_differentiate!(model)
-@show abs(DiffOpt.get_forward_variable(model, x) -
+@show abs(get_attribute(x, DiffOpt.ForwardVariablePrimal()) -
     -direction_pc * 3 * p_val / pc_val^2) < 1e-5
 
 # always a good practice to clear previously set sensitivities
 DiffOpt.empty_input_sensitivities!(model)
 # Now, reverse model AD
 direction_x = 10.0
-DiffOpt.set_reverse_variable(model, x, direction_x)
+set_attribute(x, DiffOpt.ReverseVariablePrimal(), direction_x)
 DiffOpt.reverse_differentiate!(model)
-@show DiffOpt.get_reverse_parameter(model, p) == direction_x * 3 / pc_val
-@show DiffOpt.get_reverse_parameter(model, pc) == -direction_x * 3 * p_val / pc_val^2
+@show get_attribute(p, DiffOpt.ReverseParameterValue()) == direction_x * 3 / pc_val
+@show get_attribute(pc, DiffOpt.ReverseParameterValue()) == -direction_x * 3 * p_val / pc_val^2
 ```
 
 Available models:

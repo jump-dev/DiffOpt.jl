@@ -127,10 +127,10 @@ Plots.title!("Normalized MSE on training and testing sets")
 function compute_dw_dα(model, w)
     D = length(w)
     dw_dα = zeros(D)
-    DiffOpt.set_forward_parameter(model, model[:α], 1.0)
+    set_attribute(model[:α], DiffOpt.ForwardParameterValue(), 1.0)
     DiffOpt.forward_differentiate!(model)
     for i in 1:D
-        dw_dα[i] = DiffOpt.get_forward_variable(model, w[i])
+        dw_dα[i] = get_attribute(w[i], DiffOpt.ForwardVariablePrimal())
     end
     return dw_dα
 end

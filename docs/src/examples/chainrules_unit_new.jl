@@ -185,14 +185,22 @@ function ChainRulesCore.frule(
         model = model,
     )
     ## Setting perturbations in the parameters
-    DiffOpt.set_forward_parameter.(model, model[:load1_demand], Δload1_demand)
-    DiffOpt.set_forward_parameter.(model, model[:load2_demand], Δload2_demand)
-    DiffOpt.set_forward_parameter.(model, model[:Cp], Δgen_costs)
-    DiffOpt.set_forward_parameter.(model, model[:Cnl], Δnoload_costs)
+    set_attribute.(
+        model[:load1_demand],
+        DiffOpt.ForwardParameterValue(),
+        Δload1_demand,
+    )
+    set_attribute.(
+        model[:load2_demand],
+        DiffOpt.ForwardParameterValue(),
+        Δload2_demand,
+    )
+    set_attribute.(model[:Cp], DiffOpt.ForwardParameterValue(), Δgen_costs)
+    set_attribute.(model[:Cnl], DiffOpt.ForwardParameterValue(), Δnoload_costs)
     ## computing the forward differentiation
     DiffOpt.forward_differentiate!(model)
     ## querying the corresponding perturbation of the decision
-    Δp = DiffOpt.get_forward_variable.(model, model[:p])
+    Δp = get_attribute.(model[:p], DiffOpt.ForwardVariablePrimal())
     return (pv, Δp.data)
 end
 
@@ -252,16 +260,21 @@ function ChainRulesCore.rrule(
     )
     function pullback_unit_commitment(pb)
         ## set sensitivities
-        DiffOpt.set_reverse_variable.(model, model[:p], pb)
+        set_attribute.(model[:p], DiffOpt.ReverseVariablePrimal(), pb)
         ## compute the gradients
         DiffOpt.reverse_differentiate!(model)
         ## retrieve the gradients with respect to the parameters
-        dload1_demand =
-            DiffOpt.get_reverse_parameter.(model, model[:load1_demand])
-        dload2_demand =
-            DiffOpt.get_reverse_parameter.(model, model[:load2_demand])
-        dgen_costs = DiffOpt.get_reverse_parameter.(model, model[:Cp])
-        dnoload_costs = DiffOpt.get_reverse_parameter.(model, model[:Cnl])
+        dload1_demand = get_attribute.(
+            model[:load1_demand],
+            DiffOpt.ReverseParameterValue(),
+        )
+        dload2_demand = get_attribute.(
+            model[:load2_demand],
+            DiffOpt.ReverseParameterValue(),
+        )
+        dgen_costs = get_attribute.(model[:Cp], DiffOpt.ReverseParameterValue())
+        dnoload_costs =
+            get_attribute.(model[:Cnl], DiffOpt.ReverseParameterValue())
         return (dload1_demand, dload2_demand, dgen_costs, dnoload_costs)
     end
     return (pv, pullback_unit_commitment)

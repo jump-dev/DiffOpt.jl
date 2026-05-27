@@ -157,6 +157,23 @@ Currently, this only works for the set `MOI.Parameter`.
 struct ForwardConstraintSet <: MOI.AbstractConstraintAttribute end
 
 """
+    ForwardParameterValue <: MOI.AbstractVariableAttribute
+
+A JuMP-level shortcut for forward differentiation with respect to a parameter
+variable. Equivalent to setting
+`ForwardConstraintSet()` on `ParameterRef(p)` with a wrapped `MOI.Parameter`:
+
+```julia
+set_attribute(p, DiffOpt.ForwardParameterValue(), value)
+# same as
+set_attribute(
+    ParameterRef(p), DiffOpt.ForwardConstraintSet(), MOI.Parameter(value),
+)
+```
+"""
+struct ForwardParameterValue <: MOI.AbstractVariableAttribute end
+
+"""
     ForwardVariablePrimal <: MOI.AbstractVariableAttribute
 
 A `MOI.AbstractVariableAttribute` to get output data from forward
@@ -201,7 +218,7 @@ MOI.set(model, DiffOpt.ReverseConstraintDual(), ci, value)
 struct ReverseConstraintDual <: MOI.AbstractConstraintAttribute end
 
 """
-    ReverseObjectiveSensitivity <: MOI.AbstractModelAttribute
+    ReverseObjectiveValue <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to set input data for reverse differentiation.
 
@@ -209,10 +226,12 @@ For instance, to set the sensitivity of the parameter perturbation with respect 
 objective function perturbation, do the following:
 
 ```julia
-MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), value)
+MOI.set(model, DiffOpt.ReverseObjectiveValue(), value)
 ```
 """
-struct ReverseObjectiveSensitivity <: MOI.AbstractModelAttribute end
+struct ReverseObjectiveValue <: MOI.AbstractModelAttribute end
+
+Base.@deprecate_binding ReverseObjectiveSensitivity ReverseObjectiveValue
 
 """
     ForwardConstraintDual <: MOI.AbstractConstraintAttribute
@@ -309,6 +328,23 @@ Currently, this only works for the set `MOI.Parameter`.
 struct ReverseConstraintSet <: MOI.AbstractConstraintAttribute end
 
 MOI.is_set_by_optimize(::ReverseConstraintSet) = true
+
+"""
+    ReverseParameterValue <: MOI.AbstractVariableAttribute
+
+A JuMP-level shortcut for reverse differentiation output with respect to a
+parameter variable. Equivalent to reading `ReverseConstraintSet()` on
+`ParameterRef(p)` and unwrapping `MOI.Parameter`:
+
+```julia
+get_attribute(p, DiffOpt.ReverseParameterValue())
+# same as
+get_attribute(ParameterRef(p), DiffOpt.ReverseConstraintSet()).value
+```
+"""
+struct ReverseParameterValue <: MOI.AbstractVariableAttribute end
+
+MOI.is_set_by_optimize(::ReverseParameterValue) = true
 
 """
     DifferentiateTimeSec()
