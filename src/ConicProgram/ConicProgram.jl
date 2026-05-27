@@ -477,10 +477,8 @@ end
 Method not supported for `DiffOpt.ConicProgram.Model` directly.
 However, a fallback is provided in `DiffOpt`.
 """
-function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
-    return throw(
-        MOI.UnsupportedAttribute(DiffOpt.ReverseObjectiveSensitivity()),
-    )
+function MOI.set(::Model, ::DiffOpt.ReverseObjectiveValue, val)
+    return throw(MOI.UnsupportedAttribute(DiffOpt.ReverseObjectiveValue()))
 end
 
 end

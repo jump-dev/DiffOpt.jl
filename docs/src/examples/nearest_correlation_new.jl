@@ -21,11 +21,11 @@ function proj(A, dH = Diagonal(ones(size(A, 1))), H_data = ones(size(A)))
     @constraint(model, E .== (H .* (X .- A)))
     @objective(model, Min, sum(E .^ 2))
     for i in 1:n
-        DiffOpt.set_forward_parameter(model, H[i, i], dH[i, i])
+        set_attribute(H[i, i], DiffOpt.ForwardParameterValue(), dH[i, i])
     end
     optimize!(model)
     DiffOpt.forward_differentiate!(model)
-    dX = DiffOpt.get_forward_variable.(model, X)
+    dX = get_attribute.(X, DiffOpt.ForwardVariablePrimal())
     return value.(X), dX
 end
 

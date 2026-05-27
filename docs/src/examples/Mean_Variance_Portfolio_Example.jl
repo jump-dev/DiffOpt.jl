@@ -92,9 +92,9 @@ for (k, σ_val) in enumerate(σ_grid)
     ## -------- reverse differentiation wrt σ_max --------
     DiffOpt.empty_input_sensitivities!(model)
     ## ∂L/∂x   (adjoint)  =  -μ_test
-    DiffOpt.set_reverse_variable.(model, x, μ_test)
+    set_attribute.(x, DiffOpt.ReverseVariablePrimal(), μ_test)
     DiffOpt.reverse_differentiate!(model)
-    dL_dσ[k] = DiffOpt.get_reverse_parameter(model, σ_max)
+    dL_dσ[k] = get_attribute(σ_max, DiffOpt.ReverseParameterValue())
 end
 
 # ## Results with Plot graphs
