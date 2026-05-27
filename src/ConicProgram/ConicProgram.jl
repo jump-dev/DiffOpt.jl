@@ -148,6 +148,15 @@ function MOI.supports_constraint(
     return false
 end
 
+# Disambiguate when T = Float64
+function MOI.supports_constraint(
+    ::Model,
+    ::Type{MOI.VectorAffineFunction{Float64}},
+    ::Type{MOI.PositiveSemidefiniteConeSquare},
+)
+    return false
+end
+
 function MOI.set(
     model::Model,
     ::MOI.ConstraintPrimalStart,
