@@ -324,12 +324,12 @@ function qp_test(
         @test A * dzf ≈ -∇νf atol = ATOL rtol = RTOL
     end
 
-    # As a kind of integration test, we check that the scalar product is the same whether it is don at the level of
+    # As a kind of integration test, we check that the scalar product is the same whether it is done at the level of
     # 1) (dz, dλ, dν) (dλb and dνb are zero so we ignore their product (appropriate since we have not yet
     #    implemented the getter for dνf))
     dprod = dzf ⋅ dzb # ignored as it is zero : + dλf ⋅ dλb + dνf ⋅ dνb
     # 2) (∇z, ∇λ, ∇ν) which are the LHS of (6) and (7) (which are differentiation
-    #    of the gradient of the laplacian with respect to z, λ and ∇ν hence the variable names)
+    #    of the gradient of the Laplacian with respect to z, λ and ∇ν hence the variable names)
     if ∇λb !== nothing && !is_conic_qp
         ∇prod = ∇zf ⋅ ∇zb + ∇λf ⋅ ∇λb + ∇νf ⋅ ∇νb
         @test dprod ≈ ∇prod atol = ATOL rtol = RTOL

@@ -313,7 +313,9 @@ function DiffOpt._get_db(model::Model, ci::EQ)
     return model.back_grad_cache.dν[ci.value]
 end
 
-function DiffOpt.reverse_differentiate!(model::Model)
+MOI.supports(::Model, ::DiffOpt.ReverseDifferentiate) = true
+
+function MOI.set(model::Model, ::DiffOpt.ReverseDifferentiate, ::Nothing)
     model.diff_time = @elapsed begin
         gradient_cache = _gradient_cache(model)
         LHS = gradient_cache.lhs
@@ -354,7 +356,9 @@ end
 struct _QPSets end
 MOI.Utilities.rows(::_QPSets, ci::MOI.ConstraintIndex) = ci.value
 
-function DiffOpt.forward_differentiate!(model::Model)
+MOI.supports(::Model, ::DiffOpt.ForwardDifferentiate) = true
+
+function MOI.set(model::Model, ::DiffOpt.ForwardDifferentiate, ::Nothing)
     model.diff_time = @elapsed begin
         gradient_cache = _gradient_cache(model)
         LHS = gradient_cache.lhs

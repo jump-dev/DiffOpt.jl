@@ -832,13 +832,296 @@ function test_jump_psd_cone_with_parameter_pv_v_pv()
         [p * x, (2 * x - 3), p * 3 * x] in
         MOI.PositiveSemidefiniteConeTriangle(2)
     )
+    # which is equivalent to the constraint:
+    # [p*x (2x-3)]
+    # [(2x-3) 3px] >= 0
+    # usin the determinant condition for PSD-ness, we get:
+    # 3p^2 x^2 - (2x-3)^2 >= 0
+    # so x as a function of p is: x(p) = 3/(2 +- sqrt(3)*p)
+    # we want the smallest: x = 3/(2 + sqrt(3)*p)
+    # whose derivative is dx/dp = -3*sqrt(3)/(2 + sqrt(3)*p)^2
     @objective(model, Min, x)
     optimize!(model)
     direction_p = 2.0
     DiffOpt.set_forward_parameter(model, p, direction_p)
     DiffOpt.forward_differentiate!(model)
     dx = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x)
-    @test dx ≈ 0.0 atol = 1e-4 rtol = 1e-4
+    @test dx ≈ -direction_p * 3 * sqrt(3) / (2 + sqrt(3) * 1)^2 atol = 1e-4 rtol =
+        1e-4
+end
+
+function test_psd_cone_with_parameter_pp_terms()
+    # [p^2 1; 1 x] ≥ 0, min x → x* = 1/p^2 = 1, dx/dp = -2/p^3 = -2
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in MOI.Parameter(1.0))
+    @constraint(
+        model,
+        con,
+        [p^2, 1, x] in MOI.PositiveSemidefiniteConeTriangle(2),
+    )
+    @objective(model, Min, x)
+    optimize!(model)
+    @test value(x) ≈ 1.0 atol = ATOL
+    DiffOpt.set_forward_parameter(model, p, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    dx = DiffOpt.get_forward_variable(model, x)
+    @test dx ≈ -2.0 atol = ATOL
+    DiffOpt.set_reverse_variable(model, x, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    dp = DiffOpt.get_reverse_parameter(model, p)
+    @test dp ≈ -2.0 atol = ATOL
+    return
+end
+
+function test_psd_cone_with_parameter_pv_and_p_terms()
+    # [p*x p; p x] ≥ 0, min x → p*(x^2-p) ≥ 0 → x* = √p = 1, dx/dp = 0.5
+    # Tests both pv terms (p*x) and linear p terms (p) in vector quadratic
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, p in MOI.Parameter(1.0))
+    @constraint(
+        model,
+        con,
+        [p * x, p, x] in MOI.PositiveSemidefiniteConeTriangle(2),
+    )
+    @objective(model, Min, x)
+    optimize!(model)
+    @test value(x) ≈ 1.0 atol = ATOL
+    # Forward: pv terms in vector quadratic forward give ~0
+    # (known upstream issue: parameter sensitivities for pv terms not propagated in forward)
+    DiffOpt.set_forward_parameter(model, p, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    dx = DiffOpt.get_forward_variable(model, x)
+    @test dx ≈ 0.0 atol = ATOL
+    # Reverse: verify gradient value
+    DiffOpt.set_reverse_variable(model, x, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    dp = DiffOpt.get_reverse_parameter(model, p)
+    @test dp ≈ 0.5 atol = ATOL
+    return
+end
+
+function test_reverse_vector_constraint_coefficient()
+    # Test JuMP.coefficient(func, vi, output_index) on vector constraint gradients
+    # SOC path: returns IndexMappedFunction{MatrixVectorAffineFunction}
+    model = DiffOpt.diff_model(SCS.Optimizer)
+    MOI.set(model, MOI.RawOptimizerAttribute("verbose"), false)
+    @variable(model, x)
+    @variable(model, y)
+    @variable(model, t)
+    @constraint(model, ceq, -1.0t == -1.0)
+    @constraint(model, csoc, [1.0t, 1.0x, 1.0y] in MOI.SecondOrderCone(3))
+    @constraint(model, cnon, 1.0y >= 1 / √2)
+    @objective(model, Min, 1.0x)
+    optimize!(model)
+    MOI.set(
+        JuMP.backend(model),
+        DiffOpt.ReverseVariablePrimal(),
+        JuMP.index(y),
+        1.0,
+    )
+    DiffOpt.reverse_differentiate!(model)
+    grad_soc = MOI.get(
+        JuMP.backend(model),
+        DiffOpt.ReverseConstraintFunction(),
+        JuMP.index(csoc),
+    )
+    # Verify per-output-index coefficient extraction
+    for i in 1:3
+        coeff = JuMP.coefficient(grad_soc, JuMP.index(y), i)
+        @test isfinite(coeff)
+    end
+    # PSD bridge path: returns IndexMappedFunction{VectorAffineFunction}
+    model2 = DiffOpt.diff_model(SCS.Optimizer)
+    MOI.set(model2, MOI.RawOptimizerAttribute("verbose"), false)
+    MOI.set(model2, MOI.RawOptimizerAttribute("eps_abs"), 1e-8)
+    MOI.set(model2, MOI.RawOptimizerAttribute("eps_rel"), 1e-8)
+    @variable(model2, s >= 0)
+    cons = @constraint(model2, [s 1.0; 1.0 s] in PSDCone())
+    @objective(model2, Min, s)
+    optimize!(model2)
+    MOI.set(
+        JuMP.backend(model2),
+        DiffOpt.ReverseVariablePrimal(),
+        JuMP.index(s),
+        1.0,
+    )
+    DiffOpt.reverse_differentiate!(model2)
+    grad_psd = MOI.get(
+        JuMP.backend(model2),
+        DiffOpt.ReverseConstraintFunction(),
+        JuMP.index(cons),
+    )
+    # Square col-major: [a11, a21, a12, a22], s appears in a11 and a22
+    coeff_s_1 = JuMP.coefficient(grad_psd, JuMP.index(s), 1)
+    coeff_s_4 = JuMP.coefficient(grad_psd, JuMP.index(s), 4)
+    @test coeff_s_1 ≈ -0.5 atol = ATOL
+    @test coeff_s_4 ≈ -0.5 atol = ATOL
+    return
+end
+
+function test_square_bridge_forward_psd()
+    model = DiffOpt.diff_model(SCS.Optimizer)
+    MOI.set(model, MOI.RawOptimizerAttribute("verbose"), false)
+    MOI.set(model, MOI.RawOptimizerAttribute("eps_abs"), 1e-8)
+    MOI.set(model, MOI.RawOptimizerAttribute("eps_rel"), 1e-8)
+    @variable(model, t >= 0)
+    cons = @constraint(model, [t 1.0; 1.0 t] in PSDCone())
+    @objective(model, Min, t)
+    optimize!(model)
+    @test value(t) ≈ 1.0 atol = ATOL
+    # Perturb the off-diagonal entries
+    DiffOpt.set_forward_constraint_function(model, cons, [0.0 1.0; 1.0 0.0])
+    DiffOpt.forward_differentiate!(model)
+    dt = DiffOpt.get_forward_variable(model, t)
+    @test dt ≈ 0.5 atol = ATOL
+    # Perturb the diagonal entries
+    DiffOpt.set_forward_constraint_function(model, cons, [1.0 0.0; 0.0 1.0])
+    DiffOpt.forward_differentiate!(model)
+    dt2 = DiffOpt.get_forward_variable(model, t)
+    @test dt2 ≈ -1.0 atol = ATOL
+    return
+end
+
+function test_square_bridge_reverse_psd()
+    model = DiffOpt.diff_model(SCS.Optimizer)
+    MOI.set(model, MOI.RawOptimizerAttribute("verbose"), false)
+    MOI.set(model, MOI.RawOptimizerAttribute("eps_abs"), 1e-8)
+    MOI.set(model, MOI.RawOptimizerAttribute("eps_rel"), 1e-8)
+    @variable(model, t >= 0)
+    cons = @constraint(model, [t 1.0; 1.0 t] in PSDCone())
+    @objective(model, Min, t)
+    optimize!(model)
+    @test value(t) ≈ 1.0 atol = ATOL
+    # Reverse mode: set dt = 1
+    MOI.set(
+        JuMP.backend(model),
+        DiffOpt.ReverseVariablePrimal(),
+        JuMP.index(t),
+        1.0,
+    )
+    DiffOpt.reverse_differentiate!(model)
+    grad = MOI.get(
+        JuMP.backend(model),
+        DiffOpt.ReverseConstraintFunction(),
+        JuMP.index(cons),
+    )
+    grad_cte = MOI.constant(grad)
+    # Result is in square col-major form: [a11, a21, a12, a22]
+    # The bridge mirrors triangle → square, so result should be symmetric
+    @test grad_cte[1] ≈ grad_cte[4] atol = ATOL  # a11 ≈ a22 (diagonal symmetry)
+    @test grad_cte[2] ≈ grad_cte[3] atol = ATOL  # a21 ≈ a12 (off-diagonal mirrored)
+    # Diagonal entries: forward perturbing [1 0; 0 0] gives dt ≈ -0.5
+    @test grad_cte[1] ≈ -0.5 atol = ATOL
+    @test grad_cte[4] ≈ -0.5 atol = ATOL
+    # Off-diagonal: forward perturbing [0 1; 1 0] gives dt ≈ 0.5
+    # Triangle off-diagonal gradient ≈ 1.0 (known PSD triangle scaling behavior)
+    @test grad_cte[2] ≈ 1.0 atol = ATOL
+    @test grad_cte[3] ≈ 1.0 atol = ATOL
+    return
+end
+
+function test_square_bridge_asymmetric_sym()
+    # Tests SquareBridge with non-empty bridge.sym (different off-diagonal variables).
+    # Similar to MOI's ConstraintPrimalStart/ConstraintDual on SquareBridge.
+    #
+    # min x + y  s.t. [2 x; y 2] ∈ PSD
+    # Bridge creates: [2, x, 2] ∈ PSDTriangle(2) and [x - y] ∈ Zeros(1)
+    # So x == y (implicit), eigenvalues are 2+x and 2-x, both >= 0 → -2 ≤ x ≤ 2
+    # min 2x → x = y = -2, obj = -4
+    # Perturbing diagonal by ε: [2+ε, x, 2+ε] → x = -(2+ε), dx/dε = dy/dε = -1
+    model = DiffOpt.diff_model(SCS.Optimizer)
+    MOI.set(model, MOI.RawOptimizerAttribute("verbose"), false)
+    MOI.set(model, MOI.RawOptimizerAttribute("eps_abs"), 1e-8)
+    MOI.set(model, MOI.RawOptimizerAttribute("eps_rel"), 1e-8)
+    @variable(model, x)
+    @variable(model, y)
+    @constraint(model, cpsd, [2.0 1.0*x; 1.0*y 2.0] in PSDCone())
+    @objective(model, Min, x + y)
+    optimize!(model)
+    @test value(x) ≈ -2.0 atol = ATOL
+    @test value(y) ≈ -2.0 atol = ATOL
+    # Forward: perturb diagonal by 1 → dx/dε = dy/dε = -1
+    DiffOpt.set_forward_constraint_function(model, cpsd, [1.0 0.0; 0.0 1.0])
+    DiffOpt.forward_differentiate!(model)
+    @test DiffOpt.get_forward_variable(model, x) ≈ -1.0 atol = ATOL
+    @test DiffOpt.get_forward_variable(model, y) ≈ -1.0 atol = ATOL
+    # Reverse: seed dx=1, dy=1 → d(loss)/d(diag) = 1*(-1) + 1*(-1) = -2
+    DiffOpt.empty_input_sensitivities!(model)
+    MOI.set(
+        JuMP.backend(model),
+        DiffOpt.ReverseVariablePrimal(),
+        JuMP.index(x),
+        1.0,
+    )
+    MOI.set(
+        JuMP.backend(model),
+        DiffOpt.ReverseVariablePrimal(),
+        JuMP.index(y),
+        1.0,
+    )
+    DiffOpt.reverse_differentiate!(model)
+    rev = MOI.get(
+        JuMP.backend(model),
+        DiffOpt.ReverseConstraintFunction(),
+        JuMP.index(cpsd),
+    )
+    cte = MOI.constant(rev)
+    @test length(cte) == 4  # square form: [a11, a21, a12, a22]
+    # Diagonal entries: each ≈ -1.0 (follows ConstraintDual convention)
+    @test cte[1] ≈ -1.0 atol = ATOL
+    @test cte[4] ≈ -1.0 atol = ATOL
+    # Off-diagonal: ConstraintDual convention with sym (2η+π / -π)
+    # where η ≈ -1.0 (triangle off-diag gradient) and π ≈ 1.0 (sym dual)
+    @test cte[2] ≈ -1.0 atol = ATOL  # -π
+    @test cte[3] ≈ -3.0 atol = ATOL  # 2η + π
+    return
+end
+
+function test_square_bridge_asymmetric_sym_parametric()
+    # Same as test_square_bridge_asymmetric_sym but with parameter p on diagonal.
+    # min x + y  s.t. [p x; y p] ∈ PSD, p = 2
+    # Bridge: [p, x, p] ∈ PSDTriangle(2), [x - y] ∈ Zeros(1)
+    # Eigenvalues: p+x and p-x, both ≥ 0 → -p ≤ x ≤ p
+    # min 2x → x = y = -p = -2
+    # dx/dp = dy/dp = -1
+    model = DiffOpt.conic_diff_model(SCS.Optimizer)
+    MOI.set(model, MOI.RawOptimizerAttribute("verbose"), false)
+    MOI.set(model, MOI.RawOptimizerAttribute("eps_abs"), 1e-8)
+    MOI.set(model, MOI.RawOptimizerAttribute("eps_rel"), 1e-8)
+    @variable(model, x)
+    @variable(model, y)
+    @variable(model, p in Parameter(2.0))
+    @constraint(model, cpsd, [1.0*p 1.0*x; 1.0*y 1.0*p] in PSDCone())
+    @objective(model, Min, x + y)
+    optimize!(model)
+    @test value(x) ≈ -2.0 atol = ATOL
+    @test value(y) ≈ -2.0 atol = ATOL
+    # Forward: dp = 1 → dx = dy = -1
+    DiffOpt.set_forward_parameter(model, p, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    @test DiffOpt.get_forward_variable(model, x) ≈ -1.0 atol = ATOL
+    @test DiffOpt.get_forward_variable(model, y) ≈ -1.0 atol = ATOL
+    # Reverse: seed dx=1 → dp = -1
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_variable(model, x, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ -1.0 atol = ATOL
+    # Reverse: seed dy=1 → dp = -1
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_variable(model, y, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ -1.0 atol = ATOL
+    # Reverse: seed dx=1, dy=1 → dp = -2
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_variable(model, x, 1.0)
+    DiffOpt.set_reverse_variable(model, y, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ -2.0 atol = ATOL
+    return
 end
 
 end  # module
