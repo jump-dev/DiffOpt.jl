@@ -60,16 +60,16 @@ function test_obj_simple()
 
             DiffOpt.empty_input_sensitivities!(model)
             direction_obj = 2.0
-            set_attribute(model, DiffOpt.ReverseObjectiveValue(), direction_obj)
+            DiffOpt.set_reverse_objective(model, direction_obj)
             DiffOpt.reverse_differentiate!(model)
-            @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈
+            @test DiffOpt.get_reverse_parameter(model, p) ≈
                   sign_p * sign * 6 * direction_obj atol = ATOL rtol = RTOL
 
             DiffOpt.empty_input_sensitivities!(model)
             direction_p = 3.0
-            set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+            DiffOpt.set_forward_parameter(model, p, direction_p)
             DiffOpt.forward_differentiate!(model)
-            @test get_attribute(model, DiffOpt.ForwardObjectiveSensitivity()) ≈
+            @test DiffOpt.get_forward_objective(model) ≈
                   sign_p * sign * 6 * direction_p atol = ATOL rtol = RTOL
         end
     end
@@ -121,17 +121,17 @@ function test_obj_simple_quad()
 
             DiffOpt.empty_input_sensitivities!(model)
             direction_obj = 2.0
-            set_attribute(model, DiffOpt.ReverseObjectiveValue(), direction_obj)
+            DiffOpt.set_reverse_objective(model, direction_obj)
             DiffOpt.reverse_differentiate!(model)
-            @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈
+            @test DiffOpt.get_reverse_parameter(model, p) ≈
                   sign_p * sign * 3 * (4 * value(x) + 7) * direction_obj atol =
                 ATOL rtol = RTOL
 
             DiffOpt.empty_input_sensitivities!(model)
             direction_p = 3.0
-            set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+            DiffOpt.set_forward_parameter(model, p, direction_p)
             DiffOpt.forward_differentiate!(model)
-            @test get_attribute(model, DiffOpt.ForwardObjectiveSensitivity()) ≈
+            @test DiffOpt.get_forward_objective(model) ≈
                   sign_p * sign * 3 * (4 * value(x) + 7) * direction_p atol =
                 ATOL rtol = RTOL
         end
@@ -173,20 +173,20 @@ function _test_obj(MODEL, SOLVER; ineq, _min, flip, with_bridge_type)
 
         DiffOpt.empty_input_sensitivities!(model)
         direction_obj = 2.0
-        set_attribute(model, DiffOpt.ReverseObjectiveValue(), direction_obj)
+        DiffOpt.set_reverse_objective(model, direction_obj)
         DiffOpt.reverse_differentiate!(model)
-        @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈
+        @test DiffOpt.get_reverse_parameter(model, p) ≈
               dir * sign * obj_coef * direction_obj * 3 / pc_val atol = ATOL rtol =
             RTOL
-        @test get_attribute(pc, DiffOpt.ReverseParameterValue()) ≈
+        @test DiffOpt.get_reverse_parameter(model, pc) ≈
               -dir * sign * obj_coef * direction_obj * 3 * p_val / (pc_val^2) atol =
             ATOL rtol = RTOL
 
         DiffOpt.empty_input_sensitivities!(model)
         direction_p = 3.0
-        set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+        DiffOpt.set_forward_parameter(model, p, direction_p)
         DiffOpt.forward_differentiate!(model)
-        @test get_attribute(model, DiffOpt.ForwardObjectiveSensitivity()) ≈
+        @test DiffOpt.get_forward_objective(model) ≈
               dir * sign * obj_coef * direction_p * 3 / pc_val atol = ATOL rtol =
             RTOL
 
@@ -194,9 +194,9 @@ function _test_obj(MODEL, SOLVER; ineq, _min, flip, with_bridge_type)
         DiffOpt.empty_input_sensitivities!(model)
         # differentiate w.r.t. pc
         direction_pc = 10.0
-        set_attribute(pc, DiffOpt.ForwardParameterValue(), direction_pc)
+        DiffOpt.set_forward_parameter(model, pc, direction_pc)
         DiffOpt.forward_differentiate!(model)
-        @test get_attribute(model, DiffOpt.ForwardObjectiveSensitivity()) ≈
+        @test DiffOpt.get_forward_objective(model) ≈
               -dir * sign * obj_coef * direction_pc * 3 * p_val / pc_val^2 atol =
             ATOL rtol = RTOL
     end
@@ -302,9 +302,9 @@ function test_jump_api()
 
             # differentiate w.r.t. p
             direction_p = 3.0
-            set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+            DiffOpt.set_forward_parameter(model, p, direction_p)
             DiffOpt.forward_differentiate!(model)
-            @test get_attribute(x, DiffOpt.ForwardVariablePrimal()) ≈
+            @test DiffOpt.get_forward_variable(model, x) ≈
                   direction_p * 3 / pc_val atol = ATOL rtol = RTOL
 
             # update p and pc
@@ -321,20 +321,20 @@ function test_jump_api()
             DiffOpt.empty_input_sensitivities!(model)
             # differentiate w.r.t. pc
             direction_pc = 10.0
-            set_attribute(pc, DiffOpt.ForwardParameterValue(), direction_pc)
+            DiffOpt.set_forward_parameter(model, pc, direction_pc)
             DiffOpt.forward_differentiate!(model)
-            @test get_attribute(x, DiffOpt.ForwardVariablePrimal()) ≈
+            @test DiffOpt.get_forward_variable(model, x) ≈
                   -direction_pc * 3 * p_val / pc_val^2 atol = ATOL rtol = RTOL
 
             # always a good practice to clear previously set sensitivities
             DiffOpt.empty_input_sensitivities!(model)
             # Now, reverse model AD
             direction_x = 10.0
-            set_attribute(x, DiffOpt.ReverseVariablePrimal(), direction_x)
+            DiffOpt.set_reverse_variable(model, x, direction_x)
             DiffOpt.reverse_differentiate!(model)
-            @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈
+            @test DiffOpt.get_reverse_parameter(model, p) ≈
                   direction_x * 3 / pc_val atol = ATOL rtol = RTOL
-            @test get_attribute(pc, DiffOpt.ReverseParameterValue()) ≈
+            @test DiffOpt.get_reverse_parameter(model, pc) ≈
                   -direction_x * 3 * p_val / pc_val^2 atol = ATOL rtol = RTOL
         end
     end
@@ -342,8 +342,9 @@ function test_jump_api()
     return
 end
 
-function test_forward_non_parametric()
-    # set_attribute on ForwardObjectiveFunction / ForwardConstraintFunction on a non-parametric model.
+function test_forward_wrappers_non_parametric()
+    # Tests set_forward_objective_function and set_forward_constraint_function
+    # overloads on a non-parametric model.
     #
     # min x  s.t.  x + y == 1, x >= 0, y >= 0
     # Solution: x=0, y=1
@@ -360,22 +361,22 @@ function test_forward_non_parametric()
     @test value(x) ≈ 0.0 atol = ATOL
     @test value(y) ≈ 1.0 atol = ATOL
 
-    set_attribute(model, DiffOpt.ForwardObjectiveFunction(), 0.0)
-    set_attribute(c1, DiffOpt.ForwardConstraintFunction(), 1.0)
+    DiffOpt.set_forward_objective_function(model, 0.0)
+    DiffOpt.set_forward_constraint_function(model, c1, 1.0)
     DiffOpt.forward_differentiate!(model)
-    dy = get_attribute(y, DiffOpt.ForwardVariablePrimal())
+    dy = DiffOpt.get_forward_variable(model, y)
     @test dy ≈ -1.0 atol = ATOL
 
     DiffOpt.empty_input_sensitivities!(model)
-    set_attribute(c1, DiffOpt.ForwardConstraintFunction(), 0.0 * x + 1.0)
+    DiffOpt.set_forward_constraint_function(model, c1, 0.0 * x + 1.0)
     DiffOpt.forward_differentiate!(model)
-    dy2 = get_attribute(y, DiffOpt.ForwardVariablePrimal())
+    dy2 = DiffOpt.get_forward_variable(model, y)
     @test dy2 ≈ dy atol = ATOL
     return
 end
 
-function test_forward_vector_constraint()
-    # set_attribute on ForwardConstraintFunction for a vector (Nonnegatives) constraint
+function test_forward_vector_constraint_wrappers()
+    # Tests set_forward_constraint_function overloads for vector constraints
     # using conic_diff_model (direct_model + diff_optimizer bridges differently).
     model = DiffOpt.conic_diff_model(SCS.Optimizer)
     set_silent(model)
@@ -388,25 +389,25 @@ function test_forward_vector_constraint()
     @test value(x) ≈ 0.0 atol = ATOL
     @test value(y) ≈ 1.0 atol = ATOL
 
-    set_attribute(c_nn, DiffOpt.ForwardConstraintFunction(), [0.0, 0.0])
-    set_attribute(c_eq, DiffOpt.ForwardConstraintFunction(), 1.0)
+    DiffOpt.set_forward_constraint_function(model, c_nn, [0.0, 0.0])
+    DiffOpt.set_forward_constraint_function(model, c_eq, 1.0)
     DiffOpt.forward_differentiate!(model)
-    dy = get_attribute(y, DiffOpt.ForwardVariablePrimal())
+    dy = DiffOpt.get_forward_variable(model, y)
     @test dy ≈ -1.0 atol = ATOL
 
     DiffOpt.empty_input_sensitivities!(model)
-    set_attribute(c_nn, DiffOpt.ForwardConstraintFunction(), [0.0 * x, 0.0 * x])
-    set_attribute(c_eq, DiffOpt.ForwardConstraintFunction(), 1.0)
+    DiffOpt.set_forward_constraint_function(model, c_nn, [0.0 * x, 0.0 * x])
+    DiffOpt.set_forward_constraint_function(model, c_eq, 1.0)
     DiffOpt.forward_differentiate!(model)
-    dy2 = get_attribute(y, DiffOpt.ForwardVariablePrimal())
+    dy2 = DiffOpt.get_forward_variable(model, y)
     @test dy2 ≈ dy atol = ATOL
     return
 end
 
-function test_forward_psd_matrix()
-    # set_attribute on ForwardConstraintFunction with an AbstractMatrix{<:AbstractJuMPScalar}
-    # for a PSD cone constraint. Non-parametric model since ForwardConstraintFunction
-    # is blocked on parametric models.
+function test_forward_psd_matrix_wrapper()
+    # Tests set_forward_constraint_function with AbstractMatrix{<:AbstractJuMPScalar}
+    # for PSD cone constraints. Uses a non-parametric model since
+    # ForwardConstraintFunction is blocked on parametric models.
     model = Model(() -> DiffOpt.diff_optimizer(SCS.Optimizer))
     set_silent(model)
     @variable(model, x)
@@ -420,57 +421,9 @@ function test_forward_psd_matrix()
     @test value(x) ≈ 1.0 atol = ATOL
 
     perturbation = [1.0+0.0*x 0.0*x; 0.0*x 0.0*x]
-    set_attribute(con, DiffOpt.ForwardConstraintFunction(), perturbation)
+    DiffOpt.set_forward_constraint_function(model, con, perturbation)
     DiffOpt.forward_differentiate!(model)
-    @test get_attribute(x, DiffOpt.ForwardVariablePrimal()) ≈ 1.0 atol = ATOL
-    return
-end
-
-function test_wrapper_smoke()
-    # Smoke test that each JuMP wrapper executes. These wrappers and the
-    # `set_attribute` / `get_attribute` syntax on DiffOpt MOI attributes are
-    # both supported entry points.
-    model = DiffOpt.diff_model(HiGHS.Optimizer)
-    set_silent(model)
-    @variable(model, x)
-    @variable(model, p in Parameter(1.0))
-    @constraint(model, c, x == 2 * p)
-    @objective(model, Min, x)
-    optimize!(model)
-
-    DiffOpt.empty_input_sensitivities!(model)
-    DiffOpt.set_forward_parameter(model, p, 1.0)
-    DiffOpt.forward_differentiate!(model)
-    @test DiffOpt.get_forward_variable(model, x) ≈ 2.0 atol = ATOL
-    @test DiffOpt.get_forward_objective(model) ≈ 2.0 atol = ATOL
-
-    DiffOpt.empty_input_sensitivities!(model)
-    DiffOpt.set_reverse_variable(model, x, 1.0)
-    DiffOpt.reverse_differentiate!(model)
-    @test DiffOpt.get_reverse_parameter(model, p) ≈ 2.0 atol = ATOL
-
-    DiffOpt.empty_input_sensitivities!(model)
-    DiffOpt.set_reverse_objective(model, 1.0)
-    DiffOpt.reverse_differentiate!(model)
-    @test DiffOpt.get_reverse_parameter(model, p) ≈ 2.0 atol = ATOL
-
-    direct = JuMP.direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
-    set_silent(direct)
-    @variable(direct, x2 >= 0)
-    @variable(direct, y2 >= 0)
-    @constraint(direct, c2, x2 + y2 == 1)
-    @objective(direct, Min, 1.0 * x2)
-    optimize!(direct)
-    DiffOpt.set_forward_objective_function(direct, 0.0)
-    DiffOpt.set_forward_constraint_function(direct, c2, 1.0)
-    DiffOpt.forward_differentiate!(direct)
-    @test DiffOpt.get_forward_variable(direct, y2) ≈ -1.0 atol = ATOL
-
-    DiffOpt.empty_input_sensitivities!(direct)
-    DiffOpt.set_reverse_constraint_dual(direct, c2, 1.0)
-    DiffOpt.reverse_differentiate!(direct)
-    func = DiffOpt.get_reverse_constraint_function(direct, c2)
-    @test func isa JuMP.AbstractJuMPScalar
+    @test DiffOpt.get_forward_variable(model, x) ≈ 1.0 atol = ATOL
     return
 end
 

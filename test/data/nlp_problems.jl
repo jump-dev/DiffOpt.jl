@@ -14,7 +14,7 @@ function create_nonlinear_jump_model(; ismin = true)
     @variable(model, p ∈ MOI.Parameter(1.0))
     @variable(model, p2 ∈ MOI.Parameter(2.0))
     @variable(model, p3 ∈ MOI.Parameter(100.0))
-    @variable(model, x[i = 1:2], start = -i)
+    @variable(model, x[i=1:2], start = -i)
     @constraint(model, g_1, x[1]^2 <= p)
     @constraint(model, g_2, p * (x[1] + x[2])^2 <= p2)
     if ismin
@@ -38,7 +38,7 @@ function create_nonlinear_jump_model_sipopt(; ismin = true)
     set_silent(model)
     @variable(model, p1 ∈ MOI.Parameter(4.5))
     @variable(model, p2 ∈ MOI.Parameter(1.0))
-    @variable(model, x[i = 1:3] >= 0, start = -i)
+    @variable(model, x[i=1:3] >= 0, start = -i)
     @constraint(model, g_1, 6 * x[1] + 3 * x[2] + 2 * x[3] - p1 == 0)
     @constraint(model, g_2, p2 * x[1] + x[2] - x[3] - 1 == 0)
     if ismin
@@ -158,14 +158,14 @@ function create_jump_model_6(p_a = collect(1.0:0.1:2.0))
     set_silent(model)
 
     # Parameters
-    @variable(model, x[i = 1:length(p_a)] ∈ MOI.Parameter.(p_a))
+    @variable(model, x[i=1:length(p_a)] ∈ MOI.Parameter.(p_a))
 
     # Variables
     @variable(model, y[1:length(p_a)] >= 0.0)
 
     # Constraints
     @constraint(model, con1, sum(y) == 1)
-    @constraint(model, con2[i = 1:length(x)], y[i] <= 1)
+    @constraint(model, con2[i=1:length(x)], y[i] <= 1)
 
     # Objective
     @objective(model, Max, dot(x, y) + h(y))
@@ -203,7 +203,7 @@ function create_nonlinear_jump_model_1(p_val = [1.0; 2.0; 100]; ismin = true)
     set_silent(model)
 
     # Parameters
-    @variable(model, p[i = 1:3] ∈ MOI.Parameter.(p_val))
+    @variable(model, p[i=1:3] ∈ MOI.Parameter.(p_val))
 
     # Variables
     @variable(model, x)
@@ -228,7 +228,7 @@ function create_nonlinear_jump_model_2(p_val = [3.0; 2.0; 10]; ismin = true)
     set_silent(model)
 
     # Parameters
-    @variable(model, p[i = 1:3] ∈ MOI.Parameter.(p_val))
+    @variable(model, p[i=1:3] ∈ MOI.Parameter.(p_val))
 
     # Variables
     @variable(model, x <= 10)
@@ -253,7 +253,7 @@ function create_nonlinear_jump_model_3(p_val = [3.0; 2.0; 10]; ismin = true)
     set_silent(model)
 
     # Parameters
-    @variable(model, p[i = 1:3] ∈ MOI.Parameter.(p_val))
+    @variable(model, p[i=1:3] ∈ MOI.Parameter.(p_val))
 
     # Variables
     @variable(model, x <= 10)
@@ -277,7 +277,7 @@ function create_nonlinear_jump_model_4(p_val = [1.0; 2.0; 100]; ismin = true)
     set_silent(model)
 
     # Parameters
-    @variable(model, p[i = 1:3] ∈ MOI.Parameter.(p_val))
+    @variable(model, p[i=1:3] ∈ MOI.Parameter.(p_val))
 
     # Variables
     @variable(model, x)
@@ -303,7 +303,7 @@ function create_nonlinear_jump_model_5(p_val = [1.0; 2.0; 100]; ismin = true)
     set_silent(model)
 
     # Parameters
-    @variable(model, p[i = 1:3] ∈ MOI.Parameter.(p_val))
+    @variable(model, p[i=1:3] ∈ MOI.Parameter.(p_val))
 
     # Variables
     @variable(model, x)
@@ -330,10 +330,10 @@ function create_nonlinear_jump_model_6(p_val = [100.0; 200.0]; ismin = true)
     set_silent(model)
 
     # Parameters
-    @variable(model, p[i = 1:2] ∈ MOI.Parameter.(p_val))
+    @variable(model, p[i=1:2] ∈ MOI.Parameter.(p_val))
 
     # Variables
-    @variable(model, x[i = 1:2])
+    @variable(model, x[i=1:2])
     @variable(model, z) # >= 2.0)
     @variable(model, w) # <= 3.0)
     # @variable(model, f[1:2])

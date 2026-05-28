@@ -410,7 +410,7 @@ function _build_simple_sdp()
 
     @constraint(model, c1, sum(x[i] for i in 1:3) == 4)
 
-    @constraint(model, c2[i = 1:3], x[i] ≥ 0)
+    @constraint(model, c2[i=1:3], x[i] ≥ 0)
 
     @constraint(model, x[1] == 2)
 
@@ -843,7 +843,7 @@ function test_jump_psd_cone_with_parameter_pv_v_pv()
     @objective(model, Min, x)
     optimize!(model)
     direction_p = 2.0
-    set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+    DiffOpt.set_forward_parameter(model, p, direction_p)
     DiffOpt.forward_differentiate!(model)
     dx = MOI.get(model, DiffOpt.ForwardVariablePrimal(), x)
     @test dx ≈ -direction_p * 3 * sqrt(3) / (2 + sqrt(3) * 1)^2 atol = 1e-4 rtol =
@@ -864,13 +864,13 @@ function test_psd_cone_with_parameter_pp_terms()
     @objective(model, Min, x)
     optimize!(model)
     @test value(x) ≈ 1.0 atol = ATOL
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+    DiffOpt.set_forward_parameter(model, p, 1.0)
     DiffOpt.forward_differentiate!(model)
-    dx = get_attribute(x, DiffOpt.ForwardVariablePrimal())
+    dx = DiffOpt.get_forward_variable(model, x)
     @test dx ≈ -2.0 atol = ATOL
-    set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+    DiffOpt.set_reverse_variable(model, x, 1.0)
     DiffOpt.reverse_differentiate!(model)
-    dp = get_attribute(p, DiffOpt.ReverseParameterValue())
+    dp = DiffOpt.get_reverse_parameter(model, p)
     @test dp ≈ -2.0 atol = ATOL
     return
 end
@@ -892,14 +892,14 @@ function test_psd_cone_with_parameter_pv_and_p_terms()
     @test value(x) ≈ 1.0 atol = ATOL
     # Forward: pv terms in vector quadratic forward give ~0
     # (known upstream issue: parameter sensitivities for pv terms not propagated in forward)
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+    DiffOpt.set_forward_parameter(model, p, 1.0)
     DiffOpt.forward_differentiate!(model)
-    dx = get_attribute(x, DiffOpt.ForwardVariablePrimal())
+    dx = DiffOpt.get_forward_variable(model, x)
     @test dx ≈ 0.0 atol = ATOL
     # Reverse: verify gradient value
-    set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+    DiffOpt.set_reverse_variable(model, x, 1.0)
     DiffOpt.reverse_differentiate!(model)
-    dp = get_attribute(p, DiffOpt.ReverseParameterValue())
+    dp = DiffOpt.get_reverse_parameter(model, p)
     @test dp ≈ 0.5 atol = ATOL
     return
 end
@@ -974,14 +974,14 @@ function test_square_bridge_forward_psd()
     optimize!(model)
     @test value(t) ≈ 1.0 atol = ATOL
     # Perturb the off-diagonal entries
-    set_attribute(cons, DiffOpt.ForwardConstraintFunction(), [0.0 1.0; 1.0 0.0])
+    DiffOpt.set_forward_constraint_function(model, cons, [0.0 1.0; 1.0 0.0])
     DiffOpt.forward_differentiate!(model)
-    dt = get_attribute(t, DiffOpt.ForwardVariablePrimal())
+    dt = DiffOpt.get_forward_variable(model, t)
     @test dt ≈ 0.5 atol = ATOL
     # Perturb the diagonal entries
-    set_attribute(cons, DiffOpt.ForwardConstraintFunction(), [1.0 0.0; 0.0 1.0])
+    DiffOpt.set_forward_constraint_function(model, cons, [1.0 0.0; 0.0 1.0])
     DiffOpt.forward_differentiate!(model)
-    dt2 = get_attribute(t, DiffOpt.ForwardVariablePrimal())
+    dt2 = DiffOpt.get_forward_variable(model, t)
     @test dt2 ≈ -1.0 atol = ATOL
     return
 end
@@ -1045,10 +1045,10 @@ function test_square_bridge_asymmetric_sym()
     @test value(x) ≈ -2.0 atol = ATOL
     @test value(y) ≈ -2.0 atol = ATOL
     # Forward: perturb diagonal by 1 → dx/dε = dy/dε = -1
-    set_attribute(cpsd, DiffOpt.ForwardConstraintFunction(), [1.0 0.0; 0.0 1.0])
+    DiffOpt.set_forward_constraint_function(model, cpsd, [1.0 0.0; 0.0 1.0])
     DiffOpt.forward_differentiate!(model)
-    @test get_attribute(x, DiffOpt.ForwardVariablePrimal()) ≈ -1.0 atol = ATOL
-    @test get_attribute(y, DiffOpt.ForwardVariablePrimal()) ≈ -1.0 atol = ATOL
+    @test DiffOpt.get_forward_variable(model, x) ≈ -1.0 atol = ATOL
+    @test DiffOpt.get_forward_variable(model, y) ≈ -1.0 atol = ATOL
     # Reverse: seed dx=1, dy=1 → d(loss)/d(diag) = 1*(-1) + 1*(-1) = -2
     DiffOpt.empty_input_sensitivities!(model)
     MOI.set(
@@ -1101,26 +1101,26 @@ function test_square_bridge_asymmetric_sym_parametric()
     @test value(x) ≈ -2.0 atol = ATOL
     @test value(y) ≈ -2.0 atol = ATOL
     # Forward: dp = 1 → dx = dy = -1
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+    DiffOpt.set_forward_parameter(model, p, 1.0)
     DiffOpt.forward_differentiate!(model)
-    @test get_attribute(x, DiffOpt.ForwardVariablePrimal()) ≈ -1.0 atol = ATOL
-    @test get_attribute(y, DiffOpt.ForwardVariablePrimal()) ≈ -1.0 atol = ATOL
+    @test DiffOpt.get_forward_variable(model, x) ≈ -1.0 atol = ATOL
+    @test DiffOpt.get_forward_variable(model, y) ≈ -1.0 atol = ATOL
     # Reverse: seed dx=1 → dp = -1
     DiffOpt.empty_input_sensitivities!(model)
-    set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+    DiffOpt.set_reverse_variable(model, x, 1.0)
     DiffOpt.reverse_differentiate!(model)
-    @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈ -1.0 atol = ATOL
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ -1.0 atol = ATOL
     # Reverse: seed dy=1 → dp = -1
     DiffOpt.empty_input_sensitivities!(model)
-    set_attribute(y, DiffOpt.ReverseVariablePrimal(), 1.0)
+    DiffOpt.set_reverse_variable(model, y, 1.0)
     DiffOpt.reverse_differentiate!(model)
-    @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈ -1.0 atol = ATOL
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ -1.0 atol = ATOL
     # Reverse: seed dx=1, dy=1 → dp = -2
     DiffOpt.empty_input_sensitivities!(model)
-    set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
-    set_attribute(y, DiffOpt.ReverseVariablePrimal(), 1.0)
+    DiffOpt.set_reverse_variable(model, x, 1.0)
+    DiffOpt.set_reverse_variable(model, y, 1.0)
     DiffOpt.reverse_differentiate!(model)
-    @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈ -2.0 atol = ATOL
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ -2.0 atol = ATOL
     return
 end
 

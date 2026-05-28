@@ -41,11 +41,21 @@ function test_diff_rhs()
     # the function is
     # x(p) = 3p, hence x'(p) = 3
     # differentiate w.r.t. p
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(1.0),
+    )
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 3
     # again with different "direction"
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 2.0)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(2.0),
+    )
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 6
     #
@@ -53,11 +63,21 @@ function test_diff_rhs()
     optimize!(model)
     @test value(x) ≈ 6
     # differentiate w.r.t. p
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(1.0),
+    )
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 3
     # again with different "direction"
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 2.0)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(2.0),
+    )
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 6
     #
@@ -65,11 +85,13 @@ function test_diff_rhs()
     #
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1)
     DiffOpt.reverse_differentiate!(model)
-    @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈ 3.0
+    @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈
+          MOI.Parameter(3.0)
     # again with different "direction"
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 2)
     DiffOpt.reverse_differentiate!(model)
-    @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈ 6.0
+    @test MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)) ≈
+          MOI.Parameter(6.0)
     return
 end
 
@@ -94,7 +116,12 @@ function test_diff_vector_rhs()
         optimize!(model)
         @test isapprox(value(x), 3 * p_val, atol = 1e-3)
         for direction in 0.0:3.0
-            set_attribute(p, DiffOpt.ForwardParameterValue(), direction)
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(p),
+                Parameter(direction),
+            )
             DiffOpt.forward_differentiate!(model)
             @test isapprox(
                 MOI.get(model, DiffOpt.ForwardVariablePrimal(), x),
@@ -105,8 +132,8 @@ function test_diff_vector_rhs()
             MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, direction)
             DiffOpt.reverse_differentiate!(model)
             @test isapprox(
-                get_attribute(p, DiffOpt.ReverseParameterValue()),
-                direction * 3,
+                MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)),
+                MOI.Parameter(direction * 3),
                 atol = 1e-3,
             )
         end
@@ -130,7 +157,12 @@ function test_affine_changes()
     # x(p, pc) = 3p / pc, hence dx/dp = 3 / pc, dx/dpc = -3p / pc^2
     # differentiate w.r.t. p
     for direction_p in 1.0:2.0
-        set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+        MOI.set(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef(p),
+            Parameter(direction_p),
+        )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
               direction_p * 3 / pc_val
@@ -142,7 +174,12 @@ function test_affine_changes()
     @test value(x) ≈ 3 * p_val / pc_val
     # differentiate w.r.t. p
     for direction_p in 1.0:2.0
-        set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+        MOI.set(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef(p),
+            Parameter(direction_p),
+        )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
               direction_p * 3 / pc_val
@@ -150,9 +187,19 @@ function test_affine_changes()
     # differentiate w.r.t. pc
     # stop differentiating with respect to p
     direction_p = 0.0
-    set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+    MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(p),
+        Parameter(direction_p),
+    )
     for direction_pc in 1.0:2.0
-        set_attribute(pc, DiffOpt.ForwardParameterValue(), direction_pc)
+        MOI.set(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef(pc),
+            Parameter(direction_pc),
+        )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
               -direction_pc * 3 * p_val / pc_val^2
@@ -163,15 +210,30 @@ function test_affine_changes()
     optimize!(model)
     @test value(x) ≈ 3 * p_val / pc_val
     for direction_pc in 1.0:2.0
-        set_attribute(pc, DiffOpt.ForwardParameterValue(), direction_pc)
+        MOI.set(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef(pc),
+            Parameter(direction_pc),
+        )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
               -direction_pc * 3 * p_val / pc_val^2
     end
     # test combines directions
     for direction_pc in 1:2, direction_p in 1:2
-        set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
-        set_attribute(pc, DiffOpt.ForwardParameterValue(), direction_pc)
+        MOI.set(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef(p),
+            Parameter(direction_p),
+        )
+        MOI.set(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef(pc),
+            Parameter(direction_pc),
+        )
         DiffOpt.forward_differentiate!(model)
         @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
               -direction_pc * 3 * p_val / pc_val^2 + direction_p * 3 / pc_val
@@ -197,8 +259,18 @@ function test_affine_changes_compact()
         optimize!(model)
         @test value(x) ≈ 3 * p_val / pc_val
         for direction_pc in 0.0:2.0, direction_p in 0.0:2.0
-            set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
-            set_attribute(pc, DiffOpt.ForwardParameterValue(), direction_pc)
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(p),
+                Parameter(direction_p),
+            )
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(pc),
+                Parameter(direction_pc),
+            )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
                   -direction_pc * 3 * p_val / pc_val^2 +
@@ -207,10 +279,16 @@ function test_affine_changes_compact()
         for direction_x in 0:2
             MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, direction_x)
             DiffOpt.reverse_differentiate!(model)
-            @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈
-                  direction_x * 3 / pc_val
-            @test get_attribute(pc, DiffOpt.ReverseParameterValue()) ≈
-                  -direction_x * 3 * p_val / pc_val^2
+            @test MOI.get(
+                model,
+                DiffOpt.ReverseConstraintSet(),
+                ParameterRef(p),
+            ) ≈ MOI.Parameter(direction_x * 3 / pc_val)
+            @test MOI.get(
+                model,
+                DiffOpt.ReverseConstraintSet(),
+                ParameterRef(pc),
+            ) ≈ MOI.Parameter(-direction_x * 3 * p_val / pc_val^2)
         end
     end
     return
@@ -258,11 +336,36 @@ function test_quadratic_rhs_changes()
             dir_s in 0.0:2.0,
             dir_t in 0.0:2.0
 
-            set_attribute(p, DiffOpt.ForwardParameterValue(), dir_p)
-            set_attribute(q, DiffOpt.ForwardParameterValue(), dir_q)
-            set_attribute(r, DiffOpt.ForwardParameterValue(), dir_r)
-            set_attribute(s, DiffOpt.ForwardParameterValue(), dir_s)
-            set_attribute(t, DiffOpt.ForwardParameterValue(), dir_t)
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(p),
+                Parameter(dir_p),
+            )
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(q),
+                Parameter(dir_q),
+            )
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(r),
+                Parameter(dir_r),
+            )
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(s),
+                Parameter(dir_s),
+            )
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(t),
+                Parameter(dir_t),
+            )
             DiffOpt.forward_differentiate!(model)
             @test isapprox(
                 MOI.get(model, DiffOpt.ForwardVariablePrimal(), x),
@@ -281,30 +384,32 @@ function test_quadratic_rhs_changes()
             MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, dir_x)
             DiffOpt.reverse_differentiate!(model)
             @test isapprox(
-                get_attribute(p, DiffOpt.ReverseParameterValue()),
-                dir_x * 3 * q_val / (11 * t_val),
+                MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)),
+                MOI.Parameter(dir_x * 3 * q_val / (11 * t_val)),
                 atol = 1e-10,
             )
             @test isapprox(
-                get_attribute(q, DiffOpt.ReverseParameterValue()),
-                dir_x * 3 * p_val / (11 * t_val),
+                MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(q)),
+                MOI.Parameter(dir_x * 3 * p_val / (11 * t_val)),
                 atol = 1e-10,
             )
             @test isapprox(
-                get_attribute(r, DiffOpt.ReverseParameterValue()),
-                dir_x * 10 * r_val / (11 * t_val),
+                MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(r)),
+                MOI.Parameter(dir_x * 10 * r_val / (11 * t_val)),
                 atol = 1e-10,
             )
             @test isapprox(
-                get_attribute(s, DiffOpt.ReverseParameterValue()),
-                dir_x * 7 / (11 * t_val),
+                MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(s)),
+                MOI.Parameter(dir_x * 7 / (11 * t_val)),
                 atol = 1e-10,
             )
             @test isapprox(
-                get_attribute(t, DiffOpt.ReverseParameterValue()),
-                dir_x * (
-                    -(1 + 3 * p_val * q_val + 5 * r_val^2 + 7 * s_val) /
-                    (11 * t_val^2)
+                MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(t)),
+                MOI.Parameter(
+                    dir_x * (
+                        -(1 + 3 * p_val * q_val + 5 * r_val^2 + 7 * s_val) /
+                        (11 * t_val^2)
+                    ),
                 ),
                 atol = 1e-10,
             )
@@ -331,8 +436,18 @@ function test_affine_changes_compact_max()
         optimize!(model)
         @test value(x) ≈ 3 * p_val / pc_val
         for direction_pc in 0.0:2.0, direction_p in 0.0:2.0
-            set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
-            set_attribute(pc, DiffOpt.ForwardParameterValue(), direction_pc)
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(p),
+                Parameter(direction_p),
+            )
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(pc),
+                Parameter(direction_pc),
+            )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
                   -direction_pc * 3 * p_val / pc_val^2 +
@@ -356,13 +471,22 @@ function test_diff_affine_objective()
         optimize!(model)
         @test value(x) ≈ 3
         for direction_p in 0.0:2.0
-            set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(p),
+                Parameter(direction_p),
+            )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 0.0
             # reverse mode
             MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, direction_p)
             DiffOpt.reverse_differentiate!(model)
-            @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈ 0.0
+            @test MOI.get(
+                model,
+                DiffOpt.ReverseConstraintSet(),
+                ParameterRef(p),
+            ) ≈ MOI.Parameter(0.0)
         end
     end
     return
@@ -382,13 +506,22 @@ function test_diff_quadratic_objective()
         optimize!(model)
         @test value(x) ≈ 3
         for direction_p in 0.0:2.0
-            set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(p),
+                Parameter(direction_p),
+            )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈ 0.0
             # reverse mode
             MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, direction_p)
             DiffOpt.reverse_differentiate!(model)
-            @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈ 0.0
+            @test MOI.get(
+                model,
+                DiffOpt.ReverseConstraintSet(),
+                ParameterRef(p),
+            ) ≈ MOI.Parameter(0.0)
         end
     end
     return
@@ -409,15 +542,23 @@ function test_quadratic_objective_qp()
         optimize!(model)
         @test value(x) ≈ -3p_val / 2 atol = 1e-4
         for direction_p in 0.0:2.0
-            set_attribute(p, DiffOpt.ForwardParameterValue(), direction_p)
+            MOI.set(
+                model,
+                DiffOpt.ForwardConstraintSet(),
+                ParameterRef(p),
+                Parameter(direction_p),
+            )
             DiffOpt.forward_differentiate!(model)
             @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x) ≈
                   direction_p * (-3 / 2) atol = 1e-4
             # reverse mode
             MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, direction_p)
             DiffOpt.reverse_differentiate!(model)
-            @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈
-                  direction_p * (-3 / 2) atol = 1e-4
+            @test MOI.get(
+                model,
+                DiffOpt.ReverseConstraintSet(),
+                ParameterRef(p),
+            ) ≈ MOI.Parameter(direction_p * (-3 / 2)) atol = 1e-4
         end
     end
     return
@@ -433,10 +574,11 @@ function test_diff_errors_POI()
     optimize!(model)
     @test value(x) ≈ 9
 
-    @test_throws ErrorException set_attribute(
-        x,
-        DiffOpt.ForwardParameterValue(),
-        1.0,
+    @test_throws ErrorException MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(x),
+        Parameter(1.0),
     )
     @test_throws ErrorException MOI.set(
         model,
@@ -449,9 +591,10 @@ function test_diff_errors_POI()
         DiffOpt.ForwardVariablePrimal(),
         p,
     )
-    @test_throws ErrorException get_attribute(
-        x,
-        DiffOpt.ReverseParameterValue(),
+    @test_throws ErrorException MOI.get(
+        model,
+        DiffOpt.ReverseConstraintSet(),
+        ParameterRef(x),
     )
 
     @test_throws ErrorException MOI.set(
@@ -488,10 +631,11 @@ function test_diff_errors()
     optimize!(model)
     @test value(x) ≈ 9
 
-    @test_throws ErrorException set_attribute(
-        x,
-        DiffOpt.ForwardParameterValue(),
-        1.0,
+    @test_throws ErrorException MOI.set(
+        model,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef(x),
+        Parameter(1.0),
     )
     # Not easily tested because hard to check if variable is a parameter
     # @test_throws ErrorException MOI.set(
@@ -505,9 +649,10 @@ function test_diff_errors()
         DiffOpt.ForwardVariablePrimal(),
         p,
     )
-    @test_throws ErrorException get_attribute(
-        x,
-        DiffOpt.ReverseParameterValue(),
+    @test_throws ErrorException MOI.get(
+        model,
+        DiffOpt.ReverseConstraintSet(),
+        ParameterRef(x),
     )
     @test_throws ErrorException MOI.get(
         model,
@@ -547,7 +692,12 @@ function test_empty_cache()
            !isnothing(unsafe_backend(m).diff.optimizer.model.input_cache)
             @test is_empty(unsafe_backend(m).diff.optimizer.model.input_cache)
         end
-        set_attribute(pᵢ, DiffOpt.ForwardParameterValue(), 1.0)
+        MOI.set(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef(pᵢ),
+            Parameter(1.0),
+        )
         DiffOpt.forward_differentiate!(m)
         return MOI.get(m, DiffOpt.ForwardVariablePrimal(), xᵢ)
     end
@@ -579,19 +729,19 @@ function test_cubic_obj_pvv_nonbinding()
         optimize!(model)
         @test isapprox(value(x), -1 / (2 * p_val), atol = 1e-6)
         for dir_p in [1.0, 2.0]
-            set_attribute(p, DiffOpt.ForwardParameterValue(), dir_p)
+            DiffOpt.set_forward_parameter(model, p, dir_p)
             DiffOpt.forward_differentiate!(model)
             @test isapprox(
-                get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+                DiffOpt.get_forward_variable(model, x),
                 dir_p / (2 * p_val^2),
                 atol = 1e-5,
             )
         end
         for dir_x in [1.0, 2.0]
-            set_attribute(x, DiffOpt.ReverseVariablePrimal(), dir_x)
+            DiffOpt.set_reverse_variable(model, x, dir_x)
             DiffOpt.reverse_differentiate!(model)
             @test isapprox(
-                get_attribute(p, DiffOpt.ReverseParameterValue()),
+                DiffOpt.get_reverse_parameter(model, p),
                 dir_x / (2 * p_val^2),
                 atol = 1e-5,
             )
@@ -620,26 +770,26 @@ function test_cubic_obj_pvv_two_vars()
         @test isapprox(value(x), expected_xy, atol = 1e-5)
         @test isapprox(value(y), expected_xy, atol = 1e-5)
         for dir_p in [1.0, 2.0]
-            set_attribute(p, DiffOpt.ForwardParameterValue(), dir_p)
+            DiffOpt.set_forward_parameter(model, p, dir_p)
             DiffOpt.forward_differentiate!(model)
             dx_dp = dir_p / (2 + p_val)^2
             @test isapprox(
-                get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+                DiffOpt.get_forward_variable(model, x),
                 dx_dp,
                 atol = 1e-5,
             )
             @test isapprox(
-                get_attribute(y, DiffOpt.ForwardVariablePrimal()),
+                DiffOpt.get_forward_variable(model, y),
                 dx_dp,
                 atol = 1e-5,
             )
         end
         for dir_x in [1.0, 2.0]
-            set_attribute(x, DiffOpt.ReverseVariablePrimal(), dir_x)
-            set_attribute(y, DiffOpt.ReverseVariablePrimal(), 0.0)
+            DiffOpt.set_reverse_variable(model, x, dir_x)
+            DiffOpt.set_reverse_variable(model, y, 0.0)
             DiffOpt.reverse_differentiate!(model)
             @test isapprox(
-                get_attribute(p, DiffOpt.ReverseParameterValue()),
+                DiffOpt.get_reverse_parameter(model, p),
                 dir_x / (2 + p_val)^2,
                 atol = 1e-5,
             )
@@ -661,17 +811,13 @@ function test_cubic_obj_pvv_binding()
         set_parameter_value(p, p_val)
         optimize!(model)
         @test isapprox(value(x), 1.0, atol = 1e-6)
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, p, 1.0)
         DiffOpt.forward_differentiate!(model)
-        @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
-            0.0,
-            atol = 1e-5,
-        )
-        set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
+        DiffOpt.set_reverse_variable(model, x, 1.0)
         DiffOpt.reverse_differentiate!(model)
         @test isapprox(
-            get_attribute(p, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, p),
             0.0,
             atol = 1e-5,
         )
@@ -696,33 +842,33 @@ function test_cubic_obj_ppv()
         optimize!(model)
         @test isapprox(value(x), -p_val * q_val / 2, atol = 1e-5)
         # Forward dx/dp
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             -q_val / 2,
             atol = 1e-5,
         )
         # Forward dx/dq
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             -p_val / 2,
             atol = 1e-5,
         )
         # Reverse
-        set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+        DiffOpt.set_reverse_variable(model, x, 1.0)
         DiffOpt.reverse_differentiate!(model)
         @test isapprox(
-            get_attribute(p, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, p),
             -q_val / 2,
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(q, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, q),
             -p_val / 2,
             atol = 1e-5,
         )
@@ -749,48 +895,44 @@ function test_cubic_obj_mixed()
         optimize!(model)
         @test isapprox(value(x), -q_val / (2 * p_val), atol = 1e-5)
         # dx/dp
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(r, DiffOpt.ForwardParameterValue(), 0.0)
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 0.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             q_val / (2 * p_val^2),
             atol = 1e-5,
         )
         # dx/dq
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             -1 / (2 * p_val),
             atol = 1e-5,
         )
         # dx/dr = 0
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(r, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
         DiffOpt.forward_differentiate!(model)
-        @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
-            0.0,
-            atol = 1e-5,
-        )
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
         # Reverse
-        set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+        DiffOpt.set_reverse_variable(model, x, 1.0)
         DiffOpt.reverse_differentiate!(model)
         @test isapprox(
-            get_attribute(p, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, p),
             q_val / (2 * p_val^2),
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(q, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, q),
             -1 / (2 * p_val),
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(r, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, r),
             0.0,
             atol = 1e-5,
         )
@@ -819,30 +961,26 @@ function test_cubic_obj_multi_pvv()
         @test isapprox(value(x), -1 / (2 * p_val), atol = 1e-5)
         @test isapprox(value(y), -1 / (2 * q_val), atol = 1e-5)
         # dx/dp
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             1 / (2 * p_val^2),
             atol = 1e-5,
         )
-        @test isapprox(
-            get_attribute(y, DiffOpt.ForwardVariablePrimal()),
-            0.0,
-            atol = 1e-5,
-        )
+        @test isapprox(DiffOpt.get_forward_variable(model, y), 0.0, atol = 1e-5)
         # Reverse: ∇x=1, ∇y=0
-        set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
-        set_attribute(y, DiffOpt.ReverseVariablePrimal(), 0.0)
+        DiffOpt.set_reverse_variable(model, x, 1.0)
+        DiffOpt.set_reverse_variable(model, y, 0.0)
         DiffOpt.reverse_differentiate!(model)
         @test isapprox(
-            get_attribute(p, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, p),
             1 / (2 * p_val^2),
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(q, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, q),
             0.0,
             atol = 1e-5,
         )
@@ -870,58 +1008,58 @@ function test_cubic_obj_ppv_and_pv()
         optimize!(model)
         @test isapprox(value(x), -(p_val * q_val + r_val) / 2, atol = 1e-5)
         # Forward dx/dp
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(r, DiffOpt.ForwardParameterValue(), 0.0)
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 0.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             -q_val / 2,
             atol = 1e-5,
         )
         # Forward dx/dq
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             -p_val / 2,
             atol = 1e-5,
         )
         # Forward dx/dr
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(r, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             -1 / 2,
             atol = 1e-5,
         )
         # Forward combined direction: Δp=1, Δq=1, Δr=1
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 1.0)
-        set_attribute(r, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             -(q_val + p_val + 1) / 2,
             atol = 1e-5,
         )
         # Reverse
-        set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+        DiffOpt.set_reverse_variable(model, x, 1.0)
         DiffOpt.reverse_differentiate!(model)
         @test isapprox(
-            get_attribute(p, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, p),
             -q_val / 2,
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(q, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, q),
             -p_val / 2,
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(r, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, r),
             -1 / 2,
             atol = 1e-5,
         )
@@ -949,48 +1087,40 @@ function test_cubic_obj_pvv_pp()
         optimize!(model)
         @test isapprox(value(x), -1 / (2 * p_val), atol = 1e-5)
         # Forward Δp=1, others=0: dx*/dp = 1/(2p^2) (from pvv)
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(r, DiffOpt.ForwardParameterValue(), 0.0)
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 0.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             1 / (2 * p_val^2),
             atol = 1e-5,
         )
         # Forward Δq=1: dx*/dq = 0 (pp is constant, no variable coupling)
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
         DiffOpt.forward_differentiate!(model)
-        @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
-            0.0,
-            atol = 1e-5,
-        )
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
         # Forward Δr=1: dx*/dr = 0
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(r, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
         DiffOpt.forward_differentiate!(model)
-        @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
-            0.0,
-            atol = 1e-5,
-        )
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
         # Reverse
-        set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+        DiffOpt.set_reverse_variable(model, x, 1.0)
         DiffOpt.reverse_differentiate!(model)
         @test isapprox(
-            get_attribute(p, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, p),
             1 / (2 * p_val^2),
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(q, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, q),
             0.0,
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(r, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, r),
             0.0,
             atol = 1e-5,
         )
@@ -1019,48 +1149,40 @@ function test_cubic_obj_ppp()
         optimize!(model)
         @test isapprox(value(x), -p_val / 2, atol = 1e-5)
         # Forward Δp=1, others 0: dx/dp = -1/2
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(r, DiffOpt.ForwardParameterValue(), 0.0)
+        DiffOpt.set_forward_parameter(model, p, 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 0.0)
         DiffOpt.forward_differentiate!(model)
         @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
+            DiffOpt.get_forward_variable(model, x),
             -1 / 2,
             atol = 1e-5,
         )
         # Forward Δq=1: dx/dq = 0 (ppp constant, no variable coupling)
-        set_attribute(p, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, p, 0.0)
+        DiffOpt.set_forward_parameter(model, q, 1.0)
         DiffOpt.forward_differentiate!(model)
-        @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
-            0.0,
-            atol = 1e-5,
-        )
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
         # Forward Δr=1: dx/dr = 0
-        set_attribute(q, DiffOpt.ForwardParameterValue(), 0.0)
-        set_attribute(r, DiffOpt.ForwardParameterValue(), 1.0)
+        DiffOpt.set_forward_parameter(model, q, 0.0)
+        DiffOpt.set_forward_parameter(model, r, 1.0)
         DiffOpt.forward_differentiate!(model)
-        @test isapprox(
-            get_attribute(x, DiffOpt.ForwardVariablePrimal()),
-            0.0,
-            atol = 1e-5,
-        )
+        @test isapprox(DiffOpt.get_forward_variable(model, x), 0.0, atol = 1e-5)
         # Reverse
-        set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+        DiffOpt.set_reverse_variable(model, x, 1.0)
         DiffOpt.reverse_differentiate!(model)
         @test isapprox(
-            get_attribute(p, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, p),
             -1 / 2,
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(q, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, q),
             0.0,
             atol = 1e-5,
         )
         @test isapprox(
-            get_attribute(r, DiffOpt.ReverseParameterValue()),
+            DiffOpt.get_reverse_parameter(model, r),
             0.0,
             atol = 1e-5,
         )

@@ -86,10 +86,10 @@ for (i, x_t) in enumerate(xs), (j, y_t) in enumerate(ys)
 
     ## ---- forward diff wrt  xt  (∂θ/∂x) ----
     DiffOpt.empty_input_sensitivities!(model)
-    set_attribute(xt, DiffOpt.ForwardParameterValue(), 0.01)
+    DiffOpt.set_forward_parameter(model, xt, 0.01)
     DiffOpt.forward_differentiate!(model)
-    dθ1_dx = get_attribute(θ1, DiffOpt.ForwardVariablePrimal())
-    dθ2_dx = get_attribute(θ2, DiffOpt.ForwardVariablePrimal())
+    dθ1_dx = DiffOpt.get_forward_variable(model, θ1)
+    dθ2_dx = DiffOpt.get_forward_variable(model, θ2)
 
     ## check first order approximation keeps solution close to target withing tolerance
     θ_approx = [θ1̂ + dθ1_dx, θ1̂ + dθ2_dx]
@@ -101,10 +101,10 @@ for (i, x_t) in enumerate(xs), (j, y_t) in enumerate(ys)
 
     ## ---- forward diff wrt  yt  (∂θ/∂y) ----
     DiffOpt.empty_input_sensitivities!(model)
-    set_attribute(yt, DiffOpt.ForwardParameterValue(), 0.01)
+    DiffOpt.set_forward_parameter(model, yt, 0.01)
     DiffOpt.forward_differentiate!(model)
-    dθ1_dy = get_attribute(θ1, DiffOpt.ForwardVariablePrimal())
-    dθ2_dy = get_attribute(θ2, DiffOpt.ForwardVariablePrimal())
+    dθ1_dy = DiffOpt.get_forward_variable(model, θ1)
+    dθ2_dy = DiffOpt.get_forward_variable(model, θ2)
 
     ## 2-norm of inverse Jacobian
     Jinv = [

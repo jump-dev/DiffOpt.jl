@@ -136,7 +136,7 @@ dual.(cons)
 
 # set sensitivitity
 
-set_attribute.(y, DiffOpt.ForwardParameterValue(), 1.0)
+DiffOpt.set_forward_parameter.(model, y, 1.0)
 
 # Compute derivatives
 
@@ -144,7 +144,7 @@ DiffOpt.forward_differentiate!(model)
 
 # Query derivative
 
-dx = get_attribute.(x, DiffOpt.ForwardVariablePrimal())
+dx = DiffOpt.get_forward_variable.(model, x)
 
 using Test                                  #src
 @test dx ≈ [0.25, 0.75] atol = 1e-4 rtol = 1e-4 #src

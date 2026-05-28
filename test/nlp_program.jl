@@ -139,7 +139,12 @@ function test_analytical_simple(; P = 2) # Number of parameters
 
         # Set pertubations
         Δp = [0.1 for _ in 1:P]
-        set_attribute.(p, DiffOpt.ForwardParameterValue(), Δp)
+        MOI.set.(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(p),
+            Parameter.(Δp),
+        )
 
         # Test fetch sensitivities before computing
         @test_throws ErrorException MOI.get(
@@ -211,7 +216,12 @@ function test_analytical_simple(; P = 2) # Number of parameters
 
         # Set pertubations
         Δp = [0.1 for _ in 1:P]
-        set_attribute.(p, DiffOpt.ForwardParameterValue(), Δp)
+        MOI.set.(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(p),
+            Parameter.(Δp),
+        )
 
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
@@ -246,7 +256,12 @@ function test_analytical_simple(; P = 2) # Number of parameters
 
         # Set pertubations
         Δp = [0.1 for _ in 1:P]
-        set_attribute.(p, DiffOpt.ForwardParameterValue(), Δp)
+        MOI.set.(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(p),
+            Parameter.(Δp),
+        )
 
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
@@ -281,7 +296,12 @@ function test_analytical_simple(; P = 2) # Number of parameters
 
         # Set pertubations
         Δp = [0.1 for _ in 1:P]
-        set_attribute.(p, DiffOpt.ForwardParameterValue(), Δp)
+        MOI.set.(
+            m,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(p),
+            Parameter.(Δp),
+        )
 
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
@@ -392,16 +412,21 @@ function test_compute_derivatives_Analytical(;
     DICT_PROBLEMS = DICT_PROBLEMS_Analytical_no_cc,
 )
     @testset "Compute Derivatives Analytical: $problem_name" for (
-            problem_name,
-            (p_a, Δp, Δx, Δy, Δvu, Δvl, model_generator),
-        ) in DICT_PROBLEMS
+        problem_name,
+        (p_a, Δp, Δx, Δy, Δvu, Δvl, model_generator),
+    ) in DICT_PROBLEMS
         # OPT Problem
         model, primal_vars, cons, params = model_generator()
         set_parameter_value.(params, p_a)
         optimize!(model)
         @assert is_solved_and_feasible(model)
         # Set pertubations
-        set_attribute.(params, DiffOpt.ForwardParameterValue(), Δp)
+        MOI.set.(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(params),
+            Parameter.(Δp),
+        )
         # Compute derivatives
         DiffOpt.forward_differentiate!(model)
         # Test sensitivities primal_vars
@@ -581,7 +606,12 @@ function test_compute_derivatives_Finite_Diff(;
         optimize!(model)
         @assert is_solved_and_feasible(model)
         # Set pertubations
-        set_attribute.(params, DiffOpt.ForwardParameterValue(), Δp)
+        MOI.set.(
+            model,
+            DiffOpt.ForwardConstraintSet(),
+            ParameterRef.(params),
+            Parameter.(Δp),
+        )
         # Compute derivatives
         DiffOpt.forward_differentiate!(model)
         Δx = [
@@ -633,7 +663,7 @@ function test_ObjectiveSensitivity_model1()
 
     # Set pertubations
     Δp = 0.1
-    set_attribute(p, DiffOpt.ForwardParameterValue(), Δp)
+    DiffOpt.set_forward_parameter(model, p, Δp)
 
     # Compute derivatives
     DiffOpt.forward_differentiate!(model)
@@ -648,7 +678,7 @@ function test_ObjectiveSensitivity_model1()
 
     # Test both obj and solution inputs
     Δf = 0.5
-    MOI.set(model, DiffOpt.ReverseObjectiveValue(), Δf)
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, Δp)
 
     msg = "Computing reverse differentiation with both solution sensitivities and objective sensitivities. Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
@@ -656,7 +686,8 @@ function test_ObjectiveSensitivity_model1()
     MOI.set(model, DiffOpt.AllowObjectiveAndSolutionInput(), true)
     @test_nowarn DiffOpt.reverse_differentiate!(model)
 
-    dp_combined = get_attribute(p, DiffOpt.ReverseParameterValue())
+    dp_combined =
+        MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
     ε = 1e-6
     df_dp_fdpos = begin
@@ -680,13 +711,13 @@ function test_ObjectiveSensitivity_model1()
 
     # Set Reverse Objective Sensitivity
     Δf = 0.5
-    MOI.set(model, DiffOpt.ReverseObjectiveValue(), Δf)
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(model)
 
     # Test Objective Sensitivity wrt parameters
-    dp = get_attribute(p, DiffOpt.ReverseParameterValue())
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
     @test isapprox(dp, df * Δf; atol = 1e-4)
 end
@@ -712,7 +743,7 @@ function test_ObjectiveSensitivity_model2()
 
     # Set pertubations
     Δp = 0.1
-    set_attribute(p, DiffOpt.ForwardParameterValue(), Δp)
+    DiffOpt.set_forward_parameter(model, p, Δp)
 
     # Compute derivatives
     DiffOpt.forward_differentiate!(model)
@@ -726,13 +757,13 @@ function test_ObjectiveSensitivity_model2()
 
     # Set Reverse Objective Sensitivity
     Δf = 0.5
-    MOI.set(model, DiffOpt.ReverseObjectiveValue(), Δf)
+    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(model)
 
     # Test Objective Sensitivity wrt parameters
-    dp = get_attribute(p, DiffOpt.ReverseParameterValue())
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
 
     @test isapprox(dp, -1.5; atol = 1e-4)
 end
@@ -750,7 +781,7 @@ function test_ObjectiveSensitivity_direct_param_contrib()
     @assert is_solved_and_feasible(model)
 
     Δp = 0.1
-    set_attribute(p, DiffOpt.ForwardParameterValue(), Δp)
+    DiffOpt.set_forward_parameter(model, p, Δp)
     DiffOpt.forward_differentiate!(model)
 
     df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
@@ -783,7 +814,7 @@ function test_ObjectiveSensitivity_subset_parameters()
     @variable(model, x[1:10])
 
     # Constraints (decouple by index; gives us per-parameter duals)
-    @constraint(model, c[i = 1:10], x[i] * sin(p[i]) == 1)
+    @constraint(model, c[i=1:10], x[i] * sin(p[i]) == 1)
     @objective(model, Min, sum(x))
 
     optimize!(model)
@@ -792,8 +823,8 @@ function test_ObjectiveSensitivity_subset_parameters()
     # Set perturbations only for indices 3 and 7
     Δp3 = 0.1
     Δp7 = -0.2
-    set_attribute(p[3], DiffOpt.ForwardParameterValue(), Δp3)
-    set_attribute(p[7], DiffOpt.ForwardParameterValue(), Δp7)
+    DiffOpt.set_forward_parameter(model, p[3], Δp3)
+    DiffOpt.set_forward_parameter(model, p[7], Δp7)
 
     # Compute forward derivatives
     DiffOpt.forward_differentiate!(model)
@@ -852,12 +883,20 @@ function test_differentiating_non_trivial_convex_qp_jump()
     db = grads_actual[6]
 
     for (i, ci) in enumerate(c_le)
-        @test -dh[i] ≈ -get_attribute(p_le[i], DiffOpt.ReverseParameterValue()) atol =
-            1e-2 rtol = 1e-2
+        @test -dh[i] ≈
+              -MOI.get(
+            model,
+            DiffOpt.ReverseConstraintSet(),
+            ParameterRef(p_le[i]),
+        ).value atol = 1e-2 rtol = 1e-2
     end
     for (i, ci) in enumerate(c_eq)
-        @test -db[i] ≈ -get_attribute(p_eq[i], DiffOpt.ReverseParameterValue()) atol =
-            1e-2 rtol = 1e-2
+        @test -db[i] ≈
+              -MOI.get(
+            model,
+            DiffOpt.ReverseConstraintSet(),
+            ParameterRef(p_eq[i]),
+        ).value atol = 1e-2 rtol = 1e-2
     end
 
     return
@@ -890,7 +929,10 @@ function test_ReverseConstraintDual()
     # Test sensitivities ReverseConstraintSet
     @test all(
         isapprox(
-            [get_attribute(p[i], DiffOpt.ReverseParameterValue()) for i in 1:2],
+            [
+                MOI.get(m, DiffOpt.ReverseConstraintSet(), ParameterRef(p[i])).value
+                for i in 1:2
+            ],
             zeros(2);
             atol = 1e-8,
         ),
@@ -958,7 +1000,12 @@ function test_changing_factorization()
 
     # Set pertubations
     Δp = [0.1 for _ in 1:P]
-    set_attribute.(p, DiffOpt.ForwardParameterValue(), Δp)
+    MOI.set.(
+        m,
+        DiffOpt.ForwardConstraintSet(),
+        ParameterRef.(p),
+        Parameter.(Δp),
+    )
 
     # wrong type
     @test_throws MethodError MOI.set(
@@ -1060,7 +1107,7 @@ function test_reverse_bounds_lower()
     optimize!(model)
     MOI.set(model, DiffOpt.ReverseConstraintDual(), LowerBoundRef(x[3]), 1.0)
     DiffOpt.reverse_differentiate!(model)
-    dp = get_attribute(p, DiffOpt.ReverseParameterValue())
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
     @test isapprox(dp, -2.88888; atol = 1e-4)
 end
 
@@ -1075,7 +1122,7 @@ function test_reverse_bounds_upper()
     optimize!(model)
     MOI.set(model, DiffOpt.ReverseConstraintDual(), UpperBoundRef(x[3]), 1.0)
     DiffOpt.reverse_differentiate!(model)
-    dp = get_attribute(p, DiffOpt.ReverseParameterValue())
+    dp = MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
     @test isapprox(dp, 2.88888; atol = 1e-4)
 end
 

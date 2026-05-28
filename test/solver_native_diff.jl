@@ -287,7 +287,7 @@ function MOI.get(s::EqQPSolver, ::MOI.ConstraintFunction, ci::EQ_CI)
     row = ci.value
     terms = [
         MOI.ScalarAffineTerm(s.A[row, j], MOI.VariableIndex(j)) for
-        j in 1:(s.n_vars) if !iszero(s.A[row, j])
+        j in 1:s.n_vars if !iszero(s.A[row, j])
     ]
     return MOI.ScalarAffineFunction(terms, 0.0)
 end
@@ -306,7 +306,7 @@ function MOI.get(
 )
     terms = [
         MOI.ScalarAffineTerm(s.c[j], MOI.VariableIndex(j)) for
-        j in 1:(s.n_vars) if !iszero(s.c[j])
+        j in 1:s.n_vars if !iszero(s.c[j])
     ]
     return MOI.ScalarAffineFunction(terms, 0.0)
 end
@@ -438,8 +438,7 @@ end
 # Reverse output: results
 function MOI.get(s::EqQPSolver, ::DiffOpt.ReverseObjectiveFunction)
     terms = [
-        MOI.ScalarAffineTerm(s.dc[j], MOI.VariableIndex(j)) for
-        j in 1:(s.n_vars)
+        MOI.ScalarAffineTerm(s.dc[j], MOI.VariableIndex(j)) for j in 1:s.n_vars
     ]
     return MOI.ScalarAffineFunction(terms, 0.0)
 end
@@ -448,7 +447,7 @@ function MOI.get(s::EqQPSolver, ::DiffOpt.ReverseConstraintFunction, ci::EQ_CI)
     row = ci.value
     terms = [
         MOI.ScalarAffineTerm(s.dA[row, j], MOI.VariableIndex(j)) for
-        j in 1:(s.n_vars)
+        j in 1:s.n_vars
     ]
     return MOI.ScalarAffineFunction(terms, -s.db[row])
 end

@@ -117,14 +117,14 @@ for i in 1:N
     for j in 1:N
         if i == j
             ## we consider identical perturbations on all x_i coordinates
-            set_attribute.(X[i, :], DiffOpt.ForwardParameterValue(), 1.0)
+            DiffOpt.set_forward_parameter.(model, X[i, :], 1.0)
         else
-            set_attribute.(X[i, :], DiffOpt.ForwardParameterValue(), 0.0)
+            DiffOpt.set_forward_parameter.(model, X[i, :], 0.0)
         end
     end
     DiffOpt.forward_differentiate!(model)
-    dw = get_attribute.(w, DiffOpt.ForwardVariablePrimal())
-    db = get_attribute.(b, DiffOpt.ForwardVariablePrimal())
+    dw = DiffOpt.get_forward_variable.(model, w)
+    db = DiffOpt.get_forward_variable.(model, b)
     ∇[i] = LinearAlgebra.norm(dw) + LinearAlgebra.norm(db)
 end
 

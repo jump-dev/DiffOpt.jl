@@ -45,7 +45,7 @@ for (k, d_val) in enumerate(d_range)
 
     @variable(model, d in Parameter(d_val))          # parameter
     @variables(model, begin                          # decisions
-        0 <= g[i = 1:2] <= G[i]
+        0 <= g[i=1:2] <= G[i]
         φ >= 0
     end)
 
@@ -66,12 +66,12 @@ for (k, d_val) in enumerate(d_range)
 
     ## ---------- forward sensitivities ----------
     DiffOpt.empty_input_sensitivities!(model)
-    set_attribute(d, DiffOpt.ForwardParameterValue(), 1.0)
+    DiffOpt.set_forward_parameter(model, d, 1.0)
     DiffOpt.forward_differentiate!(model)
 
-    dg1_dd[k] = get_attribute(g[1], DiffOpt.ForwardVariablePrimal())
-    dg2_dd[k] = get_attribute(g[2], DiffOpt.ForwardVariablePrimal())
-    dφ_dd[k] = get_attribute(φ, DiffOpt.ForwardVariablePrimal())
+    dg1_dd[k] = DiffOpt.get_forward_variable(model, g[1])
+    dg2_dd[k] = DiffOpt.get_forward_variable(model, g[2])
+    dφ_dd[k] = DiffOpt.get_forward_variable(model, φ)
 
     ## marginal cost  λ
     dJ_dd[k] = dual.(con)

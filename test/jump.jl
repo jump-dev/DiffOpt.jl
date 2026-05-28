@@ -46,7 +46,7 @@ function test_single_variable_objective_forward()
     )
     @objective(model, Max, x[7])
     optimize!(model)
-    set_attribute(model, DiffOpt.ForwardObjectiveFunction(), sum(x))
+    DiffOpt.set_forward_objective_function(model, sum(x))
     DiffOpt.forward_differentiate!(model)
     @test MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[7]) ≈ 0 atol = ATOL
     return
@@ -69,7 +69,7 @@ function test_single_variable_objective_reverse()
     optimize!(model)
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x[7], 1.0)
     DiffOpt.reverse_differentiate!(model)
-    func = get_attribute(model, DiffOpt.ReverseObjectiveFunction())
+    func = DiffOpt.get_reverse_objective_function(model)
     @test JuMP.coefficient(func, x[7]) ≈ 0.0 atol = ATOL rtol = RTOL
     return
 end
@@ -112,12 +112,11 @@ function test_differentiating_trivial_qp_1()
     MOI.set.(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
     DiffOpt.reverse_differentiate!(model)
     DiffOpt.reverse_differentiate!(model)
-    grad_constraint = JuMP.constant(
-        get_attribute(ctr_le[1], DiffOpt.ReverseConstraintFunction()),
-    )
+    grad_constraint =
+        JuMP.constant(DiffOpt.get_reverse_constraint_function(model, ctr_le[1]))
     @test grad_constraint ≈ -1.0 atol = ATOL rtol = RTOL
     # Test some overloads from https://github.com/jump-dev/DiffOpt.jl/issues/211
-    grad_obj = get_attribute(model, DiffOpt.ReverseObjectiveFunction())
+    grad_obj = DiffOpt.get_reverse_objective_function(model)
     @test JuMP.coefficient(grad_obj, x[1], x[2]) ≈
           DiffOpt.quad_sym_half.(grad_obj, x[1], x[2]) atol = ATOL rtol = RTOL
     @test DiffOpt.quad_sym_half(grad_obj, x[1], x[1]) ≈
@@ -713,7 +712,7 @@ function test_conic_feasibility()
 
     optimize!(model)
 
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+    DiffOpt.set_forward_parameter(model, p, 1.0)
     DiffOpt.forward_differentiate!(model)
     return
 end
@@ -733,18 +732,15 @@ function test_psd_square()
     @test is_solved_and_feasible(model)
     @test value(x) ≈ 1.0 atol = ATOL rtol = RTOL
 
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+    DiffOpt.set_forward_parameter(model, p, 1.0)
     DiffOpt.forward_differentiate!(model)
-    @test get_attribute(x, DiffOpt.ForwardVariablePrimal()) ≈ 1.0 atol = ATOL rtol =
-        RTOL
-    @test get_attribute(model, DiffOpt.ForwardObjectiveSensitivity()) ≈ -1.0 atol =
-        ATOL rtol = RTOL
+    @test DiffOpt.get_forward_variable(model, x) ≈ 1.0 atol = ATOL rtol = RTOL
+    @test DiffOpt.get_forward_objective(model) ≈ -1.0 atol = ATOL rtol = RTOL
 
     DiffOpt.empty_input_sensitivities!(model)
-    set_attribute(model, DiffOpt.ReverseObjectiveValue(), 1.0)
+    DiffOpt.set_reverse_objective(model, 1.0)
     DiffOpt.reverse_differentiate!(model)
-    @test get_attribute(p, DiffOpt.ReverseParameterValue()) ≈ -1.0 atol = ATOL rtol =
-        RTOL
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ -1.0 atol = ATOL rtol = RTOL
     return
 end
 
@@ -765,16 +761,13 @@ function test_nlp_forward_constraint_dual()
     @test value(x) ≈ 0.25 atol = ATOL rtol = RTOL
     @test value(y) ≈ 0.75 atol = ATOL rtol = RTOL
 
-    set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+    DiffOpt.set_forward_parameter(model, p, 1.0)
     DiffOpt.forward_differentiate!(model)
-    @test get_attribute(x, DiffOpt.ForwardVariablePrimal()) ≈ 0.25 atol = ATOL rtol =
+    @test DiffOpt.get_forward_variable(model, x) ≈ 0.25 atol = ATOL rtol = RTOL
+    @test DiffOpt.get_forward_variable(model, y) ≈ 0.75 atol = ATOL rtol = RTOL
+    @test DiffOpt.get_forward_constraint_dual(model, c1) ≈ 1.75 atol = ATOL rtol =
         RTOL
-    @test get_attribute(y, DiffOpt.ForwardVariablePrimal()) ≈ 0.75 atol = ATOL rtol =
-        RTOL
-    @test get_attribute(c1, DiffOpt.ForwardConstraintDual()) ≈ 1.75 atol = ATOL rtol =
-        RTOL
-    @test get_attribute(model, DiffOpt.ForwardObjectiveSensitivity()) ≈ 2.75 atol =
-        ATOL rtol = RTOL
+    @test DiffOpt.get_forward_objective(model) ≈ 2.75 atol = ATOL rtol = RTOL
     return
 end
 
