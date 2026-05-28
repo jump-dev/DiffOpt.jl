@@ -426,10 +426,10 @@ function test_forward_psd_matrix()
     return
 end
 
-function test_wrapper_deprecation_smoke()
-    # Smoke test that each deprecated JuMP wrapper still executes. Canonical
-    # usage is via `set_attribute` / `get_attribute` on DiffOpt MOI attributes;
-    # these wrappers will be deprecated in a follow-up PR.
+function test_wrapper_smoke()
+    # Smoke test that each JuMP wrapper executes. These wrappers and the
+    # `set_attribute` / `get_attribute` syntax on DiffOpt MOI attributes are
+    # both supported entry points.
     model = DiffOpt.diff_model(HiGHS.Optimizer)
     set_silent(model)
     @variable(model, x)
@@ -465,6 +465,12 @@ function test_wrapper_deprecation_smoke()
     DiffOpt.set_forward_constraint_function(direct, c2, 1.0)
     DiffOpt.forward_differentiate!(direct)
     @test DiffOpt.get_forward_variable(direct, y2) ≈ -1.0 atol = ATOL
+
+    DiffOpt.empty_input_sensitivities!(direct)
+    DiffOpt.set_reverse_constraint_dual(direct, c2, 1.0)
+    DiffOpt.reverse_differentiate!(direct)
+    func = DiffOpt.get_reverse_constraint_function(direct, c2)
+    @test func isa JuMP.AbstractJuMPScalar
     return
 end
 
