@@ -427,6 +427,118 @@ function test_forward_psd_matrix_wrapper()
     return
 end
 
+function test_set_get_attribute_smoke()
+    # Smoke test for the `set_attribute` / `get_attribute` syntax with every
+    # DiffOpt forward and reverse attribute. The wrapper functions are the
+    # documented entry points; this covers the MOI attribute path.
+
+    # Parametric NLP via Ipopt — supports every Forward/Reverse attribute,
+    # including ForwardConstraintDual which is not implemented on the
+    # auto-selected QuadraticProgram backend.
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+    @variable(model, x >= 0)
+    @variable(model, y >= 0)
+    @variable(model, p in Parameter(1.0))
+    @constraint(model, c1, x + y == p)
+    @objective(model, Min, 2x^2 + y^2 + x * y + x + y)
+    optimize!(model)
+
+    # Forward via attributes: ForwardParameterValue (set),
+    # ForwardVariablePrimal (get), ForwardObjectiveSensitivity (get),
+    # ForwardConstraintDual (get).
+    DiffOpt.empty_input_sensitivities!(model)
+    set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
+    DiffOpt.forward_differentiate!(model)
+    @test get_attribute(x, DiffOpt.ForwardVariablePrimal()) ≈ 0.25 atol = ATOL rtol =
+        RTOL
+    @test get_attribute(y, DiffOpt.ForwardVariablePrimal()) ≈ 0.75 atol = ATOL rtol =
+        RTOL
+    @test get_attribute(c1, DiffOpt.ForwardConstraintDual()) ≈ 1.75 atol = ATOL rtol =
+        RTOL
+    @test get_attribute(model, DiffOpt.ForwardObjectiveSensitivity()) ≈ 2.75 atol =
+        ATOL rtol = RTOL
+
+    # Reverse via attributes: ReverseVariablePrimal (set),
+    # ReverseParameterValue (get), ReverseConstraintSet (get on ParameterRef).
+    DiffOpt.empty_input_sensitivities!(model)
+    set_attribute(x, DiffOpt.ReverseVariablePrimal(), 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    dp = get_attribute(p, DiffOpt.ReverseParameterValue())
+    @test isfinite(dp)
+    rcs = get_attribute(ParameterRef(p), DiffOpt.ReverseConstraintSet()).value
+    @test rcs ≈ dp atol = ATOL
+
+    # Reverse from the objective seed: ReverseObjectiveValue (set).
+    DiffOpt.empty_input_sensitivities!(model)
+    set_attribute(model, DiffOpt.ReverseObjectiveValue(), 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test isfinite(get_attribute(p, DiffOpt.ReverseParameterValue()))
+
+    # Non-parametric model — exercise ForwardObjectiveFunction (set),
+    # ForwardConstraintFunction (set, scalar), ReverseObjectiveFunction (get),
+    # ReverseConstraintFunction (get), ReverseConstraintDual (set) via the
+    # attribute syntax.
+    direct = JuMP.direct_model(DiffOpt.diff_optimizer(HiGHS.Optimizer))
+    set_silent(direct)
+    @variable(direct, x2 >= 0)
+    @variable(direct, y2 >= 0)
+    @constraint(direct, c2, x2 + y2 == 1)
+    @objective(direct, Min, 1.0 * x2)
+    optimize!(direct)
+
+    set_attribute(direct, DiffOpt.ForwardObjectiveFunction(), 0.0)
+    set_attribute(c2, DiffOpt.ForwardConstraintFunction(), 1.0)
+    DiffOpt.forward_differentiate!(direct)
+    @test get_attribute(y2, DiffOpt.ForwardVariablePrimal()) ≈ -1.0 atol = ATOL
+
+    DiffOpt.empty_input_sensitivities!(direct)
+    set_attribute(y2, DiffOpt.ReverseVariablePrimal(), 1.0)
+    DiffOpt.reverse_differentiate!(direct)
+    @test get_attribute(direct, DiffOpt.ReverseObjectiveFunction()) isa
+          JuMP.AbstractJuMPScalar
+    @test get_attribute(c2, DiffOpt.ReverseConstraintFunction()) isa
+          JuMP.AbstractJuMPScalar
+
+    DiffOpt.empty_input_sensitivities!(direct)
+    set_attribute(c2, DiffOpt.ReverseConstraintDual(), 1.0)
+    DiffOpt.reverse_differentiate!(direct)
+    @test get_attribute(direct, DiffOpt.ReverseObjectiveFunction()) isa
+          JuMP.AbstractJuMPScalar
+
+    # Vector-form ForwardConstraintFunction via attributes on a conic model.
+    cmodel = DiffOpt.conic_diff_model(SCS.Optimizer)
+    set_silent(cmodel)
+    @variable(cmodel, xv)
+    @variable(cmodel, yv)
+    @constraint(cmodel, c_eq, xv + yv == 1)
+    @constraint(cmodel, c_nn, [1.0 * yv, 1.0 * xv] in MOI.Nonnegatives(2))
+    @objective(cmodel, Min, 1.0 * xv)
+    optimize!(cmodel)
+    set_attribute(c_nn, DiffOpt.ForwardConstraintFunction(), [0.0, 0.0])
+    set_attribute(c_eq, DiffOpt.ForwardConstraintFunction(), 1.0)
+    DiffOpt.forward_differentiate!(cmodel)
+    @test get_attribute(yv, DiffOpt.ForwardVariablePrimal()) ≈ -1.0 atol = ATOL
+
+    # ForwardConstraintSet on a ParameterRef (the underlying mechanism behind
+    # ForwardParameterValue).
+    model2 = DiffOpt.diff_model(HiGHS.Optimizer)
+    set_silent(model2)
+    @variable(model2, xx)
+    @variable(model2, pp in Parameter(1.0))
+    @constraint(model2, xx == 2 * pp)
+    @objective(model2, Min, xx)
+    optimize!(model2)
+    set_attribute(
+        ParameterRef(pp),
+        DiffOpt.ForwardConstraintSet(),
+        MOI.Parameter(1.0),
+    )
+    DiffOpt.forward_differentiate!(model2)
+    @test get_attribute(xx, DiffOpt.ForwardVariablePrimal()) ≈ 2.0 atol = ATOL
+    return
+end
+
 end # module
 
 TestJuMPWrapper.runtests()
