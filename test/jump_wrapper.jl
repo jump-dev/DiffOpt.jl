@@ -539,6 +539,94 @@ function test_set_get_attribute_smoke()
     return
 end
 
+function test_attribute_types()
+    @test DiffOpt.ForwardParameterValue() isa MOI.AbstractVariableAttribute
+    @test DiffOpt.ReverseParameterValue() isa MOI.AbstractVariableAttribute
+    @test DiffOpt.ForwardVariablePrimal() isa MOI.AbstractVariableAttribute
+    @test DiffOpt.ReverseVariablePrimal() isa MOI.AbstractVariableAttribute
+    @test DiffOpt.ForwardObjectiveFunction() isa MOI.AbstractModelAttribute
+    @test DiffOpt.ReverseObjectiveFunction() isa MOI.AbstractModelAttribute
+    @test DiffOpt.ForwardObjectiveSensitivity() isa MOI.AbstractModelAttribute
+    @test DiffOpt.ReverseObjectiveValue() isa MOI.AbstractModelAttribute
+    @test DiffOpt.ForwardConstraintFunction() isa
+          MOI.AbstractConstraintAttribute
+    @test DiffOpt.ReverseConstraintFunction() isa
+          MOI.AbstractConstraintAttribute
+    @test DiffOpt.ForwardConstraintDual() isa MOI.AbstractConstraintAttribute
+    @test DiffOpt.ReverseConstraintDual() isa MOI.AbstractConstraintAttribute
+    return
+end
+
+function test_parameter_wrappers()
+    # Parametric NLP `min 2x² + y² + xy + x + y  s.t.  x + y == p, x,y ≥ 0`
+    # has unique solution x* = 0.25, y* = 0.75 at p = 1, with constraint dual
+    # 1.75 and objective value 2.75 per unit of p.
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+    @variable(model, x >= 0)
+    @variable(model, y >= 0)
+    @variable(model, p in Parameter(1.0))
+    @constraint(model, c1, x + y == p)
+    @objective(model, Min, 2x^2 + y^2 + x * y + x + y)
+    optimize!(model)
+
+    # Forward: seed dp = 1, read every forward getter wrapper.
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, p, 1.0)
+    DiffOpt.forward_differentiate!(model)
+    @test DiffOpt.get_forward_variable(model, x) ≈ 0.25 atol = ATOL rtol = RTOL
+    @test DiffOpt.get_forward_constraint_dual(model, c1) ≈ 1.75 atol = ATOL rtol =
+        RTOL
+    @test DiffOpt.get_forward_objective(model) ≈ 2.75 atol = ATOL rtol = RTOL
+
+    # Reverse with variable seed: adjoint identity gives back dx/dp = 0.25.
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_variable(model, x, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ 0.25 atol = ATOL rtol = RTOL
+
+    # Reverse with objective seed: gives df/dp = 2.75, matching the forward
+    # objective sensitivity above.
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_objective(model, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test DiffOpt.get_reverse_parameter(model, p) ≈ 2.75 atol = ATOL rtol = RTOL
+    return
+end
+
+function test_function_getter_wrappers()
+    # QP `min x² + 2y²  s.t.  x + y == 1` has x* = 2/3, y* = 1/3 with non-
+    # degenerate sensitivities, so the wrapper getters return informative
+    # affine/quadratic expressions instead of zeros.
+    model = JuMP.direct_model(DiffOpt.diff_optimizer(Ipopt.Optimizer))
+    set_silent(model)
+    @variable(model, x)
+    @variable(model, y)
+    @constraint(model, c, x + y == 1)
+    @objective(model, Min, x^2 + 2y^2)
+    optimize!(model)
+    @test value(x) ≈ 2 / 3 atol = ATOL rtol = RTOL
+    @test value(y) ≈ 1 / 3 atol = ATOL rtol = RTOL
+
+    # Seed dy = 1; expected closed-form sensitivities derived from KKT (see
+    # `test_function_getter_wrappers` analytical notes above):
+    #   dy/d(linear coef of x in obj) = 1/6,  dy/d(linear coef of y) = -1/6
+    #   dy/d(coef of x in c) = -4/9,  dy/d(coef of y in c) = 1/9
+    #   dy/d(rhs of c)       =  1/3   (stored constant has the opposite sign)
+    DiffOpt.set_reverse_variable(model, y, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+
+    obj_grad = DiffOpt.get_reverse_objective_function(model)
+    @test JuMP.coefficient(obj_grad, x) ≈ 1 / 6 atol = ATOL rtol = RTOL
+    @test JuMP.coefficient(obj_grad, y) ≈ -1 / 6 atol = ATOL rtol = RTOL
+
+    con_grad = DiffOpt.get_reverse_constraint_function(model, c)
+    @test JuMP.coefficient(con_grad, x) ≈ -4 / 9 atol = ATOL rtol = RTOL
+    @test JuMP.coefficient(con_grad, y) ≈ 1 / 9 atol = ATOL rtol = RTOL
+    @test JuMP.constant(con_grad) ≈ -1 / 3 atol = ATOL rtol = RTOL
+    return
+end
+
 end # module
 
 TestJuMPWrapper.runtests()

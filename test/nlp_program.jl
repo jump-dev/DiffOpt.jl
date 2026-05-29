@@ -76,10 +76,11 @@ function test_compute_optimal_hess_jacobian()
         optimize!(model)
         @assert is_solved_and_feasible(model)
         # Create evaluator
-        nlp_model = DiffOpt._diff(
-            model.moi_backend.optimizer.model,
-            DiffOpt.ForwardDifferentiate(),
-        ).model
+        nlp_model =
+            DiffOpt._diff(
+                model.moi_backend.optimizer.model,
+                DiffOpt.ForwardDifferentiate(),
+            ).model
         _test_create_evaluator(nlp_model)
         cons = nlp_model.cache.cons
         y = [
@@ -814,7 +815,7 @@ function test_ObjectiveSensitivity_subset_parameters()
     @variable(model, x[1:10])
 
     # Constraints (decouple by index; gives us per-parameter duals)
-    @constraint(model, c[i=1:10], x[i] * sin(p[i]) == 1)
+    @constraint(model, c[i = 1:10], x[i] * sin(p[i]) == 1)
     @objective(model, Min, sum(x))
 
     optimize!(model)
@@ -930,8 +931,11 @@ function test_ReverseConstraintDual()
     @test all(
         isapprox(
             [
-                MOI.get(m, DiffOpt.ReverseConstraintSet(), ParameterRef(p[i])).value
-                for i in 1:2
+                MOI.get(
+                    m,
+                    DiffOpt.ReverseConstraintSet(),
+                    ParameterRef(p[i]),
+                ).value for i in 1:2
             ],
             zeros(2);
             atol = 1e-8,
