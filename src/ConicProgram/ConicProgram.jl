@@ -452,7 +452,7 @@ function DiffOpt._get_dA(
     g = model.back_grad_cache.g
     πz = model.back_grad_cache.πz
     #return DiffOpt.lazy_combination(-, g, πz, n .+ i, 1:n)
-    return g[n .+ i] * πz[1:n]' - πz[n .+ i] * g[1:n]'
+    return g[n.+i] * πz[1:n]' - πz[n.+i] * g[1:n]'
 end
 
 function MOI.get(
@@ -468,9 +468,7 @@ Method not supported for `DiffOpt.ConicProgram.Model` directly.
 However, a fallback is provided in `DiffOpt`.
 """
 function MOI.get(::Model, ::DiffOpt.ForwardObjectiveValue)
-    return throw(
-        MOI.UnsupportedAttribute(DiffOpt.ForwardObjectiveValue()),
-    )
+    return throw(MOI.UnsupportedAttribute(DiffOpt.ForwardObjectiveValue()))
 end
 
 """

@@ -908,8 +908,7 @@ function test_forward_objective_sensitivity()
     # dobj/dt = (Qx + c)'dx + dc'x = [3,3]'*dx + [1,0]'*[0,1]
     expected = dot([3.0, 3.0], fwd[1:2]) + dot([1.0, 0.0], [0.0, 1.0])
 
-    @test MOI.get(model, DiffOpt.ForwardObjectiveValue()) ≈ expected atol =
-        ATOL
+    @test MOI.get(model, DiffOpt.ForwardObjectiveValue()) ≈ expected atol = ATOL
 end
 
 # ── Test forward twice (re-differentiation in forward mode) ──────────────
