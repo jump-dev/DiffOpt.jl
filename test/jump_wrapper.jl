@@ -427,7 +427,7 @@ function test_forward_psd_matrix_wrapper()
     return
 end
 
-function test_set_get_attribute_smoke()
+function test_set_get_attribute()
     # Smoke test for the `set_attribute` / `get_attribute` syntax with every
     # DiffOpt forward and reverse attribute. The wrapper functions are the
     # documented entry points; this covers the MOI attribute path.
