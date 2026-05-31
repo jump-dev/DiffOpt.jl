@@ -927,7 +927,7 @@ function MOI.get(
     )
 end
 
-function MOI.get(model::Optimizer, attr::ForwardObjectiveSensitivity)
+function MOI.get(model::Optimizer, attr::ForwardObjectiveValue)
     diff_model = _checked_diff(model, attr, :forward_differentiate!)
     val = 0.0
     try

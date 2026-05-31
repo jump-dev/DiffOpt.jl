@@ -206,10 +206,10 @@ end
 
 Get the value of the objective output sensitivity for forward mode.
 
-Equivalent to `get_attribute(model, DiffOpt.ForwardObjectiveSensitivity())`.
+Equivalent to `get_attribute(model, DiffOpt.ForwardObjectiveValue())`.
 """
 function get_forward_objective(model::JuMP.Model)
-    return MOI.get(model, ForwardObjectiveSensitivity())
+    return MOI.get(model, ForwardObjectiveValue())
 end
 
 """
