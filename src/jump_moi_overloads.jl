@@ -12,7 +12,6 @@
 # done after the model is optimized, so we add function to bypass the
 # dirty state.
 
-# DEPRECATE
 function MOI.set(
     model::JuMP.Model,
     attr::ForwardObjectiveFunction,
@@ -38,7 +37,6 @@ function MOI.set(
     return MOI.set(JuMP.backend(model), attr, allow)
 end
 
-# DEPRECATE
 function MOI.set(
     model::JuMP.Model,
     attr::ForwardObjectiveFunction,
@@ -47,28 +45,71 @@ function MOI.set(
     return MOI.set(model, attr, JuMP.AffExpr(func))
 end
 
-# DEPRECATE
 function MOI.set(
     model::JuMP.Model,
     attr::ForwardConstraintFunction,
-    con_ref::JuMP.ConstraintRef,
+    con_ref::JuMP.ConstraintRef{
+        <:JuMP.AbstractModel,
+        <:MOI.ConstraintIndex{<:MOI.AbstractScalarFunction},
+    },
     func::JuMP.AbstractJuMPScalar,
 )
+    JuMP.check_belongs_to_model(con_ref, model)
     JuMP.check_belongs_to_model(func, model)
-    return MOI.set(model, attr, con_ref, JuMP.moi_function(func))
+    return MOI.set(
+        JuMP.backend(model),
+        attr,
+        JuMP.index(con_ref),
+        JuMP.moi_function(func),
+    )
 end
 
-# DEPRECATE
 function MOI.set(
     model::JuMP.Model,
     attr::ForwardConstraintFunction,
-    con_ref::JuMP.ConstraintRef,
+    con_ref::JuMP.ConstraintRef{
+        <:JuMP.AbstractModel,
+        <:MOI.ConstraintIndex{<:MOI.AbstractScalarFunction},
+    },
     func::Number,
 )
     return MOI.set(model, attr, con_ref, JuMP.AffExpr(func))
 end
 
-# DEPRECATE - then modify
+# Similar to `JuMP.set_start_value` for vector `ConstraintRef` in
+# JuMP/src/constraints.jl
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintFunction,
+    con_ref::JuMP.ConstraintRef{
+        <:JuMP.AbstractModel,
+        <:MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
+    },
+    value::AbstractArray{<:JuMP.AbstractJuMPScalar},
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    JuMP.check_belongs_to_model.(value, model)
+    v = JuMP.vectorize(value, con_ref.shape)
+    return MOI.set(
+        JuMP.backend(model),
+        attr,
+        JuMP.index(con_ref),
+        JuMP.moi_function(v),
+    )
+end
+
+function MOI.set(
+    model::JuMP.Model,
+    attr::ForwardConstraintFunction,
+    con_ref::JuMP.ConstraintRef{
+        <:JuMP.AbstractModel,
+        <:MOI.ConstraintIndex{<:MOI.AbstractVectorFunction},
+    },
+    value::AbstractArray{<:Number},
+)
+    return MOI.set(model, attr, con_ref, JuMP.AffExpr.(value))
+end
+
 function MOI.get(
     model::JuMP.Model,
     attr::ForwardConstraintDual,
@@ -79,13 +120,11 @@ function MOI.get(
     return JuMP.jump_function(model, moi_func)
 end
 
-# DEPRECATE - then modify
 function MOI.get(model::JuMP.Model, attr::ReverseObjectiveFunction)
     func = MOI.get(JuMP.backend(model), attr)
     return JuMP.jump_function(model, func)
 end
 
-# DEPRECATE - then modify
 function MOI.get(
     model::JuMP.Model,
     attr::ReverseConstraintFunction,
@@ -113,7 +152,6 @@ function _moi_get_result(model::MOI.Utilities.CachingOptimizer, args...)
     return MOI.get(model, args...)
 end
 
-# DEPRECATE
 function MOI.get(
     model::JuMP.Model,
     attr::ForwardVariablePrimal,
@@ -123,7 +161,6 @@ function MOI.get(
     return _moi_get_result(JuMP.backend(model), attr, JuMP.index(var_ref))
 end
 
-# REVIEW
 function MOI.get(
     model::JuMP.Model,
     attr::ReverseConstraintSet,
@@ -143,9 +180,30 @@ function MOI.set(
     return MOI.set(JuMP.backend(model), attr, JuMP.index(con_ref), set)
 end
 
+function MOI.set(
+    model::JuMP.Model,
+    ::ForwardParameterValue,
+    p::JuMP.VariableRef,
+    value::Number,
+)
+    return MOI.set(
+        model,
+        ForwardConstraintSet(),
+        JuMP.ParameterRef(p),
+        MOI.Parameter(value),
+    )
+end
+
+function MOI.get(
+    model::JuMP.Model,
+    ::ReverseParameterValue,
+    p::JuMP.VariableRef,
+)
+    return MOI.get(model, ReverseConstraintSet(), JuMP.ParameterRef(p)).value
+end
+
 # there is no set_forward_constraint_set because there is set_forward_parameter
 
-# DEPRECATE
 function MOI.set(
     model::JuMP.Model,
     attr::ForwardConstraintSet,

@@ -109,7 +109,7 @@ function _create_evaluator(form::Form)
     evaluator = MOI.Nonlinear.Evaluator(
         nlp,
         backend,
-        MOI.VariableIndex.(1:form.num_variables),
+        MOI.VariableIndex.(1:(form.num_variables)),
     )
     MOI.initialize(evaluator, [:Hess, :Jac, :Grad])
     return evaluator

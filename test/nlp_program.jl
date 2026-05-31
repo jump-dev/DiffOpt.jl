@@ -412,9 +412,9 @@ function test_compute_derivatives_Analytical(;
     DICT_PROBLEMS = DICT_PROBLEMS_Analytical_no_cc,
 )
     @testset "Compute Derivatives Analytical: $problem_name" for (
-        problem_name,
-        (p_a, Δp, Δx, Δy, Δvu, Δvl, model_generator),
-    ) in DICT_PROBLEMS
+            problem_name,
+            (p_a, Δp, Δx, Δy, Δvu, Δvl, model_generator),
+        ) in DICT_PROBLEMS
         # OPT Problem
         model, primal_vars, cons, params = model_generator()
         set_parameter_value.(params, p_a)
