@@ -1,6 +1,6 @@
 name = "DiffOpt"
 uuid = "930fe3bc-9c6b-11ea-2d94-6184641e85e7"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Akshay Sharma", "Mathieu Besançon", "Joaquim Dias Garcia", "Benoît Legat", "Oscar Dowson", "Andrew Rosemberg"]
 
 [deps]
@@ -24,4 +24,4 @@ LazyArrays = "1, 2"
 MathOptInterface = "1.18"
 MathOptSetDistances = "0.2.9"
 ParametricOptInterface = "0.15.3"
-julia = "1.6"
+julia = "1.10"

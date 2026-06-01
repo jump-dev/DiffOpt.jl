@@ -142,6 +142,17 @@ end
 
 function MOI.supports_constraint(
     ::Model,
+    ::Type{MOI.VectorAffineFunction{Float64}},
+    ::Type{MOI.VectorNonlinearOracle{Float64}},
+)
+    # VNO constraints require the nonlinear bridge path. If we accept them here,
+    # the conic projection code later tries to reconstruct the set by dimension
+    # only, which is invalid for VectorNonlinearOracle.
+    return false
+end
+
+function MOI.supports_constraint(
+    ::Model,
     ::Type{MOI.VectorAffineFunction{T}},
     ::Type{MOI.PositiveSemidefiniteConeSquare},
 ) where {T}
