@@ -162,7 +162,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
         DiffOpt.forward_differentiate!(m)
 
         # test Objective Sensitivity wrt parameters 
-        df_dp = MOI.get(m, DiffOpt.ForwardObjectiveSensitivity())
+        df_dp = MOI.get(m, DiffOpt.ForwardObjectiveValue())
         @test isapprox(df_dp, dot(dual.(con), Δp); atol = 1e-4)
         @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
 
@@ -642,7 +642,7 @@ end
 =#
 ################################################
 
-function test_ObjectiveSensitivity_model1()
+function test_ObjectiveValue_model1()
     # Model 1
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
@@ -669,7 +669,7 @@ function test_ObjectiveSensitivity_model1()
     DiffOpt.forward_differentiate!(model)
 
     # Test Objective Sensitivity wrt parameters
-    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveValue())
     df = -2cos(p_val) / sin(p_val)^2
     @test isapprox(df_dp, df * Δp; atol = 1e-4)
 
@@ -678,7 +678,7 @@ function test_ObjectiveSensitivity_model1()
 
     # Test both obj and solution inputs
     Δf = 0.5
-    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+    MOI.set(model, DiffOpt.ReverseObjectiveValue(), Δf)
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, Δp)
 
     msg = "Computing reverse differentiation with both solution sensitivities and objective sensitivities. Set `DiffOpt.AllowObjectiveAndSolutionInput()` to `true` to silence this warning."
@@ -711,7 +711,7 @@ function test_ObjectiveSensitivity_model1()
 
     # Set Reverse Objective Sensitivity
     Δf = 0.5
-    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+    MOI.set(model, DiffOpt.ReverseObjectiveValue(), Δf)
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(model)
@@ -722,7 +722,7 @@ function test_ObjectiveSensitivity_model1()
     @test isapprox(dp, df * Δf; atol = 1e-4)
 end
 
-function test_ObjectiveSensitivity_model2()
+function test_ObjectiveValue_model2()
     # Model 2
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
@@ -749,7 +749,7 @@ function test_ObjectiveSensitivity_model2()
     DiffOpt.forward_differentiate!(model)
 
     # Test Objective Sensitivity wrt parameters
-    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveValue())
     @test isapprox(df_dp, -0.3; atol = 1e-4)
 
     # Clean up
@@ -757,7 +757,7 @@ function test_ObjectiveSensitivity_model2()
 
     # Set Reverse Objective Sensitivity
     Δf = 0.5
-    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), Δf)
+    MOI.set(model, DiffOpt.ReverseObjectiveValue(), Δf)
 
     # Compute derivatives
     DiffOpt.reverse_differentiate!(model)
@@ -768,7 +768,7 @@ function test_ObjectiveSensitivity_model2()
     @test isapprox(dp, -1.5; atol = 1e-4)
 end
 
-function test_ObjectiveSensitivity_direct_param_contrib()
+function test_ObjectiveValue_direct_param_contrib()
     model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
     set_silent(model)
 
@@ -784,7 +784,7 @@ function test_ObjectiveSensitivity_direct_param_contrib()
     DiffOpt.set_forward_parameter(model, p, Δp)
     DiffOpt.forward_differentiate!(model)
 
-    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveValue())
     @test isapprox(df_dp, 2 * p_val * Δp, atol = 1e-8)   # ≈ 0.6 for p=3
 
     ε = 1e-6
@@ -802,7 +802,7 @@ function test_ObjectiveSensitivity_direct_param_contrib()
 
     @test isapprox(df_dp, df_dp_fd, atol = 1e-4)
 end
-function test_ObjectiveSensitivity_subset_parameters()
+function test_ObjectiveValue_subset_parameters()
     # Model with 10 parameters, differentiate only w.r.t. 3rd and 7th
     model = Model(() -> DiffOpt.diff_optimizer(Ipopt.Optimizer))
     set_silent(model)
@@ -830,7 +830,7 @@ function test_ObjectiveSensitivity_subset_parameters()
     DiffOpt.forward_differentiate!(model)
 
     # Objective sensitivity should equal sum over selected params only
-    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+    df_dp = MOI.get(model, DiffOpt.ForwardObjectiveValue())
     @test isapprox(df_dp, 0.007109293; atol = 1e-4)
 end
 

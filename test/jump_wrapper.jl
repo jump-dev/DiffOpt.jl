@@ -445,7 +445,7 @@ function test_set_get_attribute()
     optimize!(model)
 
     # Forward via attributes: ForwardParameterValue (set),
-    # ForwardVariablePrimal (get), ForwardObjectiveSensitivity (get),
+    # ForwardVariablePrimal (get), ForwardObjectiveValue (get),
     # ForwardConstraintDual (get).
     DiffOpt.empty_input_sensitivities!(model)
     set_attribute(p, DiffOpt.ForwardParameterValue(), 1.0)
@@ -456,7 +456,7 @@ function test_set_get_attribute()
         RTOL
     @test get_attribute(c1, DiffOpt.ForwardConstraintDual()) ≈ 1.75 atol = ATOL rtol =
         RTOL
-    @test get_attribute(model, DiffOpt.ForwardObjectiveSensitivity()) ≈ 2.75 atol =
+    @test get_attribute(model, DiffOpt.ForwardObjectiveValue()) ≈ 2.75 atol =
         ATOL rtol = RTOL
 
     # Reverse via attributes: ReverseVariablePrimal (set),
@@ -546,7 +546,7 @@ function test_attribute_types()
     @test DiffOpt.ReverseVariablePrimal() isa MOI.AbstractVariableAttribute
     @test DiffOpt.ForwardObjectiveFunction() isa MOI.AbstractModelAttribute
     @test DiffOpt.ReverseObjectiveFunction() isa MOI.AbstractModelAttribute
-    @test DiffOpt.ForwardObjectiveSensitivity() isa MOI.AbstractModelAttribute
+    @test DiffOpt.ForwardObjectiveValue() isa MOI.AbstractModelAttribute
     @test DiffOpt.ReverseObjectiveValue() isa MOI.AbstractModelAttribute
     @test DiffOpt.ForwardConstraintFunction() isa
           MOI.AbstractConstraintAttribute

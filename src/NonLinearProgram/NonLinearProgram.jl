@@ -646,7 +646,7 @@ function MOI.get(
     return MOI.Parameter{T}(model.back_grad_cache.Δp[ci])
 end
 
-function MOI.get(model::Model, ::DiffOpt.ForwardObjectiveSensitivity)
+function MOI.get(model::Model, ::DiffOpt.ForwardObjectiveValue)
     return model.forw_grad_cache.objective_sensitivity_p
 end
 

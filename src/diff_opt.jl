@@ -249,19 +249,21 @@ struct ForwardConstraintDual <: MOI.AbstractConstraintAttribute end
 MOI.is_set_by_optimize(::ForwardConstraintDual) = true
 
 """
-    ForwardObjectiveSensitivity <: MOI.AbstractModelAttribute
+    ForwardObjectiveValue <: MOI.AbstractModelAttribute
 
 A `MOI.AbstractModelAttribute` to get output objective sensitivity data from forward differentiation.
 
 For instance, to get the sensitivity of the objective function with respect to the parameter perturbation, do the following:
 
 ```julia
-MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+MOI.get(model, DiffOpt.ForwardObjectiveValue())
 ```
 """
-struct ForwardObjectiveSensitivity <: MOI.AbstractModelAttribute end
+struct ForwardObjectiveValue <: MOI.AbstractModelAttribute end
 
-MOI.is_set_by_optimize(::ForwardObjectiveSensitivity) = true
+MOI.is_set_by_optimize(::ForwardObjectiveValue) = true
+
+Base.@deprecate_binding ForwardObjectiveSensitivity ForwardObjectiveValue
 
 """
     ReverseObjectiveFunction <: MOI.AbstractModelAttribute
