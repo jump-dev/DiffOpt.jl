@@ -435,7 +435,7 @@ function _lu_with_inertia_correction(
     return K
 end
 
-_all_variables(form::Form) = MOI.VariableIndex.(1:form.num_variables)
+_all_variables(form::Form) = MOI.VariableIndex.(1:(form.num_variables))
 _all_variables(model::Model) = _all_variables(model.model)
 _all_params(form::Form) = collect(keys(form.var2param))
 _all_params(model::Model) = _all_params(model.model)
@@ -647,11 +647,11 @@ function MOI.get(
     return MOI.Parameter{T}(model.back_grad_cache.Δp[ci])
 end
 
-function MOI.get(model::Model, ::DiffOpt.ForwardObjectiveSensitivity)
+function MOI.get(model::Model, ::DiffOpt.ForwardObjectiveValue)
     return model.forw_grad_cache.objective_sensitivity_p
 end
 
-function MOI.set(model::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
+function MOI.set(model::Model, ::DiffOpt.ReverseObjectiveValue, val)
     model.input_cache.dobj = val
     return
 end

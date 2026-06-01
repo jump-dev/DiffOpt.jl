@@ -99,6 +99,8 @@ end
     set_forward_parameter(model::JuMP.Model, variable::JuMP.VariableRef, value::Number)
 
 Set the value of a parameter input sensitivity for forward mode.
+
+Equivalent to `set_attribute(variable, DiffOpt.ForwardParameterValue(), value)`.
 """
 function set_forward_parameter(
     model::JuMP.Model,
@@ -118,6 +120,8 @@ end
     get_reverse_parameter(model::JuMP.Model, variable::JuMP.VariableRef)
 
 Get the value of a parameter output sensitivity for reverse mode.
+
+Equivalent to `get_attribute(variable, DiffOpt.ReverseParameterValue())`.
 """
 function get_reverse_parameter(model::JuMP.Model, variable::JuMP.VariableRef)
     JuMP.check_belongs_to_model(variable, model)
@@ -132,6 +136,8 @@ end
     set_reverse_variable(model::JuMP.Model, variable::JuMP.VariableRef, value::Number)
 
 Set the value of a variable input sensitivity for reverse mode.
+
+Equivalent to `set_attribute(variable, DiffOpt.ReverseVariablePrimal(), value)`.
 """
 function set_reverse_variable(
     model::JuMP.Model,
@@ -148,9 +154,32 @@ function set_reverse_variable(
 end
 
 """
+    set_reverse_constraint_dual(model::JuMP.Model, con_ref::JuMP.ConstraintRef, value::Number)
+
+Set the value of a constraint dual input sensitivity for reverse mode.
+
+Equivalent to `set_attribute(con_ref, DiffOpt.ReverseConstraintDual(), value)`.
+"""
+function set_reverse_constraint_dual(
+    model::JuMP.Model,
+    con_ref::JuMP.ConstraintRef,
+    value::Number,
+)
+    JuMP.check_belongs_to_model(con_ref, model)
+    return MOI.set(
+        JuMP.backend(model),
+        ReverseConstraintDual(),
+        JuMP.index(con_ref),
+        value,
+    )
+end
+
+"""
     get_forward_variable(model::JuMP.Model, variable::JuMP.VariableRef)
 
 Get the value of a variable output sensitivity for forward mode.
+
+Equivalent to `get_attribute(variable, DiffOpt.ForwardVariablePrimal())`.
 """
 function get_forward_variable(model::JuMP.Model, variable::JuMP.VariableRef)
     JuMP.check_belongs_to_model(variable, model)
@@ -165,24 +194,30 @@ end
     set_reverse_objective(model::JuMP.Model, value::Number)
 
 Set the value of the objective input sensitivity for reverse mode.
+
+Equivalent to `set_attribute(model, DiffOpt.ReverseObjectiveValue(), value)`.
 """
 function set_reverse_objective(model::JuMP.Model, value::Number)
-    return MOI.set(model, ReverseObjectiveSensitivity(), value)
+    return MOI.set(model, ReverseObjectiveValue(), value)
 end
 
 """
     get_forward_objective(model::JuMP.Model)
 
 Get the value of the objective output sensitivity for forward mode.
+
+Equivalent to `get_attribute(model, DiffOpt.ForwardObjectiveValue())`.
 """
 function get_forward_objective(model::JuMP.Model)
-    return MOI.get(model, ForwardObjectiveSensitivity())
+    return MOI.get(model, ForwardObjectiveValue())
 end
 
 """
     set_forward_objective_function(model::JuMP.Model, func)
 
 Set the function to be used for forward mode differentiation of the objective.
+
+Equivalent to `set_attribute(model, DiffOpt.ForwardObjectiveFunction(), func)`.
 """
 function set_forward_objective_function(
     model::JuMP.Model,
@@ -207,6 +242,8 @@ end
     set_forward_constraint_function(model::JuMP.Model, con_ref::JuMP.ConstraintRef, func)
 
 Set the function to be used for forward mode differentiation of a constraint.
+
+Equivalent to `set_attribute(con_ref, DiffOpt.ForwardConstraintFunction(), func)`.
 """
 function set_forward_constraint_function(
     model::JuMP.Model,
@@ -258,8 +295,6 @@ function set_forward_constraint_function(
     )
 end
 
-# Similar to `JuMP.set_start_value` for vector `ConstraintRef` in
-# JuMP/src/constraints.jl
 function set_forward_constraint_function(
     model::JuMP.Model,
     con_ref::JuMP.ConstraintRef{
@@ -275,6 +310,8 @@ end
     get_forward_constraint_dual(model::JuMP.Model, con_ref::JuMP.ConstraintRef)
 
 Get the value of a constraint dual output sensitivity for forward mode.
+
+Equivalent to `get_attribute(con_ref, DiffOpt.ForwardConstraintDual())`.
 """
 function get_forward_constraint_dual(
     model::JuMP.Model,
@@ -293,6 +330,8 @@ end
     get_reverse_objective_function(model::JuMP.Model)
 
 Get the function to be used for reverse mode differentiation of the objective.
+
+Equivalent to `get_attribute(model, DiffOpt.ReverseObjectiveFunction())`.
 """
 function get_reverse_objective_function(model::JuMP.Model)
     func = MOI.get(JuMP.backend(model), ReverseObjectiveFunction())
@@ -303,6 +342,8 @@ end
     get_reverse_constraint_function(model::JuMP.Model, con_ref::JuMP.ConstraintRef)
 
 Get the function to be used for reverse mode differentiation of a constraint.
+
+Equivalent to `get_attribute(con_ref, DiffOpt.ReverseConstraintFunction())`.
 """
 function get_reverse_constraint_function(
     model::JuMP.Model,

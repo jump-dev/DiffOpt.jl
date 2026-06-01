@@ -588,7 +588,7 @@ function MOI.set(model::Optimizer, attr::ReverseDifferentiate, value)
     end
     if !iszero(model.input_cache.dobj)
         try
-            MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
+            MOI.set(diff, ReverseObjectiveValue(), model.input_cache.dobj)
         catch e
             if e isa MOI.UnsupportedAttribute
                 _fallback_set_reverse_objective_sensitivity(
@@ -934,7 +934,7 @@ function MOI.get(
     )
 end
 
-function MOI.get(model::Optimizer, attr::ForwardObjectiveSensitivity)
+function MOI.get(model::Optimizer, attr::ForwardObjectiveValue)
     diff_model = _checked_diff(model, attr, :forward_differentiate!)
     val = 0.0
     try
@@ -1013,7 +1013,7 @@ function MOI.set(
     return
 end
 
-function MOI.set(model::Optimizer, ::ReverseObjectiveSensitivity, val)
+function MOI.set(model::Optimizer, ::ReverseObjectiveValue, val)
     model.input_cache.dobj = val
     return
 end

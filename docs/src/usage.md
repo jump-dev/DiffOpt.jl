@@ -163,7 +163,7 @@ MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p), Parameter(3.0))
 MOI.set(model, DiffOpt.ForwardConstraintSet(), ParameterRef(p_c), Parameter(3.0))
 DiffOpt.forward_differentiate!(model)
 
-MOI.get(model, DiffOpt.ForwardObjectiveSensitivity())
+MOI.get(model, DiffOpt.ForwardObjectiveValue())
 ```
 
 In reverse mode, we can calculate the parameter perturbation with respect to the objective perturbation:
@@ -174,7 +174,7 @@ DiffOpt.empty_input_sensitivities!(model)
 
 MOI.set(
     model,
-    DiffOpt.ReverseObjectiveSensitivity(),
+    DiffOpt.ReverseObjectiveValue(),
     0.1,
 )
 
@@ -183,4 +183,4 @@ DiffOpt.reverse_differentiate!(model)
 MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p))
 ```
 
-It is important to note that the (reverse) parameter perturbation given an objective perturbation is somewhat equivalent to the perturbation with respect to solution (since one can be calculated from the other). Therefore, one cannot set both the objective sensitivity (`DiffOpt.ReverseObjectiveSensitivity`) and the solution sensitivity (e.g. `DiffOpt.ReverseVariablePrimal`) at the same time - the code will throw an error if you try to do so.
+It is important to note that the (reverse) parameter perturbation given an objective perturbation is somewhat equivalent to the perturbation with respect to solution (since one can be calculated from the other). Therefore, one cannot set both the objective sensitivity (`DiffOpt.ReverseObjectiveValue`) and the solution sensitivity (e.g. `DiffOpt.ReverseVariablePrimal`) at the same time - the code will throw an error if you try to do so.
