@@ -115,7 +115,10 @@ function test_VectorNonlinearOracle_default_constructor_selection()
     @test is_solved_and_feasible(model)
     @test value(x) ≈ p_val atol = 1e-7
 
-    diff_backend = DiffOpt._diff(model.moi_backend.optimizer.model)
+    diff_backend = DiffOpt._diff(
+        model.moi_backend.optimizer.model,
+        DiffOpt.ReverseDifferentiate(),
+    )
     if diff_backend isa MOI.Bridges.LazyBridgeOptimizer
         @test diff_backend.model isa DiffOpt.NonLinearProgram.Model
     else
