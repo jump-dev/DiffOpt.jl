@@ -372,16 +372,19 @@ function _build_sensitivity_matrices(
     #     [V_U 0   0       (X_U - X)]
     # ]
     M = [
-        W A' I_L I_U;
-        A spzeros(num_cons, num_cons) spzeros(num_cons, num_low) spzeros(num_cons, num_up);
-        V_L spzeros(num_low, num_cons) X_lb spzeros(num_low, num_up);
-        V_U spzeros(num_up, num_cons) spzeros(num_up, num_low) X_ub;
+        W A' I_L I_U
+        A spzeros(num_cons, num_cons) spzeros(num_cons, num_low) spzeros(
+            num_cons,
+            num_up,
+        )
+        V_L spzeros(num_low, num_cons) X_lb spzeros(num_low, num_up)
+        V_U spzeros(num_up, num_cons) spzeros(num_up, num_low) X_ub
     ]
     # N matrix
     N = [
-        ∇ₓₚL;
-        ∇ₚC;
-        spzeros(num_low + num_up, num_parms);
+        ∇ₓₚL
+        ∇ₚC
+        spzeros(num_low + num_up, num_parms)
     ]
 
     return M, N
@@ -501,4 +504,86 @@ function _compute_sensitivity(model::Model; tol = 1e-6)
     df_dp_direct = grad[params_idx]  # ∇ₚf(x,p)
     df_dp = df_dx'∂s[1:num_vars, :] + df_dp_direct'  # ∇ₚfᵒ(x,p) = ∇ₓf(x,p) * ∇ₚxᵒ(p) + ∇ₚf(x,p) * 𝐈ₚ
     return ∂s, df_dp
+end
+
+"""
+    _compute_sensitivity_adjoint(model::Model, Δw::AbstractVector, dobj::Real; tol=1e-6)
+
+Reverse-mode (vector-Jacobian product) counterpart of [`_compute_sensitivity`](@ref): return
+`Δp = ∂sᵀ Δw + df_dpᵀ dobj` without materializing the dense `∂s = -K⁻¹N` (a `size(K, 1) × P`
+solve). Since `∂sᵀ Δw = -Nᵀ (K⁻ᵀ Δw)`, one adjoint solve on the same factorization suffices.
+
+Two details make this exactly the quantity the dense path contracts:
+
+  * the JuMP-convention sign adjustments `_compute_sensitivity` applies to the dual *rows* of
+    `∂s` are applied to the corresponding *entries* of the seed instead (algebraically
+    identical);
+  * the objective seed folds into the same right-hand side: with
+    `df_dp = ∇ₓfᵀ ∂s[1:n, :] + ∇ₚfᵀ`, the first term rides along as `∇ₓf ⋅ dobj` added to the
+    primal entries of the seed, and the direct `∇ₚf ⋅ dobj` term is added after the solve.
+
+The inertia-correction / singular fallback matches the dense path: a failed factorization
+(`K === nothing`) contributes a zero solve component.
+"""
+function _compute_sensitivity_adjoint(
+    model::Model,
+    Δw::AbstractVector,
+    dobj::Real;
+    tol = 1e-6,
+)
+    # Solution and bounds — identical to `_compute_sensitivity`
+    X,
+    V_L,
+    X_L,
+    V_U,
+    X_U,
+    leq_locations,
+    geq_locations,
+    ineq_locations,
+    has_up,
+    has_low,
+    cons = _compute_solution_and_bounds(model; tol = tol)
+    M, N = _build_sensitivity_matrices(
+        model,
+        cons,
+        X,
+        V_L,
+        X_L,
+        V_U,
+        X_U,
+        leq_locations,
+        geq_locations,
+        ineq_locations,
+        has_up,
+        has_low,
+    )
+    K = model.input_cache.factorization(M, model)
+    num_vars = _get_num_primal_vars(model)
+    num_cons = _get_num_constraints(model)
+    num_w = num_vars + length(ineq_locations)
+    num_lower = length(has_low)
+    _sense_multiplier = _sense_mult(model)
+    # Seed, with the sign adjustments the dense path applies to the rows of ∂s
+    w = collect(Float64, Δw)
+    # Duals
+    w[(num_w+1):(num_w+num_cons)] .*= -_sense_multiplier
+    # Dual bounds lower
+    w[(num_w+num_cons+1):(num_w+num_cons+num_lower)] .*= _sense_multiplier
+    # Dual bounds upper
+    w[(num_w+num_cons+num_lower+1):end] .*= -_sense_multiplier
+    grad = iszero(dobj) ? nothing : _compute_gradient(model)
+    if grad !== nothing
+        primal_idx = [i.value for i in model.cache.primal_vars]
+        w[1:num_vars] .+= grad[primal_idx] .* dobj  # the ∂s-dependent part of df_dpᵀ dobj
+    end
+    Δp = if K === nothing
+        zeros(_get_num_params(model))
+    else
+        -(N' * (K' \ w))  # ONE adjoint solve; UMFPACK solves Kᵀz = w on the same factorization
+    end
+    if grad !== nothing
+        params_idx = [i.value for i in model.cache.params]
+        Δp .+= grad[params_idx] .* dobj  # the direct ∇ₚf ⋅ dobj term
+    end
+    return Δp
 end
