@@ -1126,6 +1126,132 @@ function test_reverse_bounds_upper()
     @test isapprox(dp, 2.88888; atol = 1e-4)
 end
 
+function _build_preserve_model(P)
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+    @variable(model, p[i=1:P] in MOI.Parameter(1.0 + 0.2 * i))
+    @variable(model, x[1:P] >= 0)
+    @constraint(model, [i = 1:P], x[i] * (1 + 0.1 * sin(p[i])) >= p[i])
+    @constraint(model, sum(x) >= 0.4 * P)
+    @objective(
+        model,
+        Min,
+        sum((x[i] - p[i])^2 for i in 1:P) + 0.01 * sum(x[i]^4 for i in 1:P)
+    )
+    return model, p, x
+end
+
+function _preserve_reverse_dp(model, p, x, seed)
+    P = length(p)
+    DiffOpt.empty_input_sensitivities!(model)
+    for i in 1:P
+        DiffOpt.set_reverse_variable(model, x[i], seed[i])
+    end
+    DiffOpt.reverse_differentiate!(model)
+    return [
+        MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p[i])).value
+        for i in 1:P
+    ]
+end
+
+function test_preserve_diff_model_parameter_resolves()
+    # With PreserveDiffModel, a Parameter-only re-solve keeps the differentiation model
+    # (no re-instantiate + copy_to) and must produce results identical to the default
+    # full-rebuild path.
+    P = 4
+    preserved, p1, x1 = _build_preserve_model(P)
+    MOI.set(preserved, DiffOpt.PreserveDiffModel(), true)
+    @test MOI.get(preserved, DiffOpt.PreserveDiffModel()) == true
+    stock, p2, x2 = _build_preserve_model(P)
+    @test MOI.get(stock, DiffOpt.PreserveDiffModel()) == false
+    diffopt = JuMP.unsafe_backend(preserved)
+    diff_handle = nothing
+    for (step, shift) in enumerate((0.0, 0.3, -0.2, 0.7))
+        for i in 1:P
+            set_parameter_value(p1[i], 1.0 + 0.2 * i + shift)
+            set_parameter_value(p2[i], 1.0 + 0.2 * i + shift)
+        end
+        optimize!(preserved)
+        optimize!(stock)
+        @assert is_solved_and_feasible(preserved)
+        seed = [sin(0.7 * i + step) for i in 1:P]
+        dp_preserved = _preserve_reverse_dp(preserved, p1, x1, seed)
+        dp_stock = _preserve_reverse_dp(stock, p2, x2, seed)
+        @test dp_preserved == dp_stock
+        if step == 1
+            diff_handle = diffopt.diff
+            @test diff_handle !== nothing
+        else
+            # the differentiation model must actually be the preserved one
+            @test diffopt.diff === diff_handle
+        end
+    end
+    # Forward mode is preserved too.
+    DiffOpt.empty_input_sensitivities!(preserved)
+    DiffOpt.set_forward_parameter(preserved, p1[1], 1.0)
+    DiffOpt.forward_differentiate!(preserved)
+    @test diffopt.diff === diff_handle
+    DiffOpt.empty_input_sensitivities!(stock)
+    DiffOpt.set_forward_parameter(stock, p2[1], 1.0)
+    DiffOpt.forward_differentiate!(stock)
+    dx_preserved = [
+        MOI.get(preserved, DiffOpt.ForwardVariablePrimal(), x1[i]) for i in 1:P
+    ]
+    dx_stock =
+        [MOI.get(stock, DiffOpt.ForwardVariablePrimal(), x2[i]) for i in 1:P]
+    @test dx_preserved == dx_stock
+    return
+end
+
+function test_preserve_diff_model_parameter_change_without_resolve()
+    # Changing a parameter and differentiating again without re-solving must match the
+    # default path (which rebuilds the model with the new parameter values and the old
+    # solution).
+    P = 3
+    preserved, p1, x1 = _build_preserve_model(P)
+    MOI.set(preserved, DiffOpt.PreserveDiffModel(), true)
+    stock, p2, x2 = _build_preserve_model(P)
+    optimize!(preserved)
+    optimize!(stock)
+    seed = [cos(1.1 * i) for i in 1:P]
+    dp_preserved = _preserve_reverse_dp(preserved, p1, x1, seed)
+    dp_stock = _preserve_reverse_dp(stock, p2, x2, seed)
+    @test dp_preserved == dp_stock
+    for i in 1:P
+        set_parameter_value(p1[i], 1.1 + 0.2 * i)
+        set_parameter_value(p2[i], 1.1 + 0.2 * i)
+    end
+    dp_preserved = _preserve_reverse_dp(preserved, p1, x1, seed)
+    dp_stock = _preserve_reverse_dp(stock, p2, x2, seed)
+    @test dp_preserved == dp_stock
+    return
+end
+
+function test_preserve_diff_model_structural_change_falls_back()
+    # A structural edit must discard the preserved differentiation model and fall back
+    # to the stock rebuild.
+    P = 3
+    model, p, x = _build_preserve_model(P)
+    MOI.set(model, DiffOpt.PreserveDiffModel(), true)
+    optimize!(model)
+    seed = [1.0 for i in 1:P]
+    _preserve_reverse_dp(model, p, x, seed)
+    diffopt = JuMP.unsafe_backend(model)
+    diff_handle = diffopt.diff
+    @test diff_handle !== nothing
+    @constraint(model, sum(x) <= 10.0 * P)
+    optimize!(model)
+    dp = _preserve_reverse_dp(model, p, x, seed)
+    @test diffopt.diff !== diff_handle
+    # and the rebuilt model matches a fresh one built directly in the final state
+    fresh, pf, xf = _build_preserve_model(P)
+    @constraint(fresh, sum(xf) <= 10.0 * P)
+    optimize!(fresh)
+    dp_fresh = _preserve_reverse_dp(fresh, pf, xf, seed)
+    @test dp ≈ dp_fresh rtol = 1e-10
+    return
+end
+
 end # module
 
 TestNLPProgram.runtests()
