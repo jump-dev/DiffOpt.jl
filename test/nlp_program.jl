@@ -1176,6 +1176,38 @@ function test_reverse_adjoint_matches_forward_jvp()
     return
 end
 
+function test_reverse_adjoint_singular_factorization_fallback()
+    # Covers the `K === nothing` singular-factorization fallback in
+    # `_compute_sensitivity_adjoint` (nlp_utilities.jl) by injecting a factorization
+    # hook that returns `nothing`. With no objective seed, Δp must be exactly zeros.
+    P = 3
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+    @variable(model, p[i=1:P] in MOI.Parameter(1.0 + 0.2 * i))
+    @variable(model, x[1:P] >= 0)
+    @constraint(model, [i = 1:P], x[i] >= p[i])
+    @constraint(model, sum(x) >= 0.5 * P)
+    @objective(model, Min, sum((x[i] - p[i])^2 for i in 1:P))
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+    MOI.set(
+        model,
+        DiffOpt.NonLinearKKTJacobianFactorization(),
+        (M, m) -> nothing,
+    )
+    DiffOpt.empty_input_sensitivities!(model)
+    for i in 1:P
+        DiffOpt.set_reverse_variable(model, x[i], 1.0)
+    end
+    DiffOpt.reverse_differentiate!(model)
+    Δp = [
+        MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p[i])).value
+        for i in 1:P
+    ]
+    @test all(iszero, Δp)
+    return
+end
+
 end # module
 
 TestNLPProgram.runtests()
