@@ -1252,6 +1252,79 @@ function test_preserve_diff_model_structural_change_falls_back()
     return
 end
 
+# A model feasible for small p and INFEASIBLE for large p via a Parameter-only change
+# (x ∈ [0,1], x ≥ p is infeasible once p > 1): lets a preserved re-solve reach a
+# non-differentiable status without any structural edit.
+function _build_boundable_preserve_model()
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+    @variable(model, p in MOI.Parameter(0.5))
+    @variable(model, 0.0 <= x <= 1.0)
+    @constraint(model, x >= p)
+    @objective(model, Min, (x - 0.3)^2)
+    return model, p, x
+end
+
+function _reverse_dp_scalar(model, p, x, seed)
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_reverse_variable(model, x, seed)
+    DiffOpt.reverse_differentiate!(model)
+    return MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p)).value
+end
+
+function test_preserve_diff_model_nondifferentiable_solve_discards()
+    # Covers the MOI.optimize! fallback (moi_wrapper.jl): a preserved Parameter-only
+    # re-solve that ends non-differentiable must DISCARD the diff model, and the next
+    # feasible solve must rebuild gradients identical to a fresh model.
+    model, p, x = _build_boundable_preserve_model()
+    MOI.set(model, DiffOpt.PreserveDiffModel(), true)
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+    _reverse_dp_scalar(model, p, x, 1.0)  # instantiate the preserved diff model
+    diffopt = JuMP.unsafe_backend(model)
+    @test diffopt.diff !== nothing
+    set_parameter_value(p, 2.0)  # Parameter-only push into the infeasible region
+    optimize!(model)
+    @test !is_solved_and_feasible(model)
+    @test diffopt.diff === nothing  # the non-differentiable fallback fired
+    set_parameter_value(p, 0.5)
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+    dp = _reverse_dp_scalar(model, p, x, 1.0)
+    fresh, pf, xf = _build_boundable_preserve_model()
+    optimize!(fresh)
+    dp_fresh = _reverse_dp_scalar(fresh, pf, xf, 1.0)
+    @test isapprox(dp, dp_fresh; rtol = 1e-10)
+    return
+end
+
+function test_preserve_diff_model_parameter_set_getter_roundtrips()
+    # Covers MOI.get(::NonLinearProgram.Model, ::ConstraintSet, ::Parameter): after a
+    # preserved re-solve refreshes the value into the diff model, reading it back through
+    # the diff model's own getter must return that value.
+    model, p, x = _build_boundable_preserve_model()
+    MOI.set(model, DiffOpt.PreserveDiffModel(), true)
+    optimize!(model)
+    _reverse_dp_scalar(model, p, x, 1.0)  # instantiate the preserved diff model
+    newval = 0.8
+    set_parameter_value(p, newval)
+    optimize!(model)
+    _reverse_dp_scalar(model, p, x, 1.0)  # _refresh_parameters writes newval into diff
+    diffopt = JuMP.unsafe_backend(model)
+    ci_src = only(
+        MOI.get(
+            diffopt.optimizer,
+            MOI.ListOfConstraintIndices{
+                MOI.VariableIndex,
+                MOI.Parameter{Float64},
+            }(),
+        ),
+    )
+    got = MOI.get(diffopt.diff, MOI.ConstraintSet(), diffopt.index_map[ci_src])
+    @test got.value == newval
+    return
+end
+
 end # module
 
 TestNLPProgram.runtests()
