@@ -732,7 +732,8 @@ end
 
 # Allocate a vector for storing the output of `map_rows`.
 function _allocate_rows(cones, ::Nested{T}) where {T}
-    return Vector{T}(undef, length(cones.dimension))
+    n = mapreduce(length, +, cones.rows; init = 0)
+    return Vector{T}(undef, n)
 end
 
 function _allocate_rows(cones, ::Flattened{T}) where {T}
