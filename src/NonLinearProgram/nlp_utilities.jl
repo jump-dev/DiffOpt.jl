@@ -1,4 +1,8 @@
-# Copyright (c) 2025: Andrew Rosemberg and contributors
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 #=
 The code in this file related to calculating hessians and jacobians is based on the
 JuMP Tutorial for Querying Hessians:

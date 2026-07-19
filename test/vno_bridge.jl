@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 module TestVNOBridge
 
 using DiffOpt
@@ -193,7 +198,7 @@ end
 
 function test_VectorNonlinearOracle_multivariate()
     # Multivariate test: 2 inputs, 2 outputs
-    # Constraint: [x1^2 + x2^2; x1 * x2] in [-Inf, 1] x [0, Inf] 
+    # Constraint: [x1^2 + x2^2; x1 * x2] in [-Inf, 1] x [0, Inf]
     # (i.e., x1^2+x2^2 <= 1, x1*x2 >= 0)
     model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
     set_silent(model)
@@ -265,7 +270,7 @@ function test_VectorNonlinearOracle_multivariate()
     @test value(x[1]) ≈ p_val[1] atol = 1e-6
     @test value(x[2]) ≈ p_val[2] atol = 1e-6
 
-    # Reverse-mode: dx/dp = I (identity), so with seed [1.0, 1.0] on x, 
+    # Reverse-mode: dx/dp = I (identity), so with seed [1.0, 1.0] on x,
     # sensitivity on p should be [1.0, 1.0]
     DiffOpt.empty_input_sensitivities!(model)
     DiffOpt.set_reverse_variable(model, x[1], 1.0)
