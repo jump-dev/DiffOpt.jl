@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 module TestNLPProgram
 
 using DiffOpt
@@ -46,7 +51,7 @@ function analytic_jacobian(x, p)
     g_1_J = [
         2.0 * x[1], # ∂g_1/∂x_1
         0.0,       # ∂g_1/∂x_2
-        -1.0,      # ∂g_1/∂p_1 
+        -1.0,      # ∂g_1/∂p_1
         0.0,      # ∂g_1/∂p_2
         0.0,      # ∂g_1/∂p_3
     ]
@@ -161,12 +166,12 @@ function test_analytical_simple(; P = 2) # Number of parameters
         # Compute derivatives
         DiffOpt.forward_differentiate!(m)
 
-        # test Objective Sensitivity wrt parameters 
+        # test Objective Sensitivity wrt parameters
         df_dp = MOI.get(m, DiffOpt.ForwardObjectiveValue())
         @test isapprox(df_dp, dot(dual.(con), Δp); atol = 1e-4)
         @test all(isapprox.(dual.(ParameterRef.(p)), dual.(con); atol = 1e-8))
 
-        # Test sensitivities 
+        # Test sensitivities
         @test_throws ErrorException MOI.get(
             m.moi_backend.optimizer.model.diff.model,
             DiffOpt.ForwardConstraintDual(),
@@ -320,7 +325,7 @@ function test_analytical_simple(; P = 2) # Number of parameters
     end
 end
 
-# f(x, p) = 0 
+# f(x, p) = 0
 # x = g(p)
 # ∂x/∂p = ∂g/∂p
 
@@ -945,7 +950,7 @@ end
 =#
 ################################################
 
-# For ease of testing, we will define a simple situation 
+# For ease of testing, we will define a simple situation
 # where the Jacobian matrix of the KKT becomes needs inertia correction
 # minimize x1 + x2
 # x1 + 2x2 ≥ 1
