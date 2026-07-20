@@ -588,7 +588,7 @@ function MOI.set(model::Optimizer, attr::ReverseDifferentiate, value)
     end
     if !iszero(model.input_cache.dobj)
         try
-            MOI.set(diff, ReverseObjectiveSensitivity(), model.input_cache.dobj)
+            MOI.set(diff, ReverseObjectiveValue(), model.input_cache.dobj)
         catch e
             if e isa MOI.UnsupportedAttribute
                 _fallback_set_reverse_objective_sensitivity(
@@ -767,6 +767,13 @@ function _add_bridges(instantiated_model)
     # 2) For affine variable bridges, `bridged_function` and `unbridged_function` don't treat the function as a derivative hence they will add constants
     MOI.Bridges.Constraint.add_all_bridges(model, Float64)
     MOI.Bridges.Objective.add_all_bridges(model, Float64)
+    # Add the VectorNonlinearOracle bridge for NonLinearProgram
+    if instantiated_model isa NonLinearProgram.Model
+        MOI.Bridges.add_bridge(
+            model,
+            NonLinearProgram.VNOToScalarNLBridge{Float64},
+        )
+    end
     return model
 end
 
@@ -927,7 +934,7 @@ function MOI.get(
     )
 end
 
-function MOI.get(model::Optimizer, attr::ForwardObjectiveSensitivity)
+function MOI.get(model::Optimizer, attr::ForwardObjectiveValue)
     diff_model = _checked_diff(model, attr, :forward_differentiate!)
     val = 0.0
     try
@@ -1006,7 +1013,7 @@ function MOI.set(
     return
 end
 
-function MOI.set(model::Optimizer, ::ReverseObjectiveSensitivity, val)
+function MOI.set(model::Optimizer, ::ReverseObjectiveValue, val)
     model.input_cache.dobj = val
     return
 end
@@ -1079,6 +1086,16 @@ function MOI.set(
         error(
             "Cannot set forward constraint function for a model with parameters. " *
             "Use `MOI.set(model, ForwardConstraintSet(), ParameterRef(vi), Parameter(val))` instead.",
+        )
+    end
+    # check dimension of func matches the number of rows corresponding to ci
+    # TODO: is there a mode efficient way?
+    set = MOI.get(model, MOI.ConstraintSet(), ci)
+    if length(func.constants) != MOI.dimension(set)
+        throw(
+            DimensionMismatch(
+                "The length of the ForwardConstraintFunction does not match the dimension of the constraint set. Length of function: $(length(func.constants)), dimension of constraint set: $(MOI.dimension(set)).",
+            ),
         )
     end
     model.input_cache.vector_constraints[ci] = func

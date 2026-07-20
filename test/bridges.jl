@@ -1,3 +1,8 @@
+# Copyright (c) 2020: Akshay Sharma and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE.md file or at https://opensource.org/licenses/MIT.
+
 module TestBridges
 
 using Test
@@ -102,6 +107,18 @@ function test_dU_from_dQ()
         0 0 3
     ]
     return _test_dU_dQ(U, dU)
+end
+
+function test_square_offset()
+    @test DiffOpt._square_offset(MOI.PositiveSemidefiniteConeSquare(2)) == 0
+    @test DiffOpt._square_offset(MOI.RootDetConeSquare(2)) == 1
+    @test DiffOpt._square_offset(MOI.LogDetConeSquare(2)) == 2
+    @test MOI.Bridges.Constraint._square_offset(
+        MOI.PositiveSemidefiniteConeSquare(2),
+    ) == Int[]
+    @test MOI.Bridges.Constraint._square_offset(MOI.RootDetConeSquare(2)) == [1]
+    @test MOI.Bridges.Constraint._square_offset(MOI.LogDetConeSquare(2)) ==
+          [1, 2]
 end
 
 end

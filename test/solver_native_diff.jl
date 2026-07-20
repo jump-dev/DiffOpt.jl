@@ -396,7 +396,7 @@ function MOI.set(
     return
 end
 
-function MOI.set(s::EqQPSolver, ::DiffOpt.ReverseObjectiveSensitivity, value)
+function MOI.set(s::EqQPSolver, ::DiffOpt.ReverseObjectiveValue, value)
     s.rev_dobj = value
     return
 end
@@ -516,8 +516,8 @@ function MOI.get(s::EqQPSolver, ::DiffOpt.ForwardConstraintDual, ci::EQ_CI)
     return s.dnu_fwd[ci.value]
 end
 
-# ForwardObjectiveSensitivity
-function MOI.get(s::EqQPSolver, ::DiffOpt.ForwardObjectiveSensitivity)
+# ForwardObjectiveValue
+function MOI.get(s::EqQPSolver, ::DiffOpt.ForwardObjectiveValue)
     return s.fwd_obj_sensitivity
 end
 
@@ -870,13 +870,13 @@ function test_three_variable_problem()
     end
 end
 
-# ── Test reverse with dobj seed (ReverseObjectiveSensitivity) ─────────────
+# ── Test reverse with dobj seed (ReverseObjectiveValue) ─────────────
 
 function test_reverse_dobj_seed()
     model, x1, x2, c1 = _setup_model()
 
     # Set dobj = 1.0: sensitivity of the objective value w.r.t. problem data
-    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 1.0)
+    MOI.set(model, DiffOpt.ReverseObjectiveValue(), 1.0)
     DiffOpt.reverse_differentiate!(model)
 
     # x* = [0, 1], nu* = [-3], Q = I, c = [3, 2]
@@ -908,8 +908,7 @@ function test_forward_objective_sensitivity()
     # dobj/dt = (Qx + c)'dx + dc'x = [3,3]'*dx + [1,0]'*[0,1]
     expected = dot([3.0, 3.0], fwd[1:2]) + dot([1.0, 0.0], [0.0, 1.0])
 
-    @test MOI.get(model, DiffOpt.ForwardObjectiveSensitivity()) ≈ expected atol =
-        ATOL
+    @test MOI.get(model, DiffOpt.ForwardObjectiveValue()) ≈ expected atol = ATOL
 end
 
 # ── Test forward twice (re-differentiation in forward mode) ──────────────
@@ -979,7 +978,7 @@ function test_reverse_dobj_and_dx_seed()
     model, x1, x2, c1 = _setup_model()
 
     MOI.set(model, DiffOpt.AllowObjectiveAndSolutionInput(), true)
-    MOI.set(model, DiffOpt.ReverseObjectiveSensitivity(), 1.0)
+    MOI.set(model, DiffOpt.ReverseObjectiveValue(), 1.0)
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), x1, 1.0)
     DiffOpt.reverse_differentiate!(model)
 

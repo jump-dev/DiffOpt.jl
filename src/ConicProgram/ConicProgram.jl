@@ -142,9 +142,29 @@ end
 
 function MOI.supports_constraint(
     ::Model,
+    ::Type{MOI.VectorAffineFunction{Float64}},
+    ::Type{MOI.VectorNonlinearOracle{Float64}},
+)
+    # VNO constraints require the nonlinear bridge path. If we accept them here,
+    # the conic projection code later tries to reconstruct the set by dimension
+    # only, which is invalid for VectorNonlinearOracle.
+    return false
+end
+
+function MOI.supports_constraint(
+    ::Model,
     ::Type{MOI.VectorAffineFunction{T}},
     ::Type{MOI.PositiveSemidefiniteConeSquare},
 ) where {T}
+    return false
+end
+
+# Disambiguate when T = Float64
+function MOI.supports_constraint(
+    ::Model,
+    ::Type{MOI.VectorAffineFunction{Float64}},
+    ::Type{MOI.PositiveSemidefiniteConeSquare},
+)
     return false
 end
 
@@ -458,20 +478,16 @@ end
 Method not supported for `DiffOpt.ConicProgram.Model` directly.
 However, a fallback is provided in `DiffOpt`.
 """
-function MOI.get(::Model, ::DiffOpt.ForwardObjectiveSensitivity)
-    return throw(
-        MOI.UnsupportedAttribute(DiffOpt.ForwardObjectiveSensitivity()),
-    )
+function MOI.get(::Model, ::DiffOpt.ForwardObjectiveValue)
+    return throw(MOI.UnsupportedAttribute(DiffOpt.ForwardObjectiveValue()))
 end
 
 """
 Method not supported for `DiffOpt.ConicProgram.Model` directly.
 However, a fallback is provided in `DiffOpt`.
 """
-function MOI.set(::Model, ::DiffOpt.ReverseObjectiveSensitivity, val)
-    return throw(
-        MOI.UnsupportedAttribute(DiffOpt.ReverseObjectiveSensitivity()),
-    )
+function MOI.set(::Model, ::DiffOpt.ReverseObjectiveValue, val)
+    return throw(MOI.UnsupportedAttribute(DiffOpt.ReverseObjectiveValue()))
 end
 
 end
