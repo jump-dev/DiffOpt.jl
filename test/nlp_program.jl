@@ -1131,6 +1131,88 @@ function test_reverse_bounds_upper()
     @test isapprox(dp, 2.88888; atol = 1e-4)
 end
 
+function test_reverse_adjoint_matches_forward_jvp()
+    # `reverse_differentiate!` computes Δp with a single adjoint solve
+    # (`_compute_sensitivity_adjoint`) instead of materializing the dense ∂s = -K⁻¹N and
+    # contracting. Cross-check reverse (VJP) against forward (JVP): for every parameter eᵢ,
+    # ⟨Δw, ∂x/∂pᵢ⟩ from `forward_differentiate!` must equal Δpᵢ from `reverse_differentiate!`,
+    # across parameter counts and with a simultaneous objective seed.
+    for P in (3, 11)
+        model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+        set_silent(model)
+        @variable(model, p[i=1:P] in MOI.Parameter(1.0 + 0.1 * i))
+        @variable(model, x[1:P])
+        @constraint(model, [i = 1:P], x[i] * (1 + 0.1 * sin(p[i])) >= p[i])
+        @constraint(model, sum(x) >= 0.6 * P)
+        @objective(
+            model,
+            Min,
+            sum((x[i] - p[i])^2 for i in 1:P) + 0.01 * sum(x[i]^4 for i in 1:P)
+        )
+        optimize!(model)
+        @assert is_solved_and_feasible(model)
+        Δx_seed = [sin(0.7 * i) for i in 1:P]
+        Δf_seed = 0.3
+        # Reverse: one adjoint solve, primal + objective seeds together
+        DiffOpt.empty_input_sensitivities!(model)
+        for i in 1:P
+            DiffOpt.set_reverse_variable(model, x[i], Δx_seed[i])
+        end
+        MOI.set(model, DiffOpt.ReverseObjectiveValue(), Δf_seed)
+        MOI.set(model, DiffOpt.AllowObjectiveAndSolutionInput(), true)
+        DiffOpt.reverse_differentiate!(model)
+        Δp_reverse = [
+            MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p[i])).value for i in 1:P
+        ]
+        # Forward, one parameter at a time: Δpᵢ == ⟨Δx_seed, ∂x/∂pᵢ⟩ + Δf_seed ⋅ ∂f/∂pᵢ
+        for i in 1:P
+            DiffOpt.empty_input_sensitivities!(model)
+            DiffOpt.set_forward_parameter(model, p[i], 1.0)
+            DiffOpt.forward_differentiate!(model)
+            jvp = sum(
+                Δx_seed[j] *
+                MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[j]) for
+                j in 1:P
+            )
+            jvp += Δf_seed * MOI.get(model, DiffOpt.ForwardObjectiveValue())
+            @test isapprox(Δp_reverse[i], jvp; rtol = 1e-7, atol = 1e-9)
+        end
+    end
+    return
+end
+
+function test_reverse_adjoint_singular_factorization_fallback()
+    # Covers the `K === nothing` singular-factorization fallback in
+    # `_compute_sensitivity_adjoint` (nlp_utilities.jl) by injecting a factorization
+    # hook that returns `nothing`. With no objective seed, Δp must be exactly zeros.
+    P = 3
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+    @variable(model, p[i=1:P] in MOI.Parameter(1.0 + 0.2 * i))
+    @variable(model, x[1:P] >= 0)
+    @constraint(model, [i = 1:P], x[i] >= p[i])
+    @constraint(model, sum(x) >= 0.5 * P)
+    @objective(model, Min, sum((x[i] - p[i])^2 for i in 1:P))
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+    MOI.set(
+        model,
+        DiffOpt.NonLinearKKTJacobianFactorization(),
+        (M, m) -> nothing,
+    )
+    DiffOpt.empty_input_sensitivities!(model)
+    for i in 1:P
+        DiffOpt.set_reverse_variable(model, x[i], 1.0)
+    end
+    DiffOpt.reverse_differentiate!(model)
+    Δp = [
+        MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p[i])).value
+        for i in 1:P
+    ]
+    @test all(iszero, Δp)
+    return
+end
+
 end # module
 
 TestNLPProgram.runtests()
