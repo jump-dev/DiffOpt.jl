@@ -659,14 +659,22 @@ function MOI.get(
 end
 
 """
-    π(v::Vector{Float64}, model::MOI.ModelLike, cones::ProductOfSets)
+    π(
+        v::Vector{T},
+        model::MOI.ModelLike,
+        cones::MOI.Utilities.RuntimeProductOfSets,
+    ) where {T}
 
 Given a `model`, its `cones`, find the projection of the vectors `v`
 of length equal to the number of rows in the conic form onto the cartesian
 product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function π(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets) where {T}
+function π(
+    v::Vector{T},
+    model::MOI.ModelLike,
+    cones::MOI.Utilities.RuntimeProductOfSets,
+) where {T}
     return map_rows(model, cones, Flattened{T}()) do ci, r
         return MOSD.projection_on_set(
             MOSD.DefaultDistance(),
@@ -677,14 +685,22 @@ function π(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets) where {T}
 end
 
 """
-    Dπ(v::Vector{Float64}, model, cones::ProductOfSets)
+    Dπ(
+        v::Vector{T},
+        model::MOI.ModelLike,
+        cones::MOI.Utilities.RuntimeProductOfSets,
+    ) where {T}
 
 Given a `model`, its `cones`, find the gradient of the projection of
 the vectors `v` of length equal to the number of rows in the conic form onto the
 cartesian product of the cones corresponding to these rows.
 For more info, refer to https://github.com/matbesancon/MathOptSetDistances.jl
 """
-function Dπ(v::Vector{T}, model::MOI.ModelLike, cones::ProductOfSets) where {T}
+function Dπ(
+    v::Vector{T},
+    model::MOI.ModelLike,
+    cones::MOI.Utilities.RuntimeProductOfSets,
+) where {T}
     return BlockDiagonals.BlockDiagonal(
         map_rows(model, cones, Nested{Matrix{T}}()) do ci, r
             return MOSD.projection_gradient_on_set(
@@ -716,7 +732,7 @@ function _map_rows!(
     f::Function,
     x::Vector,
     model,
-    cones::ProductOfSets,
+    cones::MOI.Utilities.RuntimeProductOfSets,
     ::Type{F},
     ::Type{S},
     map_mode,
@@ -732,7 +748,11 @@ end
 
 # Allocate a vector for storing the output of `map_rows`.
 function _allocate_rows(cones, ::Nested{T}) where {T}
-    return Vector{T}(undef, length(cones.dimension))
+    n = 0
+    for (F, S) in MOI.get(cones, MOI.ListOfConstraintTypesPresent())
+        n += MOI.get(cones, MOI.NumberOfConstraints{F,S}())
+    end
+    return Vector{T}(undef, n)
 end
 
 function _allocate_rows(cones, ::Flattened{T}) where {T}
@@ -740,7 +760,12 @@ function _allocate_rows(cones, ::Flattened{T}) where {T}
 end
 
 """
-    map_rows(f::Function, model, cones::ProductOfSets, map_mode::Union{Nested{T}, Flattened{T}})
+    map_rows(
+        f::Function,
+        model,
+        cones::MOI.Utilities.RuntimeProductOfSets,
+        map_mode::Union{Nested{T},Flattened{T}},
+    )
 
 Given a `model`, its `cones` and `map_mode` of type `Nested` (resp.
 `Flattened`), return a `Vector{T}` of length equal to the number of cones (resp.
@@ -752,7 +777,7 @@ form.
 function map_rows(
     f::Function,
     model,
-    cones::ProductOfSets,
+    cones::MOI.Utilities.RuntimeProductOfSets,
     map_mode::Union{Nested,Flattened},
 )
     x = _allocate_rows(cones, map_mode)

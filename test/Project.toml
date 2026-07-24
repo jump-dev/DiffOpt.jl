@@ -25,3 +25,6 @@ HiGHS = "1"
 Ipopt = "1.0.2"
 SCS = "1"
 MLDatasets = "0.7.18"
+
+[sources]
+MathOptInterface = {url = "https://github.com/jump-dev/MathOptInterface.jl", rev = "od/runtime-product-of-sets"}
