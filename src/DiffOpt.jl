@@ -16,7 +16,6 @@ import ParametricOptInterface as POI
 import SparseArrays
 
 include("utils.jl")
-include("product_of_sets.jl")
 include("diff_opt.jl")
 include("moi_wrapper.jl")
 include("parameters.jl")

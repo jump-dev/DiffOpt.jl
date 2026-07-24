@@ -181,13 +181,10 @@ function test_simple_psd()
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     MOI.optimize!(model)
     x = MOI.get(model, MOI.VariablePrimal(), X)
-    cone_types = unique([
-        S for (F, S) in
-        MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
-    ])
     conic_form = DiffOpt.ConicProgram.Form{Float64}()
-    cones = conic_form.constraints.sets
-    DiffOpt.set_set_types(cones, cone_types)
+    for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
+        MOI.Utilities.add_set_type(conic_form.constraints.sets, S)
+    end
     index_map = MOI.copy_to(conic_form, model)
     # s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, cones, index_map, DiffOpt.Flattened{Float64}())
     # y = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintDual(), ci), model.optimizer, cones, index_map, DiffOpt.Flattened{Float64}())
@@ -337,13 +334,10 @@ function test_differentiating_conic_with_PSD_and_SOC_constraints()
     MOI.optimize!(model)
     _x = MOI.get(model, MOI.VariablePrimal(), x)
     _X = MOI.get(model, MOI.VariablePrimal(), X)
-    cone_types = unique([
-        S for (F, S) in
-        MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
-    ])
     conic_form = DiffOpt.ConicProgram.Form{Float64}()
-    cones = conic_form.constraints.sets
-    DiffOpt.set_set_types(cones, cone_types)
+    for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
+        MOI.Utilities.add_set_type(conic_form.constraints.sets, S)
+    end
     index_map = MOI.copy_to(conic_form, model)
     # s = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintPrimal(), ci), model.optimizer, cones, index_map, DiffOpt.Flattened{Float64}())
     # y = DiffOpt.map_rows((ci, r) -> MOI.get(model.optimizer, MOI.ConstraintDual(), ci), model.optimizer, cones, index_map, DiffOpt.Flattened{Float64}())
@@ -725,13 +719,10 @@ function test_differentiating_simple_PSD_back()
     MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
     MOI.optimize!(model)
     x = MOI.get(model, MOI.VariablePrimal(), X)
-    cone_types = unique([
-        S for (F, S) in
-        MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
-    ])
     conic_form = DiffOpt.ConicProgram.Form{Float64}()
-    cones = conic_form.constraints.sets
-    DiffOpt.set_set_types(cones, cone_types)
+    for (F, S) in MOI.get(model.optimizer, MOI.ListOfConstraintTypesPresent())
+        MOI.Utilities.add_set_type(conic_form.constraints.sets, S)
+    end
     index_map = MOI.copy_to(conic_form, model)
     @test x ≈ ones(3) atol = ATOL rtol = RTOL
     MOI.set(model, DiffOpt.ReverseVariablePrimal(), X[1], 1.0)

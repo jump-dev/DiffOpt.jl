@@ -47,7 +47,7 @@ const Form{T} = MOI.Utilities.GenericModel{
             MOI.Utilities.OneBasedIndexing,
         },
         Vector{T},
-        DiffOpt.ProductOfSets{T},
+        MOI.Utilities.RuntimeProductOfSets{T},
     },
 }
 
@@ -133,7 +133,8 @@ function MOI.supports_constraint(
     F::Type{MOI.VectorAffineFunction{Float64}},
     ::Type{S},
 ) where {S<:MOI.AbstractVectorSet}
-    if DiffOpt.add_set_types(model.model.constraints.sets, S)
+    if MOI.Utilities.set_index(model.model.constraints.sets, S) === nothing
+        MOI.Utilities.add_set_type(model.model.constraints.sets, S)
         push!(model.model.constraints.caches, Tuple{F,S}[])
         push!(model.model.constraints.are_indices_mapped, BitSet())
     end
