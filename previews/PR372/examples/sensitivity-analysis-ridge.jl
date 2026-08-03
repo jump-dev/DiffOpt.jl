@@ -140,13 +140,7 @@ p = Plots.scatter(
     label = "",
 )
 mi, ma = minimum(X), maximum(X)
-Plots.plot!(
-    p,
-    [mi, ma],
-    [mi * ŵ + b̂, ma * ŵ + b̂];
-    color = :blue,
-    label = "",
-)
+Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂]; color = :blue, label = "")
 Plots.title!("Regression slope sensitivity with respect to x")
 
 #
@@ -159,13 +153,7 @@ p = Plots.scatter(
     label = "",
 )
 mi, ma = minimum(X), maximum(X)
-Plots.plot!(
-    p,
-    [mi, ma],
-    [mi * ŵ + b̂, ma * ŵ + b̂];
-    color = :blue,
-    label = "",
-)
+Plots.plot!(p, [mi, ma], [mi * ŵ + b̂, ma * ŵ + b̂]; color = :blue, label = "")
 Plots.title!("Regression slope sensitivity with respect to y")
 
 # Note the points with less central `x` values induce a greater y sensitivity of the slope.

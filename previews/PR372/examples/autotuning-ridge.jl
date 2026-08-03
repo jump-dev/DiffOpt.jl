@@ -86,10 +86,7 @@ for α in αs
     ŷ_test = X_test * ŵ
     ŷ_train = X_train * ŵ
     push!(mse_test, LinearAlgebra.norm(ŷ_test - y_test)^2 / (2 * Ntest * D))
-    push!(
-        mse_train,
-        LinearAlgebra.norm(ŷ_train - y_train)^2 / (2 * Ntrain * D),
-    )
+    push!(mse_train, LinearAlgebra.norm(ŷ_train - y_train)^2 / (2 * Ntrain * D))
 end
 
 # Visualize the Mean Score Error metric
