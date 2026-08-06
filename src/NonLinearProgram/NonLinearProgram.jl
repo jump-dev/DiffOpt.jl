@@ -564,13 +564,6 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
         cache = _cache_evaluator!(model)
         form = model.model
 
-        # Compute Jacobian
-        Δs, df_dp = _compute_sensitivity(model; tol = tol)
-        Δp = if !iszero(model.input_cache.dobj)
-            df_dp'model.input_cache.dobj
-        else
-            zeros(length(cache.params))
-        end
         num_primal = length(cache.primal_vars)
         # Fetch primal sensitivities
         Δx = zeros(num_primal)
@@ -602,11 +595,31 @@ function DiffOpt.reverse_differentiate!(model::Model; tol = 1e-6)
                 Δdual[num_constraints+num_low+i] = model.input_cache.dy[idx]
             end
         end
-        # Extract Parameter sensitivities
-        Δw = zeros(size(Δs, 1))
+        # Assemble the seed over the KKT unknowns [x; s; λ; ν_L; ν_U]. The dimension is the
+        # size of the KKT Jacobian `M` (see `_build_sensitivity_matrices`): primal variables,
+        # one slack per inequality, one dual per constraint, and lower/upper bound duals for
+        # both primal variables and slacks.
+        num_leq = length(cache.leq_locations)
+        num_geq = length(cache.geq_locations)
+        kkt_dim =
+            num_primal +
+            2 * (num_leq + num_geq) +
+            num_constraints +
+            num_low +
+            num_up
+        Δw = zeros(kkt_dim)
         Δw[1:num_primal] = Δx
         Δw[cache.index_duals] = Δdual
-        Δp += Δs' * Δw
+        # A reverse request is a vector-Jacobian product: one adjoint solve against the KKT
+        # factorization instead of materializing the dense (kkt_dim × P) sensitivity
+        # `∂s = -K⁻¹N` and contracting it. The objective seed folds into the same
+        # right-hand side. See `_compute_sensitivity_adjoint`.
+        Δp = _compute_sensitivity_adjoint(
+            model,
+            Δw,
+            model.input_cache.dobj;
+            tol = tol,
+        )
 
         Δp_dict = Dict{MOI.ConstraintIndex,Float64}(
             form.var2ci[var_idx] => Δp[form.var2param[var_idx].value]
