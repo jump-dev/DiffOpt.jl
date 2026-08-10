@@ -340,6 +340,33 @@ function MOI.set(
     return DiffOpt._enlarge_set(model.x, vi.value, value)
 end
 
+# This model can be preserved across `MOI.optimize!` calls under
+# `DiffOpt.PreserveDiffModel`: parameters are stored natively (no
+# ParametricOptInterface substitution), so updating a value below is an exact
+# assignment read live by the evaluator, and everything else in the model is either
+# structural or refreshed by `DiffOpt._copy_dual`.
+DiffOpt._diff_model_supports_preserve(::Model) = true
+
+function MOI.set(
+    model::Model,
+    ::MOI.ConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+    set::MOI.Parameter{T},
+) where {T}
+    p = model.model.var2param[MOI.VariableIndex(ci.value)]
+    model.model.model[p] = set.value
+    return
+end
+
+function MOI.get(
+    model::Model,
+    ::MOI.ConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+) where {T}
+    p = model.model.var2param[MOI.VariableIndex(ci.value)]
+    return MOI.Parameter{T}(model.model.model[p])
+end
+
 function MOI.is_empty(model::Model)
     return model.cache === nothing
 end
