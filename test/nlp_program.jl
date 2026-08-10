@@ -1131,6 +1131,141 @@ function test_reverse_bounds_upper()
     @test isapprox(dp, 2.88888; atol = 1e-4)
 end
 
+# Reach the `NonLinearProgram.Model` inside the differentiation backend of a JuMP model
+# built with `DiffOpt.nonlinear_diff_model`. Used to check evaluator-cache reuse.
+function _inner_nlp_diff_model(model::JuMP.Model)
+    diffopt = JuMP.unsafe_backend(model)
+    inner = diffopt.diff
+    while !(inner isa DiffOpt.NonLinearProgram.Model)
+        inner = inner.model
+    end
+    return inner
+end
+
+function _build_cache_reuse_model(P)
+    model = DiffOpt.nonlinear_diff_model(Ipopt.Optimizer)
+    set_silent(model)
+    @variable(model, p[i=1:P] in MOI.Parameter(1.0 + 0.2 * i))
+    @variable(model, x[1:P] >= 0)
+    @constraint(model, [i = 1:P], x[i] * (1 + 0.1 * sin(p[i])) >= p[i])
+    @constraint(model, sum(x) >= 0.4 * P)
+    @objective(
+        model,
+        Min,
+        sum((x[i] - p[i])^2 for i in 1:P) + 0.01 * sum(x[i]^4 for i in 1:P)
+    )
+    return model, p, x
+end
+
+function test_evaluator_cache_reused_across_differentiations()
+    P = 4
+    model, p, x = _build_cache_reuse_model(P)
+    optimize!(model)
+    @assert is_solved_and_feasible(model)
+    # The first differentiation builds the evaluator cache.
+    for i in 1:P
+        DiffOpt.set_reverse_variable(model, x[i], cos(1.3 * i))
+    end
+    DiffOpt.reverse_differentiate!(model)
+    nlp = _inner_nlp_diff_model(model)
+    cache = nlp.cache
+    @test cache !== nothing
+    # Later differentiation calls on the same structure return the same Cache object
+    # instead of rebuilding tapes and sparsity.
+    seed = [sin(0.7 * i) for i in 1:P]
+    DiffOpt.empty_input_sensitivities!(model)
+    for i in 1:P
+        DiffOpt.set_reverse_variable(model, x[i], seed[i])
+    end
+    DiffOpt.reverse_differentiate!(model)
+    @test nlp.cache === cache
+    dp_reused = [
+        MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p[i])).value
+        for i in 1:P
+    ]
+    DiffOpt.empty_input_sensitivities!(model)
+    DiffOpt.set_forward_parameter(model, p[1], 1.0)
+    DiffOpt.forward_differentiate!(model)
+    @test nlp.cache === cache
+    dx_reused =
+        [MOI.get(model, DiffOpt.ForwardVariablePrimal(), x[i]) for i in 1:P]
+    # A fresh model whose only differentiation uses the same seeds must produce
+    # identical results: the rebuilt cache is the same pure function of the structure,
+    # so reuse changes no floating-point operation.
+    model2, p2, x2 = _build_cache_reuse_model(P)
+    optimize!(model2)
+    for i in 1:P
+        DiffOpt.set_reverse_variable(model2, x2[i], seed[i])
+    end
+    DiffOpt.reverse_differentiate!(model2)
+    dp_fresh = [
+        MOI.get(model2, DiffOpt.ReverseConstraintSet(), ParameterRef(p2[i])).value for i in 1:P
+    ]
+    @test dp_reused == dp_fresh
+    DiffOpt.empty_input_sensitivities!(model2)
+    DiffOpt.set_forward_parameter(model2, p2[1], 1.0)
+    DiffOpt.forward_differentiate!(model2)
+    dx_fresh =
+        [MOI.get(model2, DiffOpt.ForwardVariablePrimal(), x2[i]) for i in 1:P]
+    @test dx_reused == dx_fresh
+    return
+end
+
+function test_evaluator_cache_invalidated_on_structural_change()
+    P = 3
+    model, p, x = _build_cache_reuse_model(P)
+    optimize!(model)
+    for i in 1:P
+        DiffOpt.set_reverse_variable(model, x[i], 1.0)
+    end
+    DiffOpt.reverse_differentiate!(model)
+    nlp = _inner_nlp_diff_model(model)
+    @test nlp.cache !== nothing
+    # Every structural mutation of the inner model must drop the cache.
+    MOI.set(nlp, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    @test nlp.cache === nothing
+    DiffOpt.reverse_differentiate!(model)
+    @test nlp.cache !== nothing
+    MOI.add_variable(nlp)
+    @test nlp.cache === nothing
+    return
+end
+
+function test_evaluator_cache_after_public_structural_edit()
+    # Through the public API, a structural edit resets the whole differentiation model
+    # (`DiffOpt.Optimizer` sets `diff = nothing`), so differentiation after the edit
+    # builds a new cache and must match a fresh model built directly in the final state.
+    P = 3
+    model, p, x = _build_cache_reuse_model(P)
+    optimize!(model)
+    for i in 1:P
+        DiffOpt.set_reverse_variable(model, x[i], sin(1.0 + i))
+    end
+    DiffOpt.reverse_differentiate!(model)
+    nlp_before = _inner_nlp_diff_model(model)
+    @constraint(model, sum(x) <= 10.0 * P)
+    optimize!(model)
+    DiffOpt.reverse_differentiate!(model)
+    nlp_after = _inner_nlp_diff_model(model)
+    @test nlp_after !== nlp_before
+    dp = [
+        MOI.get(model, DiffOpt.ReverseConstraintSet(), ParameterRef(p[i])).value
+        for i in 1:P
+    ]
+    model2, p2, x2 = _build_cache_reuse_model(P)
+    @constraint(model2, sum(x2) <= 10.0 * P)
+    optimize!(model2)
+    for i in 1:P
+        DiffOpt.set_reverse_variable(model2, x2[i], sin(1.0 + i))
+    end
+    DiffOpt.reverse_differentiate!(model2)
+    dp2 = [
+        MOI.get(model2, DiffOpt.ReverseConstraintSet(), ParameterRef(p2[i])).value for i in 1:P
+    ]
+    @test dp ≈ dp2 rtol = 1e-10
+    return
+end
+
 end # module
 
 TestNLPProgram.runtests()
