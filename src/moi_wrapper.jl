@@ -800,9 +800,6 @@ function _is_parametric(model::Optimizer)
     #     MOI.VariableIndex,
     #     MOI.Parameter{Float64},
     # )
-    # `NumberOfConstraints` rather than `ListOfConstraintIndices`: this runs on
-    # every `_diff` and only the emptiness matters, so there is no reason to
-    # allocate the whole index vector
     n = MOI.get(
         model,
         MOI.NumberOfConstraints{MOI.VariableIndex,MOI.Parameter{Float64}}(),
