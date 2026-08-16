@@ -91,6 +91,12 @@ mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
     # instantiated differentiation backend from the options above
     diff::Any
 
+    # the backend last used for `diff`, and the `(constructor, parametric)` key
+    # it was built for. `diff` is invalidated by essentially every mutation of
+    # the model, but the bridge graph of the backend is not: see `_get_diff`
+    diff_backend::Any
+    diff_backend_key::Any
+
     # mapping between the `optimizer` and the `diff` models
     index_map::Union{Nothing,MOI.Utilities.IndexMap}
 
@@ -98,8 +104,16 @@ mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
     input_cache::InputCache
 
     function Optimizer(optimizer::OT) where {OT<:MOI.ModelLike}
-        output =
-            new{OT}(optimizer, Any[], nothing, nothing, nothing, InputCache())
+        output = new{OT}(
+            optimizer,
+            Any[],
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+            nothing,
+            InputCache(),
+        )
         add_all_model_constructors(output)
         add_default_factorization(output)
         return output
@@ -248,6 +262,9 @@ function MOI.empty!(model::Optimizer)
     model.diff = nothing
     model.index_map = nothing
     empty!(model.input_cache)
+    # `model.diff_backend` is deliberately kept: `_get_diff` empties it before
+    # handing it back, so it holds no problem data, and keeping it preserves the
+    # resolved bridge graph. See `_get_diff`.
     return
 end
 
@@ -777,17 +794,20 @@ function _add_bridges(instantiated_model)
     return model
 end
 
-function _instantiate_diff(model::Optimizer, constructor)
+function _is_parametric(model::Optimizer)
     # parametric_diff = MOI.supports_constraint(
     #     model,
     #     MOI.VariableIndex,
     #     MOI.Parameter{Float64},
     # )
-    list = MOI.get(
+    n = MOI.get(
         model,
-        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{Float64}}(),
+        MOI.NumberOfConstraints{MOI.VariableIndex,MOI.Parameter{Float64}}(),
     )
-    parametric_diff = !isempty(list)
+    return !iszero(n)
+end
+
+function _instantiate_diff(constructor, parametric_diff::Bool)
     model_instance = MOI.instantiate(constructor)
     needs_poi =
         !MOI.supports_add_constrained_variable(
@@ -801,6 +821,26 @@ function _instantiate_diff(model::Optimizer, constructor)
     return model_bridged
 end
 
+# Return an empty differentiation model, reusing `model.diff_backend` when it
+# was built for the same `(constructor, parametric_diff)`.
+#
+# `_diff` is re-entered after every `optimize!`, and instantiating a
+# differentiation model resolves the bridge graph of a fresh
+# `LazyBridgeOptimizer` from scratch. That graph depends only on the structure
+# of the problem, so it is identical every time. `MOI.empty!` on a bridge
+# optimizer clears the model and the bridge maps but keeps `graph` and
+# `cached_bridge_type` (only `add_bridge`/`remove_bridge` reset those), so
+# emptying and reusing the backend drops everything solution-dependent while
+# keeping the graph.
+function _get_diff(model::Optimizer, constructor, parametric_diff::Bool)
+    if model.diff_backend !== nothing &&
+       model.diff_backend_key === (constructor, parametric_diff)
+        MOI.empty!(model.diff_backend)
+        return model.diff_backend
+    end
+    return _instantiate_diff(constructor, parametric_diff)
+end
+
 function _diff(
     model::Optimizer,
     attr::Union{ForwardDifferentiate,ReverseDifferentiate},
@@ -811,20 +851,26 @@ function _diff(
     elseif isnothing(model.diff)
         _check_termination_status(model)
         model_constructor = MOI.get(model, ModelConstructor())
+        parametric_diff = _is_parametric(model)
         if isnothing(model_constructor)
             for constructor in model.model_constructors
-                model.diff = _instantiate_diff(model, constructor)
+                model.diff = _get_diff(model, constructor, parametric_diff)
                 try
                     model.index_map = MOI.copy_to(model.diff, model.optimizer)
                 catch err
                     if err isa MOI.UnsupportedConstraint ||
                        err isa MOI.UnsupportedAttribute
+                        # the copy stopped part-way; empty it so it is not left
+                        # in a half-copied state
+                        MOI.empty!(model.diff)
                         model.diff = nothing
                     else
                         rethrow(err)
                     end
                 end
                 if !isnothing(model.diff)
+                    model.diff_backend = model.diff
+                    model.diff_backend_key = (constructor, parametric_diff)
                     break
                 end
             end
@@ -838,8 +884,10 @@ function _diff(
                 )
             end
         else
-            model.diff = _instantiate_diff(model, model_constructor)
+            model.diff = _get_diff(model, model_constructor, parametric_diff)
             model.index_map = MOI.copy_to(model.diff, model.optimizer)
+            model.diff_backend = model.diff
+            model.diff_backend_key = (model_constructor, parametric_diff)
         end
         _copy_dual(model.diff, model.optimizer, model.index_map)
     end

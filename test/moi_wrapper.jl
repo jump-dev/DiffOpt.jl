@@ -87,6 +87,94 @@ function test_forward_or_reverse_without_optimizing_throws()
     return
 end
 
+# `model.diff` is invalidated by `MOI.optimize!`, so a solve/differentiate loop
+# re-enters `_diff` on every iteration. The differentiation backend must be
+# reused across those rebuilds, otherwise its bridge graph - which depends only
+# on the problem structure - is resolved from scratch every time.
+function test_diff_model_is_reused_across_solves()
+    # min x s.t. x >= p, so that x == p and dx/dp == 1
+    # model building
+    model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
+    p, cp = MOI.add_constrained_variable(model, MOI.Parameter(3.0))
+    x = MOI.add_variable(model)
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(
+            MOI.ScalarAffineTerm.([1.0, -1.0], [x, p]),
+            0.0,
+        ),
+        MOI.GreaterThan(0.0),
+    )
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    MOI.set(
+        model,
+        MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+        MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0),
+    )
+    @test model.diff_backend === nothing
+    sensitivities, backends = Float64[], Any[]
+    # modify optimize loop
+    for (p_value, direction) in ((3.0, 1.0), (5.0, 2.0), (7.0, -1.0))
+        MOI.set(model, MOI.ConstraintSet(), cp, MOI.Parameter(p_value))
+        MOI.optimize!(model)
+        DiffOpt.empty_input_sensitivities!(model)
+        MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, direction)
+        DiffOpt.reverse_differentiate!(model)
+        push!(
+            sensitivities,
+            MOI.get(model, DiffOpt.ReverseConstraintSet(), cp).value,
+        )
+        # core of the test: cache the backends for later verification
+        push!(backends, model.diff)
+        # the solve really did move, so reusing the backend is not vacuous
+        @test MOI.get(model, MOI.VariablePrimal(), x) ≈ p_value atol = ATOL
+    end
+    # dx/dp == 1, so the reverse sensitivity is the seeded direction
+    @test sensitivities ≈ [1.0, 2.0, -1.0] atol = ATOL rtol = RTOL
+    @test all(b === backends[1] for b in backends)
+    @test model.diff_backend === backends[1]
+    return
+end
+
+# `_instantiate_diff` wraps the differentiation model in POI only when the
+# problem has parameters, and a problem can gain them after it has already been
+# differentiated - so that flag has to be part of the key the backend is kept
+# under, otherwise the wrong wrapping is reused.
+function test_diff_backend_distinguishes_parametric_models()
+    model = DiffOpt.diff_optimizer(HiGHS.Optimizer)
+    MOI.set(model, MOI.Silent(), true)
+    x = MOI.add_variable(model)
+    MOI.add_constraint(model, x, MOI.GreaterThan(1.0))
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    MOI.set(model, MOI.ObjectiveFunction{MOI.VariableIndex}(), x)
+    MOI.optimize!(model)
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    non_parametric = model.diff
+    @test model.diff_backend === non_parametric
+    # now make the same model parametric
+    p, cp = MOI.add_constrained_variable(model, MOI.Parameter(2.0))
+    MOI.add_constraint(
+        model,
+        MOI.ScalarAffineFunction(
+            MOI.ScalarAffineTerm.([1.0, -1.0], [x, p]),
+            0.0,
+        ),
+        MOI.GreaterThan(0.0),
+    )
+    MOI.optimize!(model)
+    DiffOpt.empty_input_sensitivities!(model)
+    MOI.set(model, DiffOpt.ReverseVariablePrimal(), x, 1.0)
+    DiffOpt.reverse_differentiate!(model)
+    @test MOI.get(model, MOI.VariablePrimal(), x) ≈ 2.0 atol = ATOL
+    @test MOI.get(model, DiffOpt.ReverseConstraintSet(), cp).value ≈ 1.0 atol =
+        ATOL
+    # rebuilt under the parametric key, not a reuse of the non-parametric one
+    @test model.diff !== non_parametric
+    return
+end
+
 struct TestSolver end
 
 # always use IterativeSolvers
