@@ -38,12 +38,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.00e+00  3.59e-01  1.39e+00  7.37e-01  1.00e-01  2.06e-04
-    75| 7.16e-11  6.49e-11  3.13e-10  2.79e-01  1.00e-01  7.59e-04
+     0| 1.00e+00  3.59e-01  1.39e+00  7.37e-01  1.00e-01  1.97e-04
+    75| 7.16e-11  6.49e-11  3.13e-10  2.79e-01  1.00e-01  7.74e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 7.60e-04s = setup: 8.77e-05s + solve: 6.73e-04s
-	 lin-sys: 3.82e-05s, cones: 4.03e-04s, accel: 9.99e-05s
+timings: total: 7.76e-04s = setup: 8.87e-05s + solve: 6.87e-04s
+	 lin-sys: 3.91e-05s, cones: 4.22e-04s, accel: 1.04e-04s
 ------------------------------------------------------------------
 objective = 0.278563
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
@@ -73,12 +73,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.94e+00  3.56e-01  1.20e+01  8.68e+00  1.00e-01  1.57e-04
-    75| 2.55e-11  3.48e-12  5.15e-12  4.55e+00  1.00e-01  8.88e-04
+     0| 1.94e+00  3.56e-01  1.20e+01  8.68e+00  1.00e-01  1.59e-04
+    75| 2.55e-11  3.48e-12  5.15e-12  4.55e+00  1.00e-01  9.00e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 8.90e-04s = setup: 8.89e-05s + solve: 8.01e-04s
-	 lin-sys: 5.88e-05s, cones: 5.38e-04s, accel: 1.14e-04s
+timings: total: 9.02e-04s = setup: 8.97e-05s + solve: 8.12e-04s
+	 lin-sys: 5.79e-05s, cones: 5.46e-04s, accel: 1.16e-04s
 ------------------------------------------------------------------
 objective = 4.552800
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
