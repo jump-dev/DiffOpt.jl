@@ -38,12 +38,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.00e+00  3.59e-01  1.39e+00  7.37e-01  1.00e-01  1.97e-04
-    75| 7.16e-11  6.49e-11  3.13e-10  2.79e-01  1.00e-01  7.74e-04
+     0| 1.00e+00  3.59e-01  1.39e+00  7.37e-01  1.00e-01  2.23e-04
+    75| 7.16e-11  6.49e-11  3.13e-10  2.79e-01  1.00e-01  8.04e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 7.76e-04s = setup: 8.87e-05s + solve: 6.87e-04s
-	 lin-sys: 3.91e-05s, cones: 4.22e-04s, accel: 1.04e-04s
+timings: total: 8.05e-04s = setup: 1.01e-04s + solve: 7.04e-04s
+	 lin-sys: 4.10e-05s, cones: 4.25e-04s, accel: 1.03e-04s
 ------------------------------------------------------------------
 objective = 0.278563
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
@@ -73,12 +73,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.94e+00  3.56e-01  1.20e+01  8.68e+00  1.00e-01  1.59e-04
-    75| 2.55e-11  3.48e-12  5.15e-12  4.55e+00  1.00e-01  9.00e-04
+     0| 1.94e+00  3.56e-01  1.20e+01  8.68e+00  1.00e-01  2.54e-04
+    75| 2.55e-11  3.48e-12  5.15e-12  4.55e+00  1.00e-01  1.01e-03
 ------------------------------------------------------------------
 status:  solved
-timings: total: 9.02e-04s = setup: 8.97e-05s + solve: 8.12e-04s
-	 lin-sys: 5.79e-05s, cones: 5.46e-04s, accel: 1.16e-04s
+timings: total: 1.01e-03s = setup: 1.37e-04s + solve: 8.76e-04s
+	 lin-sys: 5.99e-05s, cones: 5.63e-04s, accel: 1.18e-04s
 ------------------------------------------------------------------
 objective = 4.552800
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
@@ -89,4 +89,4 @@ objective = 4.552800
  -6.80725e-8  0.316747     0.316747    0.157095
   0.316747    5.33931e-8   0.630911    0.316747
   0.316747    0.630911    -5.60168e-8  0.316747
-  0.157095    0.316747     0.316747    6.4224e-8</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nearest_correlation/">« Nearest correlation</a><a class="docs-footer-nextpage" href="../polyhedral_project/">Polyhedral QP layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 22 September 2026 05:55">Tuesday 22 September 2026</span>. Using Julia version 1.13.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+  0.157095    0.316747     0.316747    6.4224e-8</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../nearest_correlation/">« Nearest correlation</a><a class="docs-footer-nextpage" href="../polyhedral_project/">Polyhedral QP layer »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Sunday 11 October 2026 03:20">Sunday 11 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

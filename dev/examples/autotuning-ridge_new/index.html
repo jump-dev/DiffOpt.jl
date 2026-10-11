@@ -68,7 +68,7 @@ Plots.plot!(
     linestyle = :dash,
     width = 3,
 )
-Plots.title!(&quot;Normalized MSE on training and testing sets&quot;)</code></pre><img src="3058d56c.svg" alt="Example block output"/><h2 id="Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution"><a class="docs-heading-anchor" href="#Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution">Leveraging differentiable optimization: computing the derivative of the solution</a><a id="Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution" title="Permalink"></a></h2><p>Using DiffOpt, we can compute <code>∂w_i/∂α</code>, the derivative of the learned solution <code>̂w</code> w.r.t. the regularization parameter.</p><pre><code class="language-julia hljs">function compute_dw_dα(model, w)
+Plots.title!(&quot;Normalized MSE on training and testing sets&quot;)</code></pre><img src="fc531d93.svg" alt="Example block output"/><h2 id="Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution"><a class="docs-heading-anchor" href="#Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution">Leveraging differentiable optimization: computing the derivative of the solution</a><a id="Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Leveraging-differentiable-optimization:-computing-the-derivative-of-the-solution" title="Permalink"></a></h2><p>Using DiffOpt, we can compute <code>∂w_i/∂α</code>, the derivative of the learned solution <code>̂w</code> w.r.t. the regularization parameter.</p><pre><code class="language-julia hljs">function compute_dw_dα(model, w)
     D = length(w)
     dw_dα = zeros(D)
     DiffOpt.set_forward_parameter(model, model[:α], 1.0)
@@ -107,7 +107,714 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
 end
 
 ᾱ, ∂ᾱ, msē = descent(0.10, 500)
-iters = 1:length(ᾱ);</code></pre><p>Visualize gradient descent and convergence</p><pre><code class="language-julia hljs">Plots.plot(
+iters = 1:length(ᾱ);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.
+<span class="sgr36"><span class="sgr1">┌ Info: </span></span>Inertia correction needed.
+<span class="sgr36"><span class="sgr1">│ </span></span>            Attempting correction by adding diagonal matrix with positive values for the Jacobian of the stationary equations
+<span class="sgr36"><span class="sgr1">└ </span></span>            and negative values for the Jacobian of the constraints.</code></pre><p>Visualize gradient descent and convergence</p><pre><code class="language-julia hljs">Plots.plot(
     αs,
     mse_test;
     label = &quot;MSE test&quot;,
@@ -116,7 +823,7 @@ iters = 1:length(ᾱ);</code></pre><p>Visualize gradient descent and convergenc
     width = 2,
 )
 Plots.plot!(ᾱ, msē; label = &quot;learned α&quot;, width = 5, style = :dot)
-Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="f973dd42.svg" alt="Example block output"/><p>Visualize the convergence of α to its optimal value</p><pre><code class="language-julia hljs">Plots.plot(
+Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="799c3220.svg" alt="Example block output"/><p>Visualize the convergence of α to its optimal value</p><pre><code class="language-julia hljs">Plots.plot(
     iters,
     ᾱ;
     label = nothing,
@@ -124,7 +831,7 @@ Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="f973dd42.sv
     xaxis = (&quot;Iterations&quot;),
     legend = :bottom,
     title = &quot;Convergence of α&quot;,
-)</code></pre><img src="dbd2d0fa.svg" alt="Example block output"/><p>Visualize the convergence of the objective function</p><pre><code class="language-julia hljs">Plots.plot(
+)</code></pre><img src="40a8a9a6.svg" alt="Example block output"/><p>Visualize the convergence of the objective function</p><pre><code class="language-julia hljs">Plots.plot(
     iters,
     msē;
     label = nothing,
@@ -132,7 +839,7 @@ Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="f973dd42.sv
     xaxis = (&quot;Iterations&quot;),
     legend = :bottom,
     title = &quot;Convergence of MSE&quot;,
-)</code></pre><img src="340b26a4.svg" alt="Example block output"/><p>Visualize the convergence of the derivative to zero</p><pre><code class="language-julia hljs">Plots.plot(
+)</code></pre><img src="5b18377d.svg" alt="Example block output"/><p>Visualize the convergence of the derivative to zero</p><pre><code class="language-julia hljs">Plots.plot(
     iters,
     ∂ᾱ;
     label = nothing,
@@ -140,4 +847,4 @@ Plots.title!(&quot;Regularizer learning&quot;)</code></pre><img src="f973dd42.sv
     xaxis = (&quot;Iterations&quot;),
     legend = :bottom,
     title = &quot;Convergence of ∂α&quot;,
-)</code></pre><img src="d86c9e31.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../autotuning-ridge/">« Auto-tuning Hyperparameters</a><a class="docs-footer-nextpage" href="../chainrules_unit/">ChainRules integration demo: Relaxed Unit Commitment »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 22 September 2026 05:55">Tuesday 22 September 2026</span>. Using Julia version 1.13.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+)</code></pre><img src="8f70a292.svg" alt="Example block output"/><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../autotuning-ridge/">« Auto-tuning Hyperparameters</a><a class="docs-footer-nextpage" href="../chainrules_unit/">ChainRules integration demo: Relaxed Unit Commitment »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Sunday 11 October 2026 03:20">Sunday 11 October 2026</span>. Using Julia version 1.13.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
