@@ -352,6 +352,48 @@ function MOI.empty!(model::Model)
     return
 end
 
+# The `Cache` built by `_cache_evaluator!` is a pure function of the *structure* of the
+# `Form` (variables, constraints, parameters, objective): the evaluator tapes, the
+# Jacobian/Hessian sparsity and the index mappings do not depend on parameter values (the
+# evaluator reads those live from `form.model.parameters`) nor on the primal/dual point
+# (which lives in `model.x`, `model.y`, `model.s`). It therefore stays valid until the
+# structure changes. The methods below intercept every structural mutation of the model
+# and invalidate the cache, so that `_cache_evaluator!` can return an existing cache
+# instead of rebuilding it on every differentiation call.
+
+function _invalidate_evaluator_cache!(model::Model)
+    model.cache = nothing
+    return
+end
+
+function MOI.add_variable(model::Model)
+    _invalidate_evaluator_cache!(model)
+    return MOI.add_variable(model.model)
+end
+
+function MOI.add_variables(model::Model, n)
+    _invalidate_evaluator_cache!(model)
+    return MOI.add_variables(model.model, n)
+end
+
+function MOI.add_constraint(
+    model::Model,
+    func::MOI.AbstractFunction,
+    set::MOI.AbstractSet,
+)
+    _invalidate_evaluator_cache!(model)
+    return MOI.add_constraint(model.model, func, set)
+end
+
+function MOI.set(
+    model::Model,
+    attr::Union{MOI.ObjectiveSense,MOI.ObjectiveFunction},
+    value,
+)
+    _invalidate_evaluator_cache!(model)
+    return MOI.set(model.model, attr, value)
+end
+
 include("nlp_utilities.jl")
 include("vno_bridge.jl")
 
@@ -449,7 +491,23 @@ _get_num_primal_vars(model::Model) = _get_num_primal_vars(model.model)
 _get_num_params(form::Form) = length(_all_params(form))
 _get_num_params(model::Model) = _get_num_params(model.model)
 
+"""
+    _cache_evaluator!(model::Model)
+
+Build the `Cache` for `model` (the `MOI.Nonlinear` evaluator with its AD tapes and
+Jacobian/Hessian sparsity, plus the primal/dual/bound index mappings), or return the
+existing `model.cache` when there is one.
+
+The cache only depends on the structure of the `Form`, and every structural mutation
+resets `model.cache` to `nothing` (see `_invalidate_evaluator_cache!`), so an existing
+cache is always current: rebuilding it would produce an identical evaluator and identical
+mappings. Returning it directly avoids paying the tape construction and sparsity
+detection on every differentiation call.
+"""
 function _cache_evaluator!(model::Model)
+    if model.cache !== nothing
+        return model.cache
+    end
     form = model.model
     # Retrieve and sort primal variables by NLP index
     params = sort(_all_params(model); by = x -> x.value)
