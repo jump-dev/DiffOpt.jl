@@ -97,9 +97,20 @@ mutable struct Optimizer{OT<:MOI.ModelLike} <: MOI.AbstractOptimizer
     # sensitivity input cache using MOI-like sparse format
     input_cache::InputCache
 
+    # opt-in [`PreserveDiffModel`](@ref): keep `diff` across `optimize!` when only
+    # `MOI.Parameter` values changed since it was instantiated
+    preserve_diff_model::Bool
+
     function Optimizer(optimizer::OT) where {OT<:MOI.ModelLike}
-        output =
-            new{OT}(optimizer, Any[], nothing, nothing, nothing, InputCache())
+        output = new{OT}(
+            optimizer,
+            Any[],
+            nothing,
+            nothing,
+            nothing,
+            InputCache(),
+            false,
+        )
         add_all_model_constructors(output)
         add_default_factorization(output)
         return output
@@ -192,6 +203,21 @@ function MOI.set(
     s::S,
 ) where {F,S}
     model.diff = nothing
+    return MOI.set(model.optimizer, attr, ci, s)
+end
+
+function MOI.set(
+    model::Optimizer,
+    attr::MOI.ConstraintSet,
+    ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{T}},
+    s::MOI.Parameter{T},
+) where {T}
+    # A parameter-value update does not invalidate the structure of `model.diff`, so
+    # under `PreserveDiffModel` the differentiation model is kept; the new value is
+    # written into it by `_refresh_parameters` at the next differentiation call.
+    if !_preserve_diff_active(model)
+        model.diff = nothing
+    end
     return MOI.set(model.optimizer, attr, ci, s)
 end
 
@@ -513,9 +539,72 @@ function MOI.get(
     return MOI.get(model.optimizer, attr)
 end
 
+# `MOI.optimize!` discards `model.diff` because a re-solve invalidates its
+# point-dependent state: the primal/dual solution copied by `_copy_dual` and the
+# `MOI.Parameter` values. When only parameter values changed, the structure inside
+# `model.diff` is still valid — every structural edit on this `Optimizer` resets
+# `model.diff` to `nothing`, so a non-`nothing` `diff` is structurally in sync with
+# `model.optimizer` by construction. Under [`PreserveDiffModel`](@ref) we keep `diff`
+# and refresh the point-dependent state instead: the solution is re-copied after each
+# solve, and parameter values are re-written at the next differentiation call
+# (`_refresh_parameters`). This only applies to differentiation models that natively
+# support `MOI.Parameter` (no ParametricOptInterface layer inside `model.diff`), where
+# a parameter update is an exact value assignment; models opt in through
+# `_diff_model_supports_preserve`.
+
+_diff_model_supports_preserve(::Any) = false
+
+_unwrap_diff_model(diff) = diff
+
+function _unwrap_diff_model(diff::MOI.Bridges.LazyBridgeOptimizer)
+    return _unwrap_diff_model(diff.model)
+end
+
+function _preserve_diff_active(model::Optimizer)
+    return model.preserve_diff_model &&
+           model.diff !== nothing &&
+           model.diff !== model.optimizer &&
+           _diff_model_supports_preserve(_unwrap_diff_model(model.diff))
+end
+
+function _refresh_parameters(model::Optimizer)
+    for ci in MOI.get(
+        model.optimizer,
+        MOI.ListOfConstraintIndices{MOI.VariableIndex,MOI.Parameter{Float64}}(),
+    )
+        set = MOI.get(model.optimizer, MOI.ConstraintSet(), ci)
+        MOI.set(model.diff, MOI.ConstraintSet(), model.index_map[ci], set)
+        # The parameter also occupies a slot of the primal point (`_copy_dual` copies
+        # `MOI.VariablePrimal` of every variable, and for a parameter that is its
+        # value), so refresh it there as well — this is what differentiation
+        # evaluates at.
+        MOI.set(
+            model.diff,
+            MOI.VariablePrimalStart(),
+            model.index_map[MOI.VariableIndex(ci.value)],
+            set.value,
+        )
+    end
+    return
+end
+
 function MOI.optimize!(model::Optimizer)
-    model.diff = nothing
+    if !_preserve_diff_active(model)
+        model.diff = nothing
+        MOI.optimize!(model.optimizer)
+        return
+    end
     MOI.optimize!(model.optimizer)
+    if MOI.get(model.optimizer, MOI.TerminationStatus()) in
+       (MOI.LOCALLY_SOLVED, MOI.OPTIMAL)
+        # Reset the differentiation model to the state a fresh instantiation would be
+        # in: no input sensitivities, and the new solution copied over. Stale results
+        # cannot survive — the output caches are overwritten by every differentiation.
+        empty_input_sensitivities!(model.diff)
+        _copy_dual(model.diff, model.optimizer, model.index_map)
+    else
+        model.diff = nothing
+    end
     return
 end
 
@@ -547,6 +636,45 @@ function MOI.set(model::Optimizer, ::ModelConstructor, model_constructor)
 end
 
 MOI.get(model::Optimizer, ::ModelConstructor) = model.model_constructor
+
+"""
+    PreserveDiffModel <: MOI.AbstractOptimizerAttribute
+
+An opt-in attribute (default `false`) to keep the differentiation model across
+`MOI.optimize!` calls when only `MOI.Parameter` values changed since it was
+instantiated.
+
+By default, `MOI.optimize!` discards the differentiation model, and the next
+differentiation call re-instantiates it and re-copies the whole problem. When this
+attribute is `true` and the only changes since the last instantiation are
+`MOI.Parameter` values, the differentiation model is preserved instead: the new
+parameter values are written into it at the next differentiation call and the new
+primal/dual solution is copied after each solve, which produces the same results as the
+full rebuild. Any structural change (adding or deleting variables or constraints,
+modifying functions or non-parameter sets, changing the objective) still discards the
+differentiation model.
+
+Only differentiation models that natively support parameters can be preserved,
+currently [`DiffOpt.NonLinearProgram.Model`](@ref); for the others this attribute has
+no effect.
+
+```julia
+MOI.set(model, DiffOpt.PreserveDiffModel(), true)
+```
+"""
+struct PreserveDiffModel <: MOI.AbstractOptimizerAttribute end
+
+MOI.supports(::Optimizer, ::PreserveDiffModel) = true
+
+function MOI.set(model::Optimizer, ::PreserveDiffModel, value::Bool)
+    # Changing the policy conservatively resets the differentiation model, like
+    # `ModelConstructor` above.
+    model.diff = nothing
+    model.preserve_diff_model = value
+    return
+end
+
+MOI.get(model::Optimizer, ::PreserveDiffModel) = model.preserve_diff_model
 
 MOI.supports(::Optimizer, ::ReverseDifferentiate) = true
 
@@ -842,6 +970,12 @@ function _diff(
             model.index_map = MOI.copy_to(model.diff, model.optimizer)
         end
         _copy_dual(model.diff, model.optimizer, model.index_map)
+    elseif _preserve_diff_active(model)
+        # The preserved differentiation model may hold outdated parameter values (the
+        # only data a full re-instantiation would change: the solution was re-copied by
+        # `MOI.optimize!`). Re-write them from the source so differentiation sees
+        # exactly what a rebuild would have copied.
+        _refresh_parameters(model)
     end
     return model.diff
 end
