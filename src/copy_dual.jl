@@ -22,10 +22,10 @@ function MOI.get(
 ) where {A,F}
     obj_attr = MOI.ObjectiveFunction{F}()
     if MOI.Bridges.is_bridged(b, obj_attr)
-        return MOI.get(
-            MOI.Bridges.recursive_model(b),
-            attr,
-            MOI.Bridges.bridge(b, obj_attr),
+        return MOI.Bridges.call_in_context(
+            b,
+            obj_attr,
+            bridge -> MOI.get(MOI.Bridges.recursive_model(b), attr, bridge),
         )
     else
         return MOI.get(b.model, attr.attr)
@@ -53,11 +53,11 @@ function MOI.set(
 ) where {A,F}
     obj_attr = MOI.ObjectiveFunction{F}()
     if MOI.Bridges.is_bridged(b, obj_attr)
-        return MOI.set(
-            MOI.Bridges.recursive_model(b),
-            attr,
-            MOI.Bridges.bridge(b, obj_attr),
-            value,
+        return MOI.Bridges.call_in_context(
+            b,
+            obj_attr,
+            bridge ->
+                MOI.set(MOI.Bridges.recursive_model(b), attr, bridge, value),
         )
     else
         return MOI.set(b.model, attr.attr, value)
