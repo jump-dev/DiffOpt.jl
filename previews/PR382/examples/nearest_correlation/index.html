@@ -37,12 +37,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 9.98e-01  3.10e+00  2.08e+01 -1.22e+01  1.00e-01  1.89e-04
-    50| 1.65e-04  8.63e-06  3.40e-04 -6.72e+00  1.00e-01  4.51e-04
+     0| 9.98e-01  3.10e+00  2.08e+01 -1.22e+01  1.00e-01  2.85e-04
+    50| 1.65e-04  8.63e-06  3.40e-04 -6.72e+00  1.00e-01  4.50e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 4.52e-04s = setup: 9.81e-05s + solve: 3.54e-04s
-	 lin-sys: 1.51e-05s, cones: 2.51e-04s, accel: 3.59e-06s
+timings: total: 4.51e-04s = setup: 8.78e-05s + solve: 3.63e-04s
+	 lin-sys: 9.53e-06s, cones: 1.72e-04s, accel: 3.16e-06s
 ------------------------------------------------------------------
 objective = -6.721638
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3×3 Matrix{Float64}:
@@ -72,12 +72,12 @@ lin-sys:  sparse-direct-amd-qdldl
 ------------------------------------------------------------------
  iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
 ------------------------------------------------------------------
-     0| 1.01e+00  3.32e+00  2.85e+01 -3.31e+01  1.00e-01  1.74e-04
-    50| 1.87e-05  1.19e-06  5.04e-05 -1.74e+01  1.00e-01  5.26e-04
+     0| 1.01e+00  3.32e+00  2.85e+01 -3.31e+01  1.00e-01  1.59e-04
+    50| 1.87e-05  1.19e-06  5.04e-05 -1.74e+01  1.00e-01  3.74e-04
 ------------------------------------------------------------------
 status:  solved
-timings: total: 5.28e-04s = setup: 9.43e-05s + solve: 4.33e-04s
-	 lin-sys: 1.85e-05s, cones: 3.35e-04s, accel: 4.01e-06s
+timings: total: 3.75e-04s = setup: 9.78e-05s + solve: 2.77e-04s
+	 lin-sys: 1.07e-05s, cones: 2.09e-04s, accel: 3.46e-06s
 ------------------------------------------------------------------
 objective = -17.447231
 ------------------------------------------------------------------</code></pre><p>The projection of <code>A</code> is:</p><pre><code class="language-julia hljs">X</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4×4 Matrix{Float64}:
@@ -88,4 +88,4 @@ objective = -17.447231
  -4.45549e-7  -0.17422     -0.0684904   -0.0314519
  -0.17422     -7.11217e-7  -0.250254    -0.0684904
  -0.0684904   -0.250254     5.32754e-7  -0.174219
- -0.0314519   -0.0684904   -0.174219    -2.00509e-7</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual_new/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../nearest_correlation_new/">Nearest correlation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Thursday 26 November 2026 07:53">Thursday 26 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ -0.0314519   -0.0684904   -0.174219    -2.00509e-7</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../matrix-inversion-manual_new/">« Differentiating a QP wrt a single variable</a><a class="docs-footer-nextpage" href="../nearest_correlation_new/">Nearest correlation »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.20.0 on <span class="colophon-date" title="Thursday 26 November 2026 07:59">Thursday 26 November 2026</span>. Using Julia version 1.13.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
