@@ -121,6 +121,63 @@ function test_square_offset()
           [1, 2]
 end
 
+MOI.Utilities.@model(
+    ObjectiveContextModel,
+    (),
+    (MOI.GreaterThan,),
+    (),
+    (),
+    (),
+    (MOI.ScalarAffineFunction,),
+    (),
+    ()
+)
+
+function MOI.supports(
+    ::MOI.Utilities.UniversalFallback{<:ObjectiveContextModel},
+    ::MOI.ObjectiveFunction{F},
+) where {F<:MOI.AbstractFunction}
+    return F == MOI.VariableIndex
+end
+
+function MOI.supports_constraint(
+    model::MOI.Utilities.UniversalFallback{<:ObjectiveContextModel},
+    ::Type{F},
+    ::Type{S},
+) where {F<:MOI.AbstractFunction,S<:MOI.AbstractSet}
+    return MOI.supports_constraint(model.model, F, S)
+end
+
+function test_objective_attributes_in_bridge_context()
+    inner = MOI.Utilities.MockOptimizer(
+        MOI.Utilities.UniversalFallback(ObjectiveContextModel{Float64}()),
+    )
+    model = MOI.Bridges.LazyBridgeOptimizer(inner)
+    MOI.Bridges.add_bridge(model, MOI.Bridges.Objective.SlackBridge{Float64})
+    MOI.Bridges.add_bridge(
+        model,
+        MOI.Bridges.Constraint.LessToGreaterBridge{Float64},
+    )
+    x = MOI.add_variable(model)
+    f = 2.0 * x + 3.0
+    MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
+    attr = MOI.ObjectiveFunction{typeof(f)}()
+    MOI.set(model, attr, f)
+    bridge = MOI.Bridges.bridge(model, attr)
+    @test MOI.Bridges.is_bridged(model, bridge.constraint)
+    child_bridge = MOI.Bridges.bridge(model, bridge.constraint)
+    child_attr =
+        MOI.ListOfConstraintIndices{typeof(f),MOI.GreaterThan{Float64}}()
+    child = only(MOI.get(child_bridge, child_attr))
+    direction = 4.0 * x + 5.0
+    MOI.set(model, DiffOpt.ForwardObjectiveFunction(), direction)
+    @test MOI.get(inner, DiffOpt.ForwardConstraintFunction(), child) ≈
+          -direction
+    MOI.set(inner, DiffOpt.ReverseConstraintFunction(), child, direction)
+    @test MOI.get(model, DiffOpt.ReverseObjectiveFunction()) ≈ -direction
+    return
+end
+
 end
 
 TestBridges.runtests()

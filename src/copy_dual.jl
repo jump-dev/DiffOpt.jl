@@ -3,35 +3,6 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
-"""
-    struct ObjectiveFunctionAttribute{A,F} <: MOI.AbstractModelAttribute
-        attr::A
-    end
-
-Objective function attribute `attr` for the function type `F`.
-The type `F` is used by a `MOI.Bridges.AbstractBridgeOptimizer` to keep track
-of its position in a chain of objective bridges.
-"""
-struct ObjectiveFunctionAttribute{A,F} <: MOI.AbstractModelAttribute
-    attr::A
-end
-
-function MOI.get(
-    b::MOI.Bridges.AbstractBridgeOptimizer,
-    attr::ObjectiveFunctionAttribute{A,F},
-) where {A,F}
-    obj_attr = MOI.ObjectiveFunction{F}()
-    if MOI.Bridges.is_bridged(b, obj_attr)
-        return MOI.get(
-            MOI.Bridges.recursive_model(b),
-            attr,
-            MOI.Bridges.bridge(b, obj_attr),
-        )
-    else
-        return MOI.get(b.model, attr.attr)
-    end
-end
-
 function MOI.get(
     b::MOI.Bridges.AbstractBridgeOptimizer,
     attr::ReverseObjectiveFunction,
@@ -40,27 +11,12 @@ function MOI.get(
         F = MOI.Bridges.Objective.function_type(
             MOI.Bridges.Objective.bridges(b),
         )
-        return MOI.get(b, ObjectiveFunctionAttribute{typeof(attr),F}(attr))
-    else
-        return MOI.get(b.model, attr)
-    end
-end
-
-function MOI.set(
-    b::MOI.Bridges.AbstractBridgeOptimizer,
-    attr::ObjectiveFunctionAttribute{A,F},
-    value,
-) where {A,F}
-    obj_attr = MOI.ObjectiveFunction{F}()
-    if MOI.Bridges.is_bridged(b, obj_attr)
-        return MOI.set(
-            MOI.Bridges.recursive_model(b),
-            attr,
-            MOI.Bridges.bridge(b, obj_attr),
-            value,
+        return MOI.get(
+            b,
+            MOI.Bridges.ObjectiveFunctionAttribute{typeof(attr),F}(attr),
         )
     else
-        return MOI.set(b.model, attr.attr, value)
+        return MOI.get(b.model, attr)
     end
 end
 
@@ -75,7 +31,7 @@ function MOI.set(
         )
         return MOI.set(
             b,
-            ObjectiveFunctionAttribute{typeof(attr),F}(attr),
+            MOI.Bridges.ObjectiveFunctionAttribute{typeof(attr),F}(attr),
             value,
         )
     else
